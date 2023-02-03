@@ -1,0 +1,42 @@
+Copyright (c) 2026 Quantena AG, Switzerland
+This repository is provided only to authorized recipients
+All Rights Reserved.
+
+This software, including without limitation its source code, object code, documentation, and any associated materials (collectively, the "Software"), is proprietary to Quantena AG and is protected by applicable copyright and other intellectual property laws.
+
+1. No License Granted
+No right or license is granted under this repository or by this license notice, whether express, implied, by estoppel, or otherwise.
+Any use, copying, modification, distribution, publication, transfer, sublicensing, hosting, or other exploitation of the Software is strictly prohibited unless explicitly authorized by Quantena AG under a separately executed written agreement signed by Quantena AG (such as a Commercial License Agreement, Subscription Agreement, Evaluation Agreement, NDA, or similar contract).
+The receipt or possession of the Software does not convey or imply any right to use the Software for any purpose.
+
+2. Restrictions
+Without limiting the foregoing, you may not, directly or indirectly, and may not permit any third party to:
+- use or execute the Software;
+- copy, reproduce, distribute, publish, or transmit the Software or any portion thereof;
+- modify, adapt, translate, or create derivative works based on the Software;
+- reverse engineer, decompile, disassemble, or otherwise attempt to derive the source code, underlying ideas, algorithms, or structure of the Software;
+- sell, rent, lease, sublicense, assign, or otherwise transfer the Software or make it available to any third party;
+- use the Software to provide services to third parties, including as a hosted service, SaaS offering, service bureau, or otherwise.
+
+3. Confidentiality
+The Software and its contents constitute confidential and proprietary information of Quantena AG. You agree to use reasonable measures to protect the confidentiality of the Software and to prevent any unauthorized access, copying, disclosure, or use.
+
+4. Termination
+Any unauthorized possession or use of the Software constitutes a material breach of this notice and may result in immediate legal action.
+Upon request by Quantena AG, you must immediately cease all access and use of the Software and permanently delete or destroy all copies of the Software in your possession or control.
+
+5. Disclaimer of Warranty
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+6. Limitation of Liability
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL QUANTENA AG OR ITS AUTHORS, EMPLOYEES, OFFICERS, DIRECTORS, OR AFFILIATES BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR ITS USE, ACCESS, POSSESSION, OR OTHER DEALINGS IN THE SOFTWARE.
+
+7. Governing Law and Jurisdiction
+This notice shall be governed by and construed in accordance with the laws of Zug, Switzerland, without regard to conflict of law principles.
+Any dispute arising out of or relating to the Software shall be subject to the exclusive jurisdiction of the competent courts in Zug, Switzerland.
+
+8. Commercial Licensing
+To obtain rights to use the Software, including any commercial license, evaluation license, redistribution rights, sublicensing rights, or other permissions, please contact:
+Quantena AG
+info@quantena.tech
+www.quantena.org
