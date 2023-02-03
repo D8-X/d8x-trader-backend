@@ -61,4 +61,13 @@ export default class SDKInterface {
       return JSON.stringify({ error: extractErrorMsg(error) });
     }
   }
+
+  public async positionRisk(addr: string, symbol: string) {
+    try {
+      let res = await this.mktData?.positionRisk(addr, symbol);
+      return JSON.stringify(res);
+    } catch (error) {
+      return JSON.stringify({ error: extractErrorMsg(error) });
+    }
+  }
 }
