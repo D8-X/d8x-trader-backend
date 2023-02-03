@@ -1,5 +1,6 @@
 import { MarketData, PerpetualDataHandler } from "@d8x/perpetuals-sdk";
 import { createClient } from "redis";
+import { extractErrorMsg } from "./utils";
 
 export default class SDKInterface {
   private mktData: MarketData | undefined = undefined;
@@ -50,5 +51,14 @@ export default class SDKInterface {
       info = obj["content"];
     }
     return info;
+  }
+
+  public async openOrders(addr: string, symbol: string) {
+    try {
+      let res = await this.mktData?.openOrders(addr, symbol);
+      return JSON.stringify(res);
+    } catch (error) {
+      return JSON.stringify({ error: extractErrorMsg(error) });
+    }
   }
 }
