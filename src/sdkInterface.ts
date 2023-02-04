@@ -1,6 +1,7 @@
 import { MarketData, PerpetualDataHandler } from "@d8x/perpetuals-sdk";
 import { createClient } from "redis";
 import { extractErrorMsg } from "./utils";
+import { Order } from "@d8x/perpetuals-sdk";
 
 export default class SDKInterface {
   private mktData: MarketData | undefined = undefined;
@@ -69,5 +70,9 @@ export default class SDKInterface {
     } catch (error) {
       return JSON.stringify({ error: extractErrorMsg(error) });
     }
+  }
+
+  public async orderDigest(order: Order) {
+    return "todo";
   }
 }

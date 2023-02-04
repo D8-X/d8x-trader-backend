@@ -1,12 +1,17 @@
 import express, { Express, Request, Response } from "express";
+import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
 import { extractErrorMsg } from "./utils";
+import { Order } from "@d8x/perpetuals-sdk";
 
 dotenv.config();
 const port = process.env.PORT;
 const app: Express = express();
 const sdk: SDKInterface = new SDKInterface();
+//Here we are configuring express to use body-parser as middle-ware.
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 app.get("/", (req: Request, res: Response) => {
   let s = "Endpoints: /, /exchangeInfo, /openOrders, positionRisk";
@@ -56,6 +61,12 @@ app.get("/positionRisk", async (req: Request, res: Response) => {
   } catch (err: any) {
     res.send(JSON.stringify({ error: extractErrorMsg(err) }));
   }
+});
+
+app.post("/orderDigest", async (req, res) => {
+  let order: Order = <Order>req.body.order;
+  let rsp = await sdk.orderDigest(order);
+  res.send(rsp);
 });
 
 app.listen(port, async () => {
