@@ -7,8 +7,13 @@ import { Order } from "@d8x/perpetuals-sdk";
 
 dotenv.config();
 const port = process.env.PORT;
+const router = express.Router();
 const app: Express = express();
 const sdk: SDKInterface = new SDKInterface();
+//app.use(express.json());
+//app.use(express.urlencoded({ extended: false }));
+
+//app.use("/", router);
 //Here we are configuring express to use body-parser as middle-ware.
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
@@ -16,6 +21,11 @@ app.use(bodyParser.json());
 app.get("/", (req: Request, res: Response) => {
   let s = "Endpoints: /, /exchangeInfo, /openOrders, positionRisk";
   res.send("Express + TypeScript Server\n" + s);
+});
+
+app.post("/", (req: Request, res: Response) => {
+  let s = "Endpoints: /, /exchangeInfo, /openOrders, positionRisk";
+  res.status(201).send("Express + TypeScript Server\n" + s);
 });
 
 app.get("/exchangeInfo", async (req: Request, res: Response) => {
@@ -64,9 +74,11 @@ app.get("/positionRisk", async (req: Request, res: Response) => {
 });
 
 app.post("/orderDigest", async (req, res) => {
-  let order: Order = <Order>req.body.order;
-  let rsp = await sdk.orderDigest(order);
-  res.send(rsp);
+  console.log(req.body);
+  let order: Order = <Order>req.body;
+  //let rsp = await sdk.orderDigest(order);
+  let rsp = "test";
+  res.send(order);
 });
 
 app.listen(port, async () => {
