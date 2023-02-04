@@ -1,10 +1,11 @@
-import { MarketData, PerpetualDataHandler } from "@d8x/perpetuals-sdk";
+import { PerpetualDataHandler } from "@d8x/perpetuals-sdk";
 import { createClient } from "redis";
 import { extractErrorMsg } from "./utils";
 import { Order } from "@d8x/perpetuals-sdk";
+import { TraderInterface } from "@d8x/perpetuals-sdk";
 
 export default class SDKInterface {
-  private mktData: MarketData | undefined = undefined;
+  private apiInterface: TraderInterface | undefined = undefined;
   private redisClient: ReturnType<typeof createClient>;
   TIMEOUTSEC = 120;
 
@@ -14,8 +15,8 @@ export default class SDKInterface {
 
   public async initialize() {
     const sdkConfig = PerpetualDataHandler.readSDKConfig("testnet");
-    this.mktData = new MarketData(sdkConfig);
-    await this.mktData.createProxyInstance();
+    this.apiInterface = new TraderInterface(sdkConfig);
+    await this.apiInterface.createProxyInstance();
     await this.initRedis();
     console.log("SDK API initialized");
   }
@@ -28,7 +29,7 @@ export default class SDKInterface {
   private async cacheExchangeInfo() {
     let tsQuery = Date.now();
     await this.redisClient.hSet("exchangeInfo", ["ts:query", tsQuery]);
-    let xchInfo = await this.mktData!.exchangeInfo();
+    let xchInfo = await this.apiInterface!.exchangeInfo();
     let info = JSON.stringify(xchInfo);
     await this.redisClient.hSet("exchangeInfo", ["ts:response", Date.now(), "content", info]);
     return info;
@@ -56,7 +57,7 @@ export default class SDKInterface {
 
   public async openOrders(addr: string, symbol: string) {
     try {
-      let res = await this.mktData?.openOrders(addr, symbol);
+      let res = await this.apiInterface?.openOrders(addr, symbol);
       return JSON.stringify(res);
     } catch (error) {
       return JSON.stringify({ error: extractErrorMsg(error) });
@@ -65,7 +66,7 @@ export default class SDKInterface {
 
   public async positionRisk(addr: string, symbol: string) {
     try {
-      let res = await this.mktData?.positionRisk(addr, symbol);
+      let res = await this.apiInterface?.positionRisk(addr, symbol);
       return JSON.stringify(res);
     } catch (error) {
       return JSON.stringify({ error: extractErrorMsg(error) });
