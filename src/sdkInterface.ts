@@ -103,14 +103,28 @@ export default class SDKInterface {
     }
   }
 
+  public async queryFee(traderAddr: string, poolSymbol: string) {
+    try {
+      let brokerAddr = this.broker.getBrokerAddress(traderAddr);
+      let fee = await this.apiInterface?.queryExchangeFee(poolSymbol, traderAddr, brokerAddr);
+      if (fee == undefined) {
+        throw new Error("could not retreive fee");
+      }
+      fee = Math.round(fee * 1e5 + (await this.broker.getBrokerFeeTBps(traderAddr)));
+      return JSON.stringify(fee);
+    } catch (error) {
+      return JSON.stringify({ error: extractErrorMsg(error) });
+    }
+  }
+
   public async orderDigest(order: Order, traderAddr: string): Promise<string> {
     try {
       if (this.apiInterface == undefined) {
         throw Error("SDKInterface not initialized");
       }
       //console.log("order=", order);
-      order.brokerFeeTbps = this.broker.getBrokerFeeTBps(order, traderAddr);
-      order.brokerAddr = this.broker.getBrokerAddress(order, traderAddr);
+      order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
+      order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
       let SCOrder = this.apiInterface.createSmartContractOrder(order, traderAddr);
       this.broker.signOrder(SCOrder);
       // now we can create the digest that is to be signed by the trader

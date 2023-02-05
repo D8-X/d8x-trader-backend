@@ -104,6 +104,24 @@ class D8XBrokerBackendApp {
       }
     });
 
+    this.express.get("/queryFee", async (req: Request, res: Response) => {
+      let rsp;
+      try {
+        let traderAddr: string;
+        let poolSymbol: string;
+        if (typeof req.query.traderAddr != "string" || typeof req.query.poolSymbol != "string") {
+          throw new Error("wrong arguments. Requires traderAddr and poolSymbol");
+        } else {
+          traderAddr = req.query.traderAddr;
+          poolSymbol = req.query.poolSymbol;
+          rsp = await this.sdk.queryFee(traderAddr, poolSymbol);
+          res.send(rsp);
+        }
+      } catch (err: any) {
+        res.send(JSON.stringify({ error: extractErrorMsg(err) }));
+      }
+    });
+
     // in swagger
     this.express.get("/positionRisk", async (req: Request, res: Response) => {
       // http://localhost:3001/positionRisk?address=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=BTC-USD-MATIC
