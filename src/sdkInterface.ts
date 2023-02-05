@@ -103,6 +103,15 @@ export default class SDKInterface {
     }
   }
 
+  public async getCurrentTraderVolume(traderAddr: string, symbol: string): Promise<string> {
+    try {
+      let vol = await this.apiInterface!.getCurrentTraderVolume(symbol, traderAddr);
+      return JSON.stringify(vol);
+    } catch (error) {
+      return JSON.stringify({ error: extractErrorMsg(error) });
+    }
+  }
+
   public async getOrderIds(traderAddr: string, symbol: string): Promise<string> {
     try {
       let orderBookContract = this.apiInterface!.getOrderBookContract(symbol);
