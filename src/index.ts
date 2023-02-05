@@ -103,6 +103,25 @@ class D8XBrokerBackendApp {
         res.send(JSON.stringify({ error: extractErrorMsg(err) }));
       }
     });
+    //this.express.get("getCurrentTraderVolume
+    //setAllowance
+    this.express.get("/getOrderIds", async (req: Request, res: Response) => {
+      let rsp;
+      try {
+        let traderAddr: string;
+        let poolSymbol: string;
+        if (typeof req.query.traderAddr != "string" || typeof req.query.poolSymbol != "string") {
+          throw new Error("wrong arguments. Requires traderAddr and poolSymbol");
+        } else {
+          traderAddr = req.query.traderAddr;
+          poolSymbol = req.query.poolSymbol;
+          rsp = await this.sdk.getOrderIds(traderAddr, poolSymbol);
+          res.send(rsp);
+        }
+      } catch (err: any) {
+        res.send(JSON.stringify({ error: extractErrorMsg(err) }));
+      }
+    });
 
     this.express.get("/queryFee", async (req: Request, res: Response) => {
       let rsp;
