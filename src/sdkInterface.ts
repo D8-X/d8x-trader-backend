@@ -103,7 +103,17 @@ export default class SDKInterface {
     }
   }
 
-  public async queryFee(traderAddr: string, poolSymbol: string) {
+  public async getOrderIds(traderAddr: string, symbol: string): Promise<string> {
+    try {
+      let orderBookContract = this.apiInterface!.getOrderBookContract(symbol);
+      let ids = await TraderInterface.orderIdsOfTrader(traderAddr, orderBookContract);
+      return JSON.stringify(ids);
+    } catch (error) {
+      return JSON.stringify({ error: extractErrorMsg(error) });
+    }
+  }
+
+  public async queryFee(traderAddr: string, poolSymbol: string): Promise<string> {
     try {
       let brokerAddr = this.broker.getBrokerAddress(traderAddr);
       let fee = await this.apiInterface?.queryExchangeFee(poolSymbol, traderAddr, brokerAddr);
