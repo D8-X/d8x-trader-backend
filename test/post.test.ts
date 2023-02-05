@@ -27,6 +27,7 @@ async function send() {
   //const resp = await axios.post(options);
   //let data = await axios.get("http://localhost:3001/exchangeInfo/"); //, { json: JSON.stringify(order) }).json();
   let s = JSON.stringify({ order: order, traderAddr: wallet.address });
+  console.log(s);
   let data = await axios.post("http://localhost:3001/orderDigest/", s, {
     headers: {
       // Overwrite Axios's automatically set Content-Type

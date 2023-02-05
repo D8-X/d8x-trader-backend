@@ -1,0 +1,385 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Express API for D8X Backend",
+    "version": "1.0.0",
+    "description": "This is a REST API application made with Express.",
+    "license": {
+      "name": "Licensed Under MIT",
+      "url": "https://spdx.org/licenses/MIT.html"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost",
+      "description": "Server"
+    }
+  ],
+  "paths": {
+    "/exchangeInfo": {
+      "get": {
+        "summary": "get exchange info",
+        "description": "",
+        "produces": ["application/json"],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "successful operation",
+            "schema": {
+              "type": "object",
+              "items": {
+                "$ref": "#/definitions/exchangeInfoResponse"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openOrders": {
+      "get": {
+        "summary": "get trader's open orders",
+        "description": "",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "query",
+            "description": "address of the form 0xCafee..",
+            "required": "true",
+            "type": "string"
+          },
+          {
+            "name": "symbol",
+            "in": "query",
+            "description": "symbol of the form BTC-USD-MATIC",
+            "required": "true",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successful operation",
+            "schema": {
+              "type": "object",
+              "items": {
+                "$ref": "#/definitions/openOrdersResponse"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/positionRisk": {
+      "get": {
+        "summary": "get trader's open position",
+        "description": "",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "query",
+            "description": "address of the form 0xCafee..",
+            "required": "true",
+            "type": "string"
+          },
+          {
+            "name": "symbol",
+            "in": "query",
+            "description": "symbol of the form BTC-USD-MATIC",
+            "required": "true",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successful operation",
+            "schema": {
+              "type": "object",
+              "items": {
+                "$ref": "#/definitions/positionRiskResponse"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orderDigest": {
+      "post": {
+        "summary": "get information to submit trader order",
+        "description": "get digest, order book address, order-struct to submit",
+        "produces": ["application/json"],
+        "consumes": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "order object and address",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "order": {
+                  "type": "object",
+                  "$ref": "#/definitions/OrderType"
+                },
+                "traderAddr": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successful operation",
+            "schema": {
+              "type": "object",
+              "items": {
+                "$ref": "#/definitions/orderDigestResponse"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "exchangeInfoResponse": {
+      "pools": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "isRunning": {
+              "type": "boolean"
+            },
+            "poolSymbol": {
+              "type": "string"
+            },
+            "marginTokenAddr": {
+              "type": "string"
+            },
+            "poolShareTokenAddr": {
+              "type": "string"
+            },
+            "defaultFundCashCC": {
+              "type": "number"
+            },
+            "pnlParticipantCashCC": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "totalAMMFundCashCC": {
+              "type": "number"
+            },
+            "totalTargetAMMFundSizeCC": {
+              "type": "number"
+            },
+            "brokerCollateralLotSize": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "perpetuals": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "state": {
+                    "type": "string"
+                  },
+                  "baseCurrency": {
+                    "type": "string"
+                  },
+                  "quoteCurrency": {
+                    "type": "string"
+                  },
+                  "indexPrice": {
+                    "type": "number"
+                  },
+                  "collToQuoteIndexPrice": {
+                    "type": "number"
+                  },
+                  "markPrice": {
+                    "type": "number"
+                  },
+                  "midPrice": {
+                    "type": "number"
+                  },
+                  "currentFundingRateBps": {
+                    "type": "number"
+                  },
+                  "openInterestBC": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "maxPositionBC": {
+                    "type": "integer",
+                    "format": "int32"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "oracleFactoryAddr": {
+        "type": "string"
+      }
+    },
+    "openOrdersResponse": {
+      "orders": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "symbol": {
+              "type": "string"
+            },
+            "side": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "quantity": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "reduceOnly": {
+              "type": "boolean"
+            },
+            "limitPrice": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "keepPositionLvg": {
+              "type": "boolean"
+            },
+            "leverage": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "deadline": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "timestamp": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "submittedBlock": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "orderIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "positionRiskResponse": {
+      "symbol": {
+        "type": "string"
+      },
+      "positionNotionalBaseCCY": {
+        "type": "number"
+      },
+      "side": {
+        "type": "string"
+      },
+      "entryPrice": {
+        "type": "number"
+      },
+      "leverage": {
+        "type": "number"
+      },
+      "markPrice": {
+        "type": "number"
+      },
+      "unrealizedPnlQuoteCCY": {
+        "type": "number"
+      },
+      "unrealizedFundingCollateralCCY": {
+        "type": "number"
+      },
+      "collateralCC": {
+        "type": "number"
+      },
+      "liquidationLvg": {
+        "type": "number"
+      },
+      "liquidationPrice": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        }
+      },
+      "collToQuoteConversion": {
+        "type": "number"
+      }
+    },
+    "orderDigestResponse": {
+      "digest": {
+        "type": "string"
+      },
+      "OrderBookAddr": {
+        "type": "string"
+      },
+      "SCOrder": {
+        "type": "object"
+      }
+    },
+    "OrderType": {
+      "symbol": {
+        "type": "string"
+      },
+      "side": {
+        "type": "string"
+      },
+      "type": {
+        "type": "string"
+      },
+      "quantity": {
+        "type": "number"
+      },
+      "reduceOnly": {
+        "type": "boolean"
+      },
+      "limitPrice": {
+        "type": "number"
+      },
+      "keepPositionLvg": {
+        "type": "boolean"
+      },
+      "brokerFeeTbps": {
+        "type": "number"
+      },
+      "brokerAddr": {
+        "type": "string"
+      },
+      "brokerSignature": {
+        "type": "string"
+      },
+      "stopPrice": {
+        "type": "number"
+      },
+      "leverage": {
+        "type": "number"
+      },
+      "deadline": {
+        "type": "number"
+      },
+      "timestamp": {
+        "type": "number"
+      }
+    }
+  }
+}
