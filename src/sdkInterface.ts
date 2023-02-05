@@ -58,6 +58,33 @@ export default class SDKInterface {
     return info;
   }
 
+  public async getPerpetualPriceOfType(symbol: string, priceType: string): Promise<string> {
+    try {
+      let res;
+      switch (priceType) {
+        case "mid": {
+          res = await this.apiInterface?.getPerpetualMidPrice(symbol);
+          break;
+        }
+        case "mark": {
+          res = await this.apiInterface?.getMarkPrice(symbol);
+          break;
+        }
+        case "oracle": {
+          let components = symbol.split("-");
+          res = await this.apiInterface?.getOraclePrice(components[0], components[1]);
+          break;
+        }
+        default: {
+          throw new Error("price type unknown");
+        }
+      }
+      return JSON.stringify(res);
+    } catch (error) {
+      return JSON.stringify({ error: extractErrorMsg(error) });
+    }
+  }
+
   public async openOrders(addr: string, symbol: string) {
     try {
       let res = await this.apiInterface?.openOrders(addr, symbol);
