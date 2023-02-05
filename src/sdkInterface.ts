@@ -108,7 +108,7 @@ export default class SDKInterface {
       if (this.apiInterface == undefined) {
         throw Error("SDKInterface not initialized");
       }
-      console.log("order=", order);
+      //console.log("order=", order);
       order.brokerFeeTbps = this.broker.getBrokerFeeTBps(order, traderAddr);
       order.brokerAddr = this.broker.getBrokerAddress(order, traderAddr);
       let SCOrder = this.apiInterface.createSmartContractOrder(order, traderAddr);
@@ -117,7 +117,8 @@ export default class SDKInterface {
       let digest = await this.apiInterface.orderDigest(SCOrder);
       // also return the order book address
       let obAddr = this.apiInterface.getOrderBookAddress(order.symbol);
-      return JSON.stringify({ digest: digest, OrderBookAddr: obAddr, SCOrder: SCOrder });
+      let id = await this.apiInterface.digestTool.createOrderId(digest);
+      return JSON.stringify({ digest: digest, orderId: id, OrderBookAddr: obAddr, SCOrder: SCOrder });
     } catch (error) {
       return JSON.stringify({ error: extractErrorMsg(error) });
     }
