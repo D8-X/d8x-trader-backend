@@ -29,7 +29,7 @@ base url: `http://localhost:3001/`
 ## All POST endpoints for Trader:
 
 - `/orderDigest`:
-  - parameters `{ order: order, traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05 }`, see test/post.test.ts
+  - parameters `{ order: order, orderId: orderId, traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05 }`, see test/post.test.ts
   - returns `{digest: 'hash which has to be signed', OrderBookAddr: 'address of relevant order book', SCOrder: 'Smart-Contract Order type'}`
   - the trader has to sign the digest, then the frontend must submit the SCOrder:
     `tx = await orderBookContract.postOrder(scOrder, signature)`
