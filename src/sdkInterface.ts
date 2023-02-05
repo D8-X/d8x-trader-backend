@@ -3,14 +3,17 @@ import { createClient } from "redis";
 import { extractErrorMsg } from "./utils";
 import { Order } from "@d8x/perpetuals-sdk";
 import { TraderInterface } from "@d8x/perpetuals-sdk";
+import BrokerIntegration from "./brokerIntegration";
 
 export default class SDKInterface {
   private apiInterface: TraderInterface | undefined = undefined;
   private redisClient: ReturnType<typeof createClient>;
+  private broker: BrokerIntegration;
   TIMEOUTSEC = 120;
 
-  constructor() {
+  constructor(broker: BrokerIntegration) {
     this.redisClient = createClient();
+    this.broker = broker;
   }
 
   public async initialize() {
@@ -73,7 +76,23 @@ export default class SDKInterface {
     }
   }
 
-  public async orderDigest(order: Order) {
-    return "todo";
+  public async orderDigest(order: Order, traderAddr: string): Promise<string> {
+    try {
+      if (this.apiInterface == undefined) {
+        throw Error("SDKInterface not initialized");
+      }
+      console.log("order=", order);
+      order.brokerFeeTbps = this.broker.getBrokerFeeTBps(order, traderAddr);
+      order.brokerAddr = this.broker.getBrokerAddress(order, traderAddr);
+      let SCOrder = this.apiInterface.createSmartContractOrder(order, traderAddr);
+      this.broker.signOrder(SCOrder);
+      // now we can create the digest that is to be signed by the trader
+      let digest = await this.apiInterface.orderDigest(SCOrder);
+      // also return the order book address
+      let obAddr = this.apiInterface.getOrderBookAddress(order.symbol);
+      return JSON.stringify({ digest: digest, OrderBookAddr: obAddr, SCOrder: SCOrder });
+    } catch (error) {
+      return JSON.stringify({ error: extractErrorMsg(error) });
+    }
   }
 }

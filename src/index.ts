@@ -1,22 +1,24 @@
 import express, { Express, Request, Response } from "express";
-import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
 import { extractErrorMsg } from "./utils";
 import { Order } from "@d8x/perpetuals-sdk";
+import NoBroker from "./noBroker";
+import BrokerIntegration from "./brokerIntegration";
 
 dotenv.config();
 const port = process.env.PORT;
-const router = express.Router();
+//const router = express.Router();
 const app: Express = express();
-const sdk: SDKInterface = new SDKInterface();
-//app.use(express.json());
-//app.use(express.urlencoded({ extended: false }));
+const broker: BrokerIntegration = new NoBroker();
+const sdk: SDKInterface = new SDKInterface(broker);
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
 
 //app.use("/", router);
 //Here we are configuring express to use body-parser as middle-ware.
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+//app.use(bodyParser.urlencoded({ extended: false }));
+//app.use(express.json());
 
 app.get("/", (req: Request, res: Response) => {
   let s = "Endpoints: /, /exchangeInfo, /openOrders, positionRisk";
@@ -32,6 +34,7 @@ app.get("/exchangeInfo", async (req: Request, res: Response) => {
   let rsp = await sdk.exchangeInfo();
   res.send(rsp);
 });
+//getPerpetualMidPrice
 
 app.get("/openOrders", async (req: Request, res: Response) => {
   // openOrders?address=0xCafee&symbol=BTC-USD-MATIC
@@ -73,12 +76,21 @@ app.get("/positionRisk", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * orderDigest endpoint
+ * receive {order: <orderstruct>, traderAddr: string}
+ * response: {digest, OrderBookAddr, SCOrder}
+ */
 app.post("/orderDigest", async (req, res) => {
-  console.log(req.body);
-  let order: Order = <Order>req.body;
-  //let rsp = await sdk.orderDigest(order);
-  let rsp = "test";
-  res.send(order);
+  try {
+    let order: Order = <Order>req.body.order;
+    let traderAddr: string = req.body.traderAddr;
+    let rsp = await sdk.orderDigest(order, traderAddr);
+    res.send(rsp);
+  } catch (err: any) {
+    let usage = "{order: <orderstruct>, traderAddr: string}";
+    res.send(JSON.stringify({ usage: usage, error: extractErrorMsg(err) }));
+  }
 });
 
 app.listen(port, async () => {
