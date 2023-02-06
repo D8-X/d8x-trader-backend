@@ -337,10 +337,10 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@d8x/perpetuals-sdk@^0.0.32":
-  version "0.0.32"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.0.32.tgz#a92c7837267a6425e99f657b1e72ecd61d76536d"
-  integrity sha512-vRYtamlphY67mGKdo+5v7rgbaPks4MAKgAvMFAIC3qqBy+GHImbI6bU8fmkmxNXtdPD53pMskcx7YecTOzzEdA==
+"@d8x/perpetuals-sdk@^0.0.33":
+  version "0.0.33"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.0.33.tgz#3d013421fb9eb7743f6724de802351adcbd754ad"
+  integrity sha512-m6x8KGI/r88QzJDCs6d/xt0Tzc2VmGS7boPxSVbrnkuGAKxt6S1drk4XuJpO97xglTqpo3d6CehEgqXB7KgTCA==
   dependencies:
     "@babel/core" "^7.20.2"
     "@types/jest" "^29.2.3"
@@ -2792,9 +2792,9 @@ node-int64@^0.4.0:
   integrity sha512-O5lz91xSOeoXP6DulyHfllpq+Eg00MWitZIbtPfoSEvqIHdl5gfcY6hYzDWnj0qD5tz52PI08u9qUvSVeUBeHw==
 
 node-releases@^2.0.8:
-  version "2.0.9"
-  resolved "https://registry.yarnpkg.com/node-releases/-/node-releases-2.0.9.tgz#fe66405285382b0c4ac6bcfbfbe7e8a510650b4d"
-  integrity sha512-2xfmOrRkGogbTK9R6Leda0DGiXeY3p2NJpy4+gNCffdUvV6mdEJnaDEic1i3Ec2djAo8jWYoJMR5PB0MSMpxUA==
+  version "2.0.10"
+  resolved "https://registry.yarnpkg.com/node-releases/-/node-releases-2.0.10.tgz#c311ebae3b6a148c89b1813fd7c4d3c024ef537f"
+  integrity sha512-5GFldHPXVG/YZmFzJvKK2zDSzPKhEp0+ZR5SVaoSag9fsL5YgHbUHDfnG5494ISANDcK4KwPXAx2xqVEydmd7w==
 
 normalize-path@^3.0.0:
   version "3.0.0"
