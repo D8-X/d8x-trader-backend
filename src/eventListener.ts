@@ -38,17 +38,18 @@ export default class EventListener {
   traderInterface: TraderInterface;
   fundingRate: Map<number, number>; // perpetualId -> funding rate
   openInterest: Map<number, number>; // perpetualId -> openInterest
-  perpetualsSubscribers: Map<number, number>; // perpetualId -> event handler active?
-  subscriptions: Map<number, Map<string, WebSocket.WebSocket>>; // perpetualId -> traderAddr -> ws
+
+  // subscription for perpetualId and trader address. Multiple websocket-clients can subscribe
+  // (hence array of websockets)
+  subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>; // perpetualId -> traderAddr -> ws[]
   clients: Map<WebSocket.WebSocket, Array<{ perpetualId: number; symbol: string; traderAddr: string }>>;
 
   constructor(network: string = "testnet") {
     this.fundingRate = new Map<number, number>();
     this.openInterest = new Map<number, number>();
-    this.perpetualsSubscribers = new Map<number, number>();
     const sdkConfig = PerpetualDataHandler.readSDKConfig(network);
     this.traderInterface = new TraderInterface(sdkConfig);
-    this.subscriptions = new Map<number, Map<string, WebSocket.WebSocket>>();
+    this.subscriptions = new Map<number, Map<string, WebSocket.WebSocket[]>>();
     this.clients = new Map<WebSocket.WebSocket, Array<{ perpetualId: number; symbol: string; traderAddr: string }>>();
   }
 
@@ -65,16 +66,24 @@ export default class EventListener {
     }
     this.clients.get(ws)?.push({ perpetualId: id, symbol: perpetualsSymbol, traderAddr: traderAddr });
     console.log(`new client: ws:${ws} ${traderAddr}`);
-    if (this.subscriptions.get(id) == undefined) {
-      this.subscriptions.set(id, new Map<string, WebSocket.WebSocket>());
+    let perpSubscribers = this.subscriptions.get(id);
+    if (perpSubscribers == undefined) {
+      this.subscriptions.set(id, new Map<string, WebSocket.WebSocket[]>());
       this.addOrderBookEventHandlers(perpetualsSymbol);
+      perpSubscribers = this.subscriptions.get(id);
     }
-    let traderMap = this.subscriptions.get(id);
-    traderMap?.set(traderAddr, ws);
+    let traderSubscribers = perpSubscribers!.get(traderAddr);
+    if (traderSubscribers == undefined) {
+      perpSubscribers!.set(traderAddr, new Array<WebSocket>());
+      traderSubscribers = perpSubscribers!.get(traderAddr);
+    }
+    traderSubscribers!.push(ws);
+    console.log(`subscribed to perp ${perpetualsSymbol} with id ${id}`);
   }
 
   public unsubscribe(ws: WebSocket.WebSocket) {
     console.log(`unsubscribe client: ws:${ws}`);
+    //subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>;
     let clientSubscriptions = this.clients.get(ws);
     if (clientSubscriptions == undefined) {
       console.log("unknown client unsubscribed");
@@ -86,7 +95,14 @@ export default class EventListener {
       if (traderMap == undefined) {
         continue;
       }
-      traderMap.delete(clientSubscriptions[k].traderAddr);
+      let subscribers = traderMap.get(clientSubscriptions[k].traderAddr);
+      const idx = subscribers!.indexOf(ws, 0);
+      if (idx > -1) {
+        subscribers!.splice(idx, 1);
+      }
+      if (subscribers?.length == 0) {
+        traderMap.delete(clientSubscriptions[k].traderAddr);
+      }
       if (this.subscriptions.get(id)?.keys.length == 0) {
         console.log("no more subscribers");
         // unsubscribe events
@@ -94,6 +110,39 @@ export default class EventListener {
       }
     }
     this.clients.delete(ws);
+  }
+
+  /**
+   * Send websocket message
+   * @param perpetualId perpetual id
+   * @param message JSON-message to be sent
+   * @param traderAddr optional: only send to this trader. Otherwise broadcast
+   */
+  private sendToSubscribers(perpetualId: number, message: string, traderAddr?: string) {
+    // traderAddr -> ws
+    let subscribers: Map<string, WebSocket.WebSocket[]> | undefined = this.subscriptions.get(perpetualId);
+    if (subscribers == undefined) {
+      console.log(`no subscribers for perpetual ${perpetualId}`);
+      return;
+    }
+    if (traderAddr != undefined) {
+      let traderWs: WebSocket[] | undefined = subscribers.get(traderAddr);
+      if (traderWs == undefined) {
+        console.log(`trader ${traderAddr} not subscribed to perpetual ${perpetualId}`);
+        return;
+      }
+      // send to all subscribers of this perpetualId and traderAddress
+      for (let k = 0; k < traderWs.length; k++) {
+        traderWs[k].send(message);
+      }
+    } else {
+      // broadcast
+      for (const [trader, wsArr] of subscribers) {
+        for (let k = 0; k < wsArr.length; k++) {
+          wsArr[k].send(message);
+        }
+      }
+    }
   }
 
   /**
@@ -242,7 +291,25 @@ export default class EventListener {
       fMarkPricePremium,
       fSpotIndexPrice
     );
-    // TODO: send midprice, markprice, indexprice, open interest,
+    let fundingRate = this.fundingRate.get(perpetualId);
+    if (fundingRate == undefined) {
+      fundingRate = 0;
+    }
+    let oi = this.openInterest.get(perpetualId);
+    if (oi == undefined) {
+      oi = 0;
+    }
+    let obj: PriceUpdate = {
+      perpetualId: perpetualId,
+      midPrice: newMidPrice,
+      markPrice: newMarkPrice,
+      indexPrice: newIndexPrice,
+      fundingRate: fundingRate,
+      openInterest: oi,
+    };
+    let wsMsg: WSMsg = { name: "PriceUpdate", obj: obj };
+    // send to all subscribers
+    this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg));
   }
 
   /**
@@ -298,14 +365,28 @@ export default class EventListener {
     brokerAddr: string,
     Order: SmartContractOrder,
     digest: string
-  ): void {}
+  ): void {
+    console.log("onPerpetualLimitOrderCreated");
+    // send to subscriber who sent the order
+    let obj: LimitOrderCreated = {
+      perpetualId: perpetualId,
+      trader: trader,
+      brokerAddr: brokerAddr,
+      orderId: digest,
+    };
+    let wsMsg: WSMsg = { name: "PerpetualLimitOrderCreated", obj: obj };
+    // only send to trader that subscribed
+    this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg), trader);
+  }
 
   /**
    * Event emitted by perpetual proxy: event PerpetualLimitOrderCancelled(bytes32 indexed orderHash);
    * event PerpetualLimitOrderCancelled(bytes32 indexed orderHash);
    * @param orderId string order id/digest
    */
-  public onPerpetualLimitOrderCancelled(orderId: string) {}
+  public onPerpetualLimitOrderCancelled(orderId: string) {
+    console.log("onPerpetualLimitOrderCancelled");
+  }
 
   /**
    * event ExecutionFailed(
@@ -319,7 +400,9 @@ export default class EventListener {
    * @param digest digest of the order/cancel order
    * @param reason reason why the execution failed
    */
-  private onExecutionFailed(perpetualId: number, trader: string, digest: string, reason: string) {}
+  private onExecutionFailed(perpetualId: number, trader: string, digest: string, reason: string) {
+    console.log("onExecutionFailed:", reason);
+  }
 
   /**
    * UpdateMarkPrice(
