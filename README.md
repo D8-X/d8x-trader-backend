@@ -11,7 +11,8 @@
 - optional: re-define the ports in `.env`, e.g., 3000 (using 30001 below)
 - npm run build
 - npm run start
-- http://localhost:3001/
+- REST: http://localhost:3001/
+- Websocket: ws://localhost:8080
 
 # Endpoints Examples
 
