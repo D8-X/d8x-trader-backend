@@ -55,14 +55,14 @@ class D8XBrokerBackendApp {
         try {
           let obj = JSON.parse(data.toString());
           console.log("received: ", obj);
-          if (typeof obj.traderAddress != "string" || typeof obj.symbol != "string") {
-            throw new Error("wrong arguments. Requires address and symbol");
+          if (typeof obj.traderAddr != "string" || typeof obj.symbol != "string") {
+            throw new Error("wrong arguments. Requires traderAddr and symbol");
           } else {
-            eventListener.subscribe(ws, obj.symbol, obj.traderAddress);
+            eventListener.subscribe(ws, obj.symbol, obj.traderAddr);
             ws.send(JSON.stringify("success"));
           }
         } catch (err: any) {
-          let usage = "{symbol: BTC-USD-MATIC, traderAddress: 0xCAFE...}";
+          let usage = "{symbol: BTC-USD-MATIC, traderAddr: 0xCAFE...}";
           ws.send(JSON.stringify({ usage: usage, error: extractErrorMsg(err) }));
         }
       });
