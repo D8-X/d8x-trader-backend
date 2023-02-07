@@ -65,7 +65,7 @@ interface SubscriptionInterface {
 }
 ```
 
-- all messages received are defined in [wsTypes](./src/wsTypes) and listed below
+- all messages received are defined in [src/wsTypes](/src/wsTypes) and listed below
 - the general format of the messages is
 
 ```
