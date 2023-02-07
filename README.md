@@ -8,7 +8,7 @@
 
 # Buidl and run backend
 
-- optional: re-define the port in `.env`, e.g., 3000 (using 30001 below)
+- optional: re-define the ports in `.env`, e.g., 3000 (using 30001 below)
 - npm run build
 - npm run start
 - http://localhost:3001/
@@ -40,3 +40,17 @@ base url: `http://localhost:3001/`
   - setAllowance has to be performed on the collateral token and the proxy-contract from the frontend
 
 Swagger (incomplete): http://localhost:3001/api/docs/
+
+# Websocket
+
+- endpoint `ws://localhost:8080`
+- subscribe by sending a JSON message in the following format:
+
+```
+interface SubscriptionInterface {
+  symbol: string;
+  traderAddr: string;
+}
+```
+
+- all messages received are described in [wsTypes](./src/wsTypes)

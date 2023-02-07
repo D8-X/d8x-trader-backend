@@ -225,7 +225,6 @@ class D8XBrokerBackendApp {
     // see test/post.test.ts for an example
     this.express.post("/orderDigest", async (req, res) => {
       try {
-        //console.log("req=", req);
         let order: Order = <Order>req.body.order;
         let traderAddr: string = req.body.traderAddr;
         let rsp = await this.sdk.orderDigest(order, traderAddr);
