@@ -104,7 +104,7 @@ export default class EventListener {
         traderMap.delete(clientSubscriptions[k].traderAddr);
       }
       if (this.subscriptions.get(id)?.keys.length == 0) {
-        console.log("no more subscribers");
+        console.log(`no more subscribers for perpetualId ${id}`);
         // unsubscribe events
         this.removeOrderBookEventHandlers(clientSubscriptions[k].symbol);
       }
@@ -128,7 +128,7 @@ export default class EventListener {
     if (traderAddr != undefined) {
       let traderWs: WebSocket[] | undefined = subscribers.get(traderAddr);
       if (traderWs == undefined) {
-        console.log(`trader ${traderAddr} not subscribed to perpetual ${perpetualId}`);
+        console.log(`no subscriber to trader ${traderAddr} in perpetual ${perpetualId}`);
         return;
       }
       // send to all subscribers of this perpetualId and traderAddress
@@ -269,7 +269,18 @@ export default class EventListener {
   ): Promise<void> {
     this.openInterest.set(perpetualId, ABK64x64ToFloat(fOpenInterestBC));
     // send data to subscriber
-    // TODO
+    let obj: UpdateMarginAccount = {
+      perpetualId: perpetualId,
+      traderAddr: trader,
+      positionId: positionId,
+      positionBC: ABK64x64ToFloat(fPositionBC),
+      cashCC: ABK64x64ToFloat(fCashCC),
+      lockedInValueQC: ABK64x64ToFloat(fLockedInValueQC),
+      fundingPaymentCC: ABK64x64ToFloat(fFundingPaymentCC),
+    };
+    let wsMsg: WSMsg = { name: "UpdateMarginAccount", obj: obj };
+    // send to subscribers of trader/perpetual
+    this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg), trader);
   }
 
   /**
@@ -278,7 +289,6 @@ export default class EventListener {
    * @param perpetualId perpetual Id
    * @param fMarkPricePremium premium rate in ABDK format
    * @param fSpotIndexPrice spot index price in ABDK format
-   * @returns void
    */
   public onUpdateMarkPrice(
     perpetualId: number,
@@ -332,14 +342,17 @@ export default class EventListener {
     price: BigNumber
   ) {
     // return transformed trade info
-    let data = {
+    let data: Trade = {
       perpetualId: perpetualId,
+      traderAddr: trader,
       positionId: positionId,
       orderId: orderDigest,
       newPositionSizeBC: ABK64x64ToFloat(newPositionSizeBC),
-      executionPrice: ABK64x64ToFloat(newPositionSizeBC),
+      executionPrice: ABK64x64ToFloat(price),
     };
-    // Todo send data to subscribers
+    let wsMsg: WSMsg = { name: "Trade", obj: data };
+    // broadcast
+    this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg));
   }
 
   /**
@@ -370,7 +383,7 @@ export default class EventListener {
     // send to subscriber who sent the order
     let obj: LimitOrderCreated = {
       perpetualId: perpetualId,
-      trader: trader,
+      traderAddr: trader,
       brokerAddr: brokerAddr,
       orderId: digest,
     };
@@ -386,15 +399,18 @@ export default class EventListener {
    */
   public onPerpetualLimitOrderCancelled(orderId: string) {
     console.log("onPerpetualLimitOrderCancelled");
+    //let wsMsg: WSMsg = { name: "PerpetualLimitOrderCancelled", obj: { orderId: orderId } };
+    // currently broadcasted:
+    // this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg));
   }
 
   /**
    * event ExecutionFailed(
-        uint24 indexed perpetualId,
-        address indexed trader,
-        bytes32 digest,
-        string reason
-    );
+   *    uint24 indexed perpetualId,
+   *    address indexed trader,
+   *    bytes32 digest,
+   *    string reason
+   * );
    * @param perpetualId id of the perpetual
    * @param trader address of the trader
    * @param digest digest of the order/cancel order
@@ -402,6 +418,15 @@ export default class EventListener {
    */
   private onExecutionFailed(perpetualId: number, trader: string, digest: string, reason: string) {
     console.log("onExecutionFailed:", reason);
+    let obj: ExecutionFailed = {
+      perpetualId: perpetualId,
+      traderAddr: trader,
+      orderId: digest,
+      reason: reason,
+    };
+    let wsMsg: WSMsg = { name: "ExecutionFailed", obj: obj };
+    // send to subscribers
+    this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg), trader);
   }
 
   /**
