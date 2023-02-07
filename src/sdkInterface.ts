@@ -1,5 +1,6 @@
 import { PerpetualDataHandler } from "@d8x/perpetuals-sdk";
 import { createClient } from "redis";
+import dotenv from "dotenv";
 import { extractErrorMsg } from "./utils";
 import { Order } from "@d8x/perpetuals-sdk";
 import { TraderInterface } from "@d8x/perpetuals-sdk";
@@ -12,7 +13,14 @@ export default class SDKInterface {
   TIMEOUTSEC = 120;
 
   constructor(broker: BrokerIntegration) {
-    this.redisClient = createClient();
+    dotenv.config();
+    let redisUrl: string | undefined = process.env.REDIS_URL;
+    if (redisUrl == undefined || redisUrl == "") {
+      this.redisClient = createClient();
+    } else {
+      this.redisClient = createClient({ url: redisUrl });
+    }
+
     this.broker = broker;
   }
 
