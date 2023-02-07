@@ -1,10 +1,12 @@
 import express, { Express, Request, Response } from "express";
+import WebSocket, { WebSocketServer } from "ws";
 import swaggerJSDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
 import { extractErrorMsg } from "./utils";
 import { Order } from "@d8x/perpetuals-sdk";
+import EventListener from "./eventListener";
 import NoBroker from "./noBroker";
 import BrokerIntegration from "./brokerIntegration";
 import fs from "fs";
@@ -18,21 +20,57 @@ class D8XBrokerBackendApp {
   private swaggerDocument;
   private sdk: SDKInterface;
   private port: number;
+  private portWS: number;
+  private wss: WebSocketServer;
+  private eventListener: EventListener;
 
   constructor(broker: BrokerIntegration) {
     this.express = express();
+
     this.swaggerData = fs.readFileSync("./src/swagger.json", "utf-8");
     this.swaggerDocument = JSON.parse(this.swaggerData);
     if (process.env.PORT == undefined) {
       throw Error("define PORT in .env");
     }
+    if (process.env.PORT_WEBSOCKET == undefined) {
+      throw Error("define PORT_WEBSOCKET in .env");
+    }
     this.port = Number(process.env.PORT);
+    this.portWS = Number(process.env.PORT_WEBSOCKET);
+    this.wss = new WebSocketServer({ port: this.portWS });
     this.swaggerDocument.servers[0].url += ":" + process.env.PORT;
+    this.eventListener = new EventListener("testnet");
     console.log("url=", this.swaggerDocument.servers[0].url);
     this.sdk = new SDKInterface(broker);
     dotenv.config();
     this.middleWare();
     this.routes();
+  }
+
+  private initWebSocket() {
+    let eventListener = this.eventListener;
+    this.wss.on("connection", function connection(ws: WebSocket.WebSocket) {
+      ws.on("error", console.error);
+      ws.on("message", (data: WebSocket.RawData) => {
+        try {
+          let obj = JSON.parse(data.toString());
+          console.log("received: ", obj);
+          if (typeof obj.traderAddr != "string" || typeof obj.symbol != "string") {
+            throw new Error("wrong arguments. Requires traderAddr and symbol");
+          } else {
+            eventListener.subscribe(ws, obj.symbol, obj.traderAddr);
+            ws.send(JSON.stringify("success"));
+          }
+        } catch (err: any) {
+          let usage = "{symbol: BTC-USD-MATIC, traderAddr: 0xCAFE...}";
+          ws.send(JSON.stringify({ usage: usage, error: extractErrorMsg(err) }));
+        }
+      });
+      ws.on("close", () => {
+        eventListener.unsubscribe(ws);
+      });
+      ws.send("something");
+    });
   }
 
   private middleWare() {
@@ -55,7 +93,10 @@ class D8XBrokerBackendApp {
   private routes() {
     this.express.listen(this.port, async () => {
       await this.sdk.initialize();
-      console.log(`⚡️[server]: Server is running at http://localhost:${this.port}`);
+      await this.eventListener.initialize();
+      this.initWebSocket();
+      console.log(`⚡️[server]: WS is running at ws://localhost:${this.portWS}`);
+      console.log(`⚡️[server]: HTTP is running at http://localhost:${this.port}`);
     });
 
     // swagger docs
@@ -184,7 +225,6 @@ class D8XBrokerBackendApp {
     // see test/post.test.ts for an example
     this.express.post("/orderDigest", async (req, res) => {
       try {
-        //console.log("req=", req);
         let order: Order = <Order>req.body.order;
         let traderAddr: string = req.body.traderAddr;
         let rsp = await this.sdk.orderDigest(order, traderAddr);
