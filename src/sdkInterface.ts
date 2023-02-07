@@ -16,8 +16,8 @@ export default class SDKInterface {
     this.broker = broker;
   }
 
-  public async initialize() {
-    const sdkConfig = PerpetualDataHandler.readSDKConfig("testnet");
+  public async initialize(network = "testnet") {
+    const sdkConfig = PerpetualDataHandler.readSDKConfig(network);
     this.apiInterface = new TraderInterface(sdkConfig);
     await this.apiInterface.createProxyInstance();
     await this.initRedis();
