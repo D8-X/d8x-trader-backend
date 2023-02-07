@@ -1,21 +1,23 @@
 # d8x-trader-backend
 
-# Prerequisits
+# Prerequisites
 
 - install Redis: https://redis.io/docs/getting-started/installation/install-redis-on-linux/
 - node (used v18.14.0 for testing)
 - yarn
 
-# Buidl and run backend
+# Build and run backend
 
-- optional: re-define the port in `.env`, e.g., 3000 (using 30001 below)
+Copy `.env.example` file and paste as `.env` file. Make changes if necessary.
+
+- optional: re-define the port in `.env`, e.g., 3000 (using 3001 below)
 - npm run build
 - npm run start
 - http://localhost:3001/
 
 # Endpoints Examples
 
-base url: `http://localhost:3001/`
+Base url: `http://localhost:3001/`
 
 ## All GET endpoints (parameter examples):
 
