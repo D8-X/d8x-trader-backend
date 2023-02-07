@@ -53,9 +53,13 @@ interface LimitOrderCreated {
 interface Trade {
   perpetualId: number;
   traderAddr: string;
+  // each position has a unique id
   positionId: string;
+  // each order has a unique id
   orderId: string;
+  // position size in base currency
   newPositionSizeBC: number;
+  // execution price in quote currency
   executionPrice: number;
 }
 
@@ -81,13 +85,21 @@ interface ExecutionFailed {
 /**
  * This event message is generated on
  * UpdateMarginAccount
+ * You may want to call positionRisk
+ * after this event was executed
  */
 interface UpdateMarginAccount {
   perpetualId: number;
   traderAddr: string;
+  // id of position
   positionId: string;
+  // position size in base currency
   positionBC: number;
+  // margin collateral in collateral currency
   cashCC: number;
+  // average price * position size
   lockedInValueQC: number;
+  // funding payment paid when
+  // margin account was changed
   fundingPaymentCC: number;
 }
