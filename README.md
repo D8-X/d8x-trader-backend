@@ -15,9 +15,14 @@
 - REST: http://localhost:3001/
 - Websocket: ws://localhost:8080
 
-# Endpoints Examples
+## Response Format
 
-Base url: `http://localhost:3001/`
+```
+{ type: "error"| <endpointName> | "connect",
+  msg: <endpointName If Error> | "" | <info about connection>,
+  data:  "" | <json-object>
+}
+```
 
 ## All GET endpoints (parameter examples):
 
@@ -71,13 +76,22 @@ interface SubscriptionInterface {
 - the general format of the messages is
 
 ```
+{ type: "error"| <endpointName> | "connect",
+  msg: <endpointName If Error> | "" | <info about connection>,
+  data:  <json-WSMsg-object> | ""
+}
+```
+
+with `<json-WSMsg-object>` defined as
+
+```
 interface WSMsg {
   name: string;
   obj: Object;
 }
 ```
 
-- Messages are as follows
+- Objects are built from the following interfaces
 
 ```
 // broadcasted
