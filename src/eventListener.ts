@@ -9,6 +9,7 @@ import {
   mul64x64,
   ONE_64x64,
 } from "@d8x/perpetuals-sdk";
+import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
 
 /**
  * Class that listens to blockchain events on
@@ -279,8 +280,9 @@ export default class EventListener {
       fundingPaymentCC: ABK64x64ToFloat(fFundingPaymentCC),
     };
     let wsMsg: WSMsg = { name: "UpdateMarginAccount", obj: obj };
+    let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onUpdateMarginAccount", "", wsMsg);
     // send to subscribers of trader/perpetual
-    this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg), trader);
+    this.sendToSubscribers(perpetualId, jsonMsg, trader);
   }
 
   /**
@@ -318,8 +320,9 @@ export default class EventListener {
       openInterest: oi,
     };
     let wsMsg: WSMsg = { name: "PriceUpdate", obj: obj };
+    let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onUpdateMarkPrice", "", wsMsg);
     // send to all subscribers
-    this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg));
+    this.sendToSubscribers(perpetualId, jsonMsg);
   }
 
   /**
@@ -351,8 +354,9 @@ export default class EventListener {
       executionPrice: ABK64x64ToFloat(price),
     };
     let wsMsg: WSMsg = { name: "Trade", obj: data };
+    let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onTrade", "", wsMsg);
     // broadcast
-    this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg));
+    this.sendToSubscribers(perpetualId, jsonMsg);
   }
 
   /**
@@ -388,8 +392,9 @@ export default class EventListener {
       orderId: digest,
     };
     let wsMsg: WSMsg = { name: "PerpetualLimitOrderCreated", obj: obj };
+    let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onPerpetualLimitOrderCreated", "", wsMsg);
     // only send to trader that subscribed
-    this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg), trader);
+    this.sendToSubscribers(perpetualId, jsonMsg, trader);
   }
 
   /**
@@ -400,6 +405,7 @@ export default class EventListener {
   public onPerpetualLimitOrderCancelled(orderId: string) {
     console.log("onPerpetualLimitOrderCancelled");
     //let wsMsg: WSMsg = { name: "PerpetualLimitOrderCancelled", obj: { orderId: orderId } };
+    //let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onPerpetualLimitOrderCreated", "", wsMsg);
     // currently broadcasted:
     // this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg));
   }
@@ -425,8 +431,9 @@ export default class EventListener {
       reason: reason,
     };
     let wsMsg: WSMsg = { name: "ExecutionFailed", obj: obj };
+    let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onExecutionFailed", "", wsMsg);
     // send to subscribers
-    this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg), trader);
+    this.sendToSubscribers(perpetualId, jsonMsg, trader);
   }
 
   /**
