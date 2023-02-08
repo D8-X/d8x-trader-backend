@@ -73,7 +73,7 @@ export default class D8XBrokerBackendApp {
             throw new Error("wrong arguments. Requires traderAddr and symbol");
           } else {
             eventListener.subscribe(ws, obj.symbol, obj.traderAddr);
-            ws.send(D8XBrokerBackendApp.JSONResponse("ws subscribe", "success", {}));
+            ws.send(D8XBrokerBackendApp.JSONResponse("connect", "success", {}));
           }
         } catch (err: any) {
           const usage = "{symbol: BTC-USD-MATIC, traderAddr: 0xCAFE...}";
@@ -88,7 +88,7 @@ export default class D8XBrokerBackendApp {
       ws.on("close", () => {
         eventListener.unsubscribe(ws);
       });
-      ws.send(D8XBrokerBackendApp.JSONResponse("connection", `success`, {}));
+      ws.send(D8XBrokerBackendApp.JSONResponse("connect", `success`, {}));
     });
     console.log(`⚡️[server]: WS is running at ws://localhost:${this.portWS}`);
   }
