@@ -110,67 +110,47 @@ export default class SDKInterface {
   }
 
   public async positionRisk(addr: string, symbol: string) {
-    try {
-      this.checkAPIInitialized();
-      let res = await this.apiInterface?.positionRisk(addr, symbol);
-      return JSON.stringify(res);
-    } catch (error) {
-      return JSON.stringify({ error: extractErrorMsg(error) });
-    }
+    this.checkAPIInitialized();
+    let res = await this.apiInterface?.positionRisk(addr, symbol);
+    return JSON.stringify(res);
   }
 
   public async getCurrentTraderVolume(traderAddr: string, symbol: string): Promise<string> {
-    try {
-      this.checkAPIInitialized();
-      let vol = await this.apiInterface!.getCurrentTraderVolume(symbol, traderAddr);
-      return JSON.stringify(vol);
-    } catch (error) {
-      return JSON.stringify({ error: extractErrorMsg(error) });
-    }
+    this.checkAPIInitialized();
+    let vol = await this.apiInterface!.getCurrentTraderVolume(symbol, traderAddr);
+    return JSON.stringify(vol);
   }
 
   public async getOrderIds(traderAddr: string, symbol: string): Promise<string> {
-    try {
-      this.checkAPIInitialized();
-      let orderBookContract = this.apiInterface!.getOrderBookContract(symbol);
-      let ids = await TraderInterface.orderIdsOfTrader(traderAddr, orderBookContract);
-      return JSON.stringify(ids);
-    } catch (error) {
-      return JSON.stringify({ error: extractErrorMsg(error) });
-    }
+    this.checkAPIInitialized();
+    let orderBookContract = this.apiInterface!.getOrderBookContract(symbol);
+    let ids = await TraderInterface.orderIdsOfTrader(traderAddr, orderBookContract);
+    return JSON.stringify(ids);
   }
 
   public async queryFee(traderAddr: string, poolSymbol: string): Promise<string> {
-    try {
-      this.checkAPIInitialized();
-      let brokerAddr = this.broker.getBrokerAddress(traderAddr);
-      let fee = await this.apiInterface?.queryExchangeFee(poolSymbol, traderAddr, brokerAddr);
-      if (fee == undefined) {
-        throw new Error("could not retreive fee");
-      }
-      fee = Math.round(fee * 1e5 + (await this.broker.getBrokerFeeTBps(traderAddr)));
-      return JSON.stringify(fee);
-    } catch (error) {
-      return JSON.stringify({ error: extractErrorMsg(error) });
+    this.checkAPIInitialized();
+    let brokerAddr = this.broker.getBrokerAddress(traderAddr);
+    let fee = await this.apiInterface?.queryExchangeFee(poolSymbol, traderAddr, brokerAddr);
+    if (fee == undefined) {
+      throw new Error("could not retreive fee");
     }
+    fee = Math.round(fee * 1e5 + (await this.broker.getBrokerFeeTBps(traderAddr)));
+    return JSON.stringify(fee);
   }
 
   public async orderDigest(order: Order, traderAddr: string): Promise<string> {
-    try {
-      this.checkAPIInitialized();
-      //console.log("order=", order);
-      order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
-      order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
-      let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
-      this.broker.signOrder(SCOrder!);
-      // now we can create the digest that is to be signed by the trader
-      let digest = await this.apiInterface?.orderDigest(SCOrder!);
-      // also return the order book address
-      let obAddr = this.apiInterface!.getOrderBookAddress(order.symbol);
-      let id = await this.apiInterface!.digestTool.createOrderId(digest!);
-      return JSON.stringify({ digest: digest, orderId: id, OrderBookAddr: obAddr, SCOrder: SCOrder });
-    } catch (error) {
-      return JSON.stringify({ error: extractErrorMsg(error) });
-    }
+    this.checkAPIInitialized();
+    //console.log("order=", order);
+    order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
+    order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
+    let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
+    this.broker.signOrder(SCOrder!);
+    // now we can create the digest that is to be signed by the trader
+    let digest = await this.apiInterface?.orderDigest(SCOrder!);
+    // also return the order book address
+    let obAddr = this.apiInterface!.getOrderBookAddress(order.symbol);
+    let id = await this.apiInterface!.digestTool.createOrderId(digest!);
+    return JSON.stringify({ digest: digest, orderId: id, OrderBookAddr: obAddr, SCOrder: SCOrder });
   }
 }
