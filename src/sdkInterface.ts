@@ -26,9 +26,9 @@ export default class SDKInterface {
 
   public async initialize(network = "testnet") {
     const sdkConfig = PerpetualDataHandler.readSDKConfig(network);
+    await this.initRedis();
     this.apiInterface = new TraderInterface(sdkConfig);
     await this.apiInterface.createProxyInstance();
-    await this.initRedis();
     console.log("SDK API initialized");
   }
 
@@ -93,8 +93,15 @@ export default class SDKInterface {
     }
   }
 
+  private checkAPIInitialized() {
+    if (this.apiInterface == undefined) {
+      throw Error("SDKInterface not initialized");
+    }
+  }
+
   public async openOrders(addr: string, symbol: string) {
     try {
+      this.checkAPIInitialized();
       let res = await this.apiInterface?.openOrders(addr, symbol);
       return JSON.stringify(res);
     } catch (error) {
@@ -104,6 +111,7 @@ export default class SDKInterface {
 
   public async positionRisk(addr: string, symbol: string) {
     try {
+      this.checkAPIInitialized();
       let res = await this.apiInterface?.positionRisk(addr, symbol);
       return JSON.stringify(res);
     } catch (error) {
@@ -113,6 +121,7 @@ export default class SDKInterface {
 
   public async getCurrentTraderVolume(traderAddr: string, symbol: string): Promise<string> {
     try {
+      this.checkAPIInitialized();
       let vol = await this.apiInterface!.getCurrentTraderVolume(symbol, traderAddr);
       return JSON.stringify(vol);
     } catch (error) {
@@ -122,6 +131,7 @@ export default class SDKInterface {
 
   public async getOrderIds(traderAddr: string, symbol: string): Promise<string> {
     try {
+      this.checkAPIInitialized();
       let orderBookContract = this.apiInterface!.getOrderBookContract(symbol);
       let ids = await TraderInterface.orderIdsOfTrader(traderAddr, orderBookContract);
       return JSON.stringify(ids);
@@ -132,6 +142,7 @@ export default class SDKInterface {
 
   public async queryFee(traderAddr: string, poolSymbol: string): Promise<string> {
     try {
+      this.checkAPIInitialized();
       let brokerAddr = this.broker.getBrokerAddress(traderAddr);
       let fee = await this.apiInterface?.queryExchangeFee(poolSymbol, traderAddr, brokerAddr);
       if (fee == undefined) {
@@ -146,19 +157,17 @@ export default class SDKInterface {
 
   public async orderDigest(order: Order, traderAddr: string): Promise<string> {
     try {
-      if (this.apiInterface == undefined) {
-        throw Error("SDKInterface not initialized");
-      }
+      this.checkAPIInitialized();
       //console.log("order=", order);
       order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
       order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
-      let SCOrder = this.apiInterface.createSmartContractOrder(order, traderAddr);
-      this.broker.signOrder(SCOrder);
+      let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
+      this.broker.signOrder(SCOrder!);
       // now we can create the digest that is to be signed by the trader
-      let digest = await this.apiInterface.orderDigest(SCOrder);
+      let digest = await this.apiInterface?.orderDigest(SCOrder!);
       // also return the order book address
-      let obAddr = this.apiInterface.getOrderBookAddress(order.symbol);
-      let id = await this.apiInterface.digestTool.createOrderId(digest);
+      let obAddr = this.apiInterface!.getOrderBookAddress(order.symbol);
+      let id = await this.apiInterface!.digestTool.createOrderId(digest!);
       return JSON.stringify({ digest: digest, orderId: id, OrderBookAddr: obAddr, SCOrder: SCOrder });
     } catch (error) {
       return JSON.stringify({ error: extractErrorMsg(error) });
