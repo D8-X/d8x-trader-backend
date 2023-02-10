@@ -18,7 +18,7 @@
 ## Response Format
 
 ```
-{ type: "error"| <endpointName> | "connect",
+{ type: "error"| <endpointName> | "connect" | "subscription",
   msg: <endpointName If Error> | "" | <info about connection>,
   data:  "" | <json-object>
 }
