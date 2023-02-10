@@ -50,6 +50,7 @@ export default class D8XBrokerBackendApp {
   public async initialize() {
     await this.sdk.initialize();
     await this.eventListener.initialize();
+    this.sdk.registerObserver(this.eventListener);
     this.initWebSocket();
     this.routes();
   }
@@ -80,7 +81,7 @@ export default class D8XBrokerBackendApp {
         } catch (err: any) {
           const usage = "{symbol: BTC-USD-MATIC, traderAddr: 0xCAFE...}";
           ws.send(
-            D8XBrokerBackendApp.JSONResponse("error", "websocket connect", {
+            D8XBrokerBackendApp.JSONResponse("error", "websocket subscribe", {
               usage: usage,
               error: extractErrorMsg(err),
             })
