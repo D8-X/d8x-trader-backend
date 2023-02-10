@@ -5,14 +5,16 @@ import { extractErrorMsg } from "./utils";
 import { Order } from "@d8x/perpetuals-sdk";
 import { TraderInterface, PoolState, PerpetualState } from "@d8x/perpetuals-sdk";
 import BrokerIntegration from "./brokerIntegration";
+import Observable from "./observable";
 
-export default class SDKInterface {
+export default class SDKInterface extends Observable {
   private apiInterface: TraderInterface | undefined = undefined;
   private redisClient: ReturnType<typeof createClient>;
   private broker: BrokerIntegration;
-  TIMEOUTSEC = 120;
+  TIMEOUTSEC = 60;
 
   constructor(broker: BrokerIntegration) {
+    super();
     dotenv.config();
     let redisUrl: string | undefined = process.env.REDIS_URL;
     if (redisUrl == undefined || redisUrl == "") {
@@ -43,6 +45,7 @@ export default class SDKInterface {
     let xchInfo = await this.apiInterface!.exchangeInfo();
     let info = JSON.stringify(xchInfo);
     await this.redisClient.hSet("exchangeInfo", ["ts:response", Date.now(), "content", info]);
+    this.notifyObservers("exchangeInfo");
     return info;
   }
 

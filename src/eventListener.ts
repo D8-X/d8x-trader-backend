@@ -8,7 +8,11 @@ import {
   ABK64x64ToFloat,
   mul64x64,
   ONE_64x64,
+  ExchangeInfo,
+  PerpetualState,
+  PoolState,
 } from "@d8x/perpetuals-sdk";
+import Observer from "./observer";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
 
 /**
@@ -35,7 +39,7 @@ import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
 //      onUpdateMarginAccount
 //      onPerpetualLimitOrderCancelled
 //      onTrade
-export default class EventListener {
+export default class EventListener extends Observer {
   traderInterface: TraderInterface;
   fundingRate: Map<number, number>; // perpetualId -> funding rate
   openInterest: Map<number, number>; // perpetualId -> openInterest
@@ -46,6 +50,7 @@ export default class EventListener {
   clients: Map<WebSocket.WebSocket, Array<{ perpetualId: number; symbol: string; traderAddr: string }>>;
 
   constructor(network: string = "testnet") {
+    super();
     this.fundingRate = new Map<number, number>();
     this.openInterest = new Map<number, number>();
     const sdkConfig = PerpetualDataHandler.readSDKConfig(network);
@@ -111,6 +116,29 @@ export default class EventListener {
       }
     }
     this.clients.delete(ws);
+  }
+
+  /**
+   * Handles updates from sdk interface
+   * @param msg from obserable
+   */
+  public async update(msg: String) {
+    // we receive a message from the observable sdk
+    // on update exchange info; we update price info and inform subscribers
+    console.log("received update from sdkInterface");
+    let info: ExchangeInfo = await this.traderInterface.exchangeInfo();
+    // update fundingRate: Map<number, number>; // perpetualId -> funding rate
+    //        openInterest: Map<number, number>; // perpetualId -> openInterest
+    let pools = info.pools;
+    for (let k = 0; k < pools.length; k++) {
+      let pool = pools[k];
+      for (let j = 0; j < pool.perpetuals.length; j++) {
+        let perp: PerpetualState = pool.perpetuals[j];
+        this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
+        this.openInterest.set(perp.id, perp.openInterestBC);
+        this._updateMarkPrice(perp.id, perp.midPrice, perp.markPrice, perp.indexPrice);
+      }
+    }
   }
 
   /**
@@ -303,6 +331,10 @@ export default class EventListener {
       fMarkPricePremium,
       fSpotIndexPrice
     );
+    this._updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, newIndexPrice);
+  }
+
+  private _updateMarkPrice(perpetualId: number, newMidPrice: number, newMarkPrice: number, newIndexPrice: number) {
     let fundingRate = this.fundingRate.get(perpetualId);
     if (fundingRate == undefined) {
       fundingRate = 0;
