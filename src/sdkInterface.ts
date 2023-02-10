@@ -1,4 +1,4 @@
-import { PerpetualDataHandler } from "@d8x/perpetuals-sdk";
+import { ExchangeInfo, PerpetualDataHandler } from "@d8x/perpetuals-sdk";
 import { createClient } from "redis";
 import dotenv from "dotenv";
 import { extractErrorMsg } from "./utils";
@@ -6,6 +6,8 @@ import { Order } from "@d8x/perpetuals-sdk";
 import { TraderInterface, PoolState, PerpetualState } from "@d8x/perpetuals-sdk";
 import BrokerIntegration from "./brokerIntegration";
 import Observable from "./observable";
+
+type PerpetualStateKey = keyof PerpetualState;
 
 export default class SDKInterface extends Observable {
   private apiInterface: TraderInterface | undefined = undefined;
@@ -69,6 +71,47 @@ export default class SDKInterface extends Observable {
     return info;
   }
 
+  public async updateExchangeInfoNumbersOfPerpetual(symbol: string, values: number[], propertyNames: string[]) {
+    let obj = await this.redisClient.hGetAll("exchangeInfo");
+    let info = <ExchangeInfo>JSON.parse(obj["content"]);
+    let [k, j] = SDKInterface.findPoolAndPerpIdx(symbol, info);
+    let perpState: PerpetualState = info.pools[k].perpetuals[j];
+    for (let m = 0; m < values.length; m++) {
+      switch (propertyNames[m]) {
+        case "indexPrice":
+          perpState.indexPrice = values[m];
+          break;
+        case "markPrice":
+          perpState.markPrice = values[m];
+          break;
+        case "currentFundingRateBps":
+          if (values[m] != 0) {
+            perpState.currentFundingRateBps = values[m];
+          }
+          break;
+        case "midPrice":
+          perpState.midPrice = values[m];
+          break;
+        case "openInterestBC":
+          if (values[m] != 0) {
+            perpState.openInterestBC = values[m];
+          }
+          break;
+        case "maxPositionBC":
+          perpState.maxPositionBC = values[m];
+          break;
+        default:
+          throw new Error(`unknown property name ${propertyNames[m]}`);
+      }
+    }
+    // store back to redis: we don't update the timestamp "ts:query", so that
+    // all information will still be pulled at some time
+    let infoStr = JSON.stringify(info);
+    await this.redisClient.hSet("exchangeInfo", ["ts:response", Date.now(), "content", infoStr]);
+    // we do not notify the observers since this function is called as a result of eventListener changes and
+    // eventListeners are observers
+  }
+
   public static findPoolIdx(poolSymbol: string, pools: PoolState[]): number {
     let k = 0;
     while (k < pools.length) {
@@ -93,12 +136,7 @@ export default class SDKInterface extends Observable {
     return -1;
   }
 
-  /**
-   * Get the PerpetualState from exchange info
-   * @param symbol perpetual symbol (e.g., BTC-USD-MATIC)
-   */
-  public async extractPerpetualStateFromExchangeInfo(symbol: string): Promise<PerpetualState> {
-    let info = JSON.parse(await this.exchangeInfo());
+  public static findPoolAndPerpIdx(symbol: string, info: ExchangeInfo): [number, number] {
     let pools = <PoolState[]>info.pools;
     let symbols = symbol.split("-");
     let k = SDKInterface.findPoolIdx(symbols[2], pools);
@@ -109,7 +147,17 @@ export default class SDKInterface extends Observable {
     if (j == -1) {
       throw new Error(`No perpetual found with symbol ${symbol}`);
     }
-    let perpState: PerpetualState = pools[k].perpetuals[j];
+    return [k, j];
+  }
+
+  /**
+   * Get the PerpetualState from exchange info
+   * @param symbol perpetual symbol (e.g., BTC-USD-MATIC)
+   */
+  public async extractPerpetualStateFromExchangeInfo(symbol: string): Promise<PerpetualState> {
+    let info = JSON.parse(await this.exchangeInfo());
+    let [k, j] = SDKInterface.findPoolAndPerpIdx(symbol, info);
+    let perpState: PerpetualState = info.pools[k].perpetuals[j];
     return perpState;
   }
 
