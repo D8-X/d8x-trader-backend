@@ -4,6 +4,5 @@ import NoBroker from "./noBroker";
 async function start() {
   let d8XBackend = new D8XBrokerBackendApp(new NoBroker());
   await d8XBackend.initialize();
-  //d8XBackend.express;
 }
 start();
