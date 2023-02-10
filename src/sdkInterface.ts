@@ -3,7 +3,7 @@ import { createClient } from "redis";
 import dotenv from "dotenv";
 import { extractErrorMsg } from "./utils";
 import { Order } from "@d8x/perpetuals-sdk";
-import { TraderInterface } from "@d8x/perpetuals-sdk";
+import { TraderInterface, PoolState, PerpetualState } from "@d8x/perpetuals-sdk";
 import BrokerIntegration from "./brokerIntegration";
 
 export default class SDKInterface {
@@ -64,6 +64,50 @@ export default class SDKInterface {
       info = obj["content"];
     }
     return info;
+  }
+
+  public static findPoolIdx(poolSymbol: string, pools: PoolState[]): number {
+    let k = 0;
+    while (k < pools.length) {
+      if (pools[k].poolSymbol == poolSymbol) {
+        // pool found
+        return k;
+      }
+      k++;
+    }
+    return -1;
+  }
+
+  public static findPerpetualInPool(base: string, quote: string, perpetuals: PerpetualState[]): number {
+    let k = 0;
+    while (k < perpetuals.length) {
+      if (perpetuals[k].baseCurrency == base && perpetuals[k].quoteCurrency == quote) {
+        // perpetual found
+        return k;
+      }
+      k++;
+    }
+    return -1;
+  }
+
+  /**
+   * Get the PerpetualState from exchange info
+   * @param symbol perpetual symbol (e.g., BTC-USD-MATIC)
+   */
+  public async extractPerpetualStateFromExchangeInfo(symbol: string): Promise<PerpetualState> {
+    let info = JSON.parse(await this.exchangeInfo());
+    let pools = <PoolState[]>info.pools;
+    let symbols = symbol.split("-");
+    let k = SDKInterface.findPoolIdx(symbols[2], pools);
+    if (k == -1) {
+      throw new Error(`No pool found with symbol ${symbols[2]}`);
+    }
+    let j = SDKInterface.findPerpetualInPool(symbols[0], symbols[1], pools[k].perpetuals);
+    if (j == -1) {
+      throw new Error(`No perpetual found with symbol ${symbol}`);
+    }
+    let perpState: PerpetualState = pools[k].perpetuals[j];
+    return perpState;
   }
 
   public async getPerpetualPriceOfType(symbol: string, priceType: string): Promise<string> {

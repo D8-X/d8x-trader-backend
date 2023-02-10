@@ -5,7 +5,7 @@ import swaggerUi from "swagger-ui-express";
 import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
 import { extractErrorMsg } from "./utils";
-import { Order } from "@d8x/perpetuals-sdk";
+import { Order, PerpetualState } from "@d8x/perpetuals-sdk";
 import EventListener from "./eventListener";
 import NoBroker from "./noBroker";
 import BrokerIntegration from "./brokerIntegration";
@@ -63,17 +63,19 @@ export default class D8XBrokerBackendApp {
 
   private initWebSocket() {
     let eventListener = this.eventListener;
+    let sdk = this.sdk;
     this.wss.on("connection", function connection(ws: WebSocket.WebSocket) {
       ws.on("error", console.error);
-      ws.on("message", (data: WebSocket.RawData) => {
+      ws.on("message", async (data: WebSocket.RawData) => {
         try {
           let obj = JSON.parse(data.toString());
           console.log("received: ", obj);
           if (typeof obj.traderAddr != "string" || typeof obj.symbol != "string") {
             throw new Error("wrong arguments. Requires traderAddr and symbol");
           } else {
+            let perpState: PerpetualState = await sdk.extractPerpetualStateFromExchangeInfo(obj.symbol);
             eventListener.subscribe(ws, obj.symbol, obj.traderAddr);
-            ws.send(D8XBrokerBackendApp.JSONResponse("connect", "success", {}));
+            ws.send(D8XBrokerBackendApp.JSONResponse("subscription", "success", perpState));
           }
         } catch (err: any) {
           const usage = "{symbol: BTC-USD-MATIC, traderAddr: 0xCAFE...}";
