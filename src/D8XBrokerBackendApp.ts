@@ -49,8 +49,7 @@ export default class D8XBrokerBackendApp {
 
   public async initialize() {
     await this.sdk.initialize();
-    await this.eventListener.initialize();
-    this.sdk.registerObserver(this.eventListener);
+    await this.eventListener.initialize(this.sdk);
     this.initWebSocket();
     this.routes();
   }

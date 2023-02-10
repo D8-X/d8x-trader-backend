@@ -27,6 +27,7 @@ interface WSMsg {
  */
 interface PriceUpdate {
   perpetualId: number;
+  symbol: string;
   midPrice: number;
   markPrice: number;
   indexPrice: number;
@@ -41,6 +42,7 @@ interface PriceUpdate {
  */
 interface LimitOrderCreated {
   perpetualId: number;
+  symbol: string;
   traderAddr: string;
   brokerAddr: string;
   orderId: string;
@@ -52,6 +54,7 @@ interface LimitOrderCreated {
  */
 interface Trade {
   perpetualId: number;
+  symbol: string;
   traderAddr: string;
   // each position has a unique id
   positionId: string;
@@ -67,6 +70,7 @@ interface Trade {
 // see issue #75
 interface PerpetualLimitOrderCancelled {
   perpetualId: number;
+  symbol: string;
   traderAddr: string;
   orderId: string;
 }
@@ -77,6 +81,7 @@ interface PerpetualLimitOrderCancelled {
  */
 interface ExecutionFailed {
   perpetualId: number;
+  symbol: string;
   traderAddr: string;
   orderId: string;
   reason: string;
@@ -90,6 +95,7 @@ interface ExecutionFailed {
  */
 interface UpdateMarginAccount {
   perpetualId: number;
+  symbol: string;
   traderAddr: string;
   // id of position
   positionId: string;

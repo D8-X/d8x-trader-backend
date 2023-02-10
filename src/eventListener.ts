@@ -14,6 +14,7 @@ import {
 } from "@d8x/perpetuals-sdk";
 import Observer from "./observer";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
+import SDKInterface from "./sdkInterface";
 
 /**
  * Class that listens to blockchain events on
@@ -41,6 +42,7 @@ import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
 //      onTrade
 export default class EventListener extends Observer {
   traderInterface: TraderInterface;
+  sdkInterface: SDKInterface | undefined;
   fundingRate: Map<number, number>; // perpetualId -> funding rate
   openInterest: Map<number, number>; // perpetualId -> openInterest
 
@@ -59,16 +61,39 @@ export default class EventListener extends Observer {
     this.clients = new Map<WebSocket.WebSocket, Array<{ perpetualId: number; symbol: string; traderAddr: string }>>();
   }
 
-  public async initialize() {
+  public async initialize(sdkInterface: SDKInterface) {
     await this.traderInterface.createProxyInstance();
+    this.sdkInterface = sdkInterface;
+    sdkInterface.registerObserver(this);
     this.addProxyEventHandlers();
   }
 
-  public subscribe(ws: WebSocket.WebSocket, perpetualsSymbol: string, traderAddr: string) {
+  private symbolFromPerpetualId(perpetualId: number): string {
+    let symbol = this.traderInterface.getSymbolFromPerpId(perpetualId);
+    return symbol || "";
+  }
+
+  /**
+   *
+   * @param ws websocket client
+   * @param perpetualsSymbol symbol of the form BTC-USD-MATIC
+   * @param traderAddr address of the trader
+   * @returns true if newly subscribed
+   */
+  public subscribe(ws: WebSocket.WebSocket, perpetualsSymbol: string, traderAddr: string): boolean {
     console.log("subscribe");
     let id = this.traderInterface.getPerpIdFromSymbol(perpetualsSymbol);
     if (this.clients.get(ws) == undefined) {
       this.clients.set(ws, new Array<{ perpetualId: number; symbol: string; traderAddr: string }>());
+    }
+    let perpArray: Array<{ perpetualId: number; symbol: string; traderAddr: string }> = this.clients.get(ws) || [];
+    // check that not already subscribed
+    for (let k = 0; k < perpArray?.length; k++) {
+      if (perpArray[k].perpetualId == id && perpArray[k].traderAddr == traderAddr) {
+        // already subscribed
+        console.log(`client tried to subscribe again for perpetual ${id} and trader ${traderAddr}`);
+        return false;
+      }
     }
     this.clients.get(ws)?.push({ perpetualId: id, symbol: perpetualsSymbol, traderAddr: traderAddr });
     console.log(`new client: ws:${ws} ${traderAddr}`);
@@ -85,6 +110,7 @@ export default class EventListener extends Observer {
     }
     traderSubscribers!.push(ws);
     console.log(`subscribed to perp ${perpetualsSymbol} with id ${id}`);
+    return true;
   }
 
   public unsubscribe(ws: WebSocket.WebSocket) {
@@ -298,7 +324,9 @@ export default class EventListener extends Observer {
   ): Promise<void> {
     this.openInterest.set(perpetualId, ABK64x64ToFloat(fOpenInterestBC));
     // send data to subscriber
+    let symbol = this.symbolFromPerpetualId(perpetualId);
     let obj: UpdateMarginAccount = {
+      symbol: symbol,
       perpetualId: perpetualId,
       traderAddr: trader,
       positionId: positionId,
@@ -331,19 +359,40 @@ export default class EventListener extends Observer {
       fMarkPricePremium,
       fSpotIndexPrice
     );
+    console.log("eventListener: onUpdateMarkPrice");
+    // notify websocket listeners
     this._updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, newIndexPrice);
+    // update data in sdkInterface's exchangeInfo
+    let fundingRate = this.fundingRate.get(perpetualId) || 0;
+    let oi = this.openInterest.get(perpetualId) || 0;
+    let symbol = this.symbolFromPerpetualId(perpetualId);
+
+    if (this.sdkInterface != undefined && symbol != undefined) {
+      this.sdkInterface.updateExchangeInfoNumbersOfPerpetual(
+        symbol,
+        [newMidPrice, newMarkPrice, newIndexPrice, oi, fundingRate * 1e4],
+        ["midPrice", "markPrice", "indexPrice", "openInterestBC", "currentFundingRateBps"]
+      );
+    } else {
+      const errStr = `onUpdateMarkPrice: no perpetual found for id ${perpetualId} ${symbol} or no sdkInterface available`;
+      throw new Error(errStr);
+    }
   }
 
+  /**
+   * Internal function to update prices. Called either by blockchain event handler (onUpdateMarkPrice),
+   * or on update of the observable sdkInterface (after exchangeInfo update)
+   * @param perpetualId id of the perpetual for which prices are being updated
+   * @param newMidPrice mid price in decimals
+   * @param newMarkPrice mark price
+   * @param newIndexPrice index price
+   */
   private _updateMarkPrice(perpetualId: number, newMidPrice: number, newMarkPrice: number, newIndexPrice: number) {
-    let fundingRate = this.fundingRate.get(perpetualId);
-    if (fundingRate == undefined) {
-      fundingRate = 0;
-    }
-    let oi = this.openInterest.get(perpetualId);
-    if (oi == undefined) {
-      oi = 0;
-    }
+    let fundingRate = this.fundingRate.get(perpetualId) || 0;
+    let oi = this.openInterest.get(perpetualId) || 0;
+    let symbol = this.symbolFromPerpetualId(perpetualId);
     let obj: PriceUpdate = {
+      symbol: symbol,
       perpetualId: perpetualId,
       midPrice: newMidPrice,
       markPrice: newMarkPrice,
@@ -358,7 +407,6 @@ export default class EventListener extends Observer {
   }
 
   /**
-   *
    * @param perpetualId perpetual id
    * @param trader trader address
    * @param positionId position id
@@ -376,8 +424,10 @@ export default class EventListener extends Observer {
     newPositionSizeBC: BigNumber,
     price: BigNumber
   ) {
+    let symbol = this.symbolFromPerpetualId(perpetualId);
     // return transformed trade info
     let data: Trade = {
+      symbol: symbol,
       perpetualId: perpetualId,
       traderAddr: trader,
       positionId: positionId,
@@ -417,7 +467,9 @@ export default class EventListener extends Observer {
   ): void {
     console.log("onPerpetualLimitOrderCreated");
     // send to subscriber who sent the order
+    let symbol = this.symbolFromPerpetualId(perpetualId);
     let obj: LimitOrderCreated = {
+      symbol: symbol,
       perpetualId: perpetualId,
       traderAddr: trader,
       brokerAddr: brokerAddr,
@@ -456,7 +508,9 @@ export default class EventListener extends Observer {
    */
   private onExecutionFailed(perpetualId: number, trader: string, digest: string, reason: string) {
     console.log("onExecutionFailed:", reason);
+    let symbol = this.symbolFromPerpetualId(perpetualId);
     let obj: ExecutionFailed = {
+      symbol: symbol,
       perpetualId: perpetualId,
       traderAddr: trader,
       orderId: digest,
