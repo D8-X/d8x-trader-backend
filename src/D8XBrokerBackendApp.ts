@@ -5,7 +5,7 @@ import swaggerUi from "swagger-ui-express";
 import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
 import { extractErrorMsg } from "./utils";
-import { Order, PerpetualState } from "@d8x/perpetuals-sdk";
+import { Order, PerpetualState, NodeSDKConfig } from "@d8x/perpetuals-sdk";
 import EventListener from "./eventListener";
 import NoBroker from "./noBroker";
 import BrokerIntegration from "./brokerIntegration";
@@ -20,12 +20,13 @@ export default class D8XBrokerBackendApp {
   private swaggerData;
   private swaggerDocument;
   private sdk: SDKInterface;
+  private sdkConfig: NodeSDKConfig;
   private port: number;
   private portWS: number;
   private wss: WebSocketServer;
   private eventListener: EventListener;
 
-  constructor(broker: BrokerIntegration) {
+  constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig) {
     this.express = express();
 
     this.swaggerData = fs.readFileSync("./src/swagger.json", "utf-8");
@@ -40,7 +41,8 @@ export default class D8XBrokerBackendApp {
     this.portWS = Number(process.env.PORT_WEBSOCKET);
     this.wss = new WebSocketServer({ port: this.portWS });
     this.swaggerDocument.servers[0].url += ":" + process.env.PORT;
-    this.eventListener = new EventListener("testnet");
+    this.sdkConfig = sdkConfig;
+    this.eventListener = new EventListener(sdkConfig);
     console.log("url=", this.swaggerDocument.servers[0].url);
     this.sdk = new SDKInterface(broker);
     dotenv.config();
@@ -48,10 +50,22 @@ export default class D8XBrokerBackendApp {
   }
 
   public async initialize() {
-    await this.sdk.initialize();
+    await this.sdk.initialize(this.sdkConfig);
     await this.eventListener.initialize(this.sdk);
     this.initWebSocket();
     this.routes();
+  }
+
+  public async checkEventListenerHeartbeat(timeSeconds: number, sdkConfig: NodeSDKConfig) {
+    if (this.eventListener.timeMsSinceLastBlockchainEvent() / 1000 > timeSeconds) {
+      // no event since timeSeconds, restart listener
+      console.log("Restarting event listener");
+      if (sdkConfig == undefined) {
+        sdkConfig = this.sdkConfig;
+      }
+      this.eventListener = new EventListener(sdkConfig);
+      await this.eventListener.initialize(this.sdk);
+    }
   }
 
   public static JSONResponse(type: string, msg: string, dataObj: object | string): string {

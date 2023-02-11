@@ -11,6 +11,7 @@ import {
   ExchangeInfo,
   PerpetualState,
   PoolState,
+  NodeSDKConfig,
 } from "@d8x/perpetuals-sdk";
 import Observer from "./observer";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
@@ -45,17 +46,18 @@ export default class EventListener extends Observer {
   sdkInterface: SDKInterface | undefined;
   fundingRate: Map<number, number>; // perpetualId -> funding rate
   openInterest: Map<number, number>; // perpetualId -> openInterest
+  lastBlockChainEventTs: number; //here we log the event occurence time to guess whether the connection is alive
 
   // subscription for perpetualId and trader address. Multiple websocket-clients can subscribe
   // (hence array of websockets)
   subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>; // perpetualId -> traderAddr -> ws[]
   clients: Map<WebSocket.WebSocket, Array<{ perpetualId: number; symbol: string; traderAddr: string }>>;
 
-  constructor(network: string = "testnet") {
+  constructor(sdkConfig: NodeSDKConfig) {
     super();
+    this.lastBlockChainEventTs = Date.now();
     this.fundingRate = new Map<number, number>();
     this.openInterest = new Map<number, number>();
-    const sdkConfig = PerpetualDataHandler.readSDKConfig(network);
     this.traderInterface = new TraderInterface(sdkConfig);
     this.subscriptions = new Map<number, Map<string, WebSocket.WebSocket[]>>();
     this.clients = new Map<WebSocket.WebSocket, Array<{ perpetualId: number; symbol: string; traderAddr: string }>>();
@@ -66,6 +68,16 @@ export default class EventListener extends Observer {
     this.sdkInterface = sdkInterface;
     sdkInterface.registerObserver(this);
     this.addProxyEventHandlers();
+    this.lastBlockChainEventTs = Date.now();
+  }
+
+  /**
+   * Time elapsed since last event was received.
+   * Can be used to check "alive" status
+   * @returns milliseconds since last event
+   */
+  public timeMsSinceLastBlockchainEvent(): number {
+    return Date.now() - this.lastBlockChainEventTs;
   }
 
   private symbolFromPerpetualId(perpetualId: number): string {
@@ -296,6 +308,7 @@ export default class EventListener extends Observer {
    * @param fFundingRate
    */
   private onUpdateFundingRate(perpetualId: number, fFundingRate: BigNumber) {
+    this.lastBlockChainEventTs = Date.now();
     let rate = ABK64x64ToFloat(fFundingRate);
     this.fundingRate.set(perpetualId, rate);
   }
@@ -322,6 +335,7 @@ export default class EventListener extends Observer {
     fFundingPaymentCC: BigNumber,
     fOpenInterestBC: BigNumber
   ): Promise<void> {
+    this.lastBlockChainEventTs = Date.now();
     this.openInterest.set(perpetualId, ABK64x64ToFloat(fOpenInterestBC));
     // send data to subscriber
     let symbol = this.symbolFromPerpetualId(perpetualId);
@@ -354,6 +368,7 @@ export default class EventListener extends Observer {
     fMarkPricePremium: BigNumber,
     fSpotIndexPrice: BigNumber
   ): void {
+    this.lastBlockChainEventTs = Date.now();
     let [newMidPrice, newMarkPrice, newIndexPrice] = EventListener.ConvertUpdateMarkPrice(
       fMidPricePremium,
       fMarkPricePremium,
@@ -424,6 +439,7 @@ export default class EventListener extends Observer {
     newPositionSizeBC: BigNumber,
     price: BigNumber
   ) {
+    this.lastBlockChainEventTs = Date.now();
     let symbol = this.symbolFromPerpetualId(perpetualId);
     // return transformed trade info
     let data: Trade = {
@@ -465,6 +481,7 @@ export default class EventListener extends Observer {
     Order: SmartContractOrder,
     digest: string
   ): void {
+    this.lastBlockChainEventTs = Date.now();
     console.log("onPerpetualLimitOrderCreated");
     // send to subscriber who sent the order
     let symbol = this.symbolFromPerpetualId(perpetualId);
@@ -487,6 +504,7 @@ export default class EventListener extends Observer {
    * @param orderId string order id/digest
    */
   public onPerpetualLimitOrderCancelled(orderId: string) {
+    this.lastBlockChainEventTs = Date.now();
     console.log("onPerpetualLimitOrderCancelled");
     //let wsMsg: WSMsg = { name: "PerpetualLimitOrderCancelled", obj: { orderId: orderId } };
     //let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onPerpetualLimitOrderCreated", "", wsMsg);
@@ -507,6 +525,7 @@ export default class EventListener extends Observer {
    * @param reason reason why the execution failed
    */
   private onExecutionFailed(perpetualId: number, trader: string, digest: string, reason: string) {
+    this.lastBlockChainEventTs = Date.now();
     console.log("onExecutionFailed:", reason);
     let symbol = this.symbolFromPerpetualId(perpetualId);
     let obj: ExecutionFailed = {

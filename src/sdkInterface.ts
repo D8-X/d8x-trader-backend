@@ -1,4 +1,4 @@
-import { ExchangeInfo, PerpetualDataHandler } from "@d8x/perpetuals-sdk";
+import { ExchangeInfo, NodeSDKConfig, PerpetualDataHandler } from "@d8x/perpetuals-sdk";
 import { createClient } from "redis";
 import dotenv from "dotenv";
 import { extractErrorMsg } from "./utils";
@@ -28,8 +28,7 @@ export default class SDKInterface extends Observable {
     this.broker = broker;
   }
 
-  public async initialize(network = "testnet") {
-    const sdkConfig = PerpetualDataHandler.readSDKConfig(network);
+  public async initialize(sdkConfig: NodeSDKConfig) {
     await this.initRedis();
     this.apiInterface = new TraderInterface(sdkConfig);
     await this.apiInterface.createProxyInstance();
