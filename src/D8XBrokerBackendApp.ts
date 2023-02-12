@@ -89,7 +89,7 @@ export default class D8XBrokerBackendApp {
           } else {
             let perpState: PerpetualState = await sdk.extractPerpetualStateFromExchangeInfo(obj.symbol);
             eventListener.subscribe(ws, obj.symbol, obj.traderAddr);
-            ws.send(D8XBrokerBackendApp.JSONResponse("subscription", "success", perpState));
+            ws.send(D8XBrokerBackendApp.JSONResponse("subscription", obj.symbol, perpState));
           }
         } catch (err: any) {
           const usage = "{symbol: BTC-USD-MATIC, traderAddr: 0xCAFE...}";
