@@ -77,7 +77,7 @@ response:
 ```
 { type: "subscription",
   msg: <BTC-USD-MATIC>,
-  data: {"perpState": <perpState>}
+  data: {<perpState>}
 }
 
 ```
