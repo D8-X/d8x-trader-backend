@@ -4,18 +4,11 @@ import NoBroker from "./noBroker";
 import { PerpetualDataHandler, NodeSDKConfig } from "@d8x/perpetuals-sdk";
 
 async function start() {
-  while (true) {
-    try {
-      let rpc = JSON.parse(fs.readFileSync("./src/rpc.json", "utf-8"));
-      const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig("testnet");
-      sdkConfig.nodeURL = rpc.RPC[Math.floor(Math.random() * rpc.RPC.length)];
-      console.log(`RPC = ${sdkConfig.nodeURL}`);
-      let d8XBackend = new D8XBrokerBackendApp(new NoBroker(), sdkConfig);
-      await d8XBackend.initialize();
-    } catch (err: any) {
-      console.log("Error in D8XBrokerBackendApp", err);
-      console.log("Restarting with new RPC");
-    }
-  }
+  let rpc = JSON.parse(fs.readFileSync("./src/rpc.json", "utf-8"));
+  const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig("testnet");
+  sdkConfig.nodeURL = rpc.RPC[Math.floor(Math.random() * rpc.RPC.length)];
+  console.log(`RPC = ${sdkConfig.nodeURL}`);
+  let d8XBackend = new D8XBrokerBackendApp(new NoBroker(), sdkConfig);
+  await d8XBackend.initialize();
 }
 start();

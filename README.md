@@ -72,6 +72,16 @@ interface SubscriptionInterface {
 }
 ```
 
+response:
+
+```
+{ type: "subscription",
+  msg: <BTC-USD-MATIC>,
+  data: {"perpState": <perpState>}
+}
+
+```
+
 - all messages received are defined in [src/wsTypes](/src/wsTypes) and listed below
 - the general format of the messages is
 
