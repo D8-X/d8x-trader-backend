@@ -2,7 +2,7 @@ name: K8s AWS Stage Deployment
 
 on:
   push:
-    branches: [release]  
+    branches: [release/**]  
 
 
 jobs:
