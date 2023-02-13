@@ -13,11 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          ref: 'origin/dev'
 
       - name: Create release branch
-        run: git checkout -b release/${{ github.event.inputs.version }}
+        run: git checkout -b release/${{ github.event.inputs.version }} origin/dev
 
       - name: Update changelog
         uses: thomaseizinger/keep-a-changelog-new-release@1.1.0
