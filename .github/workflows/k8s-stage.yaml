@@ -46,7 +46,7 @@ jobs:
 
   deploy:
 
-    needs: Version
+    needs: build
     name: Deploy app to Kubernetes
     runs-on: ubuntu-latest
     steps:

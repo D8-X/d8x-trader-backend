@@ -20,9 +20,9 @@ jobs:
           git checkout -b release/${{ github.event.inputs.version }} origin/dev
 
       - name: Update changelog
-        uses: thomaseizinger/keep-a-changelog-new-release@1.1.0
+        uses: thomaseizinger/keep-a-changelog-new-release@1.3.0
         with:
-          version: ${{ github.event.inputs.version }}
+          tag: ${{ github.event.inputs.version }}
 
       # In order to make a commit, we need to initialize a user.
       # You may choose to write something less generic here if you want, it doesn't matter functionality wise.
