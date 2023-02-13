@@ -16,7 +16,7 @@ jobs:
 
       - name: Create release branch
         run: |
-          git fetch origin/dev
+          git fetch origin dev
           git checkout -b release/${{ github.event.inputs.version }} origin/dev
 
       - name: Update changelog
