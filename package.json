@@ -20,5 +20,6 @@
   "scripts": {
     "build": "npx tsc",
     "start": "node dist/src/index.js"
-  }
+  },
+  "version": "v0.1.0"
 }
