@@ -1,15 +1,16 @@
 name: K8s AWS Stage Deployment
 
 on:
-  push:
-    branches: ['release/**'] 
+  pull_request:
+    branches: [main]
+    types: [closed]
 
 
 jobs:
   
   
   build:
-    
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')
     name: Build Image
     runs-on: ubuntu-latest
 
@@ -19,7 +20,7 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v3
       with:
-        ref: 'origin/release/**'
+        ref: 'refs/tags/release/**'
     # render variables that exist on the secrets of the repository
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -36,7 +37,7 @@ jobs:
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: frontend
-        IMAGE_TAG: d8x-trader-${{ github.sha }}
+        IMAGE_TAG: d8x-trader-stage-${{ github.sha }}
         PORT_WEBSOCKET: 8080
         PORT: 3001
         REDIS_URL: redis://:${{ secrets.REDIS_STAGE }}@redis-master.redis.svc.cluster.local:6379/0
@@ -46,6 +47,7 @@ jobs:
 
   deploy:
 
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')
     needs: build
     name: Deploy app to Kubernetes
     runs-on: ubuntu-latest
@@ -72,7 +74,7 @@ jobs:
           input: ./charts/backend/d8x-trader/versions.tpl
           output: ./charts/backend/d8x-trader/versions-stage.yaml
         env:
-          IMAGE_VERSION: d8x-trader-${{ github.sha }}
+          IMAGE_VERSION: d8x-trader-stage-${{ github.sha }}
           RELEASE_VERSION: ${{ env.TAG_VERSION }}
 
       - name: Push 
@@ -80,5 +82,5 @@ jobs:
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add .
-          git commit -m "Image version dev ${{ github.sha }}"
+          git commit -m "Image version stage ${{ github.sha }}"
           git push
