@@ -40,7 +40,7 @@ jobs:
         PORT: 3001
         REDIS_URL: redis://:${{ secrets.REDIS_DEV }}@redis-master.redis-dev.svc.cluster.local:6379/0
       run: |
-        docker build -f Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG --build-arg REACT_APP_API_URL=$REACT_APP_API_URL --build-arg REACT_APP_WEBSOCKET_URL=$REACT_APP_WEBSOCKET_URL .
+        docker build -f Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG --build-arg PORT_WEBSOCKET=$PORT_WEBSOCKET --build-arg PORT=$PORT  --build-arg REDIS_URL=$REDIS_URL .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
 
