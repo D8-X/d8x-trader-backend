@@ -168,3 +168,6 @@ interface UpdateMarginAccount {
   fundingPaymentCC: number;
 }
 ```
+# GitFlow
+
+check the git flow in the GitFlow.md 
