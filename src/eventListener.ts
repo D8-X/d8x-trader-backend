@@ -1,21 +1,20 @@
-import { ethers } from "ethers";
+import {
+  ABK64x64ToFloat,
+  ExchangeInfo,
+  mul64x64,
+  NodeSDKConfig,
+  ONE_64x64,
+  PerpetualState,
+  SmartContractOrder,
+  TraderInterface,
+} from "@d8x/perpetuals-sdk";
 import { BigNumber } from "ethers";
 import WebSocket from "ws";
-import {
-  TraderInterface,
-  PerpetualDataHandler,
-  SmartContractOrder,
-  ABK64x64ToFloat,
-  mul64x64,
-  ONE_64x64,
-  ExchangeInfo,
-  PerpetualState,
-  PoolState,
-  NodeSDKConfig,
-} from "@d8x/perpetuals-sdk";
-import Observer from "./observer";
+
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
+import Observer from "./observer";
 import SDKInterface from "./sdkInterface";
+import { ExecutionFailed, LimitOrderCreated, PriceUpdate, Trade, UpdateMarginAccount, WSMsg } from "./wsTypes";
 
 /**
  * Class that listens to blockchain events on

@@ -283,10 +283,10 @@ export default class D8XBrokerBackendApp {
     });
 
     this.express.get("/perpetualStaticInfo", async (req: Request, res: Response) => {
-      if (typeof req.query.symbol != "string") {
-        throw new Error("wrong argument. Requires a symbol.");
-      }
       try {
+        if (typeof req.query.symbol != "string") {
+          throw new Error("wrong argument. Requires a symbol.");
+        }
         let rsp = this.sdk.perpetualStaticInfo(req.query.symbol);
         res.send(D8XBrokerBackendApp.JSONResponse("perpetualStaticInfo", "", rsp));
       } catch (err: any) {
