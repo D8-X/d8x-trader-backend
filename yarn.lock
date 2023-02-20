@@ -337,10 +337,10 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@d8x/perpetuals-sdk@^0.0.34":
-  version "0.0.34"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.0.34.tgz#4861a7dedf49eb971b7e5880b0993ff470eb5f41"
-  integrity sha512-MP6YdtWArxzbFNnb8Ogyktd8S29WfTnP7O0ykdbLh8RwsMhp214G6OZ403P8DZGbNb1tiCJrzbW2P/BpfOgEiw==
+"@d8x/perpetuals-sdk@0.0.35":
+  version "0.0.35"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.0.35.tgz#4a51ee87c931a6a6b8411047e6dbc9053b0be081"
+  integrity sha512-KBAKi/gqHiL2lf4TrgNXn1r6Vmh9O8HeKVlPVsrgCIkinEdiTAEg5b+1lQDx6eZVF3jHhuuQ94q0KhYLrYmQlg==
   dependencies:
     "@babel/core" "^7.20.2"
     "@types/jest" "^29.2.3"
