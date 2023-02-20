@@ -1,11 +1,9 @@
-import { ExchangeInfo, NodeSDKConfig, PerpetualDataHandler } from "@d8x/perpetuals-sdk";
-import { createClient } from "redis";
+import { ExchangeInfo, NodeSDKConfig, Order, PerpetualState, PoolState, TraderInterface } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
-import { extractErrorMsg } from "./utils";
-import { Order } from "@d8x/perpetuals-sdk";
-import { TraderInterface, PoolState, PerpetualState } from "@d8x/perpetuals-sdk";
+import { createClient } from "redis";
 import BrokerIntegration from "./brokerIntegration";
 import Observable from "./observable";
+import { extractErrorMsg } from "./utils";
 
 type PerpetualStateKey = keyof PerpetualState;
 
@@ -67,6 +65,12 @@ export default class SDKInterface extends Observable {
       }
       info = obj["content"];
     }
+    return info;
+  }
+
+  public perpetualStaticInfo(symbol: string): string {
+    let staticInfo = this.apiInterface!.getPerpetualStaticInfo(symbol);
+    let info = JSON.stringify(staticInfo);
     return info;
   }
 
