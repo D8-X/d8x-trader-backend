@@ -281,5 +281,17 @@ export default class D8XBrokerBackendApp {
         res.send(D8XBrokerBackendApp.JSONResponse("error", "orderDigest", { error: extractErrorMsg(err), usage: usg }));
       }
     });
+
+    this.express.get("/perpetualStaticInfo", async (req: Request, res: Response) => {
+      if (typeof req.query.symbol != "string") {
+        throw new Error("wrong argument. Requires a symbol.");
+      }
+      try {
+        let rsp = this.sdk.perpetualStaticInfo(req.query.symbol);
+        res.send(D8XBrokerBackendApp.JSONResponse("perpetualStaticInfo", "", rsp));
+      } catch (err: any) {
+        res.send(D8XBrokerBackendApp.JSONResponse("error", "perpetualStaticInfo", { error: extractErrorMsg(err) }));
+      }
+    });
   }
 }
