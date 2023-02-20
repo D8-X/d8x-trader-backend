@@ -4,7 +4,7 @@
  * {"symbol": "BTC-USD-MATIC",
  *  "traderAddress": "0x9d5a..41a05"}
  */
-interface SubscriptionInterface {
+export interface SubscriptionInterface {
   symbol: string;
   traderAddr: string;
 }
@@ -12,7 +12,7 @@ interface SubscriptionInterface {
 /**
  * General response message layout
  */
-interface WSMsg {
+export interface WSMsg {
   name: string;
   obj: Object;
 }
@@ -25,7 +25,7 @@ interface WSMsg {
  * (those can be zero if the data
  * has not been collected yet)
  */
-interface PriceUpdate {
+export interface PriceUpdate {
   perpetualId: number;
   symbol: string;
   midPrice: number;
@@ -40,7 +40,7 @@ interface PriceUpdate {
  * (market/limit/stop/...) this
  * message is issued
  */
-interface LimitOrderCreated {
+export interface LimitOrderCreated {
   perpetualId: number;
   symbol: string;
   traderAddr: string;
@@ -52,7 +52,7 @@ interface LimitOrderCreated {
  * Trade event is sent to all
  * subscribers
  */
-interface Trade {
+export interface Trade {
   perpetualId: number;
   symbol: string;
   traderAddr: string;
@@ -68,7 +68,7 @@ interface Trade {
 
 // not active
 // see issue #75
-interface PerpetualLimitOrderCancelled {
+export interface PerpetualLimitOrderCancelled {
   perpetualId: number;
   symbol: string;
   traderAddr: string;
@@ -79,7 +79,7 @@ interface PerpetualLimitOrderCancelled {
  * This event message is generated on
  * ExecutionFailed
  */
-interface ExecutionFailed {
+export interface ExecutionFailed {
   perpetualId: number;
   symbol: string;
   traderAddr: string;
@@ -93,7 +93,7 @@ interface ExecutionFailed {
  * You may want to call positionRisk
  * after this event was executed
  */
-interface UpdateMarginAccount {
+export interface UpdateMarginAccount {
   perpetualId: number;
   symbol: string;
   traderAddr: string;
