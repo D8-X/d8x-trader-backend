@@ -68,6 +68,12 @@ export default class SDKInterface extends Observable {
     return info;
   }
 
+  public perpetualStaticInfo(symbol: string): string {
+    let staticInfo = this.apiInterface!.getPerpetualStaticInfo(symbol);
+    let info = JSON.stringify(staticInfo);
+    return info;
+  }
+
   public async updateExchangeInfoNumbersOfPerpetual(symbol: string, values: number[], propertyNames: string[]) {
     let obj = await this.redisClient.hGetAll("exchangeInfo");
     let info = <ExchangeInfo>JSON.parse(obj["content"]);
