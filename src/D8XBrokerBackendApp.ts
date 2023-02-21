@@ -314,5 +314,19 @@ export default class D8XBrokerBackendApp {
         res.send(D8XBrokerBackendApp.JSONResponse("error", "perpetualStaticInfo", { error: extractErrorMsg(err) }));
       }
     });
+
+    this.express.post("/positionRiskOnTrade", async (req, res) => {
+      try {
+        let order: Order = <Order>req.body.order;
+        let traderAddr: string = req.body.traderAddr;
+        let rsp = await this.sdk.positionRiskOnTrade(order, traderAddr);
+        res.send(D8XBrokerBackendApp.JSONResponse("positionRiskOnTrade", "", rsp));
+      } catch (err: any) {
+        const usg = "{order: <orderstruct>, traderAddr: string}";
+        res.send(
+          D8XBrokerBackendApp.JSONResponse("error", "positionRiskOnTrade", { error: extractErrorMsg(err), usage: usg })
+        );
+      }
+    });
   }
 }
