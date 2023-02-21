@@ -1,4 +1,14 @@
-import { ExchangeInfo, NodeSDKConfig, Order, PerpetualState, PoolState, TraderInterface } from "@d8x/perpetuals-sdk";
+import {
+  BUY_SIDE,
+  ExchangeInfo,
+  NodeSDKConfig,
+  Order,
+  PerpetualState,
+  PoolState,
+  SELL_SIDE,
+  TraderInterface,
+  MarginAccount,
+} from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
 import { createClient } from "redis";
 import BrokerIntegration from "./brokerIntegration";
@@ -211,6 +221,15 @@ export default class SDKInterface extends Observable {
     this.checkAPIInitialized();
     let res = await this.apiInterface?.positionRisk(addr, symbol);
     return JSON.stringify(res);
+  }
+
+  public async maxOrderSizeForTrader(addr: string, symbol: string) {
+    this.checkAPIInitialized();
+    let perpetualState: PerpetualState = await this.extractPerpetualStateFromExchangeInfo(symbol);
+    let positionRisk: MarginAccount | undefined = await this.apiInterface!.positionRisk(addr, symbol);
+    let sizeBUY = this.apiInterface!.maxOrderSizeForTrader(BUY_SIDE, positionRisk, perpetualState);
+    let sizeSELL = this.apiInterface!.maxOrderSizeForTrader(SELL_SIDE, positionRisk, perpetualState);
+    return JSON.stringify({ buy: sizeBUY, sell: sizeSELL });
   }
 
   public async getCurrentTraderVolume(traderAddr: string, symbol: string): Promise<string> {
