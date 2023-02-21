@@ -281,6 +281,6 @@ export default class SDKInterface extends Observable {
       perpetualState,
       positionRisk
     );
-    return JSON.stringify(res);
+    return JSON.stringify({ newPositionRisk: res });
   }
 }

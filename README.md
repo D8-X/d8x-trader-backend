@@ -27,6 +27,7 @@
 ## All GET endpoints (parameter examples):
 
 - `/exchangeInfo` (no parameters)
+- `/perpetualStaticInfo?symbol=ETH-USD-MATIC`
 - `/getPerpetualMidPrice?symbol=MATIC-USD-MATIC`
 - `/getMarkPrice?symbol=MATIC-USD-MATIC`
 - `/getOraclePrice?symbol=ETH-USD`
@@ -46,12 +47,16 @@ order-book that accepts this order. The trader needs to sign the data 'digest' a
 then the frontend can submit it.
 
 - `/orderDigest`:
-  - parameters `{ order: order, orderId: orderId, traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05 }`, see test/post.test.ts
+  - parameters `{ order: order, traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05 }`, see test/post.test.ts
   - returns `{digest: 'hash which has to be signed', OrderBookAddr: 'address of relevant order book', SCOrder: 'Smart-Contract Order type'}`
   - the trader has to sign the digest, then the frontend must submit the SCOrder:
     `tx = await orderBookContract.postOrder(scOrder, signature)`
   - note that the broker address, signature, and fee, are added to the order in the backend and the returned SCOrder contains this. Optionally this can also work without broker in which case the information is also added.
   - setAllowance has to be performed on the collateral token and the proxy-contract from the frontend
+- `/positionRiskOnTrade`:
+  - parameters `{ order: order, traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05 }`, see test/post.test.ts
+  - returns `{newPositionRisk: 'MarginAccount type'}`
+  - `newPositionRisk` is what the given trader's positionRisk would look like if the given order is executed
 
 Swagger (incomplete): http://localhost:3001/api/docs/
 
@@ -168,6 +173,7 @@ interface UpdateMarginAccount {
   fundingPaymentCC: number;
 }
 ```
+
 # GitFlow
 
-check the git flow in the GitFlow.md 
+check the git flow in the GitFlow.md
