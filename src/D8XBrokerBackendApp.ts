@@ -269,6 +269,27 @@ export default class D8XBrokerBackendApp {
       }
     });
 
+    this.express.get("/maxOrderSizeForTrader", async (req: Request, res: Response) => {
+      let rsp: string;
+      try {
+        let addr: string;
+        let symbol: string;
+        if (typeof req.query.traderAddr != "string" || typeof req.query.symbol != "string") {
+          throw new Error("wrong arguments. Requires traderAddr and symbol");
+        } else {
+          addr = req.query.traderAddr;
+          symbol = req.query.symbol;
+          rsp = await this.sdk.maxOrderSizeForTrader(addr.toString(), symbol.toString());
+          res.send(D8XBrokerBackendApp.JSONResponse("maxOrderSizeForTrader", "", rsp));
+        }
+      } catch (err: any) {
+        const usg = "positionRisk?traderAddr=0xCafee&symbol=MATIC-USD-MATIC";
+        res.send(
+          D8XBrokerBackendApp.JSONResponse("error", "positionRisk", { error: extractErrorMsg(err), usage: usg })
+        );
+      }
+    });
+
     // see test/post.test.ts for an example
     this.express.post("/orderDigest", async (req, res) => {
       try {
