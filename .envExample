@@ -1,3 +1,4 @@
 PORT=3001
 PORT_WEBSOCKET=8080
 REDIS_URL="redis://usernme:password@redis-master.redis.svc.cluster.local:6379/0"
+CHAIN_ID=80001
