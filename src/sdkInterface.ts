@@ -15,13 +15,11 @@ import BrokerIntegration from "./brokerIntegration";
 import Observable from "./observable";
 import { extractErrorMsg } from "./utils";
 
-type PerpetualStateKey = keyof PerpetualState;
-
 export default class SDKInterface extends Observable {
   private apiInterface: TraderInterface | undefined = undefined;
   private redisClient: ReturnType<typeof createClient>;
   private broker: BrokerIntegration;
-  TIMEOUTSEC = 60;
+  TIMEOUTSEC = 60; // timeout for exchange info
 
   constructor(broker: BrokerIntegration) {
     super();

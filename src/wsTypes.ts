@@ -109,3 +109,17 @@ export interface UpdateMarginAccount {
   // margin account was changed
   fundingPaymentCC: number;
 }
+
+/**
+ * Interface for websocket client to stream
+ * oracle price data to this backend
+ * The application will stream WebsocketClientConfig[]
+ * as defined in the config.
+ * Per stream we can have several potential websockets
+ */
+export interface WebsocketClientConfig {
+  chainId: number;
+  streamName: string; //chainId & name must be unique
+  tickers: string[]; // tickers that we can get from all endpoints below
+  wsEndpoints: string[]; // array of endpoints of the form "ws://<ip>:<port>"
+}
