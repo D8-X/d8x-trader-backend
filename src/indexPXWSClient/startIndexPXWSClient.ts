@@ -5,27 +5,9 @@
 import dotenv from "dotenv";
 import IndexPXWSClient from "./indexPxWSClient";
 import { WebsocketClientConfig } from "../wsTypes";
+import { loadConfigJSON } from "../utils";
 import { sleep } from "../utils";
-
-/**
- * Load config into object of type WebsocketClientConfig
- * Looks for all entries with given chainId
- * @param chainId chain id for which we want the config
- * @returns configuration of type WebsocketClientConfig
- */
-export function loadConfigJSON(chainId: number): WebsocketClientConfig[] {
-  let file = <WebsocketClientConfig[]>require("./wsConfig.json");
-  let relevantConfigs: WebsocketClientConfig[] = [];
-  for (let k = 0; k < file.length; k++) {
-    if (file[k].chainId == chainId) {
-      relevantConfigs.push(file[k]);
-    }
-  }
-  if (relevantConfigs.length == 0) {
-    throw new Error(`Did not find any entries for chain id ${chainId} in config`);
-  }
-  return relevantConfigs;
-}
+import FeedHandler from "./feedHandler";
 
 async function main() {
   dotenv.config();
@@ -33,10 +15,12 @@ async function main() {
   if (chainId == -1) {
     throw new Error("Set CHAIN_ID in .env (e.g. CHAIN_ID=80001)");
   }
-  let configs = loadConfigJSON(chainId);
+  let configs: WebsocketClientConfig[] = loadConfigJSON(chainId);
   let clients = new Array<IndexPXWSClient>();
+  let feedHandler = new FeedHandler(configs);
+  await feedHandler.init();
   for (let k = 0; k < configs.length; k++) {
-    clients.push(new IndexPXWSClient(configs[k]));
+    clients.push(new IndexPXWSClient(configs[k], feedHandler));
     await clients[k].init();
   }
   await sleep(20_000);
