@@ -159,7 +159,7 @@ export default class EventListener extends IndexPriceInterface {
    * Handles updates from sdk interface
    * @param msg from observable
    */
-  public async update(msg: String) {
+  protected async _update(msg: String) {
     // we receive a message from the observable sdk
     // on update exchange info; we update price info and inform subscribers
     console.log("received update from sdkInterface");

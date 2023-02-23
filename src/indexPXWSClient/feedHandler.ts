@@ -27,13 +27,17 @@ export default class FeedHandler {
     this.feedToDependentClientIndices = new Map<string, string[]>();
     this.feedIdxNames = new Array<string>();
     for (let k = 0; k < config.length; k++) {
-      this.feedIdxNames.concat(config[k].tickers);
+      config[k].tickers.forEach((x) => {
+        this.feedIdxNames.push(x);
+      });
     }
     this.redisPubClient = constructRedis("FeedHandlerPub");
     this.redisSubClient = constructRedis("FeedHandlerSub");
   }
 
   public async init() {
+    await this.redisPubClient.connect();
+    await this.redisSubClient.connect();
     // feed request is sent by the entity requiring perpetual index prices
     await this.redisSubClient.subscribe("feedRequest", async (message) => await this.onSubscribeIndices(message));
     await this.callForIndices();
@@ -44,6 +48,7 @@ export default class FeedHandler {
    * inform about price updates
    */
   public async callForIndices() {
+    console.log("Calling for indices");
     await this.redisPubClient!.publish("feedHandler", "query-request");
   }
 
@@ -62,7 +67,7 @@ export default class FeedHandler {
    * @param price price (float)
    * @param timestampMs timestamp in milliseconds
    */
-  public notifyPriceUpdateFromWS(ticker: string, price: number, timestampMs: number) {
+  public async notifyPriceUpdateFromWS(ticker: string, price: number, timestampMs: number) {
     // update price
     this.feedIdxPrices.set(ticker, { price: price, ts: timestampMs });
     // recalculate indices
@@ -84,6 +89,7 @@ export default class FeedHandler {
       }
       this.clientIdxPrices.set(idxName, px);
       updatedClientIdxNames.push(idxName);
+      await this.redisPubClient.set(idxName, px.toString());
     }
     this.informSubscribers(updatedClientIdxNames);
   }
@@ -99,12 +105,12 @@ export default class FeedHandler {
     }
     let px = 1;
     for (let j = 0; j < path.feedIdxNames.length; j++) {
-      let pxFeedIdx = this.clientIdxPrices.get(path.feedIdxNames[j]);
+      let pxFeedIdx = this.feedIdxPrices.get(path.feedIdxNames[j]);
       if (pxFeedIdx == undefined) {
         // no price available for given index
         return -1;
       }
-      px = path.isInverse[j] ? px / pxFeedIdx : px * pxFeedIdx;
+      px = path.isInverse[j] ? px / pxFeedIdx.price : px * pxFeedIdx.price;
     }
     return px;
   }
@@ -116,6 +122,7 @@ export default class FeedHandler {
    */
   private async onSubscribeIndices(message: string) {
     // message: BTC-USDC:MATIC-USD:ETH-USD
+    console.log("Received feedRequest");
     let indices = message.split(":");
     // clear state
     this.clientIdxToFeedIdxPath.clear();
