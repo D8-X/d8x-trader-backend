@@ -34,9 +34,17 @@ export default class FeedHandler {
   }
 
   public async init() {
-    await this.callForIndices();
     // feed request is sent by the entity requiring perpetual index prices
     await this.redisSubClient.subscribe("feedRequest", async (message) => await this.onSubscribeIndices(message));
+    await this.callForIndices();
+  }
+
+  /**
+   * Notify subscribers that we would like to
+   * inform about price updates
+   */
+  public async callForIndices() {
+    await this.redisPubClient!.publish("feedHandler", "query-request");
   }
 
   /**
@@ -45,7 +53,7 @@ export default class FeedHandler {
    */
   private async informSubscribers(clientIdxNames: string[]) {
     let names = clientIdxNames.join(":");
-    await this.redisPubClient.publish("feedUpdate", names);
+    await this.redisPubClient.publish("feedHandler", names);
   }
 
   /**
@@ -99,14 +107,6 @@ export default class FeedHandler {
       px = path.isInverse[j] ? px / pxFeedIdx : px * pxFeedIdx;
     }
     return px;
-  }
-
-  /**
-   * Notify subscribers that we would like to
-   * inform about price updates
-   */
-  public async callForIndices() {
-    await this.redisPubClient!.publish("feedHandler", "query-request");
   }
 
   /**

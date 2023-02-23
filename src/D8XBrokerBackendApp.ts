@@ -83,10 +83,14 @@ export default class D8XBrokerBackendApp {
       ws.on("message", async (data: WebSocket.RawData) => {
         try {
           let obj = JSON.parse(data.toString());
-          console.log("received: ", obj);
-          if (typeof obj.traderAddr != "string" || typeof obj.symbol != "string") {
-            throw new Error("wrong arguments. Requires traderAddr and symbol");
+          if (obj.type == "ping") {
+            ws.send(D8XBrokerBackendApp.JSONResponse("ping", "pong", {}));
           } else {
+            //type = subscription
+            console.log("received: ", obj);
+            if (typeof obj.traderAddr != "string" || typeof obj.symbol != "string") {
+              throw new Error("wrong arguments. Requires traderAddr and symbol");
+            }
             let perpState: PerpetualState = await sdk.extractPerpetualStateFromExchangeInfo(obj.symbol);
             eventListener.subscribe(ws, obj.symbol, obj.traderAddr);
             ws.send(D8XBrokerBackendApp.JSONResponse("subscription", obj.symbol, perpState));

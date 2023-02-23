@@ -180,12 +180,12 @@ The components in the folder `indexPXWSClient` serve as a websocket client to th
 to the frontend.
 
 The `FeedHandler` class gets updated price indices, writes them to REDIS, and publishes the update via
-`this.redisPubClient.publish("feedUpdate", names);`, where names are colon separated tickers (BTC-USD:BTC-USDC).
+`this.redisPubClient.publish("feedHandler", names);`, where names are colon separated tickers (BTC-USD:BTC-USDC).
 To inform the `FeedHandler` what indices are required, the `FeedHandler` subscribes to `"feedRequest"` and
 expects indices separated by colons (BTC-USDC:MATIC-USD:ETH-USD) in the message sent when publishing.
 The `FeedHandler` requests a `"feedRequest"` message by sending `publish("feedHandler", "query-request")`
 
-The client (eventListener) therefore needs to listen to `"feedHandler"` and upon receipt should publish
+The client (SDKInterface) therefore needs to listen to `"feedHandler"` and upon receipt should publish
 `"feedRequest"` with the required indices. Requested indices must be available completly via triangulation
 from the websocket feeds. Upon receipt of `"feedUpdate"` the eventListener gets the updated
 index prices from REDIS and processes them (change of mark-price, mid-price etc.) and streams the relevant
