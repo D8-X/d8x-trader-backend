@@ -1,6 +1,8 @@
 import WebSocket from "ws";
 import { createClient } from "redis";
 import { WebsocketClientConfig } from "../wsTypes";
+import { constructRedis } from "../utils";
+import FeedHandler from "./feedHandler";
 
 export interface IndexPriceFeedRequest {
   type: string; // subscribe/unsubscribe
@@ -17,30 +19,16 @@ export default class IndexPxWSClient {
   private ws: WebSocket | undefined;
   private tickers: string[];
   private name: string;
-  private redisClient: ReturnType<typeof createClient>;
   protected lastHeartBeatMs: number = 0;
   private prices: Map<string, [number, number]>;
+  private feedHandler: FeedHandler; // reference to feedHandler (potentially shared by multiple WS Clients)
 
-  constructor(config: WebsocketClientConfig) {
+  constructor(config: WebsocketClientConfig, feedHandler: FeedHandler) {
+    this.feedHandler = feedHandler;
     this.config = config;
     this.tickers = config.tickers;
     this.prices = new Map<string, [number, number]>();
     this.name = config.streamName;
-    this.redisClient = this.constructRedis();
-  }
-
-  public constructRedis(): ReturnType<typeof createClient> {
-    let redisUrl: string | undefined = process.env.REDIS_URL;
-    let client;
-    if (redisUrl == undefined || redisUrl == "") {
-      console.log(`${this.name} connecting to redis`);
-      client = createClient();
-    } else {
-      console.log(`${this.name} connecting to redis: ${redisUrl}`);
-      client = createClient({ url: redisUrl });
-    }
-    client.on("error", (err) => console.log(`${this.name} Redis Client Error:` + err));
-    return client;
   }
 
   /**
@@ -48,7 +36,6 @@ export default class IndexPxWSClient {
    * @param idx optional index of websocket server
    */
   public async init(idx?: number): Promise<void> {
-    await this.redisClient!.connect();
     if (idx == undefined) {
       idx = Math.floor(Math.random() * this.config.wsEndpoints.length);
     }
@@ -120,11 +107,9 @@ export default class IndexPxWSClient {
     let dataJSON = JSON.parse(data.toString());
     this.lastHeartBeatMs = Date.now();
     if (dataJSON.type == "subscription" && dataJSON.hasOwnProperty("ticker")) {
-      this.prices.set(dataJSON.ticker, [parseFloat(dataJSON.price), parseInt(dataJSON.ts)]);
-      await this.redisClient!.hSet(dataJSON.ticker, [dataJSON.price, dataJSON.ts]);
+      this.feedHandler.notifyPriceUpdateFromWS(dataJSON.ticker, parseFloat(dataJSON.price), parseInt(dataJSON.ts));
       // notify subscribers with ticker and price
       console.log(this.name, " publish " + dataJSON.ticker + ":" + dataJSON.price + ":" + dataJSON.ts);
-      await this.redisClient!.publish("px-idx", dataJSON.ticker + ":" + dataJSON.price + ":" + dataJSON.ts);
       this.lastHeartBeatMs = Date.now();
     } else if (dataJSON.type == "pong") {
       this.lastHeartBeatMs = Date.now();
