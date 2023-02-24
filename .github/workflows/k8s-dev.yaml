@@ -31,14 +31,17 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: frontend
           IMAGE_TAG: d8x-trader-${{ github.sha }}
-          PORT_WEBSOCKET: 8080
+          IMAGE_TAG_WS: d8x-traderWSClient-${{ github.sha }}
           PORT: 3001
+          PORT_WEBSOCKET: 8080
+          PORT_WEBSOCKET_CLIENT: 8081
           CHAIN_ID: 80001
           REDIS_URL: redis://:${{ secrets.REDIS_DEV }}@redis-master.redis-dev.svc.cluster.local:6379/0
         run: |
-          docker build -f Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG --build-arg CHAIN_ID=$CHAIN_ID --build-arg PORT_WEBSOCKET=$PORT_WEBSOCKET --build-arg PORT=$PORT  --build-arg REDIS_URL=$REDIS_URL .
+          docker build -f Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG --build-arg PORT=$PORT --build-arg PORT_WEBSOCKET=$PORT_WEBSOCKET --build-arg PORT_WEBSOCKET_CLIENT=$PORT_WEBSOCKET_CLIENT  --build-arg CHAIN_ID=$CHAIN_ID --build-arg REDIS_URL=$REDIS_URL .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
+          docker build -f src/indexPXWSClient/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG_WS --build-arg PORT=$PORT --build-arg PORT_WEBSOCKET=$PORT_WEBSOCKET --build-arg PORT_WEBSOCKET_CLIENT=$PORT_WEBSOCKET_CLIENT  --build-arg CHAIN_ID=$CHAIN_ID --build-arg REDIS_URL=$REDIS_URL .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG_WS
   deploy:
     if: github.event.pull_request.merged == true
     name: Deploy app to Kubernetes
@@ -61,6 +64,15 @@ jobs:
           repository: D8-X/devops
           token: ${{ secrets.PAT_TOKEN }}
       #Substitute the values on the service app
+      - name: Render WS Client Deployment YAML
+        uses: nowactions/envsubst@v1
+        with:
+          input: ./charts/backend/d8x-traderWSClient/versions.tpl
+          output: ./charts/backend/d8x-traderWSClient/versions-dev.yaml
+        env:
+          IMAGE_VERSION: d8x-traderWSClient-${{ github.sha }}
+          RELEASE_VERSION: ${{ env.TAG_VERSION }}
+
       - name: Render Deployment YAML
         uses: nowactions/envsubst@v1
         with:
