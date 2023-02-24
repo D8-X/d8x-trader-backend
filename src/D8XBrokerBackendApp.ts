@@ -290,6 +290,18 @@ export default class D8XBrokerBackendApp {
       }
     });
 
+    this.express.get("/perpetualStaticInfo", async (req: Request, res: Response) => {
+      try {
+        if (typeof req.query.symbol != "string") {
+          throw new Error("wrong argument. Requires a symbol.");
+        }
+        let rsp = this.sdk.perpetualStaticInfo(req.query.symbol);
+        res.send(D8XBrokerBackendApp.JSONResponse("perpetualStaticInfo", "", rsp));
+      } catch (err: any) {
+        res.send(D8XBrokerBackendApp.JSONResponse("error", "perpetualStaticInfo", { error: extractErrorMsg(err) }));
+      }
+    });
+
     // see test/post.test.ts for an example
     this.express.post("/orderDigest", async (req, res) => {
       try {
@@ -303,18 +315,6 @@ export default class D8XBrokerBackendApp {
       }
     });
 
-    this.express.get("/perpetualStaticInfo", async (req: Request, res: Response) => {
-      try {
-        if (typeof req.query.symbol != "string") {
-          throw new Error("wrong argument. Requires a symbol.");
-        }
-        let rsp = this.sdk.perpetualStaticInfo(req.query.symbol);
-        res.send(D8XBrokerBackendApp.JSONResponse("perpetualStaticInfo", "", rsp));
-      } catch (err: any) {
-        res.send(D8XBrokerBackendApp.JSONResponse("error", "perpetualStaticInfo", { error: extractErrorMsg(err) }));
-      }
-    });
-
     this.express.post("/positionRiskOnTrade", async (req, res) => {
       try {
         let order: Order = <Order>req.body.order;
@@ -325,6 +325,36 @@ export default class D8XBrokerBackendApp {
         const usg = "{order: <orderstruct>, traderAddr: string}";
         res.send(
           D8XBrokerBackendApp.JSONResponse("error", "positionRiskOnTrade", { error: extractErrorMsg(err), usage: usg })
+        );
+      }
+    });
+
+    this.express.get("/addCollateral", async (req: Request, res: Response) => {
+      try {
+        if (typeof req.query.symbol != "string" || typeof req.query.amount != "string") {
+          throw new Error("wrong arguments. Requires a symbol and an amount.");
+        }
+        let rsp = this.sdk.addCollateral(req.query.symbol, req.query.amount);
+        res.send(D8XBrokerBackendApp.JSONResponse("addCollateral", "", rsp));
+      } catch (err: any) {
+        const usg = "{symbol: string, amount: number}";
+        res.send(
+          D8XBrokerBackendApp.JSONResponse("error", "addCollateral", { error: extractErrorMsg(err), usage: usg })
+        );
+      }
+    });
+
+    this.express.get("/removeCollateral", async (req: Request, res: Response) => {
+      try {
+        if (typeof req.query.symbol != "string" || typeof req.query.amount != "string") {
+          throw new Error("wrong arguments. Requires a symbol and an amount.");
+        }
+        let rsp = this.sdk.removeCollateral(req.query.symbol, req.query.amount);
+        res.send(D8XBrokerBackendApp.JSONResponse("removeCollateral", "", rsp));
+      } catch (err: any) {
+        const usg = "{symbol: string, amount: number}";
+        res.send(
+          D8XBrokerBackendApp.JSONResponse("error", "removeCollateral", { error: extractErrorMsg(err), usage: usg })
         );
       }
     });
