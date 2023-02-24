@@ -10,6 +10,7 @@ import {
   MarginAccount,
   PerpetualStaticInfo,
   PoolStaticInfo,
+  floatToABK64x64,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
 import { createClient } from "redis";
@@ -255,10 +256,17 @@ export default class SDKInterface extends Observable {
     this.broker.signOrder(SCOrder!);
     // now we can create the digest that is to be signed by the trader
     let digest = await this.apiInterface?.orderDigest(SCOrder!);
-    // also return the order book address
+    // also return the order book address and postOrder ABI
     let obAddr = this.apiInterface!.getOrderBookAddress(order.symbol);
+    let postOrderABI = this.apiInterface!.getOrderBookABI(order.symbol, "postOrder");
     let id = await this.apiInterface!.digestTool.createOrderId(digest!);
-    return JSON.stringify({ digest: digest, orderId: id, OrderBookAddr: obAddr, SCOrder: SCOrder });
+    return JSON.stringify({
+      digest: digest,
+      orderId: id,
+      OrderBookAddr: obAddr,
+      abi: postOrderABI,
+      SCOrder: SCOrder,
+    });
   }
 
   public async positionRiskOnTrade(order: Order, traderAddr: string): Promise<string> {
@@ -272,5 +280,29 @@ export default class SDKInterface extends Observable {
       positionRisk
     );
     return JSON.stringify({ newPositionRisk: res });
+  }
+
+  public addCollateral(symbol: string, amount: string): string {
+    this.checkAPIInitialized();
+    // contract data
+    let proxyAddr = this.apiInterface!.getProxyAddress();
+    let proxyABI = this.apiInterface!.getProxyABI("deposit");
+    // call data
+    let perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
+    // the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
+    let amountHex = floatToABK64x64(Number(amount)).toHexString();
+    return JSON.stringify({ perpId: perpId, proxyAddr: proxyAddr, abi: proxyABI, amountHex: amountHex });
+  }
+
+  public removeCollateral(symbol: string, amount: string): string {
+    this.checkAPIInitialized();
+    // contract data
+    let proxyAddr = this.apiInterface!.getProxyAddress();
+    let proxyABI = this.apiInterface!.getProxyABI("withdraw");
+    // call data
+    let perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
+    // the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
+    let amountHex = floatToABK64x64(Number(amount)).toHexString();
+    return JSON.stringify({ perpId: perpId, proxyAddr: proxyAddr, abi: proxyABI, amountHex: amountHex });
   }
 }
