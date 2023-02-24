@@ -75,6 +75,15 @@ export default class SDKInterface extends Observable {
     return info;
   }
 
+  /**
+   * Get perpetual symbol from perpetual id
+   * @param perpId id of perpetual
+   * @returns symbol (BTC-USD-MATIC) or undefined - not JSON
+   */
+  public getSymbolFromPerpId(perpId: number): string | undefined {
+    return this.apiInterface!.getSymbolFromPerpId(perpId);
+  }
+
   public async updateExchangeInfoNumbersOfPerpetual(symbol: string, values: number[], propertyNames: string[]) {
     let obj = await this.redisClient.hGetAll("exchangeInfo");
     let info = <ExchangeInfo>JSON.parse(obj["content"]);
