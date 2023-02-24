@@ -64,14 +64,14 @@ jobs:
           repository: D8-X/devops
           token: ${{ secrets.PAT_TOKEN }}
       #Substitute the values on the service app
-      - name: Render WS Client Deployment YAML
-        uses: nowactions/envsubst@v1
-        with:
-          input: ./charts/backend/d8x-traderWSClient/versions.tpl
-          output: ./charts/backend/d8x-traderWSClient/versions-dev.yaml
-        env:
-          IMAGE_VERSION: d8x-traderWSClient-${{ github.sha }}
-          RELEASE_VERSION: ${{ env.TAG_VERSION }}
+      # - name: Render WS Client Deployment YAML
+      #   uses: nowactions/envsubst@v1
+      #   with:
+      #     input: ./charts/backend/d8x-traderWSClient/versions.tpl
+      #     output: ./charts/backend/d8x-traderWSClient/versions-dev.yaml
+      #   env:
+      #     IMAGE_VERSION: d8x-traderWSClient-${{ github.sha }}
+      #     RELEASE_VERSION: ${{ env.TAG_VERSION }}
 
       - name: Render Deployment YAML
         uses: nowactions/envsubst@v1
