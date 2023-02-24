@@ -8,13 +8,15 @@ import {
   SELL_SIDE,
   TraderInterface,
   MarginAccount,
+  PerpetualStaticInfo,
+  PoolStaticInfo,
   floatToABK64x64,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
 import { createClient } from "redis";
 import BrokerIntegration from "./brokerIntegration";
 import Observable from "./observable";
-import { extractErrorMsg } from "./utils";
+import { extractErrorMsg, constructRedis } from "./utils";
 
 export default class SDKInterface extends Observable {
   private apiInterface: TraderInterface | undefined = undefined;
@@ -25,26 +27,15 @@ export default class SDKInterface extends Observable {
   constructor(broker: BrokerIntegration) {
     super();
     dotenv.config();
-    let redisUrl: string | undefined = process.env.REDIS_URL;
-    if (redisUrl == undefined || redisUrl == "") {
-      this.redisClient = createClient();
-    } else {
-      this.redisClient = createClient({ url: redisUrl });
-    }
-
+    this.redisClient = constructRedis("SDK Interface");
     this.broker = broker;
   }
 
   public async initialize(sdkConfig: NodeSDKConfig) {
-    await this.initRedis();
+    await this.redisClient.connect();
     this.apiInterface = new TraderInterface(sdkConfig);
     await this.apiInterface.createProxyInstance();
     console.log("SDK API initialized");
-  }
-
-  private async initRedis() {
-    await this.redisClient.connect();
-    this.redisClient.on("error", (err) => console.log("Redis Client Error", err));
   }
 
   private async cacheExchangeInfo() {
@@ -74,6 +65,7 @@ export default class SDKInterface extends Observable {
       }
       info = obj["content"];
     }
+
     return info;
   }
 

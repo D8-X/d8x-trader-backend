@@ -12,15 +12,15 @@ import { BigNumber } from "ethers";
 import WebSocket from "ws";
 
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
-import Observer from "./observer";
+import IndexPriceInterface from "./indexPriceInterface";
 import SDKInterface from "./sdkInterface";
 import { ExecutionFailed, LimitOrderCreated, PriceUpdate, Trade, UpdateMarginAccount, WSMsg } from "./wsTypes";
 
 /**
  * Class that listens to blockchain events on
  * - limitorder books
- *      x onExecutionFailed (trader)
- *      x onPerpetualLimitOrderCreated (trader)
+ *      - onExecutionFailed (trader)
+ *      - onPerpetualLimitOrderCreated (trader)
  * - perpetual manager proxy
  *      - onUpdateMarkPrice (broadcast)
  *      - onUpdateFundingRate (broadcast via MarkPrice)
@@ -40,9 +40,9 @@ import { ExecutionFailed, LimitOrderCreated, PriceUpdate, Trade, UpdateMarginAcc
 //      onUpdateMarginAccount
 //      onPerpetualLimitOrderCancelled
 //      onTrade
-export default class EventListener extends Observer {
+export default class EventListener extends IndexPriceInterface {
   traderInterface: TraderInterface;
-  sdkInterface: SDKInterface | undefined;
+
   fundingRate: Map<number, number>; // perpetualId -> funding rate
   openInterest: Map<number, number>; // perpetualId -> openInterest
   lastBlockChainEventTs: number; //here we log the event occurence time to guess whether the connection is alive
@@ -63,8 +63,8 @@ export default class EventListener extends Observer {
   }
 
   public async initialize(sdkInterface: SDKInterface) {
+    await super.initialize(sdkInterface);
     await this.traderInterface.createProxyInstance();
-    this.sdkInterface = sdkInterface;
     sdkInterface.registerObserver(this);
     this.addProxyEventHandlers();
     this.lastBlockChainEventTs = Date.now();
@@ -157,9 +157,9 @@ export default class EventListener extends Observer {
 
   /**
    * Handles updates from sdk interface
-   * @param msg from obserable
+   * @param msg from observable
    */
-  public async update(msg: String) {
+  protected async _update(msg: String) {
     // we receive a message from the observable sdk
     // on update exchange info; we update price info and inform subscribers
     console.log("received update from sdkInterface");
@@ -173,7 +173,7 @@ export default class EventListener extends Observer {
         let perp: PerpetualState = pool.perpetuals[j];
         this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
         this.openInterest.set(perp.id, perp.openInterestBC);
-        this._updateMarkPrice(perp.id, perp.midPrice, perp.markPrice, perp.indexPrice);
+        this.updateMarkPrice(perp.id, perp.midPrice, perp.markPrice, perp.indexPrice);
       }
     }
   }
@@ -375,7 +375,7 @@ export default class EventListener extends Observer {
     );
     console.log("eventListener: onUpdateMarkPrice");
     // notify websocket listeners
-    this._updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, newIndexPrice);
+    this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, newIndexPrice);
     // update data in sdkInterface's exchangeInfo
     let fundingRate = this.fundingRate.get(perpetualId) || 0;
     let oi = this.openInterest.get(perpetualId) || 0;
@@ -394,14 +394,17 @@ export default class EventListener extends Observer {
   }
 
   /**
-   * Internal function to update prices. Called either by blockchain event handler (onUpdateMarkPrice),
-   * or on update of the observable sdkInterface (after exchangeInfo update)
+   * Internal function to update prices.
+   * Called either by blockchain event handler (onUpdateMarkPrice),
+   * or on update of the observable sdkInterface (after exchangeInfo update),
+   * or from parent class on websocket update.
+   * Informs websocket subsribers
    * @param perpetualId id of the perpetual for which prices are being updated
    * @param newMidPrice mid price in decimals
    * @param newMarkPrice mark price
    * @param newIndexPrice index price
    */
-  private _updateMarkPrice(perpetualId: number, newMidPrice: number, newMarkPrice: number, newIndexPrice: number) {
+  protected updateMarkPrice(perpetualId: number, newMidPrice: number, newMarkPrice: number, newIndexPrice: number) {
     let fundingRate = this.fundingRate.get(perpetualId) || 0;
     let oi = this.openInterest.get(perpetualId) || 0;
     let symbol = this.symbolFromPerpetualId(perpetualId);
