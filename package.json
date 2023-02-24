@@ -19,6 +19,7 @@
   },
   "scripts": {
     "build": "npx tsc",
+    "startWSClient": "node dist/src/indexPXWSClient/startIndexPXWSClient.js",
     "start": "node dist/src/index.js"
   },
   "version": "v0.1.2"
