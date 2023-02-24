@@ -290,7 +290,7 @@ export default class SDKInterface extends Observable {
     return JSON.stringify({ newPositionRisk: res });
   }
 
-  public addCollateral(symbol: string, amount: number): string {
+  public addCollateral(symbol: string, amount: string): string {
     this.checkAPIInitialized();
     // contract data
     let proxyAddr = this.apiInterface!.getProxyAddress();
@@ -298,11 +298,11 @@ export default class SDKInterface extends Observable {
     // call data
     let perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
     // the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
-    let amountHex = floatToABK64x64(amount).toHexString();
+    let amountHex = floatToABK64x64(Number(amount)).toHexString();
     return JSON.stringify({ perpId: perpId, proxyAddr: proxyAddr, abi: proxyABI, amountHex: amountHex });
   }
 
-  public removeCollateral(symbol: string, amount: number): string {
+  public removeCollateral(symbol: string, amount: string): string {
     this.checkAPIInitialized();
     // contract data
     let proxyAddr = this.apiInterface!.getProxyAddress();
@@ -310,7 +310,7 @@ export default class SDKInterface extends Observable {
     // call data
     let perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
     // the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
-    let amountHex = floatToABK64x64(amount).toHexString();
+    let amountHex = floatToABK64x64(Number(amount)).toHexString();
     return JSON.stringify({ perpId: perpId, proxyAddr: proxyAddr, abi: proxyABI, amountHex: amountHex });
   }
 }

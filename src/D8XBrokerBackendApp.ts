@@ -331,7 +331,7 @@ export default class D8XBrokerBackendApp {
 
     this.express.get("/addCollateral", async (req: Request, res: Response) => {
       try {
-        if (typeof req.query.symbol != "string" || typeof req.query.amount != "number") {
+        if (typeof req.query.symbol != "string" || typeof req.query.amount != "string") {
           throw new Error("wrong arguments. Requires a symbol and an amount.");
         }
         let rsp = this.sdk.addCollateral(req.query.symbol, req.query.amount);
@@ -346,7 +346,7 @@ export default class D8XBrokerBackendApp {
 
     this.express.get("/removeCollateral", async (req: Request, res: Response) => {
       try {
-        if (typeof req.query.symbol != "string" || typeof req.query.amount != "number") {
+        if (typeof req.query.symbol != "string" || typeof req.query.amount != "string") {
           throw new Error("wrong arguments. Requires a symbol and an amount.");
         }
         let rsp = this.sdk.removeCollateral(req.query.symbol, req.query.amount);
