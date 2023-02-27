@@ -309,7 +309,7 @@ export default class D8XBrokerBackendApp {
     // see test/post.test.ts for an example
     this.express.post("/orderDigest", async (req, res) => {
       try {
-        let order: Order = <Order>req.body.order;
+        let order: Order[] = <Order[]>req.body.order;
         let traderAddr: string = req.body.traderAddr;
         let rsp = await this.sdk.orderDigest(order, traderAddr);
         res.send(D8XBrokerBackendApp.JSONResponse("orderDigest", "", rsp));

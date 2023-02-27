@@ -8,9 +8,8 @@ import {
   SELL_SIDE,
   TraderInterface,
   MarginAccount,
-  PerpetualStaticInfo,
-  PoolStaticInfo,
   floatToABK64x64,
+  SmartContractOrder,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
 import { createClient } from "redis";
@@ -247,25 +246,39 @@ export default class SDKInterface extends Observable {
     return JSON.stringify(fee);
   }
 
-  public async orderDigest(order: Order, traderAddr: string): Promise<string> {
+  public async orderDigest(orders: Order[], traderAddr: string): Promise<string> {
     this.checkAPIInitialized();
-    //console.log("order=", order);
-    order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
-    order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
-    let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
-    this.broker.signOrder(SCOrder!);
+    //console.log("order=", orders);
+    if (!orders.every((order: Order) => order.symbol == orders[0].symbol)) {
+      throw Error("orders must have the same symbol");
+    }
+    let SCOrders = orders!.map((order: Order) => {
+      order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
+      order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
+      let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
+      this.broker.signOrder(SCOrder!);
+      return SCOrder!;
+    });
     // now we can create the digest that is to be signed by the trader
-    let digest = await this.apiInterface?.orderDigest(SCOrder!);
+    let digests = await Promise.all(
+      SCOrders.map((SCOrder: SmartContractOrder) => {
+        return this.apiInterface?.orderDigest(SCOrder);
+      })
+    );
+    let ids = await Promise.all(
+      digests.map((digest) => {
+        return this.apiInterface!.digestTool.createOrderId(digest!);
+      })
+    );
     // also return the order book address and postOrder ABI
-    let obAddr = this.apiInterface!.getOrderBookAddress(order.symbol);
-    let postOrderABI = this.apiInterface!.getOrderBookABI(order.symbol, "postOrder");
-    let id = await this.apiInterface!.digestTool.createOrderId(digest!);
+    let obAddr = this.apiInterface!.getOrderBookAddress(orders[0].symbol);
+    let postOrderABI = this.apiInterface!.getOrderBookABI(orders[0].symbol, "postOrder");
     return JSON.stringify({
-      digest: digest,
-      orderId: id,
+      digest: digests,
+      orderId: ids,
       OrderBookAddr: obAddr,
       abi: postOrderABI,
-      SCOrder: SCOrder,
+      SCOrder: SCOrders,
     });
   }
 
