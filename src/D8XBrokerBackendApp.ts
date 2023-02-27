@@ -309,12 +309,12 @@ export default class D8XBrokerBackendApp {
     // see test/post.test.ts for an example
     this.express.post("/orderDigest", async (req, res) => {
       try {
-        let order: Order[] = <Order[]>req.body.order;
+        let orders: Order[] = <Order[]>req.body.orders;
         let traderAddr: string = req.body.traderAddr;
-        let rsp = await this.sdk.orderDigest(order, traderAddr);
+        let rsp = await this.sdk.orderDigest(orders, traderAddr);
         res.send(D8XBrokerBackendApp.JSONResponse("orderDigest", "", rsp));
       } catch (err: any) {
-        const usg = "{order: <orderstruct>, traderAddr: string}";
+        const usg = "{orders: <orderstruct>, traderAddr: string}";
         res.send(D8XBrokerBackendApp.JSONResponse("error", "orderDigest", { error: extractErrorMsg(err), usage: usg }));
       }
     });
