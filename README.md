@@ -47,8 +47,8 @@ order-book that accepts this order. The trader needs to sign the data 'digest' a
 then the frontend can submit it.
 
 - `/orderDigest`:
-  - parameters `{ order: [order1, order2], traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05 }`, see test/post.test.ts
-  - returns `{digest: ['hash1 which has to be signed', 'hash2 which has to be signed'], id: ['id 1', 'id 2'], OrderBookAddr: 'address of relevant order book', SCOrder: ['Smart-Contract Order 1',  'Smart-Contract Order 2']}`
+  - parameters `{ orders: [order1, order2], traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05 }`, see test/post.test.ts
+  - returns `{digests: ['hash1 which has to be signed', 'hash2 which has to be signed'], ids: ['id 1', 'id 2'], OrderBookAddr: 'address of relevant order book', SCOrders: ['Smart-Contract Order 1',  'Smart-Contract Order 2']}`
   - the trader has to sign the digest, then the frontend must submit the SCOrder:
     `tx = await orderBookContract.postOrder(scOrder, signature)`
   - note that the broker address, signature, and fee, are added to the order in the backend and the returned SCOrder contains this. Optionally this can also work without broker in which case the information is also added.
