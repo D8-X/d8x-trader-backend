@@ -274,11 +274,11 @@ export default class SDKInterface extends Observable {
     let obAddr = this.apiInterface!.getOrderBookAddress(orders[0].symbol);
     let postOrderABI = this.apiInterface!.getOrderBookABI(orders[0].symbol, "postOrder");
     return JSON.stringify({
-      digest: digests,
-      orderId: ids,
+      digests: digests,
+      orderIds: ids,
       OrderBookAddr: obAddr,
       abi: postOrderABI,
-      SCOrder: SCOrders,
+      SCOrders: SCOrders,
     });
   }
 
