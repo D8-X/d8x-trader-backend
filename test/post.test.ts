@@ -27,7 +27,7 @@ function _orderDigest() {
   };
   //const resp = await axios.post(options);
   //let data = await axios.get("http://localhost:3001/exchangeInfo/"); //, { json: JSON.stringify(order) }).json();
-  let s = JSON.stringify({ order: order, traderAddr: wallet.address });
+  let s = JSON.stringify({ order: [order], traderAddr: wallet.address });
   console.log(s);
   return ["orderDigest", s];
 }
@@ -61,8 +61,8 @@ function _positionRiskOnTrade() {
 }
 
 async function send() {
-  // let message = _orderDigest();
-  let message = _positionRiskOnTrade();
+  let message = _orderDigest();
+  // let message = _positionRiskOnTrade();
 
   let data = await axios.post(`http://localhost:3001/${message[0]}/`, message[1], {
     headers: {
