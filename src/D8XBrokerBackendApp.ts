@@ -362,5 +362,33 @@ export default class D8XBrokerBackendApp {
         );
       }
     });
+
+    this.express.get("/availableMargin", async (req: Request, res: Response) => {
+      try {
+        if (typeof req.query.symbol != "string" || typeof req.query.traderAddr != "string") {
+          throw new Error("wrong arguments. Requires a symbol and a trader address.");
+        }
+        let rsp = this.sdk.getAvailableMargin(req.query.symbol, req.query.traderAddr);
+        res.send(D8XBrokerBackendApp.JSONResponse("availableMargin", "", rsp));
+      } catch (err: any) {
+        const usg = "{symbol: string, traderAddr: string}";
+        res.send(
+          D8XBrokerBackendApp.JSONResponse("error", "availableMargin", { error: extractErrorMsg(err), usage: usg })
+        );
+      }
+    });
+
+    this.express.get("/cancelOrder", async (req: Request, res: Response) => {
+      try {
+        if (typeof req.query.symbol != "string") {
+          throw new Error("wrong arguments. Requires a symbol and an amount.");
+        }
+        let rsp = this.sdk.cancelOrder(req.query.symbol);
+        res.send(D8XBrokerBackendApp.JSONResponse("cancelOrder", "", rsp));
+      } catch (err: any) {
+        const usg = "{symbol: string}";
+        res.send(D8XBrokerBackendApp.JSONResponse("error", "cancelOrder", { error: extractErrorMsg(err), usage: usg }));
+      }
+    });
   }
 }
