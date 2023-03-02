@@ -387,9 +387,9 @@ export default class EventListener extends IndexPriceInterface {
     let obj: UpdateMarginAccount = {
       // positionRisk
       symbol: symbol,
-      positionNotionalBaseCCY: ABK64x64ToFloat(fPositionBC),
+      positionNotionalBaseCCY: Math.abs(posBC),
       side: posBC > 0 ? BUY_SIDE : posBC < 0 ? SELL_SIDE : CLOSED_SIDE,
-      entryPrice: ABK64x64ToFloat(fLockedInValueQC.div(fPositionBC.abs())),
+      entryPrice: posBC == 0 ? 0 : Math.abs(lockedInQC / posBC),
       leverage: lvg,
       markPrice: state.markPrice,
       unrealizedPnlQuoteCCY: posBC * state.markPrice - lockedInQC,
