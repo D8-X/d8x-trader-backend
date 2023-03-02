@@ -374,8 +374,17 @@ export default class EventListener extends IndexPriceInterface {
       fSpotIndexPrice
     );
     console.log("eventListener: onUpdateMarkPrice");
-    // notify websocket listeners
+    // update internal storage that is streamed to websocket
+    // and adjust mid/idx price based on newest index
+    [newMidPrice, newMarkPrice, newIndexPrice] = this.updatePricesOnMarkPriceEvent(
+      perpetualId,
+      newMidPrice,
+      newMarkPrice,
+      newIndexPrice
+    );
+    // notify websocket listeners (using prices based on most recent websocket price)
     this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, newIndexPrice);
+
     // update data in sdkInterface's exchangeInfo
     let fundingRate = this.fundingRate.get(perpetualId) || 0;
     let oi = this.openInterest.get(perpetualId) || 0;
