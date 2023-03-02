@@ -380,13 +380,13 @@ export default class D8XBrokerBackendApp {
 
     this.express.get("/cancelOrder", async (req: Request, res: Response) => {
       try {
-        if (typeof req.query.symbol != "string") {
-          throw new Error("wrong arguments. Requires a symbol and an amount.");
+        if (typeof req.query.symbol != "string" || typeof req.query.orderId != "string") {
+          throw new Error("wrong arguments. Requires a symbol and an order Id.");
         }
-        let rsp = this.sdk.cancelOrder(req.query.symbol);
+        let rsp = this.sdk.cancelOrder(req.query.symbol, req.query.orderId);
         res.send(D8XBrokerBackendApp.JSONResponse("cancelOrder", "", rsp));
       } catch (err: any) {
-        const usg = "{symbol: string}";
+        const usg = "{symbol: string, orderId: string}";
         res.send(D8XBrokerBackendApp.JSONResponse("error", "cancelOrder", { error: extractErrorMsg(err), usage: usg }));
       }
     });
