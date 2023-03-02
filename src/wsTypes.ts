@@ -1,3 +1,5 @@
+import { MarginAccount } from "@d8x/perpetuals-sdk";
+
 /**
  * use this format to subscribe
  * to perpetual, e.g.,
@@ -88,23 +90,35 @@ export interface ExecutionFailed {
 }
 
 /**
+export interface MarginAccount {
+  symbol: string;
+  positionNotionalBaseCCY: number;
+  side: string;
+  entryPrice: number;
+  leverage: number;
+  markPrice: number;
+  unrealizedPnlQuoteCCY: number;
+  unrealizedFundingCollateralCCY: number;
+  collateralCC: number;
+  liquidationPrice: [number, number | undefined];
+  liquidationLvg: number;
+  collToQuoteConversion: number;
+}
+ */
+
+/**
  * This event message is generated on
  * UpdateMarginAccount
  * You may want to call positionRisk
  * after this event was executed
  */
-export interface UpdateMarginAccount {
+export interface UpdateMarginAccount extends MarginAccount {
+  // id of the perpetual
   perpetualId: number;
-  symbol: string;
+  // address of the trader
   traderAddr: string;
   // id of position
   positionId: string;
-  // position size in base currency
-  positionBC: number;
-  // margin collateral in collateral currency
-  cashCC: number;
-  // average price * position size
-  lockedInValueQC: number;
   // funding payment paid when
   // margin account was changed
   fundingPaymentCC: number;
