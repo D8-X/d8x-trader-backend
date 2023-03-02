@@ -10,6 +10,7 @@ import {
   MarginAccount,
   floatToABK64x64,
   SmartContractOrder,
+  ABK64x64ToFloat,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
 import { createClient } from "redis";
@@ -320,5 +321,20 @@ export default class SDKInterface extends Observable {
     // the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
     let amountHex = floatToABK64x64(Number(amount)).toHexString();
     return JSON.stringify({ perpId: perpId, proxyAddr: proxyAddr, abi: proxyABI, amountHex: amountHex });
+  }
+
+  public async getAvailableMargin(symbol: string, traderAddr: string) {
+    this.checkAPIInitialized();
+    let proxy = await this.apiInterface!.getReadOnlyProxyInstance();
+    let perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
+    let amountABK = await proxy!.getAvailableMargin(perpId, traderAddr, true);
+    return JSON.stringify({ amount: ABK64x64ToFloat(amountABK) });
+  }
+
+  public cancelOrder(symbol: string): string {
+    this.checkAPIInitialized();
+    let obAddr = this.apiInterface!.getOrderBookAddress(symbol);
+    let cancelABI = this.apiInterface!.getOrderBookABI(symbol, "cancelOrder");
+    return JSON.stringify({ OrderBookAddr: obAddr, abi: cancelABI });
   }
 }
