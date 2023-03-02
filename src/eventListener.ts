@@ -395,7 +395,7 @@ export default class EventListener extends IndexPriceInterface {
       unrealizedPnlQuoteCCY: posBC * state.markPrice - lockedInQC,
       unrealizedFundingCollateralCCY: 0,
       collateralCC: cashCC,
-      liquidationPrice: [0, 0],
+      liquidationPrice: [S2Liq, S3Liq],
       liquidationLvg: posBC == 0 ? 0 : 1 / info.maintenanceMarginRate,
       collToQuoteConversion: state.collToQuoteIndexPrice,
       // extra info
