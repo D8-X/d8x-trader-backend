@@ -1,10 +1,20 @@
 import {
   ABK64x64ToFloat,
+  BUY_SIDE,
+  calculateLiquidationPriceCollateralBase,
+  calculateLiquidationPriceCollateralQuanto,
+  calculateLiquidationPriceCollateralQuote,
+  CLOSED_SIDE,
+  COLLATERAL_CURRENCY_BASE,
+  COLLATERAL_CURRENCY_QUOTE,
   ExchangeInfo,
+  getNewPositionLeverage,
   mul64x64,
   NodeSDKConfig,
   ONE_64x64,
   PerpetualState,
+  PerpetualStaticInfo,
+  SELL_SIDE,
   SmartContractOrder,
   TraderInterface,
 } from "@d8x/perpetuals-sdk";
@@ -336,18 +346,65 @@ export default class EventListener extends IndexPriceInterface {
   ): Promise<void> {
     this.lastBlockChainEventTs = Date.now();
     this.openInterest.set(perpetualId, ABK64x64ToFloat(fOpenInterestBC));
-    // send data to subscriber
+
     let symbol = this.symbolFromPerpetualId(perpetualId);
+    let state = await this.sdkInterface!.extractPerpetualStateFromExchangeInfo(symbol);
+    let info = <PerpetualStaticInfo>JSON.parse(this.sdkInterface!.perpetualStaticInfo(symbol));
+    // margin account
+    let posBC = ABK64x64ToFloat(fPositionBC);
+    let lockedInQC = ABK64x64ToFloat(fLockedInValueQC);
+    let cashCC = ABK64x64ToFloat(fCashCC);
+    let lvg = getNewPositionLeverage(
+      0,
+      cashCC,
+      posBC,
+      lockedInQC,
+      state.indexPrice,
+      state.collToQuoteIndexPrice,
+      state.markPrice,
+      state.markPrice,
+      0
+    );
+    let S2Liq, S3Liq;
+    if (info.collateralCurrencyType == COLLATERAL_CURRENCY_BASE) {
+      S2Liq = calculateLiquidationPriceCollateralBase(lockedInQC, posBC, cashCC, info.maintenanceMarginRate);
+      S3Liq = S2Liq;
+    } else if (info.collateralCurrencyType == COLLATERAL_CURRENCY_QUOTE) {
+      S2Liq = calculateLiquidationPriceCollateralQuote(lockedInQC, posBC, cashCC, info.maintenanceMarginRate);
+      S3Liq = state.collToQuoteIndexPrice;
+    } else {
+      S2Liq = calculateLiquidationPriceCollateralQuanto(
+        lockedInQC,
+        posBC,
+        cashCC,
+        info.maintenanceMarginRate,
+        state.collToQuoteIndexPrice,
+        state.markPrice
+      );
+      S3Liq = S2Liq;
+    }
+
     let obj: UpdateMarginAccount = {
+      // positionRisk
       symbol: symbol,
+      positionNotionalBaseCCY: ABK64x64ToFloat(fPositionBC),
+      side: posBC > 0 ? BUY_SIDE : posBC < 0 ? SELL_SIDE : CLOSED_SIDE,
+      entryPrice: ABK64x64ToFloat(fLockedInValueQC.div(fPositionBC.abs())),
+      leverage: lvg,
+      markPrice: state.markPrice,
+      unrealizedPnlQuoteCCY: posBC * state.markPrice - lockedInQC,
+      unrealizedFundingCollateralCCY: 0,
+      collateralCC: cashCC,
+      liquidationPrice: [0, 0],
+      liquidationLvg: posBC == 0 ? 0 : 1 / info.maintenanceMarginRate,
+      collToQuoteConversion: state.collToQuoteIndexPrice,
+      // extra info
       perpetualId: perpetualId,
       traderAddr: trader,
       positionId: positionId,
-      positionBC: ABK64x64ToFloat(fPositionBC),
-      cashCC: ABK64x64ToFloat(fCashCC),
-      lockedInValueQC: ABK64x64ToFloat(fLockedInValueQC),
       fundingPaymentCC: ABK64x64ToFloat(fFundingPaymentCC),
     };
+    // send data to subscriber
     let wsMsg: WSMsg = { name: "UpdateMarginAccount", obj: obj };
     let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onUpdateMarginAccount", "", wsMsg);
     // send to subscribers of trader/perpetual
