@@ -1,6 +1,6 @@
 import axios from "axios";
 import { ethers } from "ethers";
-import { Order } from "@d8x/perpetuals-sdk";
+import { MarginAccount, Order } from "@d8x/perpetuals-sdk";
 
 const pk = <string>process.env.PK;
 
@@ -70,9 +70,21 @@ function _positionRiskOnTrade() {
   return ["positionRiskOnTrade", s];
 }
 
+async function _positionRiskOnCollateral() {
+  let wallet = new ethers.Wallet(pk);
+  let rsp = await axios.get(`http://localhost:3001/positionRisk?traderAddr=${wallet.address}&symbol=MATIC-USD-MATIC`);
+  // console.log(curPositionRisk.data.data);
+  let curPositionRisk = <MarginAccount>rsp.data.data;
+  console.log(curPositionRisk);
+  let s = JSON.stringify({ traderAddr: wallet.address, amount: -100, positionRisk: curPositionRisk });
+  console.log(s);
+  return ["positionRiskOnCollateralAction", s];
+}
+
 async function send() {
-  let message = _orderDigest();
+  // let message = _orderDigest();
   // let message = _positionRiskOnTrade();
+  let message = await _positionRiskOnCollateral();
 
   let data = await axios.post(`http://localhost:3001/${message[0]}/`, message[1], {
     headers: {
