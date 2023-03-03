@@ -1,6 +1,6 @@
 # d8x-trader-backend
 
-# Prerequisits
+# Prerequisites
 
 - install Redis: https://redis.io/docs/getting-started/installation/install-redis-on-linux/
 - node (used v18.14.0 for testing)
@@ -26,16 +26,20 @@
 
 ## All GET endpoints (parameter examples):
 
-- `/exchangeInfo` (no parameters)
-- `/perpetualStaticInfo?symbol=ETH-USD-MATIC`
-- `/getPerpetualMidPrice?symbol=MATIC-USD-MATIC`
-- `/getMarkPrice?symbol=MATIC-USD-MATIC`
-- `/getOraclePrice?symbol=ETH-USD`
-- `/openOrders?traderAddress=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=MATIC-USD-MATIC`
-- `/positionRisk?traderAddress=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=MATIC-USD-MATIC`
-- Fee including broker fee in tbps (1e-5): `/queryFee?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&poolSymbol=MATIC`
-- `getOrderIds?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=MATIC-USD-MATIC`
-- `getCurrentTraderVolume?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&poolSymbol=MATIC-USD-MATIC`
+- `/exchangeInfo` (no parameters): Exchange information, including all pools and perpetuals
+- `/perpetualStaticInfo?symbol=ETH-USD-MATIC`: Static data about a perpetual
+- `/getPerpetualMidPrice?symbol=MATIC-USD-MATIC`: Current mid-price
+- `/getMarkPrice?symbol=MATIC-USD-MATIC`: Current mark-price
+- `/getOraclePrice?symbol=ETH-USD`: Latest oracle price
+- `/openOrders?traderAddress=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=MATIC-USD-MATIC`: All open orders of a trader in a perpetual
+- `/positionRisk?traderAddress=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=MATIC-USD-MATIC`: Current state of a trader's account in a perpetual
+- `/queryFee?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&poolSymbol=MATIC` : Fee including broker fee in tbps (1e-5)
+- `/getOrderIds?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=MATIC-USD-MATIC`: Ids of all the orders of a trader in a perpetual
+- `/getCurrentTraderVolume?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&poolSymbol=MATIC-USD-MATIC`: Current trading volume of a trader
+- `/addCollateral?symbol=MATIC-USD-MATIC&amount=100`: Data needed to deposit collateral via direct smart contract interaction: perpetual Id, proxy contract address, 'deposit' method ABI, and HEX-encoded amount
+- `/removeCollateral?symbol=MATIC-USD-MATIC&amount=100`: Data needed to withdraw collateral via direct smart contract interaction: perpetual Id, proxy contract address, 'withdraw' method ABI, and HEX-encoded amount
+- `/availableMargin?symbol=MATIC-USD-MATIC&traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05`: Maximum amount that can be removed from a trader's account
+- `/cancelOrder?symbol=MATIC-USD-MATIC&orderId=0x433cd04c5e9703890d5aa72d90980b90bfde5b087075293abd679a067780629d`: Data needed to cancel a given order via direct smrt contract interaction: order book contract address, 'cancelOrder' method ABI, and digest to sign by the trader who posted this order
 
 ## All POST endpoints for Trader:
 
