@@ -368,7 +368,7 @@ export default class D8XBrokerBackendApp {
         if (typeof req.query.symbol != "string" || typeof req.query.traderAddr != "string") {
           throw new Error("wrong arguments. Requires a symbol and a trader address.");
         }
-        let rsp = this.sdk.getAvailableMargin(req.query.symbol, req.query.traderAddr);
+        let rsp = await this.sdk.getAvailableMargin(req.query.symbol, req.query.traderAddr);
         res.send(D8XBrokerBackendApp.JSONResponse("availableMargin", "", rsp));
       } catch (err: any) {
         const usg = "{symbol: string, traderAddr: string}";
@@ -383,7 +383,7 @@ export default class D8XBrokerBackendApp {
         if (typeof req.query.symbol != "string" || typeof req.query.orderId != "string") {
           throw new Error("wrong arguments. Requires a symbol and an order Id.");
         }
-        let rsp = this.sdk.cancelOrder(req.query.symbol, req.query.orderId);
+        let rsp = await this.sdk.cancelOrder(req.query.symbol, req.query.orderId);
         res.send(D8XBrokerBackendApp.JSONResponse("cancelOrder", "", rsp));
       } catch (err: any) {
         const usg = "{symbol: string, orderId: string}";

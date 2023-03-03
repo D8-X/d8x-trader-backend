@@ -325,10 +325,8 @@ export default class SDKInterface extends Observable {
 
   public async getAvailableMargin(symbol: string, traderAddr: string) {
     this.checkAPIInitialized();
-    let proxy = await this.apiInterface!.getReadOnlyProxyInstance();
-    let perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
-    let amountABK = await proxy!.getAvailableMargin(perpId, traderAddr, true);
-    return JSON.stringify({ amount: ABK64x64ToFloat(amountABK) });
+    let amount = await this.apiInterface!.getAvailableMargin(traderAddr, symbol);
+    return JSON.stringify({ amount: amount });
   }
 
   public async cancelOrder(symbol: string, orderId: string) {
