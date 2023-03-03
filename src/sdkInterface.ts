@@ -331,12 +331,8 @@ export default class SDKInterface extends Observable {
 
   public async cancelOrder(symbol: string, orderId: string) {
     this.checkAPIInitialized();
-    let orderBook = this.apiInterface!.getOrderBookContract(symbol);
-    let scOrder: SmartContractOrder = await orderBook.orderOfDigest(orderId);
-    let digest = await this.apiInterface!.orderDigest(scOrder);
-
-    let obAddr = this.apiInterface!.getOrderBookAddress(symbol);
+    let cancelDigest = await this.apiInterface!.cancelOrderDigest(symbol, orderId);
     let cancelABI = this.apiInterface!.getOrderBookABI(symbol, "cancelOrder");
-    return JSON.stringify({ OrderBookAddr: obAddr, abi: cancelABI, digest: digest });
+    return JSON.stringify({ OrderBookAddr: cancelDigest.OBContractAddr, abi: cancelABI, digest: cancelDigest.digest });
   }
 }
