@@ -295,6 +295,9 @@ export default class EventListener extends IndexPriceInterface {
         this.onPerpetualLimitOrderCreated(perpetualId, trader, referrerAddr, brokerAddr, Order, digest);
       }
     );
+    contract.on("PerpetualLimitOrderCancelled", (digest: string) => {
+      this.onPerpetualLimitOrderCancelled(symbol, digest);
+    });
     contract.on("ExecutionFailed", (perpetualId: number, trader: string, digest: string, reason: string) => {
       this.onExecutionFailed(perpetualId, trader, digest, reason);
     });
@@ -571,13 +574,13 @@ export default class EventListener extends IndexPriceInterface {
    * event PerpetualLimitOrderCancelled(bytes32 indexed orderHash);
    * @param orderId string order id/digest
    */
-  public onPerpetualLimitOrderCancelled(orderId: string) {
+  public onPerpetualLimitOrderCancelled(symbol: string, orderId: string) {
     this.lastBlockChainEventTs = Date.now();
-    console.log("onPerpetualLimitOrderCancelled");
-    //let wsMsg: WSMsg = { name: "PerpetualLimitOrderCancelled", obj: { orderId: orderId } };
-    //let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onPerpetualLimitOrderCreated", "", wsMsg);
+    let perpetualId = JSON.parse(this.sdkInterface!.perpetualStaticInfo(symbol)).id;
+    let wsMsg: WSMsg = { name: "PerpetualLimitOrderCancelled", obj: { orderId: orderId } };
+    let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onPerpetualLimitOrderCancelled", "", wsMsg);
     // currently broadcasted:
-    // this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg));
+    this.sendToSubscribers(perpetualId, jsonMsg);
   }
 
   /**
