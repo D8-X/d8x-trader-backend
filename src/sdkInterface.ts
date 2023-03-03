@@ -299,6 +299,19 @@ export default class SDKInterface extends Observable {
     return JSON.stringify({ newPositionRisk: res });
   }
 
+  public async positionRiskOnCollateralAction(
+    traderAddr: string,
+    deltaCollateral: number,
+    positionRisk: MarginAccount
+  ): Promise<string> {
+    this.checkAPIInitialized();
+    let res: MarginAccount = await this.apiInterface!.positionRiskOnCollateralAction(deltaCollateral, positionRisk);
+    return JSON.stringify({
+      newPositionRisk: res,
+      availableMargin: await this.apiInterface!.getAvailableMargin(traderAddr, positionRisk.symbol),
+    });
+  }
+
   public addCollateral(symbol: string, amount: string): string {
     this.checkAPIInitialized();
     // contract data

@@ -5,7 +5,7 @@ import swaggerUi from "swagger-ui-express";
 import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
 import { extractErrorMsg } from "./utils";
-import { Order, PerpetualState, NodeSDKConfig } from "@d8x/perpetuals-sdk";
+import { Order, PerpetualState, NodeSDKConfig, MarginAccount } from "@d8x/perpetuals-sdk";
 import EventListener from "./eventListener";
 import NoBroker from "./noBroker";
 import BrokerIntegration from "./brokerIntegration";
@@ -329,6 +329,24 @@ export default class D8XBrokerBackendApp {
         const usg = "{order: <orderstruct>, traderAddr: string}";
         res.send(
           D8XBrokerBackendApp.JSONResponse("error", "positionRiskOnTrade", { error: extractErrorMsg(err), usage: usg })
+        );
+      }
+    });
+
+    this.express.post("/positionRiskOnCollateralAction", async (req, res) => {
+      try {
+        let traderAddr: string = req.body.traderAddr;
+        let deltaCollateral: number = <number>req.body.amount;
+        let curPositionRisk: MarginAccount = <MarginAccount>req.body.positionRisk;
+        let rsp = await this.sdk.positionRiskOnCollateralAction(traderAddr, deltaCollateral, curPositionRisk);
+        res.send(D8XBrokerBackendApp.JSONResponse("positionRiskOnCollateralAction", "", rsp));
+      } catch (err: any) {
+        const usg = "{traderAddr: string, amount: number, positionRisk: <MarginAccount struct>}";
+        res.send(
+          D8XBrokerBackendApp.JSONResponse("error", "positionRiskOnCollateralAction", {
+            error: extractErrorMsg(err),
+            usage: usg,
+          })
         );
       }
     });
