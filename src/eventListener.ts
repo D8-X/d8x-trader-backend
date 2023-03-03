@@ -149,11 +149,13 @@ export default class EventListener extends IndexPriceInterface {
         continue;
       }
       let subscribers = traderMap.get(clientSubscriptions[k].traderAddr);
-      const idx = subscribers!.indexOf(ws, 0);
-      if (idx > -1) {
-        subscribers!.splice(idx, 1);
+      if (subscribers != undefined) {
+        const idx = subscribers!.indexOf(ws, 0);
+        if (idx > -1) {
+          subscribers!.splice(idx, 1);
+        }
       }
-      if (subscribers?.length == 0) {
+      if (subscribers == undefined || subscribers?.length == 0) {
         traderMap.delete(clientSubscriptions[k].traderAddr);
       }
       if (this.subscriptions.get(id)?.keys.length == 0) {
