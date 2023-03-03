@@ -61,7 +61,12 @@ then the frontend can submit it.
 - `/positionRiskOnTrade`:
   - parameters `{ order: order, traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05 }`, see test/post.test.ts
   - returns `{newPositionRisk: 'MarginAccount type'}`
-  - `newPositionRisk` is what the given trader's positionRisk would look like if the given order is executed
+    - `newPositionRisk` is what the given trader's positionRisk would look like if the given order is executed
+- `/positionRiskOnCollateralAction`:
+  - parameters `{ traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05, amount: -100, positionRisk: 'Margin account struct' }`, see test/post.test.ts
+  - returns `{newPositionRisk: 'MarginAccount type', availableMargin: number}`
+    - `newPositionRisk` is what the given trader's positionRisk would look like if the given order is executed
+    - `availableMargin` is the maximum amount of margin that can be withdrawn from this account
 
 Swagger (incomplete): http://localhost:3001/api/docs/
 
