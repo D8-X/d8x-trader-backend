@@ -31,16 +31,16 @@ export default class D8XBrokerBackendApp {
 
     this.swaggerData = fs.readFileSync("./src/swagger.json", "utf-8");
     this.swaggerDocument = JSON.parse(this.swaggerData);
-    if (process.env.PORT == undefined) {
-      throw Error("define PORT in .env");
+    if (process.env.PORT_REST == undefined) {
+      throw Error("define PORT_REST in .env");
     }
     if (process.env.PORT_WEBSOCKET == undefined) {
       throw Error("define PORT_WEBSOCKET in .env");
     }
-    this.port = Number(process.env.PORT);
+    this.port = Number(process.env.PORT_REST);
     this.portWS = Number(process.env.PORT_WEBSOCKET);
     this.wss = new WebSocketServer({ port: this.portWS });
-    this.swaggerDocument.servers[0].url += ":" + process.env.PORT;
+    this.swaggerDocument.servers[0].url += ":" + process.env.PORT_REST;
     this.sdkConfig = sdkConfig;
     this.eventListener = new EventListener(sdkConfig);
     console.log("url=", this.swaggerDocument.servers[0].url);
