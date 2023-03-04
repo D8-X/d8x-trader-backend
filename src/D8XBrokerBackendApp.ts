@@ -10,7 +10,7 @@ import EventListener from "./eventListener";
 import NoBroker from "./noBroker";
 import BrokerIntegration from "./brokerIntegration";
 import fs from "fs";
-import { type } from "os";
+import cors from "cors";
 dotenv.config();
 //https://roger13.github.io/SwagDefGen/
 //setAllowance?
@@ -115,7 +115,9 @@ export default class D8XBrokerBackendApp {
 
   private middleWare() {
     this.express.use(express.urlencoded({ extended: false }));
+    this.express.use(cors());//needs to be above express.json
     this.express.use(express.json());
+    
   }
 
   /**
