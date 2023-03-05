@@ -1,43 +1,41 @@
-import { ExchangeInfo, NodeSDKConfig, PerpetualDataHandler } from "@d8x/perpetuals-sdk";
-import { createClient } from "redis";
+import {
+  BUY_SIDE,
+  ExchangeInfo,
+  NodeSDKConfig,
+  Order,
+  PerpetualState,
+  PoolState,
+  SELL_SIDE,
+  TraderInterface,
+  MarginAccount,
+  floatToABK64x64,
+  SmartContractOrder,
+  ABK64x64ToFloat,
+} from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
-import { extractErrorMsg } from "./utils";
-import { Order } from "@d8x/perpetuals-sdk";
-import { TraderInterface, PoolState, PerpetualState } from "@d8x/perpetuals-sdk";
+import { createClient } from "redis";
 import BrokerIntegration from "./brokerIntegration";
 import Observable from "./observable";
-
-type PerpetualStateKey = keyof PerpetualState;
+import { extractErrorMsg, constructRedis } from "./utils";
 
 export default class SDKInterface extends Observable {
   private apiInterface: TraderInterface | undefined = undefined;
   private redisClient: ReturnType<typeof createClient>;
   private broker: BrokerIntegration;
-  TIMEOUTSEC = 60;
+  TIMEOUTSEC = 60; // timeout for exchange info
 
   constructor(broker: BrokerIntegration) {
     super();
     dotenv.config();
-    let redisUrl: string | undefined = process.env.REDIS_URL;
-    if (redisUrl == undefined || redisUrl == "") {
-      this.redisClient = createClient();
-    } else {
-      this.redisClient = createClient({ url: redisUrl });
-    }
-
+    this.redisClient = constructRedis("SDK Interface");
     this.broker = broker;
   }
 
   public async initialize(sdkConfig: NodeSDKConfig) {
-    await this.initRedis();
+    await this.redisClient.connect();
     this.apiInterface = new TraderInterface(sdkConfig);
     await this.apiInterface.createProxyInstance();
     console.log("SDK API initialized");
-  }
-
-  private async initRedis() {
-    await this.redisClient.connect();
-    this.redisClient.on("error", (err) => console.log("Redis Client Error", err));
   }
 
   private async cacheExchangeInfo() {
@@ -67,7 +65,23 @@ export default class SDKInterface extends Observable {
       }
       info = obj["content"];
     }
+
     return info;
+  }
+
+  public perpetualStaticInfo(symbol: string): string {
+    let staticInfo = this.apiInterface!.getPerpetualStaticInfo(symbol);
+    let info = JSON.stringify(staticInfo);
+    return info;
+  }
+
+  /**
+   * Get perpetual symbol from perpetual id
+   * @param perpId id of perpetual
+   * @returns symbol (BTC-USD-MATIC) or undefined - not JSON
+   */
+  public getSymbolFromPerpId(perpId: number): string | undefined {
+    return this.apiInterface!.getSymbolFromPerpId(perpId);
   }
 
   public async updateExchangeInfoNumbersOfPerpetual(symbol: string, values: number[], propertyNames: string[]) {
@@ -209,6 +223,15 @@ export default class SDKInterface extends Observable {
     return JSON.stringify(res);
   }
 
+  public async maxOrderSizeForTrader(addr: string, symbol: string) {
+    this.checkAPIInitialized();
+    let perpetualState: PerpetualState = await this.extractPerpetualStateFromExchangeInfo(symbol);
+    let positionRisk: MarginAccount | undefined = await this.apiInterface!.positionRisk(addr, symbol);
+    let sizeBUY = this.apiInterface!.maxOrderSizeForTrader(BUY_SIDE, positionRisk, perpetualState);
+    let sizeSELL = this.apiInterface!.maxOrderSizeForTrader(SELL_SIDE, positionRisk, perpetualState);
+    return JSON.stringify({ buy: sizeBUY, sell: sizeSELL });
+  }
+
   public async getCurrentTraderVolume(traderAddr: string, symbol: string): Promise<string> {
     this.checkAPIInitialized();
     let vol = await this.apiInterface!.getCurrentTraderVolume(symbol, traderAddr);
@@ -233,18 +256,96 @@ export default class SDKInterface extends Observable {
     return JSON.stringify(fee);
   }
 
-  public async orderDigest(order: Order, traderAddr: string): Promise<string> {
+  public async orderDigest(orders: Order[], traderAddr: string): Promise<string> {
     this.checkAPIInitialized();
-    //console.log("order=", order);
-    order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
-    order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
-    let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
-    this.broker.signOrder(SCOrder!);
+    //console.log("order=", orders);
+    if (!orders.every((order: Order) => order.symbol == orders[0].symbol)) {
+      throw Error("orders must have the same symbol");
+    }
+    let SCOrders = orders!.map((order: Order) => {
+      order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
+      order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
+      let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
+      this.broker.signOrder(SCOrder!);
+      return SCOrder!;
+    });
     // now we can create the digest that is to be signed by the trader
-    let digest = await this.apiInterface?.orderDigest(SCOrder!);
-    // also return the order book address
-    let obAddr = this.apiInterface!.getOrderBookAddress(order.symbol);
-    let id = await this.apiInterface!.digestTool.createOrderId(digest!);
-    return JSON.stringify({ digest: digest, orderId: id, OrderBookAddr: obAddr, SCOrder: SCOrder });
+    let digests = await Promise.all(
+      SCOrders.map((SCOrder: SmartContractOrder) => {
+        return this.apiInterface?.orderDigest(SCOrder);
+      })
+    );
+    let ids = await Promise.all(
+      digests.map((digest) => {
+        return this.apiInterface!.digestTool.createOrderId(digest!);
+      })
+    );
+    // also return the order book address and postOrder ABI
+    let obAddr = this.apiInterface!.getOrderBookAddress(orders[0].symbol);
+    let postOrderABI = this.apiInterface!.getOrderBookABI(orders[0].symbol, "postOrder");
+    return JSON.stringify({
+      digests: digests,
+      orderIds: ids,
+      OrderBookAddr: obAddr,
+      abi: postOrderABI,
+      SCOrders: SCOrders,
+    });
+  }
+
+  public async positionRiskOnTrade(order: Order, traderAddr: string): Promise<string> {
+    this.checkAPIInitialized();
+    let positionRisk: MarginAccount | undefined = await this.apiInterface!.positionRisk(traderAddr, order.symbol);
+    let res: MarginAccount | undefined = await this.apiInterface!.positionRiskOnTrade(traderAddr, order, positionRisk);
+    return JSON.stringify({ newPositionRisk: res });
+  }
+
+  public async positionRiskOnCollateralAction(
+    traderAddr: string,
+    deltaCollateral: number,
+    positionRisk: MarginAccount
+  ): Promise<string> {
+    this.checkAPIInitialized();
+    let res: MarginAccount = await this.apiInterface!.positionRiskOnCollateralAction(deltaCollateral, positionRisk);
+    return JSON.stringify({
+      newPositionRisk: res,
+      availableMargin: await this.apiInterface!.getAvailableMargin(traderAddr, positionRisk.symbol),
+    });
+  }
+
+  public addCollateral(symbol: string, amount: string): string {
+    this.checkAPIInitialized();
+    // contract data
+    let proxyAddr = this.apiInterface!.getProxyAddress();
+    let proxyABI = this.apiInterface!.getProxyABI("deposit");
+    // call data
+    let perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
+    // the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
+    let amountHex = floatToABK64x64(Number(amount)).toHexString();
+    return JSON.stringify({ perpId: perpId, proxyAddr: proxyAddr, abi: proxyABI, amountHex: amountHex });
+  }
+
+  public removeCollateral(symbol: string, amount: string): string {
+    this.checkAPIInitialized();
+    // contract data
+    let proxyAddr = this.apiInterface!.getProxyAddress();
+    let proxyABI = this.apiInterface!.getProxyABI("withdraw");
+    // call data
+    let perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
+    // the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
+    let amountHex = floatToABK64x64(Number(amount)).toHexString();
+    return JSON.stringify({ perpId: perpId, proxyAddr: proxyAddr, abi: proxyABI, amountHex: amountHex });
+  }
+
+  public async getAvailableMargin(symbol: string, traderAddr: string) {
+    this.checkAPIInitialized();
+    let amount = await this.apiInterface!.getAvailableMargin(traderAddr, symbol);
+    return JSON.stringify({ amount: amount });
+  }
+
+  public async cancelOrder(symbol: string, orderId: string) {
+    this.checkAPIInitialized();
+    let cancelDigest = await this.apiInterface!.cancelOrderDigest(symbol, orderId);
+    let cancelABI = this.apiInterface!.getOrderBookABI(symbol, "cancelOrder");
+    return JSON.stringify({ OrderBookAddr: cancelDigest.OBContractAddr, abi: cancelABI, digest: cancelDigest.digest });
   }
 }

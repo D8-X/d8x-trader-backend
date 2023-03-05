@@ -1,0 +1,8 @@
+[
+  {
+    "chainId": 80001,
+    "streamName": "crypto1",
+    "wsEndpoints": ["ws://172.105.28.223:8081", "ws://139.177.194.24:8081", "ws://143.42.12.213:8081"],
+    "tickers": ["BTC-USD", "MATIC-USD", "ETH-USD"]
+  }
+]

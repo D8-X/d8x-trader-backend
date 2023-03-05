@@ -1,10 +1,12 @@
+import { MarginAccount } from "@d8x/perpetuals-sdk";
+
 /**
  * use this format to subscribe
  * to perpetual, e.g.,
  * {"symbol": "BTC-USD-MATIC",
  *  "traderAddress": "0x9d5a..41a05"}
  */
-interface SubscriptionInterface {
+export interface SubscriptionInterface {
   symbol: string;
   traderAddr: string;
 }
@@ -12,7 +14,7 @@ interface SubscriptionInterface {
 /**
  * General response message layout
  */
-interface WSMsg {
+export interface WSMsg {
   name: string;
   obj: Object;
 }
@@ -25,7 +27,7 @@ interface WSMsg {
  * (those can be zero if the data
  * has not been collected yet)
  */
-interface PriceUpdate {
+export interface PriceUpdate {
   perpetualId: number;
   symbol: string;
   midPrice: number;
@@ -40,7 +42,7 @@ interface PriceUpdate {
  * (market/limit/stop/...) this
  * message is issued
  */
-interface LimitOrderCreated {
+export interface LimitOrderCreated {
   perpetualId: number;
   symbol: string;
   traderAddr: string;
@@ -52,7 +54,7 @@ interface LimitOrderCreated {
  * Trade event is sent to all
  * subscribers
  */
-interface Trade {
+export interface Trade {
   perpetualId: number;
   symbol: string;
   traderAddr: string;
@@ -68,7 +70,7 @@ interface Trade {
 
 // not active
 // see issue #75
-interface PerpetualLimitOrderCancelled {
+export interface PerpetualLimitOrderCancelled {
   perpetualId: number;
   symbol: string;
   traderAddr: string;
@@ -79,7 +81,7 @@ interface PerpetualLimitOrderCancelled {
  * This event message is generated on
  * ExecutionFailed
  */
-interface ExecutionFailed {
+export interface ExecutionFailed {
   perpetualId: number;
   symbol: string;
   traderAddr: string;
@@ -88,24 +90,50 @@ interface ExecutionFailed {
 }
 
 /**
+export interface MarginAccount {
+  symbol: string;
+  positionNotionalBaseCCY: number;
+  side: string;
+  entryPrice: number;
+  leverage: number;
+  markPrice: number;
+  unrealizedPnlQuoteCCY: number;
+  unrealizedFundingCollateralCCY: number;
+  collateralCC: number;
+  liquidationPrice: [number, number | undefined];
+  liquidationLvg: number;
+  collToQuoteConversion: number;
+}
+ */
+
+/**
  * This event message is generated on
  * UpdateMarginAccount
  * You may want to call positionRisk
  * after this event was executed
  */
-interface UpdateMarginAccount {
+export interface UpdateMarginAccount extends MarginAccount {
+  // id of the perpetual
   perpetualId: number;
-  symbol: string;
+  // address of the trader
   traderAddr: string;
   // id of position
   positionId: string;
-  // position size in base currency
-  positionBC: number;
-  // margin collateral in collateral currency
-  cashCC: number;
-  // average price * position size
-  lockedInValueQC: number;
   // funding payment paid when
   // margin account was changed
   fundingPaymentCC: number;
+}
+
+/**
+ * Interface for websocket client to stream
+ * oracle price data to this backend
+ * The application will stream WebsocketClientConfig[]
+ * as defined in the config.
+ * Per stream we can have several potential websockets
+ */
+export interface WebsocketClientConfig {
+  chainId: number;
+  streamName: string; //chainId & name must be unique
+  tickers: string[]; // tickers that we can get from all endpoints below
+  wsEndpoints: string[]; // array of endpoints of the form "ws://<ip>:<port>"
 }
