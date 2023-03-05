@@ -10,7 +10,7 @@ import EventListener from "./eventListener";
 import NoBroker from "./noBroker";
 import BrokerIntegration from "./brokerIntegration";
 import fs from "fs";
-import { type } from "os";
+import cors from "cors";
 dotenv.config();
 //https://roger13.github.io/SwagDefGen/
 //setAllowance?
@@ -31,16 +31,16 @@ export default class D8XBrokerBackendApp {
 
     this.swaggerData = fs.readFileSync("./src/swagger.json", "utf-8");
     this.swaggerDocument = JSON.parse(this.swaggerData);
-    if (process.env.PORT == undefined) {
-      throw Error("define PORT in .env");
+    if (process.env.PORT_REST == undefined) {
+      throw Error("define PORT_REST in .env");
     }
     if (process.env.PORT_WEBSOCKET == undefined) {
       throw Error("define PORT_WEBSOCKET in .env");
     }
-    this.port = Number(process.env.PORT);
+    this.port = Number(process.env.PORT_REST);
     this.portWS = Number(process.env.PORT_WEBSOCKET);
     this.wss = new WebSocketServer({ port: this.portWS });
-    this.swaggerDocument.servers[0].url += ":" + process.env.PORT;
+    this.swaggerDocument.servers[0].url += ":" + process.env.PORT_REST;
     this.sdkConfig = sdkConfig;
     this.eventListener = new EventListener(sdkConfig);
     console.log("url=", this.swaggerDocument.servers[0].url);
@@ -115,7 +115,9 @@ export default class D8XBrokerBackendApp {
 
   private middleWare() {
     this.express.use(express.urlencoded({ extended: false }));
+    this.express.use(cors());//needs to be above express.json
     this.express.use(express.json());
+    
   }
 
   /**

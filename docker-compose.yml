@@ -1,0 +1,77 @@
+# docker-compose.yml
+
+#docker rmi $(docker images -f "dangling=true" -q)
+#sudo docker-compose up --build
+version: "2.3"
+services:
+  # Args: none
+  redis:
+    image: redis
+    container_name: cache
+    expose:
+      - 6379
+
+  # REST/WS server for frontend
+  backend_main:
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    links:
+      - redis
+    environment:
+      - REDIS_URL=redis://cache
+      - PORT_REST=${PORT_REST}
+      - PORT_WEBSOCKET=${PORT_WEBSOCKET}
+      - CHAIN_ID=${CHAIN_ID}
+    ports:
+      - "${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
+      - "${PORT_REST}:${PORT_REST}"
+    restart: on-failure
+
+  # Args: none
+  # allow clients to connect to websocket to stream aggregated prices
+  # websocket:
+  #   stdin_open: true # docker run -i
+  #   tty: true # docker run -t
+  #   build:
+  #     context: .
+  #     dockerfile: ./src/websocket/Dockerfile
+  #   links:
+  #     - redis
+  #   environment:
+  #     - REDIS_URL=redis://cache
+  #     - PORT_REST=${PORT_REST}
+  #     - PORT_WEBSOCKET=${PORT_WEBSOCKET}
+  #     - CHAIN_ID=${CHAIN_ID}
+  #   ports:
+  #     - "${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
+
+  # Args: None
+  # Aggregates prices from network of price sources and stores to redis
+  # p2pnode:
+  #   stdin_open: true # docker run -i
+  #   tty: true # docker run -t
+  #   build:
+  #     context: .
+  #     dockerfile: ./src/p2p/Dockerfile
+  #     target: prod
+  #   links:
+  #     - redis
+  #   environment:
+  #     - REDIS_URL=redis://cache
+  #   ports: # port used for p2p network
+  #     - "11125:11125"
+
+  # blockchaininterface:
+  #   stdin_open: true # docker run -i
+  #   tty: true # docker run -t
+  #   build:
+  #     context: .
+  #     dockerfile: ./src/priceRequestObserver/Dockerfile
+  #     target: prod
+  #   links:
+  #     - redis
+  #   environment:
+  #     - REDIS_URL=redis://cache
