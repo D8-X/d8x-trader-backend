@@ -135,5 +135,6 @@ export interface WebsocketClientConfig {
   chainId: number;
   streamName: string; //chainId & name must be unique
   tickers: string[]; // tickers that we can get from all endpoints below
+  feedIds: Array<[string, string]>; //tickername tickerid
   wsEndpoints: string[]; // array of endpoints of the form "ws://<ip>:<port>"
 }
