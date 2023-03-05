@@ -200,7 +200,7 @@ export default class EventListener extends IndexPriceInterface {
     // traderAddr -> ws
     let subscribers: Map<string, WebSocket.WebSocket[]> | undefined = this.subscriptions.get(perpetualId);
     if (subscribers == undefined) {
-      console.log(`no subscribers for perpetual ${perpetualId}`);
+      // console.log(`no subscribers for perpetual ${perpetualId}`);
       return;
     }
     if (traderAddr != undefined) {
