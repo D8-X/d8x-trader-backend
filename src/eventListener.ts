@@ -1,27 +1,36 @@
-import { ethers } from "ethers";
+import {
+  ABK64x64ToFloat,
+  BUY_SIDE,
+  calculateLiquidationPriceCollateralBase,
+  calculateLiquidationPriceCollateralQuanto,
+  calculateLiquidationPriceCollateralQuote,
+  CLOSED_SIDE,
+  COLLATERAL_CURRENCY_BASE,
+  COLLATERAL_CURRENCY_QUOTE,
+  ExchangeInfo,
+  getNewPositionLeverage,
+  mul64x64,
+  NodeSDKConfig,
+  ONE_64x64,
+  PerpetualState,
+  PerpetualStaticInfo,
+  SELL_SIDE,
+  SmartContractOrder,
+  TraderInterface,
+} from "@d8x/perpetuals-sdk";
 import { BigNumber } from "ethers";
 import WebSocket from "ws";
-import {
-  TraderInterface,
-  PerpetualDataHandler,
-  SmartContractOrder,
-  ABK64x64ToFloat,
-  mul64x64,
-  ONE_64x64,
-  ExchangeInfo,
-  PerpetualState,
-  PoolState,
-  NodeSDKConfig,
-} from "@d8x/perpetuals-sdk";
-import Observer from "./observer";
+
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
+import IndexPriceInterface from "./indexPriceInterface";
 import SDKInterface from "./sdkInterface";
+import { ExecutionFailed, LimitOrderCreated, PriceUpdate, Trade, UpdateMarginAccount, WSMsg } from "./wsTypes";
 
 /**
  * Class that listens to blockchain events on
  * - limitorder books
- *      x onExecutionFailed (trader)
- *      x onPerpetualLimitOrderCreated (trader)
+ *      - onExecutionFailed (trader)
+ *      - onPerpetualLimitOrderCreated (trader)
  * - perpetual manager proxy
  *      - onUpdateMarkPrice (broadcast)
  *      - onUpdateFundingRate (broadcast via MarkPrice)
@@ -41,9 +50,9 @@ import SDKInterface from "./sdkInterface";
 //      onUpdateMarginAccount
 //      onPerpetualLimitOrderCancelled
 //      onTrade
-export default class EventListener extends Observer {
+export default class EventListener extends IndexPriceInterface {
   traderInterface: TraderInterface;
-  sdkInterface: SDKInterface | undefined;
+
   fundingRate: Map<number, number>; // perpetualId -> funding rate
   openInterest: Map<number, number>; // perpetualId -> openInterest
   lastBlockChainEventTs: number; //here we log the event occurence time to guess whether the connection is alive
@@ -64,8 +73,8 @@ export default class EventListener extends Observer {
   }
 
   public async initialize(sdkInterface: SDKInterface) {
+    await super.initialize(sdkInterface);
     await this.traderInterface.createProxyInstance();
-    this.sdkInterface = sdkInterface;
     sdkInterface.registerObserver(this);
     this.addProxyEventHandlers();
     this.lastBlockChainEventTs = Date.now();
@@ -140,11 +149,13 @@ export default class EventListener extends Observer {
         continue;
       }
       let subscribers = traderMap.get(clientSubscriptions[k].traderAddr);
-      const idx = subscribers!.indexOf(ws, 0);
-      if (idx > -1) {
-        subscribers!.splice(idx, 1);
+      if (subscribers != undefined) {
+        const idx = subscribers!.indexOf(ws, 0);
+        if (idx > -1) {
+          subscribers!.splice(idx, 1);
+        }
       }
-      if (subscribers?.length == 0) {
+      if (subscribers == undefined || subscribers?.length == 0) {
         traderMap.delete(clientSubscriptions[k].traderAddr);
       }
       if (this.subscriptions.get(id)?.keys.length == 0) {
@@ -158,9 +169,9 @@ export default class EventListener extends Observer {
 
   /**
    * Handles updates from sdk interface
-   * @param msg from obserable
+   * @param msg from observable
    */
-  public async update(msg: String) {
+  protected async _update(msg: String) {
     // we receive a message from the observable sdk
     // on update exchange info; we update price info and inform subscribers
     console.log("received update from sdkInterface");
@@ -174,7 +185,7 @@ export default class EventListener extends Observer {
         let perp: PerpetualState = pool.perpetuals[j];
         this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
         this.openInterest.set(perp.id, perp.openInterestBC);
-        this._updateMarkPrice(perp.id, perp.midPrice, perp.markPrice, perp.indexPrice);
+        this.updateMarkPrice(perp.id, perp.midPrice, perp.markPrice, perp.indexPrice);
       }
     }
   }
@@ -265,6 +276,10 @@ export default class EventListener extends Observer {
         this.onTrade(perpetualId, trader, positionId, order, orderDigest, newPositionSizeBC, price);
       }
     );
+    // TODO: need perpId in the event
+    // proxyContract.on("PerpetualLimitOrderCancelled", (digest: string) => {
+    //   this.onPerpetualLimitOrderCancelled(..., digest);
+    // });
   }
 
   /**
@@ -286,6 +301,9 @@ export default class EventListener extends Observer {
         this.onPerpetualLimitOrderCreated(perpetualId, trader, referrerAddr, brokerAddr, Order, digest);
       }
     );
+    // contract.on("PerpetualLimitOrderCancelled", (digest: string) => {
+    //   this.onPerpetualLimitOrderCancelled(symbol, digest);
+    // });
     contract.on("ExecutionFailed", (perpetualId: number, trader: string, digest: string, reason: string) => {
       this.onExecutionFailed(perpetualId, trader, digest, reason);
     });
@@ -297,6 +315,7 @@ export default class EventListener extends Observer {
    */
   private removeOrderBookEventHandlers(symbolOrId: string) {
     let contract = this.traderInterface.getOrderBookContract(symbolOrId);
+    // contract.removeAllListeners("PerpetualLimitOrderCancelled");
     contract.removeAllListeners("PerpetualLimitOrderCreated");
     contract.removeAllListeners("ExecutionFailed");
   }
@@ -337,18 +356,65 @@ export default class EventListener extends Observer {
   ): Promise<void> {
     this.lastBlockChainEventTs = Date.now();
     this.openInterest.set(perpetualId, ABK64x64ToFloat(fOpenInterestBC));
-    // send data to subscriber
+
     let symbol = this.symbolFromPerpetualId(perpetualId);
+    let state = await this.sdkInterface!.extractPerpetualStateFromExchangeInfo(symbol);
+    let info = <PerpetualStaticInfo>JSON.parse(this.sdkInterface!.perpetualStaticInfo(symbol));
+    // margin account
+    let posBC = ABK64x64ToFloat(fPositionBC);
+    let lockedInQC = ABK64x64ToFloat(fLockedInValueQC);
+    let cashCC = ABK64x64ToFloat(fCashCC);
+    let lvg = getNewPositionLeverage(
+      0,
+      cashCC,
+      posBC,
+      lockedInQC,
+      state.indexPrice,
+      state.collToQuoteIndexPrice,
+      state.markPrice,
+      state.markPrice,
+      0
+    );
+    let S2Liq, S3Liq;
+    if (info.collateralCurrencyType == COLLATERAL_CURRENCY_BASE) {
+      S2Liq = calculateLiquidationPriceCollateralBase(lockedInQC, posBC, cashCC, info.maintenanceMarginRate);
+      S3Liq = S2Liq;
+    } else if (info.collateralCurrencyType == COLLATERAL_CURRENCY_QUOTE) {
+      S2Liq = calculateLiquidationPriceCollateralQuote(lockedInQC, posBC, cashCC, info.maintenanceMarginRate);
+      S3Liq = state.collToQuoteIndexPrice;
+    } else {
+      S2Liq = calculateLiquidationPriceCollateralQuanto(
+        lockedInQC,
+        posBC,
+        cashCC,
+        info.maintenanceMarginRate,
+        state.collToQuoteIndexPrice,
+        state.markPrice
+      );
+      S3Liq = S2Liq;
+    }
+
     let obj: UpdateMarginAccount = {
+      // positionRisk
       symbol: symbol,
+      positionNotionalBaseCCY: Math.abs(posBC),
+      side: posBC > 0 ? BUY_SIDE : posBC < 0 ? SELL_SIDE : CLOSED_SIDE,
+      entryPrice: posBC == 0 ? 0 : Math.abs(lockedInQC / posBC),
+      leverage: lvg,
+      markPrice: state.markPrice,
+      unrealizedPnlQuoteCCY: posBC * state.markPrice - lockedInQC,
+      unrealizedFundingCollateralCCY: 0,
+      collateralCC: cashCC,
+      liquidationPrice: [S2Liq, S3Liq],
+      liquidationLvg: posBC == 0 ? 0 : 1 / info.maintenanceMarginRate,
+      collToQuoteConversion: state.collToQuoteIndexPrice,
+      // extra info
       perpetualId: perpetualId,
       traderAddr: trader,
       positionId: positionId,
-      positionBC: ABK64x64ToFloat(fPositionBC),
-      cashCC: ABK64x64ToFloat(fCashCC),
-      lockedInValueQC: ABK64x64ToFloat(fLockedInValueQC),
       fundingPaymentCC: ABK64x64ToFloat(fFundingPaymentCC),
     };
+    // send data to subscriber
     let wsMsg: WSMsg = { name: "UpdateMarginAccount", obj: obj };
     let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onUpdateMarginAccount", "", wsMsg);
     // send to subscribers of trader/perpetual
@@ -375,8 +441,17 @@ export default class EventListener extends Observer {
       fSpotIndexPrice
     );
     console.log("eventListener: onUpdateMarkPrice");
-    // notify websocket listeners
-    this._updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, newIndexPrice);
+    // update internal storage that is streamed to websocket
+    // and adjust mid/idx price based on newest index
+    [newMidPrice, newMarkPrice, newIndexPrice] = this.updatePricesOnMarkPriceEvent(
+      perpetualId,
+      newMidPrice,
+      newMarkPrice,
+      newIndexPrice
+    );
+    // notify websocket listeners (using prices based on most recent websocket price)
+    this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, newIndexPrice);
+
     // update data in sdkInterface's exchangeInfo
     let fundingRate = this.fundingRate.get(perpetualId) || 0;
     let oi = this.openInterest.get(perpetualId) || 0;
@@ -395,14 +470,17 @@ export default class EventListener extends Observer {
   }
 
   /**
-   * Internal function to update prices. Called either by blockchain event handler (onUpdateMarkPrice),
-   * or on update of the observable sdkInterface (after exchangeInfo update)
+   * Internal function to update prices.
+   * Called either by blockchain event handler (onUpdateMarkPrice),
+   * or on update of the observable sdkInterface (after exchangeInfo update),
+   * or from parent class on websocket update.
+   * Informs websocket subsribers
    * @param perpetualId id of the perpetual for which prices are being updated
    * @param newMidPrice mid price in decimals
    * @param newMarkPrice mark price
    * @param newIndexPrice index price
    */
-  private _updateMarkPrice(perpetualId: number, newMidPrice: number, newMarkPrice: number, newIndexPrice: number) {
+  protected updateMarkPrice(perpetualId: number, newMidPrice: number, newMarkPrice: number, newIndexPrice: number) {
     let fundingRate = this.fundingRate.get(perpetualId) || 0;
     let oi = this.openInterest.get(perpetualId) || 0;
     let symbol = this.symbolFromPerpetualId(perpetualId);
@@ -503,13 +581,14 @@ export default class EventListener extends Observer {
    * event PerpetualLimitOrderCancelled(bytes32 indexed orderHash);
    * @param orderId string order id/digest
    */
-  public onPerpetualLimitOrderCancelled(orderId: string) {
+  public onPerpetualLimitOrderCancelled(symbol: string, orderId: string) {
     this.lastBlockChainEventTs = Date.now();
     console.log("onPerpetualLimitOrderCancelled");
-    //let wsMsg: WSMsg = { name: "PerpetualLimitOrderCancelled", obj: { orderId: orderId } };
-    //let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onPerpetualLimitOrderCreated", "", wsMsg);
-    // currently broadcasted:
-    // this.sendToSubscribers(perpetualId, JSON.stringify(wsMsg));
+    // let perpetualId = JSON.parse(this.sdkInterface!.perpetualStaticInfo(symbol)).id;
+    // let wsMsg: WSMsg = { name: "PerpetualLimitOrderCancelled", obj: { orderId: orderId } };
+    // let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onPerpetualLimitOrderCancelled", "", wsMsg);
+    // // currently broadcasted:
+    // this.sendToSubscribers(perpetualId, jsonMsg);
   }
 
   /**
