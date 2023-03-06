@@ -34,10 +34,10 @@
     call-me-maybe "^1.0.1"
     z-schema "^5.0.1"
 
-"@d8x/perpetuals-sdk@0.0.41":
-  version "0.0.41"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.0.41.tgz#fd3824931d8d93a3655b410cb24e4ae0a85197ef"
-  integrity sha512-scvSzKI3o+iuF265EVI9oKMhkdgQExEv5w2U0d/tSONOum4PsjgMxQX5Ri48F8P5gIrjuPzasOuVqfcQvployA==
+"@d8x/perpetuals-sdk@0.0.43":
+  version "0.0.43"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.0.43.tgz#85f96f08dcc4de760c01143eafcb2a2f8ad552c9"
+  integrity sha512-Cr2XWTYn9O9lWDG0REVCnjg3ThBybfJ3cVN2p7VVHq20gkNRh+pe87E9rZ41DTeEEV9n942OgbGDF5dqjEz7tQ==
   dependencies:
     "@ethersproject/bytes" "^5.7.0"
     "@ethersproject/strings" "^5.7.0"
