@@ -3,7 +3,6 @@ FROM node:18-alpine
 
 # sudo docker build . -t mytest -f ./src/Dockerfile --build-arg PORT=$PORT --build-arg PORT_WEBSOCKET=$PORT_WEBSOCKET --build-arg PORT_WEBSOCKET_CLIENT=$PORT_WEBSOCKET_CLIENT  --build-arg CHAIN_ID=$CHAIN_ID --build-arg REDIS_URL=$REDIS_URL 
 # sudo docker run -it mytest
-#The arguments inherited from GitHub variables
 ARG PORT
 ARG PORT_WEBSOCKET
 ARG PORT_WEBSOCKET_CLIENT
