@@ -9,6 +9,7 @@ import {
   COLLATERAL_CURRENCY_QUOTE,
   ExchangeInfo,
   getNewPositionLeverage,
+  MarginAccount,
   mul64x64,
   NodeSDKConfig,
   ONE_64x64,
@@ -262,6 +263,12 @@ export default class EventListener extends IndexPriceInterface {
         );
       }
     );
+    proxyContract.on("TokensDeposited", (perpetualId: number, trader: string, amount: BigNumber) => {
+      this.onUpdateMarginCollateral(perpetualId, trader, amount);
+    });
+    proxyContract.on("TokensWithdrawn", (perpetualId: number, trader: string, amount: BigNumber) => {
+      this.onUpdateMarginCollateral(perpetualId, trader, amount.mul(-1));
+    });
     proxyContract.on(
       "Trade",
       (
@@ -413,6 +420,42 @@ export default class EventListener extends IndexPriceInterface {
       traderAddr: trader,
       positionId: positionId,
       fundingPaymentCC: ABK64x64ToFloat(fFundingPaymentCC),
+    };
+    // send data to subscriber
+    let wsMsg: WSMsg = { name: "UpdateMarginAccount", obj: obj };
+    let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onUpdateMarginAccount", "", wsMsg);
+    // send to subscribers of trader/perpetual
+    this.sendToSubscribers(perpetualId, jsonMsg, trader);
+  }
+
+  private async onUpdateMarginCollateral(perpetualId: number, trader: string, amount: BigNumber) {
+    this.lastBlockChainEventTs = Date.now();
+    let symbol = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
+    let pos = <MarginAccount>JSON.parse(await this.sdkInterface!.positionRisk(trader, symbol));
+    if (pos.positionNotionalBaseCCY == 0 && amount.lt(0)) {
+      // position is zero after a withdrawal: this will be caught as a margin account update, ignore
+      return;
+    }
+    // either an opening trade, or trader just deposited to an existing position
+    let obj: UpdateMarginAccount = {
+      // positionRisk
+      symbol: symbol,
+      positionNotionalBaseCCY: pos.positionNotionalBaseCCY,
+      side: pos.side,
+      entryPrice: pos.entryPrice,
+      leverage: pos.leverage,
+      markPrice: pos.markPrice,
+      unrealizedPnlQuoteCCY: pos.unrealizedPnlQuoteCCY,
+      unrealizedFundingCollateralCCY: pos.unrealizedFundingCollateralCCY,
+      collateralCC: pos.collateralCC,
+      liquidationPrice: pos.liquidationPrice,
+      liquidationLvg: pos.liquidationLvg,
+      collToQuoteConversion: pos.collToQuoteConversion,
+      // extra info
+      perpetualId: perpetualId,
+      traderAddr: trader,
+      positionId: "", // not used in the front-end
+      fundingPaymentCC: 0,
     };
     // send data to subscriber
     let wsMsg: WSMsg = { name: "UpdateMarginAccount", obj: obj };
