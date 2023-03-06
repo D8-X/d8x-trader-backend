@@ -126,13 +126,13 @@ export default abstract class IndexPriceInterface extends Observer {
       this.redisPubClient.publish("feedRequest", indices);
     } else {
       // message must be indices separated by colon
-      console.log("Received REDIS message" + message);
+      // console.log("Received REDIS message" + message);
       let indices = message.split(":");
       for (let k = 0; k < indices.length; k++) {
         // get price from redit
         let px: number = Number(await this.redisClient.get(indices[k]));
         this.idxPrices.set(indices[k], px);
-        console.log(indices[k], px);
+        //console.log(indices[k], px);
       }
       this._updatePricesOnIndexPrice(indices);
     }
