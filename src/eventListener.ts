@@ -533,7 +533,7 @@ export default class EventListener extends IndexPriceInterface {
       midPrice: newMidPrice,
       markPrice: newMarkPrice,
       indexPrice: newIndexPrice,
-      fundingRate: fundingRate,
+      fundingRate: fundingRate * 1e4, // in bps so it matches exchangeInfo
       openInterest: oi,
     };
     let wsMsg: WSMsg = { name: "PriceUpdate", obj: obj };
