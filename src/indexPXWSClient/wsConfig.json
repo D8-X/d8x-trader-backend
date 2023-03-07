@@ -2,7 +2,7 @@
   {
     "chainId": 80001,
     "streamName": "crypto1",
-    "wsEndpoints": ["wss://xc-testnet.pyth.network/ws"],
+    "wsEndpoints": ["wss://pyth.testnet.quantena.tech/ws", "wss://xc-testnet.pyth.network/ws"],
     "tickers": ["BTC-USD", "ETH-USD", "MATIC-USD"],
     "feedIds": [
       ["BTC-USD", "0xf9c0172ba10dfa4d19088d94f5bf61d3b54d5bd7483a322a982e1373ee8ea31b"],
