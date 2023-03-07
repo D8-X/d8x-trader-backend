@@ -61,7 +61,7 @@ export default class IndexPxWSClient {
     let wsAddr = this.config.wsEndpoints[idx];
     this.ws = new WebSocket(wsAddr);
     await this.waitForSocketState(this.ws, this.ws.OPEN);
-    this.ws.on("open", () => this.onOpen());
+    this.onOpen();
     this.ws.on("ping", () => {
       this.lastHeartBeatMs = Date.now();
       this.ws!.pong();
