@@ -48,7 +48,7 @@ export default class IndexPxWSClient {
    * Connect to WebSocket server and initialize Redis
    * @param idx optional index of websocket server
    */
-  public async init(idx: number=0): Promise<void> {
+  public async init(idx: number = 0): Promise<void> {
     await this.initWS(idx);
   }
 
@@ -62,7 +62,10 @@ export default class IndexPxWSClient {
     this.ws = new WebSocket(wsAddr);
     await this.waitForSocketState(this.ws, this.ws.OPEN);
     this.ws.on("open", () => this.onOpen());
-    this.ws.on("ping", () => {this.lastHeartBeatMs = Date.now(); this.ws.pong();});
+    this.ws.on("ping", () => {
+      this.lastHeartBeatMs = Date.now();
+      this.ws!.pong();
+    });
     this.ws.on("message", (data: WebSocket.RawData) => this.onMessage(data));
   }
 
@@ -97,10 +100,7 @@ export default class IndexPxWSClient {
     this.ws!.send(JSON.stringify(request));
   }
 
-  private async waitForSocketState(
-    client: WebSocket,
-    state: number
-  ): Promise<void> {
+  private async waitForSocketState(client: WebSocket, state: number): Promise<void> {
     while (client.readyState !== state) {
       await sleep(10);
     }
