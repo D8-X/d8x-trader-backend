@@ -1,5 +1,5 @@
 import WebSocket from "ws";
-import { createClient } from "redis";
+import { sleep } from "../utils";
 import { WebsocketClientConfig } from "../wsTypes";
 import FeedHandler from "./feedHandler";
 
@@ -48,22 +48,21 @@ export default class IndexPxWSClient {
    * Connect to WebSocket server and initialize Redis
    * @param idx optional index of websocket server
    */
-  public async init(idx?: number): Promise<void> {
-    if (idx == undefined) {
-      idx = Math.floor(Math.random() * this.config.wsEndpoints.length);
-    }
-    this.initWS(idx);
+  public async init(idx: number=0): Promise<void> {
+    await this.initWS(idx);
   }
 
   /**
    * Connect to websocket server
    * @param idx index of chosen server
    */
-  private initWS(idx: number) {
+  private async initWS(idx: number) {
     console.log("Endpoint ", this.config.wsEndpoints[idx], "for ", this.name);
     let wsAddr = this.config.wsEndpoints[idx];
     this.ws = new WebSocket(wsAddr);
+    await this.waitForSocketState(this.ws, this.ws.OPEN);
     this.ws.on("open", () => this.onOpen());
+    this.ws.on("ping", () => {this.lastHeartBeatMs = Date.now(); this.ws.pong();});
     this.ws.on("message", (data: WebSocket.RawData) => this.onMessage(data));
   }
 
@@ -80,12 +79,12 @@ export default class IndexPxWSClient {
   /**
    * Randomly choose a WebSocket server, connect, and re-subscribe.
    */
-  public switchWSServer() {
+  public async switchWSServer() {
     if (this.ws != undefined) {
       this.ws.send(JSON.stringify({ type: "unsubscribe", ids: this.tickerIds }));
     }
     let idx = Math.floor(Math.random() * this.config.wsEndpoints.length);
-    this.initWS(idx);
+    await this.initWS(idx);
   }
 
   /**
@@ -98,13 +97,13 @@ export default class IndexPxWSClient {
     this.ws!.send(JSON.stringify(request));
   }
 
-  /**
-   * Send ping message to check alive status and get
-   */
-  public async sendPing() {
-    // not part of Pyth
-    //console.log("ping");
-    //await this.ws?.send(JSON.stringify({ type: "ping" }));
+  private async waitForSocketState(
+    client: WebSocket,
+    state: number
+  ): Promise<void> {
+    while (client.readyState !== state) {
+      await sleep(10);
+    }
   }
 
   /**
