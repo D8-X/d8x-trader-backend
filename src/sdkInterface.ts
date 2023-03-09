@@ -10,7 +10,7 @@ import {
   MarginAccount,
   floatToABK64x64,
   SmartContractOrder,
-  ABK64x64ToFloat,
+  D8X_SDK_VERSION,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
 import { createClient } from "redis";
@@ -35,7 +35,7 @@ export default class SDKInterface extends Observable {
     await this.redisClient.connect();
     this.apiInterface = new TraderInterface(sdkConfig);
     await this.apiInterface.createProxyInstance();
-    console.log("SDK API initialized");
+    console.log(`SDK v${D8X_SDK_VERSION} API initialized`);
   }
 
   private async cacheExchangeInfo() {
