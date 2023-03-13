@@ -15,6 +15,10 @@
 - REST: http://localhost:3001/
 - Websocket: ws://localhost:8080
 
+# Architecture
+
+<img src="./docs/BackendDiagram.png">
+
 ## Response Format
 
 ```
