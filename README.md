@@ -13,7 +13,11 @@
 - npm run build
 - npm run start
 - REST: http://localhost:3001/
-- Websocket: ws://localhost:8080
+- Websocket: ws://localhost:8080/
+- it is recommended to build your own instance of the Pyth Price service:
+  - Repository: https://github.com/pyth-network/pyth-crosschain.git
+  - Price service: https://github.com/pyth-network/pyth-crosschain/tree/main/price_service/server
+  - Alternatively use the [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server) (not required for backend)
 
 # Architecture
 
