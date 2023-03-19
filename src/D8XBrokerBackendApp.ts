@@ -115,9 +115,8 @@ export default class D8XBrokerBackendApp {
 
   private middleWare() {
     this.express.use(express.urlencoded({ extended: false }));
-    this.express.use(cors());//needs to be above express.json
+    this.express.use(cors()); //needs to be above express.json
     this.express.use(express.json());
-    
   }
 
   /**
@@ -289,7 +288,7 @@ export default class D8XBrokerBackendApp {
           res.send(D8XBrokerBackendApp.JSONResponse("maxOrderSizeForTrader", "", rsp));
         }
       } catch (err: any) {
-        const usg = "positionRisk?traderAddr=0xCafee&symbol=MATIC-USD-MATIC";
+        const usg = "{traderAddr: string, symbol: string}";
         res.send(
           D8XBrokerBackendApp.JSONResponse("error", "positionRisk", { error: extractErrorMsg(err), usage: usg })
         );
