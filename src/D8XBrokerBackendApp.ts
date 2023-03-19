@@ -357,7 +357,7 @@ export default class D8XBrokerBackendApp {
         if (typeof req.query.symbol != "string" || typeof req.query.amount != "string") {
           throw new Error("wrong arguments. Requires a symbol and an amount.");
         }
-        let rsp = this.sdk.addCollateral(req.query.symbol, req.query.amount);
+        let rsp = await this.sdk.addCollateral(req.query.symbol, req.query.amount);
         res.send(D8XBrokerBackendApp.JSONResponse("addCollateral", "", rsp));
       } catch (err: any) {
         const usg = "{symbol: string, amount: number}";
@@ -372,7 +372,7 @@ export default class D8XBrokerBackendApp {
         if (typeof req.query.symbol != "string" || typeof req.query.amount != "string") {
           throw new Error("wrong arguments. Requires a symbol and an amount.");
         }
-        let rsp = this.sdk.removeCollateral(req.query.symbol, req.query.amount);
+        let rsp = await this.sdk.removeCollateral(req.query.symbol, req.query.amount);
         res.send(D8XBrokerBackendApp.JSONResponse("removeCollateral", "", rsp));
       } catch (err: any) {
         const usg = "{symbol: string, amount: number}";
