@@ -318,7 +318,7 @@ export default class SDKInterface extends Observable {
     });
   }
 
-  public addCollateral(symbol: string, amount: string): string {
+  public async addCollateral(symbol: string, amount: string): Promise<string> {
     this.checkAPIInitialized();
     // contract data
     let proxyAddr = this.apiInterface!.getProxyAddress();
@@ -327,10 +327,21 @@ export default class SDKInterface extends Observable {
     let perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
     // the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
     let amountHex = floatToABK64x64(Number(amount)).toHexString();
-    return JSON.stringify({ perpId: perpId, proxyAddr: proxyAddr, abi: proxyABI, amountHex: amountHex });
+    let priceUpdate = await this.apiInterface!.fetchLatestFeedPriceInfo(symbol);
+    return JSON.stringify({
+      perpId: perpId,
+      proxyAddr: proxyAddr,
+      abi: proxyABI,
+      amountHex: amountHex,
+      priceUpdate: {
+        updateData: priceUpdate.priceFeedVaas,
+        publishTimes: priceUpdate.timestamps,
+        updateFee: this.apiInterface!.PRICE_UPDATE_FEE_GWEI * priceUpdate.priceFeedVaas.length,
+      },
+    });
   }
 
-  public removeCollateral(symbol: string, amount: string): string {
+  public async removeCollateral(symbol: string, amount: string): Promise<string> {
     this.checkAPIInitialized();
     // contract data
     let proxyAddr = this.apiInterface!.getProxyAddress();
@@ -339,7 +350,18 @@ export default class SDKInterface extends Observable {
     let perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
     // the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
     let amountHex = floatToABK64x64(Number(amount)).toHexString();
-    return JSON.stringify({ perpId: perpId, proxyAddr: proxyAddr, abi: proxyABI, amountHex: amountHex });
+    let priceUpdate = await this.apiInterface!.fetchLatestFeedPriceInfo(symbol);
+    return JSON.stringify({
+      perpId: perpId,
+      proxyAddr: proxyAddr,
+      abi: proxyABI,
+      amountHex: amountHex,
+      priceUpdate: {
+        updateData: priceUpdate.priceFeedVaas,
+        publishTimes: priceUpdate.timestamps,
+        updateFee: this.apiInterface!.PRICE_UPDATE_FEE_GWEI * priceUpdate.priceFeedVaas.length,
+      },
+    });
   }
 
   public async getAvailableMargin(symbol: string, traderAddr: string) {
