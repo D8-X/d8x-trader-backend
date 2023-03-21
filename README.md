@@ -2,11 +2,27 @@
 
 # Prerequisites
 
+Either
+
 - install Redis: https://redis.io/docs/getting-started/installation/install-redis-on-linux/
 - node (used v18.14.0 for testing)
 - yarn
+  Or just Docker.
 
 # Buidl and run backend
+
+- it is recommended to build your own instance of the Pyth Price service:
+  - Repository: https://github.com/pyth-network/pyth-crosschain.git
+  - Price service: https://github.com/pyth-network/pyth-crosschain/tree/main/price_service/server
+  - Alternatively use the [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server) (fork not required for backend)
+
+## Using Docker
+
+- check `wsConfig.json`, especially edit the entry `wsEndpoints` and add your own endpoint, in addition to the public endpoint `wss://xc-testnet.pyth.network/ws`
+- Copy `.envExample` file and paste as `.env` file. No changes should be necessary for testnet.
+- `cd` into the repository root directory and `docker-compose up --build`
+
+## Without Docker
 
 - Copy `.envExample` file and paste as `.env` file. Make changes if necessary.
   - for example: re-define the ports in `.env`, e.g., 3000 (using 30001 below)
@@ -14,10 +30,6 @@
 - npm run start
 - REST: http://localhost:3001/
 - Websocket: ws://localhost:8080/
-- it is recommended to build your own instance of the Pyth Price service:
-  - Repository: https://github.com/pyth-network/pyth-crosschain.git
-  - Price service: https://github.com/pyth-network/pyth-crosschain/tree/main/price_service/server
-  - Alternatively use the [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server) (not required for backend)
 
 # Architecture
 
