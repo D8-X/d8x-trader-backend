@@ -1,13 +1,12 @@
 # d8x-trader-backend
 
-# Prerequisites
+The entire backend for the D8X Perpetuals trading frontend package consists of
 
-Either
+- this backend code
+- candle stick chart server: https://github.com/D8-X/candleD8
+- a price server (optional but highly encouraged): https://github.com/pyth-network/pyth-crosschain.git
 
-- install Redis: https://redis.io/docs/getting-started/installation/install-redis-on-linux/
-- node (used v18.14.0 for testing)
-- yarn
-  Or just Docker.
+The services run over http/ws and it is required to install a reverse proxy on the servers so the traffic can flow via https/wss.
 
 # Buidl and run backend
 
@@ -15,6 +14,15 @@ Either
   - Repository: https://github.com/pyth-network/pyth-crosschain.git
   - Price service: https://github.com/pyth-network/pyth-crosschain/tree/main/price_service/server
   - Alternatively use the [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server) (fork not required for backend)
+
+## Prerequisites
+
+Either
+
+- install Redis: https://redis.io/docs/getting-started/installation/install-redis-on-linux/
+- node (used v18.14.0 for testing)
+- yarn
+  Or just Docker.
 
 ## Using Docker
 
@@ -30,6 +38,39 @@ Either
 - npm run start
 - REST: http://localhost:3001/
 - Websocket: ws://localhost:8080/
+
+## Broker-fee
+
+By default the backend comes without any broker-fee involved. D8X allows brokers to set their
+own fee which is added to the exchange fee that the trader is charged. The broker receives the fee
+from the D8X smart contracts whenever the trader places a trade.
+
+To apply a broker fee, the broker needs to implement a concrete class that inherits from the
+abstract class `BrokerIntegration`. Specifically, the following methods need to be implemented:
+
+1. `getBrokerAddress(traderAddr: string, order?: Order): string`
+2. `getBrokerFeeTBps(traderAddr: string, order?: Order): number`
+3. `signOrder(SCOrder: SmartContractOrder): string`
+
+By default, a the class `NoBroker` is used. Once the broker implements their own class, the following two lines have to be changed in `index.ts`:
+
+```
+import NoBroker from "./noBroker";
+...
+let d8XBackend = new D8XBrokerBackendApp(new NoBroker(), sdkConfig);
+```
+
+Methods (1) and (2) are trivial, method (3) requires access to the broker private key and it can make use of the following code-snippet
+that leverages D8X Node SDK:
+
+```
+// for a known brokerPrivateKey and brokerAddress
+config = PerpetualDataHandler.readSDKConfig("testnet");
+let brokerTool = new BrokerTool(config, brokerPrivateKey);
+await brokerTool.createProxyInstance();
+let signedOrder = await brokerTool.signOrder(order, brokerAddress);
+
+```
 
 # Architecture
 
