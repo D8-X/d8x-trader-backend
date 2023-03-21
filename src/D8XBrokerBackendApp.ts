@@ -7,7 +7,6 @@ import SDKInterface from "./sdkInterface";
 import { extractErrorMsg } from "./utils";
 import { Order, PerpetualState, NodeSDKConfig, MarginAccount } from "@d8x/perpetuals-sdk";
 import EventListener from "./eventListener";
-import NoBroker from "./noBroker";
 import BrokerIntegration from "./brokerIntegration";
 import fs from "fs";
 import cors from "cors";
