@@ -1,6 +1,12 @@
 import { createClient } from "redis";
 import { WebsocketClientConfig } from "./wsTypes";
 
+export interface RedisConfig {
+  host: string;
+  port: number;
+  password: string;
+}
+
 export function extractErrorMsg(error: any): string {
   let message;
   if (error instanceof Error) {
@@ -35,16 +41,27 @@ export function loadConfigJSON(chainId: number): WebsocketClientConfig[] {
   return relevantConfigs;
 }
 
-export function constructRedis(name: string): ReturnType<typeof createClient> {
-  let redisUrl: string | undefined = process.env.REDIS_URL;
-  let client;
-  if (redisUrl == undefined || redisUrl == "") {
-    console.log(`${name} connecting to redis`);
-    client = createClient();
-  } else {
-    console.log(`${name} connecting to redis: ${redisUrl}`);
-    client = createClient({ url: redisUrl });
+function urlToConfig(): RedisConfig {
+  let originUrl = process.env.REDIS_URL;
+  if (originUrl == undefined) {
+    throw new Error("REDIS_URL not defined");
   }
+  console.log("URL=", originUrl);
+  let redisURL = new URL(originUrl);
+  const host = redisURL.hostname;
+  const port = parseInt(redisURL.port);
+  const redisPassword = redisURL.password;
+  let config = { host: host, port: port, password: redisPassword! };
+
+  return config;
+}
+
+export function constructRedis(name: string): ReturnType<typeof createClient> {
+  let client;
+  let redisConfig = urlToConfig();
+  console.log(redisConfig);
+  console.log(`${name} connecting to redis: ${redisConfig.host}`);
+  client = createClient(redisConfig);
   client.on("error", (err) => console.log(`${name} Redis Client Error:` + err));
   return client;
 }

@@ -34,6 +34,7 @@ Either
 
 - Copy `.envExample` file and paste as `.env` file. Make changes if necessary.
   - for example: re-define the ports in `.env`, e.g., 3000 (using 30001 below)
+- yarn
 - npm run build
 - npm run start
 - REST: http://localhost:3001/
