@@ -1,3 +1,4 @@
+// TODO: Triangulator is added to Node SDK Package so use it from there
 export default class Triangulator {
   /**
    * Find all possible triangulation paths

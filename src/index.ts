@@ -22,7 +22,7 @@ function chooseRandomRPC() {
 }
 
 async function start() {
-  const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig("testnet");
+  const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig("central-park");
   sdkConfig.nodeURL = chooseRandomRPC();
   console.log(`RPC = ${sdkConfig.nodeURL}`);
   let d8XBackend = new D8XBrokerBackendApp(new NoBroker(), sdkConfig);

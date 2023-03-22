@@ -1,0 +1,46 @@
+# docker-compose.yml
+
+#docker rmi $(docker images -f "dangling=true" -q)
+#sudo docker-compose up --build
+version: "2.3"
+services:
+  # Args: none
+  redis:
+    image: redis
+    container_name: cache
+    expose:
+      - 6379
+
+  # REST/WS server for frontend
+  backend_main:
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    links:
+      - redis
+    environment:
+      - REDIS_URL=redis://cache
+      - PORT_REST=${PORT_REST}
+      - PORT_WEBSOCKET=${PORT_WEBSOCKET}
+      - CHAIN_ID=${CHAIN_ID}
+    ports:
+      - "${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
+      - "${PORT_REST}:${PORT_REST}"
+    restart: on-failure
+
+  backend_pyth_connection:
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    build:
+      context: .
+      dockerfile: ./src/indexPXWSClient/Dockerfile
+    links:
+      - redis
+    environment:
+      - REDIS_URL=redis://cache
+      - PORT_REST=${PORT_REST}
+      - PORT_WEBSOCKET=${PORT_WEBSOCKET}
+      - CHAIN_ID=${CHAIN_ID}
+    restart: on-failure

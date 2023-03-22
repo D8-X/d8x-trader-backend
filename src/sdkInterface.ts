@@ -10,7 +10,7 @@ import {
   MarginAccount,
   floatToABK64x64,
   SmartContractOrder,
-  ABK64x64ToFloat,
+  D8X_SDK_VERSION,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
 import { createClient } from "redis";
@@ -35,7 +35,7 @@ export default class SDKInterface extends Observable {
     await this.redisClient.connect();
     this.apiInterface = new TraderInterface(sdkConfig);
     await this.apiInterface.createProxyInstance();
-    console.log("SDK API initialized");
+    console.log(`SDK v${D8X_SDK_VERSION} API initialized`);
   }
 
   private async cacheExchangeInfo() {
@@ -227,8 +227,14 @@ export default class SDKInterface extends Observable {
     this.checkAPIInitialized();
     let perpetualState: PerpetualState = await this.extractPerpetualStateFromExchangeInfo(symbol);
     let positionRisk: MarginAccount | undefined = await this.apiInterface!.positionRisk(addr, symbol);
-    let sizeBUY = this.apiInterface!.maxOrderSizeForTrader(BUY_SIDE, positionRisk, perpetualState);
-    let sizeSELL = this.apiInterface!.maxOrderSizeForTrader(SELL_SIDE, positionRisk, perpetualState);
+    let walletBalance: number = await this.apiInterface!.getWalletBalance(addr, symbol);
+    let sizeBUY = await this.apiInterface!.maxOrderSizeForTrader(BUY_SIDE, positionRisk, perpetualState, walletBalance);
+    let sizeSELL = await this.apiInterface!.maxOrderSizeForTrader(
+      SELL_SIDE,
+      positionRisk,
+      perpetualState,
+      walletBalance
+    );
     return JSON.stringify({ buy: sizeBUY, sell: sizeSELL });
   }
 
@@ -312,7 +318,7 @@ export default class SDKInterface extends Observable {
     });
   }
 
-  public addCollateral(symbol: string, amount: string): string {
+  public async addCollateral(symbol: string, amount: string): Promise<string> {
     this.checkAPIInitialized();
     // contract data
     let proxyAddr = this.apiInterface!.getProxyAddress();
@@ -321,10 +327,21 @@ export default class SDKInterface extends Observable {
     let perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
     // the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
     let amountHex = floatToABK64x64(Number(amount)).toHexString();
-    return JSON.stringify({ perpId: perpId, proxyAddr: proxyAddr, abi: proxyABI, amountHex: amountHex });
+    let priceUpdate = await this.apiInterface!.fetchLatestFeedPriceInfo(symbol);
+    return JSON.stringify({
+      perpId: perpId,
+      proxyAddr: proxyAddr,
+      abi: proxyABI,
+      amountHex: amountHex,
+      priceUpdate: {
+        updateData: priceUpdate.priceFeedVaas,
+        publishTimes: priceUpdate.timestamps,
+        updateFee: this.apiInterface!.PRICE_UPDATE_FEE_GWEI * priceUpdate.priceFeedVaas.length,
+      },
+    });
   }
 
-  public removeCollateral(symbol: string, amount: string): string {
+  public async removeCollateral(symbol: string, amount: string): Promise<string> {
     this.checkAPIInitialized();
     // contract data
     let proxyAddr = this.apiInterface!.getProxyAddress();
@@ -333,7 +350,18 @@ export default class SDKInterface extends Observable {
     let perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
     // the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
     let amountHex = floatToABK64x64(Number(amount)).toHexString();
-    return JSON.stringify({ perpId: perpId, proxyAddr: proxyAddr, abi: proxyABI, amountHex: amountHex });
+    let priceUpdate = await this.apiInterface!.fetchLatestFeedPriceInfo(symbol);
+    return JSON.stringify({
+      perpId: perpId,
+      proxyAddr: proxyAddr,
+      abi: proxyABI,
+      amountHex: amountHex,
+      priceUpdate: {
+        updateData: priceUpdate.priceFeedVaas,
+        publishTimes: priceUpdate.timestamps,
+        updateFee: this.apiInterface!.PRICE_UPDATE_FEE_GWEI * priceUpdate.priceFeedVaas.length,
+      },
+    });
   }
 
   public async getAvailableMargin(symbol: string, traderAddr: string) {
