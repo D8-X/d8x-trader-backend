@@ -283,10 +283,10 @@ export default class EventListener extends IndexPriceInterface {
         this.onTrade(perpetualId, trader, positionId, order, orderDigest, newPositionSizeBC, price);
       }
     );
-    // // TODO: uncomment after deployment
-    // proxyContract.on("PerpetualLimitOrderCancelled", (perpetualId: number, digest: string) => {
-    //   this.onPerpetualLimitOrderCancelled(perpetualId, digest);
-    // });
+
+    proxyContract.on("PerpetualLimitOrderCancelled", (perpetualId: number, digest: string) => {
+      this.onPerpetualLimitOrderCancelled(perpetualId, digest);
+    });
   }
 
   /**
