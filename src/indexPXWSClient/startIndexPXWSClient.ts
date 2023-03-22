@@ -25,19 +25,12 @@ async function main() {
   }
   await sleep(20_000);
   while (true) {
-    for (let k = 0; k < clients.length; k++) {
-      try {
-        clients[k].sendPing();
-      } catch (err) {
-        console.log("Ping failed: " + err);
-      }
-    }
-    await sleep(20_000);
+    await sleep(60_000);
     for (let k = 0; k < clients.length; k++) {
       if (clients[k].timeMsSinceHeartbeat() > 60_000) {
         // something fishy, switch server
         console.log(`switching server for configuration ${configs[k].streamName}`);
-        clients[k].switchWSServer();
+        await clients[k].switchWSServer();
       }
     }
   }

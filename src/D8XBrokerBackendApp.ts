@@ -7,10 +7,9 @@ import SDKInterface from "./sdkInterface";
 import { extractErrorMsg } from "./utils";
 import { Order, PerpetualState, NodeSDKConfig, MarginAccount } from "@d8x/perpetuals-sdk";
 import EventListener from "./eventListener";
-import NoBroker from "./noBroker";
 import BrokerIntegration from "./brokerIntegration";
 import fs from "fs";
-import { type } from "os";
+import cors from "cors";
 dotenv.config();
 //https://roger13.github.io/SwagDefGen/
 //setAllowance?
@@ -31,16 +30,16 @@ export default class D8XBrokerBackendApp {
 
     this.swaggerData = fs.readFileSync("./src/swagger.json", "utf-8");
     this.swaggerDocument = JSON.parse(this.swaggerData);
-    if (process.env.PORT == undefined) {
-      throw Error("define PORT in .env");
+    if (process.env.PORT_REST == undefined) {
+      throw Error("define PORT_REST in .env");
     }
     if (process.env.PORT_WEBSOCKET == undefined) {
       throw Error("define PORT_WEBSOCKET in .env");
     }
-    this.port = Number(process.env.PORT);
+    this.port = Number(process.env.PORT_REST);
     this.portWS = Number(process.env.PORT_WEBSOCKET);
     this.wss = new WebSocketServer({ port: this.portWS });
-    this.swaggerDocument.servers[0].url += ":" + process.env.PORT;
+    this.swaggerDocument.servers[0].url += ":" + process.env.PORT_REST;
     this.sdkConfig = sdkConfig;
     this.eventListener = new EventListener(sdkConfig);
     console.log("url=", this.swaggerDocument.servers[0].url);
@@ -115,6 +114,7 @@ export default class D8XBrokerBackendApp {
 
   private middleWare() {
     this.express.use(express.urlencoded({ extended: false }));
+    this.express.use(cors()); //needs to be above express.json
     this.express.use(express.json());
   }
 
@@ -287,7 +287,7 @@ export default class D8XBrokerBackendApp {
           res.send(D8XBrokerBackendApp.JSONResponse("maxOrderSizeForTrader", "", rsp));
         }
       } catch (err: any) {
-        const usg = "positionRisk?traderAddr=0xCafee&symbol=MATIC-USD-MATIC";
+        const usg = "{traderAddr: string, symbol: string}";
         res.send(
           D8XBrokerBackendApp.JSONResponse("error", "positionRisk", { error: extractErrorMsg(err), usage: usg })
         );
@@ -356,7 +356,7 @@ export default class D8XBrokerBackendApp {
         if (typeof req.query.symbol != "string" || typeof req.query.amount != "string") {
           throw new Error("wrong arguments. Requires a symbol and an amount.");
         }
-        let rsp = this.sdk.addCollateral(req.query.symbol, req.query.amount);
+        let rsp = await this.sdk.addCollateral(req.query.symbol, req.query.amount);
         res.send(D8XBrokerBackendApp.JSONResponse("addCollateral", "", rsp));
       } catch (err: any) {
         const usg = "{symbol: string, amount: number}";
@@ -371,7 +371,7 @@ export default class D8XBrokerBackendApp {
         if (typeof req.query.symbol != "string" || typeof req.query.amount != "string") {
           throw new Error("wrong arguments. Requires a symbol and an amount.");
         }
-        let rsp = this.sdk.removeCollateral(req.query.symbol, req.query.amount);
+        let rsp = await this.sdk.removeCollateral(req.query.symbol, req.query.amount);
         res.send(D8XBrokerBackendApp.JSONResponse("removeCollateral", "", rsp));
       } catch (err: any) {
         const usg = "{symbol: string, amount: number}";

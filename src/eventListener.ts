@@ -9,6 +9,7 @@ import {
   COLLATERAL_CURRENCY_QUOTE,
   ExchangeInfo,
   getNewPositionLeverage,
+  MarginAccount,
   mul64x64,
   NodeSDKConfig,
   ONE_64x64,
@@ -200,7 +201,7 @@ export default class EventListener extends IndexPriceInterface {
     // traderAddr -> ws
     let subscribers: Map<string, WebSocket.WebSocket[]> | undefined = this.subscriptions.get(perpetualId);
     if (subscribers == undefined) {
-      console.log(`no subscribers for perpetual ${perpetualId}`);
+      // console.log(`no subscribers for perpetual ${perpetualId}`);
       return;
     }
     if (traderAddr != undefined) {
@@ -262,6 +263,12 @@ export default class EventListener extends IndexPriceInterface {
         );
       }
     );
+    proxyContract.on("TokensDeposited", (perpetualId: number, trader: string, amount: BigNumber) => {
+      this.onUpdateMarginCollateral(perpetualId, trader, amount);
+    });
+    proxyContract.on("TokensWithdrawn", (perpetualId: number, trader: string, amount: BigNumber) => {
+      this.onUpdateMarginCollateral(perpetualId, trader, amount.mul(-1));
+    });
     proxyContract.on(
       "Trade",
       (
@@ -276,9 +283,9 @@ export default class EventListener extends IndexPriceInterface {
         this.onTrade(perpetualId, trader, positionId, order, orderDigest, newPositionSizeBC, price);
       }
     );
-    // TODO: need perpId in the event
-    // proxyContract.on("PerpetualLimitOrderCancelled", (digest: string) => {
-    //   this.onPerpetualLimitOrderCancelled(..., digest);
+    // // TODO: uncomment after deployment
+    // proxyContract.on("PerpetualLimitOrderCancelled", (perpetualId: number, digest: string) => {
+    //   this.onPerpetualLimitOrderCancelled(perpetualId, digest);
     // });
   }
 
@@ -301,9 +308,6 @@ export default class EventListener extends IndexPriceInterface {
         this.onPerpetualLimitOrderCreated(perpetualId, trader, referrerAddr, brokerAddr, Order, digest);
       }
     );
-    // contract.on("PerpetualLimitOrderCancelled", (digest: string) => {
-    //   this.onPerpetualLimitOrderCancelled(symbol, digest);
-    // });
     contract.on("ExecutionFailed", (perpetualId: number, trader: string, digest: string, reason: string) => {
       this.onExecutionFailed(perpetualId, trader, digest, reason);
     });
@@ -421,6 +425,42 @@ export default class EventListener extends IndexPriceInterface {
     this.sendToSubscribers(perpetualId, jsonMsg, trader);
   }
 
+  private async onUpdateMarginCollateral(perpetualId: number, trader: string, amount: BigNumber) {
+    this.lastBlockChainEventTs = Date.now();
+    let symbol = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
+    let pos = <MarginAccount>JSON.parse(await this.sdkInterface!.positionRisk(trader, symbol));
+    if (pos.positionNotionalBaseCCY == 0 && amount.lt(0)) {
+      // position is zero after a withdrawal: this will be caught as a margin account update, ignore
+      return;
+    }
+    // either an opening trade, or trader just deposited to an existing position
+    let obj: UpdateMarginAccount = {
+      // positionRisk
+      symbol: symbol,
+      positionNotionalBaseCCY: pos.positionNotionalBaseCCY,
+      side: pos.side,
+      entryPrice: pos.entryPrice,
+      leverage: pos.leverage,
+      markPrice: pos.markPrice,
+      unrealizedPnlQuoteCCY: pos.unrealizedPnlQuoteCCY,
+      unrealizedFundingCollateralCCY: pos.unrealizedFundingCollateralCCY,
+      collateralCC: pos.collateralCC,
+      liquidationPrice: pos.liquidationPrice,
+      liquidationLvg: pos.liquidationLvg,
+      collToQuoteConversion: pos.collToQuoteConversion,
+      // extra info
+      perpetualId: perpetualId,
+      traderAddr: trader,
+      positionId: "", // not used in the front-end
+      fundingPaymentCC: 0,
+    };
+    // send data to subscriber
+    let wsMsg: WSMsg = { name: "UpdateMarginAccount", obj: obj };
+    let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onUpdateMarginAccount", "", wsMsg);
+    // send to subscribers of trader/perpetual
+    this.sendToSubscribers(perpetualId, jsonMsg, trader);
+  }
+
   /**
    * Handle the event UpdateMarkPrice and update relevant
    * data
@@ -490,7 +530,7 @@ export default class EventListener extends IndexPriceInterface {
       midPrice: newMidPrice,
       markPrice: newMarkPrice,
       indexPrice: newIndexPrice,
-      fundingRate: fundingRate,
+      fundingRate: fundingRate * 1e4, // in bps so it matches exchangeInfo
       openInterest: oi,
     };
     let wsMsg: WSMsg = { name: "PriceUpdate", obj: obj };
@@ -581,14 +621,13 @@ export default class EventListener extends IndexPriceInterface {
    * event PerpetualLimitOrderCancelled(bytes32 indexed orderHash);
    * @param orderId string order id/digest
    */
-  public onPerpetualLimitOrderCancelled(symbol: string, orderId: string) {
+  public onPerpetualLimitOrderCancelled(perpetualId: number, orderId: string) {
     this.lastBlockChainEventTs = Date.now();
     console.log("onPerpetualLimitOrderCancelled");
-    // let perpetualId = JSON.parse(this.sdkInterface!.perpetualStaticInfo(symbol)).id;
-    // let wsMsg: WSMsg = { name: "PerpetualLimitOrderCancelled", obj: { orderId: orderId } };
-    // let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onPerpetualLimitOrderCancelled", "", wsMsg);
-    // // currently broadcasted:
-    // this.sendToSubscribers(perpetualId, jsonMsg);
+    let wsMsg: WSMsg = { name: "PerpetualLimitOrderCancelled", obj: { orderId: orderId } };
+    let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onPerpetualLimitOrderCancelled", "", wsMsg);
+    // currently broadcasted:
+    this.sendToSubscribers(perpetualId, jsonMsg);
   }
 
   /**
