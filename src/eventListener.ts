@@ -375,9 +375,7 @@ export default class EventListener extends IndexPriceInterface {
       lockedInQC,
       state.indexPrice,
       state.collToQuoteIndexPrice,
-      state.markPrice,
-      state.markPrice,
-      0
+      state.markPrice
     );
     let S2Liq, S3Liq;
     if (info.collateralCurrencyType == COLLATERAL_CURRENCY_BASE) {
