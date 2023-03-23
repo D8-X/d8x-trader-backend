@@ -1,4 +1,4 @@
-import { createClient } from "redis";
+import Redis from "ioredis";
 import { constructRedis } from "../utils";
 import { WebsocketClientConfig } from "../wsTypes";
 import Triangulator from "./triangulator";
@@ -12,8 +12,8 @@ import Triangulator from "./triangulator";
  * - the FeedHandler can be referenced by several indexPXWSClients (they all send prices to the FeedHandler)
  */
 export default class FeedHandler {
-  private redisPubClient: ReturnType<typeof createClient>;
-  private redisSubClient: ReturnType<typeof createClient>;
+  private redisPubClient: Redis;
+  private redisSubClient: Redis;
   private clientIdxPrices: Map<string, number>; // current price of the client idx
   private feedIdxPrices: Map<string, { price: number; ts: number }>; // hold the "raw" prices and timestamps from websocket
   private feedIdxNames: string[]; //available price feeds from oracle-websocket
@@ -36,10 +36,9 @@ export default class FeedHandler {
   }
 
   public async init() {
-    await this.redisPubClient.connect();
-    await this.redisSubClient.connect();
     // feed request is sent by the entity requiring perpetual index prices
-    await this.redisSubClient.subscribe("feedRequest", async (message) => await this.onSubscribeIndices(message));
+    await this.redisSubClient.subscribe("feedRequest");
+    this.redisPubClient.on("message", async (channel, message) => await this.onSubscribeIndices(message));
     await this.callForIndices();
   }
 

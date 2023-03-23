@@ -1,4 +1,4 @@
-import { createClient } from "redis";
+import { Redis } from "ioredis";
 import { ExchangeInfo, NodeSDKConfig, PerpetualState } from "@d8x/perpetuals-sdk";
 import { extractErrorMsg, constructRedis } from "./utils";
 import SDKInterface from "./sdkInterface";
@@ -11,9 +11,9 @@ import Observer from "./observer";
  * and the subscribers are informed.
  */
 export default abstract class IndexPriceInterface extends Observer {
-  private redisClient: ReturnType<typeof createClient>;
-  private redisSubClient: ReturnType<typeof createClient>;
-  private redisPubClient: ReturnType<typeof createClient>;
+  private redisClient: Redis;
+  private redisSubClient: Redis;
+  private redisPubClient: Redis;
   private idxNamesToPerpetualIds: Map<string, number[]>; //ticker (e.g. BTC-USD) -> [10001, 10021, ..]
   protected idxPrices: Map<string, number>; //ticker -> price
   protected midPremium: Map<number, number>; //perpId -> price (e.g. we can have 2 BTC-USD with different mid-price)
@@ -33,10 +33,8 @@ export default abstract class IndexPriceInterface extends Observer {
   }
 
   public async initialize(sdkInterface: SDKInterface) {
-    await this.redisClient.connect();
-    await this.redisSubClient.connect();
-    await this.redisPubClient.connect();
-    await this.redisSubClient.subscribe("feedHandler", async (message) => {
+    await this.redisSubClient.subscribe("feedHandler");
+    this.redisSubClient.on("message", (channel, message) => {
       this._onRedisFeedHandlerMsg(message);
     });
     sdkInterface.registerObserver(this);
