@@ -294,6 +294,25 @@ export default class D8XBrokerBackendApp {
       }
     });
 
+    this.express.get("/trader_loyalty", async (req: Request, res: Response) => {
+      let rsp: string;
+      try {
+        let addr: string;
+        if (typeof req.query.traderAddr != "string") {
+          throw new Error("wrong arguments. Requires traderAddr");
+        } else {
+          addr = req.query.traderAddr;
+          rsp = await this.sdk.traderLoyalty(addr.toString());
+          res.send(D8XBrokerBackendApp.JSONResponse("traderLoyalty", "", rsp));
+        }
+      } catch (err: any) {
+        const usg = "{traderAddr: string}";
+        res.send(
+          D8XBrokerBackendApp.JSONResponse("error", "trader_loyalty", { error: extractErrorMsg(err), usage: usg })
+        );
+      }
+    });
+
     this.express.get("/perpetualStaticInfo", async (req: Request, res: Response) => {
       try {
         if (typeof req.query.symbol != "string") {

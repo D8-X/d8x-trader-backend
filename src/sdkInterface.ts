@@ -11,6 +11,7 @@ import {
   floatToABK64x64,
   SmartContractOrder,
   D8X_SDK_VERSION,
+  ZERO_ADDRESS,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
 import Redis from "ioredis";
@@ -66,6 +67,20 @@ export default class SDKInterface extends Observable {
     }
 
     return info;
+  }
+
+  /**
+   * Get the loyality score of the trader
+   * @param traderAddr address of the trader
+   * @returns loyality score
+   */
+  public async traderLoyalty(traderAddr: string): Promise<string> {
+    let brokerAddr = this.broker.getBrokerAddress(traderAddr);
+    if (brokerAddr == ZERO_ADDRESS) {
+      brokerAddr = "";
+    }
+    let score = await this.apiInterface!.getTraderLoyalityScore(traderAddr, brokerAddr);
+    return score.toString();
   }
 
   public perpetualStaticInfo(symbol: string): string {
