@@ -301,8 +301,8 @@ export default class SDKInterface extends Observable {
   public async positionRiskOnTrade(order: Order, traderAddr: string): Promise<string> {
     this.checkAPIInitialized();
     let positionRisk: MarginAccount | undefined = await this.apiInterface!.positionRisk(traderAddr, order.symbol);
-    let res: MarginAccount | undefined = await this.apiInterface!.positionRiskOnTrade(traderAddr, order, positionRisk);
-    return JSON.stringify({ newPositionRisk: res });
+    let res = await this.apiInterface!.positionRiskOnTrade(traderAddr, order, positionRisk);
+    return JSON.stringify({ newPositionRisk: res.newPositionRisk, orderCost: res.orderCost });
   }
 
   public async positionRiskOnCollateralAction(

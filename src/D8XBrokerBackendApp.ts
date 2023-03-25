@@ -289,7 +289,10 @@ export default class D8XBrokerBackendApp {
       } catch (err: any) {
         const usg = "{traderAddr: string, symbol: string}";
         res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "positionRisk", { error: extractErrorMsg(err), usage: usg })
+          D8XBrokerBackendApp.JSONResponse("error", "maxOrderSizeForTrader", {
+            error: extractErrorMsg(err),
+            usage: usg,
+          })
         );
       }
     });
