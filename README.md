@@ -122,8 +122,9 @@ then the frontend can submit it.
   - setAllowance has to be performed on the collateral token and the proxy-contract from the frontend
 - `/positionRiskOnTrade`:
   - parameters `{ order: order, traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05 }`, see test/post.test.ts
-  - returns `{newPositionRisk: 'MarginAccount type'}`
+  - returns `{newPositionRisk: 'MarginAccount type', orderCost: number}`
     - `newPositionRisk` is what the given trader's positionRisk would look like if the given order is executed
+    - `orderCost` is the approximate collateral deposit that will be deducted from the trader when the order is executed
 - `/positionRiskOnCollateralAction`:
   - parameters `{ traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05, amount: -100, positionRisk: 'Margin account struct' }`, see test/post.test.ts
   - returns `{newPositionRisk: 'MarginAccount type', availableMargin: number}`
