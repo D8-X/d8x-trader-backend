@@ -388,6 +388,16 @@ export default class SDKInterface extends Observable {
     this.checkAPIInitialized();
     let cancelDigest = await this.apiInterface!.cancelOrderDigest(symbol, orderId);
     let cancelABI = this.apiInterface!.getOrderBookABI(symbol, "cancelOrder");
-    return JSON.stringify({ OrderBookAddr: cancelDigest.OBContractAddr, abi: cancelABI, digest: cancelDigest.digest });
+    let priceUpdate = await this.apiInterface!.fetchLatestFeedPriceInfo(symbol);
+    return JSON.stringify({
+      OrderBookAddr: cancelDigest.OBContractAddr,
+      abi: cancelABI,
+      digest: cancelDigest.digest,
+      priceUpdate: {
+        updateData: priceUpdate.priceFeedVaas,
+        publishTimes: priceUpdate.timestamps,
+        updateFee: this.apiInterface!.PRICE_UPDATE_FEE_GWEI * priceUpdate.priceFeedVaas.length,
+      },
+    });
   }
 }
