@@ -34,7 +34,7 @@
     call-me-maybe "^1.0.1"
     z-schema "^5.0.1"
 
-@d8x/perpetuals-sdk@0.1.6":
+"@d8x/perpetuals-sdk@0.1.6":
   version "0.1.6"
   resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.1.6.tgz#150722111588d3797175ad4e53dcb5eb24b97bf1"
   integrity sha512-gEvPs4SaBy7T6YVUa7IZms6QQqhzHf+PyR8XI1M80bH3gAupaewYMjEAqCbSx2OCgwT3MccEm1uIPUIDWGiVmw==
@@ -458,9 +458,9 @@
   integrity sha512-Y4XFY5VJAuw0FgAqPNd6NNoV44jbq9Bz2L7Rh/J6jLTiHBSBJa9fxqQIvkIld4GsoDOcCbvzOUAbLPsSKKg+uA==
 
 "@types/node@*":
-  version "18.11.18"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-18.11.18.tgz#8dfb97f0da23c2293e554c5a50d61ef134d7697f"
-  integrity sha512-DHQpWGjyQKSHj3ebjFI/wRKcqQcdR+MoFBygntYOZytCqNfkd2ZC4ARDJ2DQqhjH5p85Nnd3jhUJIXrszFX/JA==
+  version "18.15.10"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-18.15.10.tgz#4ee2171c3306a185d1208dad5f44dae3dee4cfe3"
+  integrity sha512-9avDaQJczATcXgfmMAW3MIWArOO7A+m90vuCFLr8AotWf8igO/mRoYukrk2cqZVtv38tHs33retzHEilM7FpeQ==
 
 "@types/qs@*":
   version "6.9.7"
@@ -473,9 +473,9 @@
   integrity sha512-EEhsLsD6UsDM1yFhAvy0Cjr6VwmpMWqFBCb9w07wVugF7w9nfajxLuVmngTIpgS6svCnm6Vaw+MZhoDCKnOfsw==
 
 "@types/serve-static@*":
-  version "1.15.0"
-  resolved "https://registry.yarnpkg.com/@types/serve-static/-/serve-static-1.15.0.tgz#c7930ff61afb334e121a9da780aac0d9b8f34155"
-  integrity sha512-z5xyF6uh8CbjAu9760KDKsH2FcDxZ2tFCsA4HIMWE6IkiYMXfVoa+4f9KX+FN0ZLsaMw1WNG2ETLA6N+/YA+cg==
+  version "1.15.1"
+  resolved "https://registry.yarnpkg.com/@types/serve-static/-/serve-static-1.15.1.tgz#86b1753f0be4f9a1bee68d459fcda5be4ea52b5d"
+  integrity sha512-NUo5XNiAdULrJENtJXZZ3fHtfMolzZwczzBbnAeBbqBwG+LaG6YaJtuwzwGSQZ2wsCrxjEhNNjAkKigy3n8teQ==
   dependencies:
     "@types/mime" "*"
     "@types/node" "*"
@@ -1253,9 +1253,9 @@ swagger-parser@^10.0.3:
     "@apidevtools/swagger-parser" "10.0.3"
 
 swagger-ui-dist@>=4.11.0:
-  version "4.15.5"
-  resolved "https://registry.yarnpkg.com/swagger-ui-dist/-/swagger-ui-dist-4.15.5.tgz#cda226a79db2a9192579cc1f37ec839398a62638"
-  integrity sha512-V3eIa28lwB6gg7/wfNvAbjwJYmDXy1Jo1POjyTzlB6wPcHiGlRxq39TSjYGVjQrUSAzpv+a7nzp7mDxgNy57xA==
+  version "4.18.1"
+  resolved "https://registry.yarnpkg.com/swagger-ui-dist/-/swagger-ui-dist-4.18.1.tgz#da77cee1531af3f989b3da9dd8cddc5b9fa5715d"
+  integrity sha512-n7AT4wzKIPpHy/BGflJOepGMrbY/7Cd5yVd9ptVczaJGAKScbVJrZxFbAE2ZSZa8KmqdQ0+pOs3/5mWY5tSMZQ==
 
 swagger-ui-express@4.6.0:
   version "4.6.0"
