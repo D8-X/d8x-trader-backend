@@ -239,16 +239,9 @@ export default class SDKInterface extends Observable {
 
   public async maxOrderSizeForTrader(addr: string, symbol: string) {
     this.checkAPIInitialized();
-    let perpetualState: PerpetualState = await this.extractPerpetualStateFromExchangeInfo(symbol);
     let positionRisk: MarginAccount | undefined = await this.apiInterface!.positionRisk(addr, symbol);
-    let walletBalance: number = await this.apiInterface!.getWalletBalance(addr, symbol);
-    let sizeBUY = await this.apiInterface!.maxOrderSizeForTrader(BUY_SIDE, positionRisk, perpetualState, walletBalance);
-    let sizeSELL = await this.apiInterface!.maxOrderSizeForTrader(
-      SELL_SIDE,
-      positionRisk,
-      perpetualState,
-      walletBalance
-    );
+    let sizeBUY = await this.apiInterface!.maxOrderSizeForTrader(BUY_SIDE, positionRisk);
+    let sizeSELL = await this.apiInterface!.maxOrderSizeForTrader(SELL_SIDE, positionRisk);
     return JSON.stringify({ buy: sizeBUY, sell: sizeSELL });
   }
 
