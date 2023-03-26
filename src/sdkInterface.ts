@@ -124,9 +124,6 @@ export default class SDKInterface extends Observable {
             perpState.openInterestBC = values[m];
           }
           break;
-        case "maxPositionBC":
-          perpState.maxPositionBC = values[m];
-          break;
         default:
           throw new Error(`unknown property name ${propertyNames[m]}`);
       }
