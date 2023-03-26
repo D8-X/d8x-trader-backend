@@ -34,11 +34,20 @@ Either
 
 - Copy `.envExample` file and paste as `.env` file. Make changes if necessary.
   - for example: re-define the ports in `.env`, e.g., 3000 (using 30001 below)
+- change redis address in `.env` to `REDIS_URL=redis://localhost:6379`
 - yarn
 - yarn run build
 - yarn run start
 - REST: http://localhost:3001/
 - Websocket: ws://localhost:8080/
+
+### Alternatively
+
+- `sudo /etc/init.d/redis-server stop` & `sudo redis-server`
+- change redis address in `.env` to `REDIS_URL=redis://localhost:6379`
+- `ts-node src/index.ts`
+- `ts-node src/indexPXWSClient/startIndexPXWSClient.ts`
+- it may crash if RPC non-responsive
 
 ## Broker-fee
 
