@@ -34,7 +34,7 @@
     call-me-maybe "^1.0.1"
     z-schema "^5.0.1"
 
-"@d8x/perpetuals-sdk@0.1.6":
+@d8x/perpetuals-sdk@0.1.6":
   version "0.1.6"
   resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.1.6.tgz#150722111588d3797175ad4e53dcb5eb24b97bf1"
   integrity sha512-gEvPs4SaBy7T6YVUa7IZms6QQqhzHf+PyR8XI1M80bH3gAupaewYMjEAqCbSx2OCgwT3MccEm1uIPUIDWGiVmw==
