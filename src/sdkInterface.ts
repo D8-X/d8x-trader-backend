@@ -12,6 +12,8 @@ import {
   SmartContractOrder,
   D8X_SDK_VERSION,
   ZERO_ADDRESS,
+  PerpetualDataHandler,
+  ZERO_ORDER_ID,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
 import Redis from "ioredis";
@@ -266,11 +268,7 @@ export default class SDKInterface extends Observable {
     return JSON.stringify(fee);
   }
 
-  public async orderDigest(
-    orders: Order[],
-    traderAddr: string,
-    parentChildOrderIds?: [string, string]
-  ): Promise<string> {
+  public async orderDigest(orders: Order[], traderAddr: string): Promise<string> {
     this.checkAPIInitialized();
     //console.log("order=", orders);
     if (!orders.every((order: Order) => order.symbol == orders[0].symbol)) {
@@ -279,7 +277,7 @@ export default class SDKInterface extends Observable {
     let SCOrders = orders!.map((order: Order) => {
       order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
       order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
-      let SCOrder = this.apiInterface?.createClientOrder(order, traderAddr, parentChildOrderIds);
+      let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
       this.broker.signOrder(SCOrder!);
       return SCOrder!;
     });
@@ -294,15 +292,30 @@ export default class SDKInterface extends Observable {
         return this.apiInterface!.digestTool.createOrderId(digest!);
       })
     );
+    // add dependency
+    let obOrders: ClientOrder[] = new Array<ClientOrder>(orders.length);
+    if (orders.length == 1 || orders.length > 3) {
+      // nothing to add
+      obOrders = SCOrders.map(PerpetualDataHandler.fromSmartContratOrderToClientOrder);
+    } else if (orders.length == 2) {
+      // first order is parent, second a child
+      obOrders[0] = [PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[0], [ids[1], ZERO_ORDER_ID])];
+      obOrders[1] = [PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[1], [ZERO_ORDER_ID, ids[0]])];
+    } else {
+      // first order is parent, other two its children
+      obOrders[0] = [PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[0], [ids[1], ids[2]])];
+      obOrders[1] = [PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[1], [ZERO_ORDER_ID, ids[0]])];
+      obOrders[2] = [PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[2], [ZERO_ORDER_ID, ids[0]])];
+    }
     // also return the order book address and postOrder ABI
     let obAddr = this.apiInterface!.getOrderBookAddress(orders[0].symbol);
-    let postOrderABI = this.apiInterface!.getOrderBookABI(orders[0].symbol, "postOrder");
+    let postOrderABI = this.apiInterface!.getOrderBookABI(orders[0].symbol, "postOrders");
     return JSON.stringify({
       digests: digests,
       orderIds: ids,
       OrderBookAddr: obAddr,
       abi: postOrderABI,
-      SCOrders: SCOrders,
+      SCOrders: obOrders,
     });
   }
 
