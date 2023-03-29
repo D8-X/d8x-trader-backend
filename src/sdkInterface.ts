@@ -266,7 +266,11 @@ export default class SDKInterface extends Observable {
     return JSON.stringify(fee);
   }
 
-  public async orderDigest(orders: Order[], traderAddr: string): Promise<string> {
+  public async orderDigest(
+    orders: Order[],
+    traderAddr: string,
+    parentChildOrderIds?: [string, string]
+  ): Promise<string> {
     this.checkAPIInitialized();
     //console.log("order=", orders);
     if (!orders.every((order: Order) => order.symbol == orders[0].symbol)) {
@@ -275,7 +279,7 @@ export default class SDKInterface extends Observable {
     let SCOrders = orders!.map((order: Order) => {
       order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
       order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
-      let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
+      let SCOrder = this.apiInterface?.createClientOrder(order, traderAddr, parentChildOrderIds);
       this.broker.signOrder(SCOrder!);
       return SCOrder!;
     });
