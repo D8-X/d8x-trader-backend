@@ -14,6 +14,7 @@ import {
   ZERO_ADDRESS,
   PerpetualDataHandler,
   ZERO_ORDER_ID,
+  ClientOrder,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
 import Redis from "ioredis";
@@ -296,16 +297,16 @@ export default class SDKInterface extends Observable {
     let obOrders: ClientOrder[] = new Array<ClientOrder>(orders.length);
     if (orders.length == 1 || orders.length > 3) {
       // nothing to add
-      obOrders = SCOrders.map(PerpetualDataHandler.fromSmartContratOrderToClientOrder);
+      obOrders = SCOrders.map((o) => PerpetualDataHandler.fromSmartContratOrderToClientOrder(o));
     } else if (orders.length == 2) {
       // first order is parent, second a child
-      obOrders[0] = [PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[0], [ids[1], ZERO_ORDER_ID])];
-      obOrders[1] = [PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[1], [ZERO_ORDER_ID, ids[0]])];
+      obOrders[0] = PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[0], [ids[1], ZERO_ORDER_ID]);
+      obOrders[1] = PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[1], [ZERO_ORDER_ID, ids[0]]);
     } else {
       // first order is parent, other two its children
-      obOrders[0] = [PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[0], [ids[1], ids[2]])];
-      obOrders[1] = [PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[1], [ZERO_ORDER_ID, ids[0]])];
-      obOrders[2] = [PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[2], [ZERO_ORDER_ID, ids[0]])];
+      obOrders[0] = PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[0], [ids[1], ids[2]]);
+      obOrders[1] = PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[1], [ZERO_ORDER_ID, ids[0]]);
+      obOrders[2] = PerpetualDataHandler.fromSmartContratOrderToClientOrder(SCOrders[2], [ZERO_ORDER_ID, ids[0]]);
     }
     // also return the order book address and postOrder ABI
     let obAddr = this.apiInterface!.getOrderBookAddress(orders[0].symbol);
