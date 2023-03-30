@@ -269,6 +269,7 @@ export default class EventListener extends IndexPriceInterface {
     proxyContract.on("TokensWithdrawn", (perpetualId: number, trader: string, amount: BigNumber) => {
       this.onUpdateMarginCollateral(perpetualId, trader, amount.mul(-1));
     });
+
     proxyContract.on(
       "Trade",
       (
@@ -278,9 +279,24 @@ export default class EventListener extends IndexPriceInterface {
         order: SmartContractOrder,
         orderDigest: string,
         newPositionSizeBC: BigNumber,
-        price: BigNumber
+        price: BigNumber,
+        fFeeCC: BigNumber,
+        fPnlCC: BigNumber
       ) => {
-        this.onTrade(perpetualId, trader, positionId, order, orderDigest, newPositionSizeBC, price);
+        /**
+     *  event Trade(
+        uint24 indexed perpetualId,
+        address indexed trader,
+        bytes16 indexed positionId,
+        IPerpetualOrder.Order order,
+        bytes32 orderDigest,
+        int128 newPositionSizeBC,
+        int128 price,
+        int128 fFeeCC,
+        int128 fPnlCC
+    );
+     */
+        this.onTrade(perpetualId, trader, positionId, order, orderDigest, newPositionSizeBC, price, fFeeCC, fPnlCC);
       }
     );
 
@@ -553,7 +569,9 @@ export default class EventListener extends IndexPriceInterface {
     order: SmartContractOrder,
     orderDigest: string,
     newPositionSizeBC: BigNumber,
-    price: BigNumber
+    price: BigNumber,
+    fFeeCC: BigNumber,
+    fPnlCC: BigNumber
   ) {
     this.lastBlockChainEventTs = Date.now();
     let symbol = this.symbolFromPerpetualId(perpetualId);
