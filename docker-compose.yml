@@ -24,6 +24,7 @@ services:
       - PORT_REST=${PORT_REST}
       - PORT_WEBSOCKET=${PORT_WEBSOCKET}
       - CHAIN_ID=${CHAIN_ID}
+      - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
     ports:
       - "${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
       - "${PORT_REST}:${PORT_REST}"
