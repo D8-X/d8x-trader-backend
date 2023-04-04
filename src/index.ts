@@ -6,7 +6,7 @@ import NoBroker from "./noBroker";
 import { PerpetualDataHandler, NodeSDKConfig } from "@d8x/perpetuals-sdk";
 
 function chooseRandomRPC() {
-  dotenv.config();
+  
   let chainId: number = Number(<string>process.env.CHAIN_ID || -1);
   if (chainId == -1) {
     throw new Error("Set CHAIN_ID in .env (e.g. CHAIN_ID=80001)");
@@ -22,6 +22,7 @@ function chooseRandomRPC() {
 }
 
 async function start() {
+  dotenv.config();
   let configName: string = <string>process.env.SDK_CONFIG_NAME || "";
   if (configName == "") {
     throw new Error("Set SDK_CONFIG_NAME in .env (e.g. SDK_CONFIG_NAME=testnet)");
