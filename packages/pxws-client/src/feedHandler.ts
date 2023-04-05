@@ -1,6 +1,6 @@
 import Redis from "ioredis";
-import { constructRedis } from "../utils";
-import { WebsocketClientConfig } from "../wsTypes";
+import { constructRedis } from "utils";
+import { WebsocketClientConfig } from "utils/src/wsTypes";
 import Triangulator from "./triangulator";
 
 /**

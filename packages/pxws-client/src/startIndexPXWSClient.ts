@@ -4,9 +4,9 @@
  */
 import dotenv from "dotenv";
 import IndexPXWSClient from "./indexPxWSClient";
-import { WebsocketClientConfig } from "../wsTypes";
-import { loadConfigJSON } from "../utils";
-import { sleep } from "../utils";
+import { WebsocketClientConfig } from "utils/src/wsTypes";
+import { loadConfigJSON } from "utils";
+import { sleep } from "utils";
 import FeedHandler from "./feedHandler";
 
 async function main() {
