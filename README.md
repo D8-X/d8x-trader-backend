@@ -1,3 +1,15 @@
+# Monorepo setup
+
+This project users [lerna](https://lerna.js.com) for monorepo management.
+
+Project packages can be found under `packages` directory
+
+To build all packages
+
+```bash
+npx lerna run build
+```
+
 # d8x-trader-backend
 
 The entire backend for the D8X Perpetuals trading frontend package consists of
