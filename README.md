@@ -4,16 +4,16 @@ The entire backend for the D8X Perpetuals trading frontend package consists of
 
 - this backend code
 - candle stick chart server: https://github.com/D8-X/candleD8
-- a price server (optional but highly encouraged): https://github.com/pyth-network/pyth-crosschain.git
+- a price server that provides off-chain oracle prices: [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server)
 
 The services run over http/ws and it is required to install a reverse proxy on the servers so the traffic can flow via https/wss.
 
 # Buidl and run backend
 
-- it is recommended to build your own instance of the Pyth Price service:
-  - Repository: https://github.com/pyth-network/pyth-crosschain.git
-  - Price service: https://github.com/pyth-network/pyth-crosschain/tree/main/price_service/server
-  - Alternatively use the [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server) (fork not required for backend)
+- Build your own instance of the Pyth Price service:
+  - Using [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server) (fork required for trade cancellations)
+  - Set the endpoint of your price service in the field `wsEndpoints` of the file packages/utils/src/wsConfig.json. Note that you can have
+    multiple servers in the configuration instead of just one.
 
 ## Prerequisites
 
@@ -28,26 +28,13 @@ Either
 
 - check `wsConfig.json`, especially edit the entry `wsEndpoints` and add your own endpoint, in addition to the public endpoint `wss://xc-testnet.pyth.network/ws`
 - Copy `.envExample` file and paste as `.env` file. No changes should be necessary for testnet.
-- `cd` into the repository root directory and `docker-compose up --build`
+- `cd` into the repository root directory and
 
-## Without Docker
+```bash
+docker compose  --env-file .env up
+```
 
-- Copy `.envExample` file and paste as `.env` file. Make changes if necessary.
-  - for example: re-define the ports in `.env`, e.g., 3000 (using 30001 below)
-- change redis address in `.env` to `REDIS_URL=redis://localhost:6379`
-- yarn
-- yarn run build
-- yarn run start
-- REST: http://localhost:3001/
-- Websocket: ws://localhost:8080/
-
-### Alternatively
-
-- `sudo /etc/init.d/redis-server stop` & `sudo redis-server`
-- change redis address in `.env` to `REDIS_URL=redis://localhost:6379`
-- `ts-node src/index.ts`
-- `ts-node src/indexPXWSClient/startIndexPXWSClient.ts`
-- it may crash if RPC non-responsive
+[specifics on mono-repo](README_MONOREPO.md)
 
 ## Broker-fee
 
