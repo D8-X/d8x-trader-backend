@@ -1,0 +1,9 @@
+{
+  "name": "pnl",
+  "version": "1.0.0",
+  "main": "main.ts",
+  "license": "MIT",
+  "dependencies": {
+    "winston": "^3.8.2"
+  }
+}
