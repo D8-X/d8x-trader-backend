@@ -73,7 +73,7 @@ export default class FeedHandler {
     let affectedClientIdxNames: string[] | undefined = this.feedToDependentClientIndices.get(ticker);
     if (affectedClientIdxNames == undefined) {
       // no subscribers, leave
-      console.log(`no dependent subscribers for ticker ${ticker}`);
+      // log: console.log(`no dependent subscribers for ticker ${ticker}`);
       return;
     }
     // recalculate prices
