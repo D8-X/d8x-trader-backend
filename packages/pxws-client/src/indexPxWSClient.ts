@@ -1,6 +1,6 @@
 import WebSocket from "ws";
-import { sleep } from "../utils";
-import { WebsocketClientConfig } from "../wsTypes";
+import { sleep } from "utils";
+import { WebsocketClientConfig } from "utils/src/wsTypes";
 import FeedHandler from "./feedHandler";
 
 export interface IndexPriceFeedRequest {

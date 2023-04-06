@@ -11,20 +11,21 @@ ARG REDIS_URL
 
 WORKDIR /app
 
-COPY package*.json ./
-
-COPY yarn.lock ./
-
-RUN yarn install 
+# COPY package*.json ./
+# COPY yarn.lock ./
 
 COPY . .
+RUN yarn install 
+
 
 #Appended arguments need the below structure of the command to be work
 RUN echo -e "PORT_WEBSOCKET=${PORT_WEBSOCKET}\n""PORT_WEBSOCKET_CLIENT=${PORT_WEBSOCKET_CLIENT}\n""PORT=${PORT}\n""REDIS_URL=${REDIS_URL}\n""CHAIN_ID=${CHAIN_ID}\n""SDK_CONFIG_NAME=${SDK_CONFIG_NAME}\n" > .env
 
-RUN yarn build
+
+# Build the pxws project
+RUN npx lerna run build --scope pxws-client
 
 #EXPOSED PORTS
 EXPOSE ${PORT_WEBSOCKET_CLIENT}
 
-CMD ["yarn", "startWSClient"]
+CMD ["node", "packages/pxws-client/dist/startIndexPXWSClient.js"]

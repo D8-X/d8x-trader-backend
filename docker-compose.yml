@@ -16,7 +16,7 @@ services:
   backend_main:
     build:
       context: .
-      dockerfile: ./Dockerfile
+      dockerfile: ./packages/api/Dockerfile
     depends_on:
       - redis
     environment:
@@ -35,7 +35,7 @@ services:
     tty: true # docker run -t
     build:
       context: .
-      dockerfile: ./src/indexPXWSClient/Dockerfile
+      dockerfile: ./packages/pxws-client/Dockerfile
     links:
       - redis
     environment:

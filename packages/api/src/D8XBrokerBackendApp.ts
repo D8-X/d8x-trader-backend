@@ -4,7 +4,7 @@ import swaggerJSDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
-import { extractErrorMsg } from "./utils";
+import { extractErrorMsg } from "utils";
 import { Order, PerpetualState, NodeSDKConfig, MarginAccount } from "@d8x/perpetuals-sdk";
 import EventListener from "./eventListener";
 import BrokerIntegration from "./brokerIntegration";
@@ -28,7 +28,7 @@ export default class D8XBrokerBackendApp {
   constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig) {
     this.express = express();
 
-    this.swaggerData = fs.readFileSync("./src/swagger.json", "utf-8");
+    this.swaggerData = fs.readFileSync(__dirname + "/swagger.json", "utf-8");
     this.swaggerDocument = JSON.parse(this.swaggerData);
     if (process.env.PORT_REST == undefined) {
       throw Error("define PORT_REST in .env");

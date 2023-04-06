@@ -1,6 +1,6 @@
 import { Redis } from "ioredis";
 import { ExchangeInfo, NodeSDKConfig, PerpetualState } from "@d8x/perpetuals-sdk";
-import { extractErrorMsg, constructRedis } from "./utils";
+import { extractErrorMsg, constructRedis } from "utils";
 import SDKInterface from "./sdkInterface";
 import Observer from "./observer";
 

@@ -28,7 +28,7 @@ export function sleep(ms: number) {
  * @returns configuration of type WebsocketClientConfig
  */
 export function loadConfigJSON(chainId: number): WebsocketClientConfig[] {
-  let file = <WebsocketClientConfig[]>require("./indexPXWSClient/wsConfig.json");
+  let file = <WebsocketClientConfig[]>require("./wsConfig.json");
   let relevantConfigs: WebsocketClientConfig[] = [];
   for (let k = 0; k < file.length; k++) {
     if (file[k].chainId == chainId) {

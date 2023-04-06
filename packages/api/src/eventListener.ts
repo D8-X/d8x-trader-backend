@@ -25,7 +25,7 @@ import WebSocket from "ws";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
 import IndexPriceInterface from "./indexPriceInterface";
 import SDKInterface from "./sdkInterface";
-import { ExecutionFailed, LimitOrderCreated, PriceUpdate, Trade, UpdateMarginAccount, WSMsg } from "./wsTypes";
+import { ExecutionFailed, LimitOrderCreated, PriceUpdate, Trade, UpdateMarginAccount, WSMsg } from "utils/src/wsTypes";
 
 /**
  * Class that listens to blockchain events on

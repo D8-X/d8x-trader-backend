@@ -17,7 +17,7 @@ import dotenv from "dotenv";
 import Redis from "ioredis";
 import BrokerIntegration from "./brokerIntegration";
 import Observable from "./observable";
-import { extractErrorMsg, constructRedis } from "./utils";
+import { extractErrorMsg, constructRedis } from "utils";
 
 export default class SDKInterface extends Observable {
   private apiInterface: TraderInterface | undefined = undefined;
