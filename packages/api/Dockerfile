@@ -9,22 +9,24 @@ ARG REDIS_URL
 
 WORKDIR /app
 
-COPY package*.json ./
+# COPY package*.json ./
+# COPY yarn.lock ./
 
-COPY yarn.lock ./
+COPY . . 
 
 RUN yarn install 
 
-COPY . .
+# COPY . .
 
 #Appended arguments need the below structure of the command to be work
 RUN echo -e "PORT_WEBSOCKET=${PORT_WEBSOCKET}\n""PORT_WEBSOCKET_CLIENT=${PORT_WEBSOCKET_CLIENT}\n""PORT=${PORT}\n""REDIS_URL=${REDIS_URL}\n""CHAIN_ID=${CHAIN_ID}\n""SDK_CONFIG_NAME=${SDK_CONFIG_NAME}\n" > .env
 
-RUN yarn build
+# Build the api project
+RUN npx lerna run build --scope api
 
 #EXPOSED PORTS
 EXPOSE ${PORT_REST}
 EXPOSE ${PORT_WEBSOCKET}
 
-CMD ["yarn", "start"]
+CMD ["node", "packages/api/dist/index.js"]
 
