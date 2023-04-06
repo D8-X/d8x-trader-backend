@@ -1,0 +1,58 @@
+// This is your Prisma schema file, learn more about it in the docs:
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum trade_side{
+  buy
+  sell
+}
+
+enum trade_type{
+  market
+  limit
+  market_stop
+  limit_stop
+  liquidation
+}
+
+model Trade{
+  @@map("trades_history")
+  id BigInt @id @default(autoincrement())
+  // Wallet address of user 
+  wallet_address String @db.Text
+  perpetual_id BigInt
+  chain_id Int
+  side trade_side
+  type trade_type
+  // price is stored in ABDK format
+  price BigInt 
+  // quanityt is stored in ABDK format
+  quantity BigInt
+  // fee is stored in ABDK format
+  feee BigInt
+  // realized profit is stored in ABDK format
+  realized_profit BigInt
+  order_digest_hash String @db.Text 
+  trade_timestamp DateTime @db.Timestamptz @default(now())
+
+  @@index([wallet_address], type: Hash)
+  @@index([order_digest_hash], type: Hash)
+}
+
+model FundingRatePayment{
+  @@map("funding_rate_payments")
+  id BigInt @id @default(autoincrement())
+  wallet_address String @db.Text
+  perpetual_id BigInt
+  // amount can be negative - user paid
+  payment_amount BigInt
+  payment_timestamp DateTime @db.Timestamptz @default(now())
+}
