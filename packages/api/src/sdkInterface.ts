@@ -11,16 +11,17 @@ import {
   floatToABK64x64,
   SmartContractOrder,
   D8X_SDK_VERSION,
+  ZERO_ADDRESS,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
-import { createClient } from "redis";
+import Redis from "ioredis";
 import BrokerIntegration from "./brokerIntegration";
 import Observable from "./observable";
-import { extractErrorMsg, constructRedis } from "./utils";
+import { extractErrorMsg, constructRedis } from "utils";
 
 export default class SDKInterface extends Observable {
   private apiInterface: TraderInterface | undefined = undefined;
-  private redisClient: ReturnType<typeof createClient>;
+  private redisClient: Redis;
   private broker: BrokerIntegration;
   TIMEOUTSEC = 60; // timeout for exchange info
 
@@ -32,7 +33,6 @@ export default class SDKInterface extends Observable {
   }
 
   public async initialize(sdkConfig: NodeSDKConfig) {
-    await this.redisClient.connect();
     this.apiInterface = new TraderInterface(sdkConfig);
     await this.apiInterface.createProxyInstance();
     console.log(`SDK v${D8X_SDK_VERSION} API initialized`);
@@ -40,16 +40,16 @@ export default class SDKInterface extends Observable {
 
   private async cacheExchangeInfo() {
     let tsQuery = Date.now();
-    await this.redisClient.hSet("exchangeInfo", ["ts:query", tsQuery]);
+    await this.redisClient.hset("exchangeInfo", ["ts:query", tsQuery]);
     let xchInfo = await this.apiInterface!.exchangeInfo();
     let info = JSON.stringify(xchInfo);
-    await this.redisClient.hSet("exchangeInfo", ["ts:response", Date.now(), "content", info]);
+    await this.redisClient.hset("exchangeInfo", ["ts:response", Date.now(), "content", info]);
     this.notifyObservers("exchangeInfo");
     return info;
   }
 
   public async exchangeInfo(): Promise<string> {
-    let obj = await this.redisClient.hGetAll("exchangeInfo");
+    let obj = await this.redisClient.hgetall("exchangeInfo");
     let info: string = "";
     //console.log("obj=", obj);
     if (!Object.prototype.hasOwnProperty.call(obj, "ts:query")) {
@@ -69,6 +69,20 @@ export default class SDKInterface extends Observable {
     return info;
   }
 
+  /**
+   * Get the loyality score of the trader
+   * @param traderAddr address of the trader
+   * @returns loyality score
+   */
+  public async traderLoyalty(traderAddr: string): Promise<string> {
+    let brokerAddr = this.broker.getBrokerAddress(traderAddr);
+    if (brokerAddr == ZERO_ADDRESS) {
+      brokerAddr = "";
+    }
+    let score = await this.apiInterface!.getTraderLoyalityScore(traderAddr, brokerAddr);
+    return score.toString();
+  }
+
   public perpetualStaticInfo(symbol: string): string {
     let staticInfo = this.apiInterface!.getPerpetualStaticInfo(symbol);
     let info = JSON.stringify(staticInfo);
@@ -85,7 +99,7 @@ export default class SDKInterface extends Observable {
   }
 
   public async updateExchangeInfoNumbersOfPerpetual(symbol: string, values: number[], propertyNames: string[]) {
-    let obj = await this.redisClient.hGetAll("exchangeInfo");
+    let obj = await this.redisClient.hgetall("exchangeInfo");
     let info = <ExchangeInfo>JSON.parse(obj["content"]);
     let [k, j] = SDKInterface.findPoolAndPerpIdx(symbol, info);
     let perpState: PerpetualState = info.pools[k].perpetuals[j];
@@ -110,9 +124,6 @@ export default class SDKInterface extends Observable {
             perpState.openInterestBC = values[m];
           }
           break;
-        case "maxPositionBC":
-          perpState.maxPositionBC = values[m];
-          break;
         default:
           throw new Error(`unknown property name ${propertyNames[m]}`);
       }
@@ -120,7 +131,7 @@ export default class SDKInterface extends Observable {
     // store back to redis: we don't update the timestamp "ts:query", so that
     // all information will still be pulled at some time
     let infoStr = JSON.stringify(info);
-    await this.redisClient.hSet("exchangeInfo", ["ts:response", Date.now(), "content", infoStr]);
+    await this.redisClient.hset("exchangeInfo", ["ts:response", Date.now(), "content", infoStr]);
     // we do not notify the observers since this function is called as a result of eventListener changes and
     // eventListeners are observers
   }
@@ -225,16 +236,9 @@ export default class SDKInterface extends Observable {
 
   public async maxOrderSizeForTrader(addr: string, symbol: string) {
     this.checkAPIInitialized();
-    let perpetualState: PerpetualState = await this.extractPerpetualStateFromExchangeInfo(symbol);
     let positionRisk: MarginAccount | undefined = await this.apiInterface!.positionRisk(addr, symbol);
-    let walletBalance: number = await this.apiInterface!.getWalletBalance(addr, symbol);
-    let sizeBUY = await this.apiInterface!.maxOrderSizeForTrader(BUY_SIDE, positionRisk, perpetualState, walletBalance);
-    let sizeSELL = await this.apiInterface!.maxOrderSizeForTrader(
-      SELL_SIDE,
-      positionRisk,
-      perpetualState,
-      walletBalance
-    );
+    let sizeBUY = await this.apiInterface!.maxOrderSizeForTrader(BUY_SIDE, positionRisk);
+    let sizeSELL = await this.apiInterface!.maxOrderSizeForTrader(SELL_SIDE, positionRisk);
     return JSON.stringify({ buy: sizeBUY, sell: sizeSELL });
   }
 
@@ -288,7 +292,10 @@ export default class SDKInterface extends Observable {
     );
     // also return the order book address and postOrder ABI
     let obAddr = this.apiInterface!.getOrderBookAddress(orders[0].symbol);
-    let postOrderABI = this.apiInterface!.getOrderBookABI(orders[0].symbol, "postOrder");
+    let postOrderABI = [
+      this.apiInterface!.getOrderBookABI(orders[0].symbol, "postOrder"),
+      this.apiInterface!.getOrderBookABI(orders[0].symbol, "postOrders"),
+    ];
     return JSON.stringify({
       digests: digests,
       orderIds: ids,
@@ -301,8 +308,8 @@ export default class SDKInterface extends Observable {
   public async positionRiskOnTrade(order: Order, traderAddr: string): Promise<string> {
     this.checkAPIInitialized();
     let positionRisk: MarginAccount | undefined = await this.apiInterface!.positionRisk(traderAddr, order.symbol);
-    let res: MarginAccount | undefined = await this.apiInterface!.positionRiskOnTrade(traderAddr, order, positionRisk);
-    return JSON.stringify({ newPositionRisk: res });
+    let res = await this.apiInterface!.positionRiskOnTrade(traderAddr, order, positionRisk);
+    return JSON.stringify({ newPositionRisk: res.newPositionRisk, orderCost: res.orderCost });
   }
 
   public async positionRiskOnCollateralAction(
@@ -374,6 +381,16 @@ export default class SDKInterface extends Observable {
     this.checkAPIInitialized();
     let cancelDigest = await this.apiInterface!.cancelOrderDigest(symbol, orderId);
     let cancelABI = this.apiInterface!.getOrderBookABI(symbol, "cancelOrder");
-    return JSON.stringify({ OrderBookAddr: cancelDigest.OBContractAddr, abi: cancelABI, digest: cancelDigest.digest });
+    let priceUpdate = await this.apiInterface!.fetchLatestFeedPriceInfo(symbol);
+    return JSON.stringify({
+      OrderBookAddr: cancelDigest.OBContractAddr,
+      abi: cancelABI,
+      digest: cancelDigest.digest,
+      priceUpdate: {
+        updateData: priceUpdate.priceFeedVaas,
+        publishTimes: priceUpdate.timestamps,
+        updateFee: this.apiInterface!.PRICE_UPDATE_FEE_GWEI * priceUpdate.priceFeedVaas.length,
+      },
+    });
   }
 }

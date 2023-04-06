@@ -1,30 +1,30 @@
 # docker-compose.yml
 
 #docker rmi $(docker images -f "dangling=true" -q)
-#sudo docker-compose up --build
-version: "2.3"
+#sudo docker-compose --env-file .env up --build
+version: "3"
 services:
-  # Args: none
   redis:
     image: redis
-    container_name: cache
-    expose:
-      - 6379
+    environment:
+      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD}
 
   # REST/WS server for frontend
   backend_main:
-    stdin_open: true # docker run -i
-    tty: true # docker run -t
     build:
       context: .
-      dockerfile: ./Dockerfile
-    links:
+      dockerfile: ./packages/api/Dockerfile
+    depends_on:
       - redis
     environment:
-      - REDIS_URL=redis://cache
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - PORT_REST=${PORT_REST}
       - PORT_WEBSOCKET=${PORT_WEBSOCKET}
       - CHAIN_ID=${CHAIN_ID}
+      - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
     ports:
       - "${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
       - "${PORT_REST}:${PORT_REST}"
@@ -35,12 +35,12 @@ services:
     tty: true # docker run -t
     build:
       context: .
-      dockerfile: ./src/indexPXWSClient/Dockerfile
+      dockerfile: ./packages/pxws-client/Dockerfile
     links:
       - redis
     environment:
-      - REDIS_URL=redis://cache
-      - PORT_REST=${PORT_REST}
-      - PORT_WEBSOCKET=${PORT_WEBSOCKET}
-      - CHAIN_ID=${CHAIN_ID}
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      PORT_REST: ${PORT_REST}
+      PORT_WEBSOCKET: ${PORT_WEBSOCKET}
+      CHAIN_ID: ${CHAIN_ID}
     restart: on-failure

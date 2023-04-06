@@ -1,5 +1,11 @@
-import { createClient } from "redis";
+import Redis from "ioredis";
 import { WebsocketClientConfig } from "./wsTypes";
+
+export interface RedisConfig {
+  host: string;
+  port: number;
+  password: string;
+}
 
 export function extractErrorMsg(error: any): string {
   let message;
@@ -22,7 +28,7 @@ export function sleep(ms: number) {
  * @returns configuration of type WebsocketClientConfig
  */
 export function loadConfigJSON(chainId: number): WebsocketClientConfig[] {
-  let file = <WebsocketClientConfig[]>require("./indexPXWSClient/wsConfig.json");
+  let file = <WebsocketClientConfig[]>require("./wsConfig.json");
   let relevantConfigs: WebsocketClientConfig[] = [];
   for (let k = 0; k < file.length; k++) {
     if (file[k].chainId == chainId) {
@@ -35,16 +41,27 @@ export function loadConfigJSON(chainId: number): WebsocketClientConfig[] {
   return relevantConfigs;
 }
 
-export function constructRedis(name: string): ReturnType<typeof createClient> {
-  let redisUrl: string | undefined = process.env.REDIS_URL;
-  let client;
-  if (redisUrl == undefined || redisUrl == "") {
-    console.log(`${name} connecting to redis`);
-    client = createClient();
-  } else {
-    console.log(`${name} connecting to redis: ${redisUrl}`);
-    client = createClient({ url: redisUrl });
+export function getRedisConfig(): RedisConfig {
+  let originUrl = process.env.REDIS_URL;
+  if (originUrl == undefined) {
+    throw new Error("REDIS_URL not defined");
   }
+  console.log("URL=", originUrl);
+  let redisURL = new URL(originUrl);
+  const host = redisURL.hostname;
+  const port = parseInt(redisURL.port);
+  const redisPassword = redisURL.password;
+  let config = { host: host, port: port, password: redisPassword! };
+
+  return config;
+}
+
+export function constructRedis(name: string): Redis {
+  let client;
+  let redisConfig = getRedisConfig();
+  //console.log(redisConfig);
+  console.log(`${name} connecting to redis: ${redisConfig.host}`);
+  client = new Redis(redisConfig);
   client.on("error", (err) => console.log(`${name} Redis Client Error:` + err));
   return client;
 }
