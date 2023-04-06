@@ -25,7 +25,7 @@ import WebSocket from "ws";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
 import IndexPriceInterface from "./indexPriceInterface";
 import SDKInterface from "./sdkInterface";
-import { ExecutionFailed, LimitOrderCreated, PriceUpdate, Trade, UpdateMarginAccount, WSMsg } from "./wsTypes";
+import { ExecutionFailed, LimitOrderCreated, PriceUpdate, Trade, UpdateMarginAccount, WSMsg } from "utils/src/wsTypes";
 
 /**
  * Class that listens to blockchain events on
@@ -269,6 +269,7 @@ export default class EventListener extends IndexPriceInterface {
     proxyContract.on("TokensWithdrawn", (perpetualId: number, trader: string, amount: BigNumber) => {
       this.onUpdateMarginCollateral(perpetualId, trader, amount.mul(-1));
     });
+
     proxyContract.on(
       "Trade",
       (
@@ -278,15 +279,30 @@ export default class EventListener extends IndexPriceInterface {
         order: SmartContractOrder,
         orderDigest: string,
         newPositionSizeBC: BigNumber,
-        price: BigNumber
+        price: BigNumber,
+        fFeeCC: BigNumber,
+        fPnlCC: BigNumber
       ) => {
-        this.onTrade(perpetualId, trader, positionId, order, orderDigest, newPositionSizeBC, price);
+        /**
+     *  event Trade(
+        uint24 indexed perpetualId,
+        address indexed trader,
+        bytes16 indexed positionId,
+        IPerpetualOrder.Order order,
+        bytes32 orderDigest,
+        int128 newPositionSizeBC,
+        int128 price,
+        int128 fFeeCC,
+        int128 fPnlCC
+    );
+     */
+        this.onTrade(perpetualId, trader, positionId, order, orderDigest, newPositionSizeBC, price, fFeeCC, fPnlCC);
       }
     );
-    // // TODO: uncomment after deployment
-    // proxyContract.on("PerpetualLimitOrderCancelled", (perpetualId: number, digest: string) => {
-    //   this.onPerpetualLimitOrderCancelled(perpetualId, digest);
-    // });
+
+    proxyContract.on("PerpetualLimitOrderCancelled", (perpetualId: number, digest: string) => {
+      this.onPerpetualLimitOrderCancelled(perpetualId, digest);
+    });
   }
 
   /**
@@ -375,9 +391,7 @@ export default class EventListener extends IndexPriceInterface {
       lockedInQC,
       state.indexPrice,
       state.collToQuoteIndexPrice,
-      state.markPrice,
-      state.markPrice,
-      0
+      state.markPrice
     );
     let S2Liq, S3Liq;
     if (info.collateralCurrencyType == COLLATERAL_CURRENCY_BASE) {
@@ -555,7 +569,9 @@ export default class EventListener extends IndexPriceInterface {
     order: SmartContractOrder,
     orderDigest: string,
     newPositionSizeBC: BigNumber,
-    price: BigNumber
+    price: BigNumber,
+    fFeeCC: BigNumber,
+    fPnlCC: BigNumber
   ) {
     this.lastBlockChainEventTs = Date.now();
     let symbol = this.symbolFromPerpetualId(perpetualId);

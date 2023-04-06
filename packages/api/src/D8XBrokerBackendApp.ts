@@ -4,7 +4,7 @@ import swaggerJSDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
-import { extractErrorMsg } from "./utils";
+import { extractErrorMsg } from "utils";
 import { Order, PerpetualState, NodeSDKConfig, MarginAccount } from "@d8x/perpetuals-sdk";
 import EventListener from "./eventListener";
 import BrokerIntegration from "./brokerIntegration";
@@ -28,7 +28,7 @@ export default class D8XBrokerBackendApp {
   constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig) {
     this.express = express();
 
-    this.swaggerData = fs.readFileSync("./src/swagger.json", "utf-8");
+    this.swaggerData = fs.readFileSync(__dirname + "/swagger.json", "utf-8");
     this.swaggerDocument = JSON.parse(this.swaggerData);
     if (process.env.PORT_REST == undefined) {
       throw Error("define PORT_REST in .env");
@@ -289,7 +289,29 @@ export default class D8XBrokerBackendApp {
       } catch (err: any) {
         const usg = "{traderAddr: string, symbol: string}";
         res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "positionRisk", { error: extractErrorMsg(err), usage: usg })
+          D8XBrokerBackendApp.JSONResponse("error", "maxOrderSizeForTrader", {
+            error: extractErrorMsg(err),
+            usage: usg,
+          })
+        );
+      }
+    });
+
+    this.express.get("/trader_loyalty", async (req: Request, res: Response) => {
+      let rsp: string;
+      try {
+        let addr: string;
+        if (typeof req.query.traderAddr != "string") {
+          throw new Error("wrong arguments. Requires traderAddr");
+        } else {
+          addr = req.query.traderAddr;
+          rsp = await this.sdk.traderLoyalty(addr.toString());
+          res.send(D8XBrokerBackendApp.JSONResponse("traderLoyalty", "", rsp));
+        }
+      } catch (err: any) {
+        const usg = "{traderAddr: string}";
+        res.send(
+          D8XBrokerBackendApp.JSONResponse("error", "trader_loyalty", { error: extractErrorMsg(err), usage: usg })
         );
       }
     });

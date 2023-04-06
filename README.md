@@ -4,16 +4,16 @@ The entire backend for the D8X Perpetuals trading frontend package consists of
 
 - this backend code
 - candle stick chart server: https://github.com/D8-X/candleD8
-- a price server (optional but highly encouraged): https://github.com/pyth-network/pyth-crosschain.git
+- a price server that provides off-chain oracle prices: [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server)
 
 The services run over http/ws and it is required to install a reverse proxy on the servers so the traffic can flow via https/wss.
 
 # Buidl and run backend
 
-- it is recommended to build your own instance of the Pyth Price service:
-  - Repository: https://github.com/pyth-network/pyth-crosschain.git
-  - Price service: https://github.com/pyth-network/pyth-crosschain/tree/main/price_service/server
-  - Alternatively use the [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server) (fork not required for backend)
+- Build your own instance of the Pyth Price service:
+  - Using [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server) (fork required for trade cancellations)
+  - Set the endpoint of your price service in the field `wsEndpoints` of the file packages/utils/src/wsConfig.json. Note that you can have
+    multiple servers in the configuration instead of just one.
 
 ## Prerequisites
 
@@ -28,16 +28,13 @@ Either
 
 - check `wsConfig.json`, especially edit the entry `wsEndpoints` and add your own endpoint, in addition to the public endpoint `wss://xc-testnet.pyth.network/ws`
 - Copy `.envExample` file and paste as `.env` file. No changes should be necessary for testnet.
-- `cd` into the repository root directory and `docker-compose up --build`
+- `cd` into the repository root directory and
 
-## Without Docker
+```bash
+docker compose  --env-file .env up
+```
 
-- Copy `.envExample` file and paste as `.env` file. Make changes if necessary.
-  - for example: re-define the ports in `.env`, e.g., 3000 (using 30001 below)
-- npm run build
-- npm run start
-- REST: http://localhost:3001/
-- Websocket: ws://localhost:8080/
+[specifics on mono-repo](README_MONOREPO.md)
 
 ## Broker-fee
 
@@ -97,10 +94,10 @@ let signedOrder = await brokerTool.signOrder(order, brokerAddress);
 - `/queryFee?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&poolSymbol=MATIC` : Fee including broker fee in tbps (1e-5)
 - `/getOrderIds?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=MATIC-USD-MATIC`: Ids of all the orders of a trader in a perpetual
 - `/getCurrentTraderVolume?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&poolSymbol=MATIC-USD-MATIC`: Current trading volume of a trader
-- `/addCollateral?symbol=MATIC-USD-MATIC&amount=100`: Data needed to deposit collateral via direct smart contract interaction: perpetual Id, proxy contract address, 'deposit' method ABI, and HEX-encoded amount
-- `/removeCollateral?symbol=MATIC-USD-MATIC&amount=100`: Data needed to withdraw collateral via direct smart contract interaction: perpetual Id, proxy contract address, 'withdraw' method ABI, and HEX-encoded amount
+- `/addCollateral?symbol=MATIC-USD-MATIC&amount=100`: Data needed to deposit collateral via direct smart contract interaction: perpetual Id, proxy contract address, 'deposit' method ABI, price updates, and HEX-encoded amount
+- `/removeCollateral?symbol=MATIC-USD-MATIC&amount=100`: Data needed to withdraw collateral via direct smart contract interaction: perpetual Id, proxy contract address, 'withdraw' method ABI, price updates, and HEX-encoded amount
 - `/availableMargin?symbol=MATIC-USD-MATIC&traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05`: Maximum amount that can be removed from a trader's account
-- `/cancelOrder?symbol=MATIC-USD-MATIC&orderId=0x433cd04c5e9703890d5aa72d90980b90bfde5b087075293abd679a067780629d`: Data needed to cancel a given order via direct smrt contract interaction: order book contract address, 'cancelOrder' method ABI, and digest to sign by the trader who posted this order
+- `/cancelOrder?symbol=MATIC-USD-MATIC&orderId=0x433cd04c5e9703890d5aa72d90980b90bfde5b087075293abd679a067780629d`: Data needed to cancel a given order via direct smrt contract interaction: order book contract address, 'cancelOrder' method ABI, price updates, and digest to sign by the trader who posted this order
 
 ## All POST endpoints for Trader:
 
@@ -121,8 +118,9 @@ then the frontend can submit it.
   - setAllowance has to be performed on the collateral token and the proxy-contract from the frontend
 - `/positionRiskOnTrade`:
   - parameters `{ order: order, traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05 }`, see test/post.test.ts
-  - returns `{newPositionRisk: 'MarginAccount type'}`
+  - returns `{newPositionRisk: 'MarginAccount type', orderCost: number}`
     - `newPositionRisk` is what the given trader's positionRisk would look like if the given order is executed
+    - `orderCost` is the approximate collateral deposit that will be deducted from the trader when the order is executed
 - `/positionRiskOnCollateralAction`:
   - parameters `{ traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05, amount: -100, positionRisk: 'Margin account struct' }`, see test/post.test.ts
   - returns `{newPositionRisk: 'MarginAccount type', availableMargin: number}`

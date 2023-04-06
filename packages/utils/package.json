@@ -1,0 +1,32 @@
+{
+  "name": "utils",
+  "version": "0.0.0",
+  "description": "",
+  "keywords": [],
+  "author": "Mantas Jonaitis <j.mantelijo@gmail.com>",
+  "license": "ISC",
+  "main": "dist/utils.js",
+  "directories": {
+    "lib": "src",
+    "test": "__tests__"
+  },
+  "files": [
+    "src"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/D8-X/d8x-trader-backend.git"
+  },
+  "scripts": {
+    "build": "rimraf ./dist && tsc"
+  },
+  "bugs": {
+    "url": "https://github.com/D8-X/d8x-trader-backend/issues"
+  },
+  "homepage": "https://github.com/D8-X/d8x-trader-backend#readme",
+  "dependencies": {
+    "@d8x/perpetuals-sdk": "0.2.00",
+    "ioredis": "^5.3.1",
+    "rimraf": "^4.4.1"
+  }
+}
