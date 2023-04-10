@@ -64,7 +64,7 @@
     ethers "^5.7.2"
     process "^0.11.10"
 
-"@d8x/perpetuals-sdk@0.2.10":
+"@d8x/perpetuals-sdk@0.2.1":
   version "0.2.1"
   resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.2.1.tgz#af164212bac3305549bc4ae44060ac29ff58228e"
   integrity sha512-d6pCdMOIRIuGtfIoAK3kTftKIc8ZgqGTX7F3CXFH/ruR/Yo5w1D5KRx9Df0nxRI7wFRrhJbZ6p7G/YPjexKBEw==
