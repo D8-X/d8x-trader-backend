@@ -23,18 +23,20 @@ Either
 - node (used v18.14.0 for testing)
 - yarn
   Or just Docker.
+- Run a price service from the [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server)
+
+[details on mono-repo](README_MONOREPO.md)
 
 ## Using Docker
 
-- check `wsConfig.json`, especially edit the entry `wsEndpoints` and add your own endpoint, in addition to the public endpoint `wss://xc-testnet.pyth.network/ws`
+- check `packages/src/wsConfig.json`, especially edit the entry `wsEndpoints` and add your own endpoint for the price
+  service [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server)
 - Copy `.envExample` file and paste as `.env` file. No changes should be necessary for testnet.
 - `cd` into the repository root directory and
 
 ```bash
-docker compose  --env-file .env up
+docker compose  --env-file .env up --build
 ```
-
-[specifics on mono-repo](README_MONOREPO.md)
 
 ## Broker-fee
 
