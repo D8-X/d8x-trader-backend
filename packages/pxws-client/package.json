@@ -18,7 +18,8 @@
     "url": "git+https://github.com/D8-X/d8x-trader-backend.git"
   },
   "scripts": {
-    "build": "rimraf ./dist && tsc"
+    "build": "rimraf ./dist && tsc",
+    "watch": "nodemon ./src/startIndexPXWSClient.ts"
   },
   "bugs": {
     "url": "https://github.com/D8-X/d8x-trader-backend/issues"
