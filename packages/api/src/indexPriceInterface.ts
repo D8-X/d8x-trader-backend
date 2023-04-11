@@ -17,7 +17,7 @@ export default abstract class IndexPriceInterface extends Observer {
   private idxNamesToPerpetualIds: Map<string, number[]>; //ticker (e.g. BTC-USD) -> [10001, 10021, ..]
   protected idxPrices: Map<string, number>; //ticker -> price
   protected midPremium: Map<number, number>; //perpId -> price (e.g. we can have 2 BTC-USD with different mid-price)
-  protected mrkPrices: Map<number, number>; //perpId -> price
+  protected mrkPremium: Map<number, number>; //perpId -> mark premium
 
   protected sdkInterface: SDKInterface | undefined;
 
@@ -29,7 +29,7 @@ export default abstract class IndexPriceInterface extends Observer {
     this.idxNamesToPerpetualIds = new Map<string, number[]>();
     this.idxPrices = new Map<string, number>();
     this.midPremium = new Map<number, number>();
-    this.mrkPrices = new Map<number, number>();
+    this.mrkPremium = new Map<number, number>();
   }
 
   public async initialize(sdkInterface: SDKInterface) {
@@ -103,7 +103,7 @@ export default abstract class IndexPriceInterface extends Observer {
         this.idxNamesToPerpetualIds.get(pxIdxName);
         let px = perpState.indexPrice;
         this.idxPrices.set(pxIdxName, px);
-        this.mrkPrices.set(perpId, perpState.markPrice);
+        this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
         this.midPremium.set(perpId, perpState.midPrice / px - 1);
       }
     }
@@ -149,12 +149,13 @@ export default abstract class IndexPriceInterface extends Observer {
       }
       let px = this.idxPrices.get(indices[k]);
       for (let j = 0; j < perpetualIds.length; j++) {
-        let markPx = this.mrkPrices.get(perpetualIds[j]);
+        let markPremium = this.mrkPremium.get(perpetualIds[j]);
         let midPremium = this.midPremium.get(perpetualIds[j]);
-        if (px == undefined || markPx == undefined || midPremium == undefined) {
+        if (px == undefined || markPremium == undefined || midPremium == undefined) {
           continue;
         }
-        let midPx = px * (1 + midPremium);
+        const midPx = px * (1 + midPremium);
+        const markPx = px * (1 + markPremium);
         // call update to inform websocket
         this.updateMarkPrice(perpetualIds[j], midPx, markPx!, px!);
       }
@@ -178,9 +179,10 @@ export default abstract class IndexPriceInterface extends Observer {
     newMarkPrice: number,
     newIndexPrice: number
   ) {
-    this.mrkPrices.set(perpetualId, newMarkPrice);
     let midPrem = newMidPrice / newIndexPrice - 1;
     this.midPremium.set(perpetualId, midPrem);
+    let markPrem = newMarkPrice / newIndexPrice - 1;
+    this.mrkPremium.set(perpetualId, markPrem);
     let pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId);
     let px = this.idxPrices.get(pxIdxName!);
     if (px == undefined) {
