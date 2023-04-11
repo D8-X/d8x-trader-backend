@@ -118,7 +118,7 @@ export default class EventListener extends IndexPriceInterface {
       }
     }
     this.clients.get(ws)?.push({ perpetualId: id, symbol: perpetualsSymbol, traderAddr: traderAddr });
-    console.log(`new client: ws:${ws} ${traderAddr}`);
+    console.log(`${new Date(Date.now())}: #ws=${this.clients.size}, new client ${traderAddr}`);
     let perpSubscribers = this.subscriptions.get(id);
     if (perpSubscribers == undefined) {
       this.subscriptions.set(id, new Map<string, WebSocket.WebSocket[]>());
@@ -136,7 +136,7 @@ export default class EventListener extends IndexPriceInterface {
   }
 
   public unsubscribe(ws: WebSocket.WebSocket) {
-    console.log(`unsubscribe client: ws:${ws}`);
+    console.log(`${new Date(Date.now())}: #ws=${this.clients.size}, client unsubscribed`);
     //subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>;
     let clientSubscriptions = this.clients.get(ws);
     if (clientSubscriptions == undefined) {
