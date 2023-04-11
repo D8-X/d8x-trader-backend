@@ -71,7 +71,7 @@ export default class FeedHandler {
     this.feedIdxPrices.set(ticker, { price: price, ts: timestampMs });
     // recalculate indices
     let affectedClientIdxNames: string[] | undefined = this.feedToDependentClientIndices.get(ticker);
-    console.log("affected ids", affectedClientIdxNames);
+    //console.log("affected ids", affectedClientIdxNames);
     if (affectedClientIdxNames == undefined) {
       // no subscribers, leave
       // log: console.log(`no dependent subscribers for ticker ${ticker}`);
