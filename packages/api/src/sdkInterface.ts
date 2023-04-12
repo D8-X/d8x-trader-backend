@@ -23,7 +23,8 @@ export default class SDKInterface extends Observable {
   private apiInterface: TraderInterface | undefined = undefined;
   private redisClient: Redis;
   private broker: BrokerIntegration;
-  TIMEOUTSEC = 60; // timeout for exchange info
+  TIMEOUTSEC = 5 * 60; // timeout for exchange info
+  private MUTEX_TS_EXCHANGE_INFO = 0; // mutex for exchange info query
 
   constructor(broker: BrokerIntegration) {
     super();
@@ -57,7 +58,10 @@ export default class SDKInterface extends Observable {
       info = await this.cacheExchangeInfo();
     } else {
       let timeElapsedS = (Date.now() - parseInt(obj["ts:query"])) / 1000;
-      if (timeElapsedS > this.TIMEOUTSEC) {
+      // prevent multiple clients calling at the same time via "MUTEX"
+      let delay = Date.now() - this.MUTEX_TS_EXCHANGE_INFO;
+      if (delay > 60_000 && timeElapsedS > this.TIMEOUTSEC) {
+        this.MUTEX_TS_EXCHANGE_INFO = Date.now();
         // reload data through API
         // no await
         console.log("re-query exchange info");

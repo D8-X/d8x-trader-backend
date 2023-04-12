@@ -38,7 +38,7 @@ export default class FeedHandler {
   public async init() {
     // feed request is sent by the entity requiring perpetual index prices
     await this.redisSubClient.subscribe("feedRequest");
-    this.redisPubClient.on("message", async (channel, message) => await this.onSubscribeIndices(message));
+    this.redisSubClient.on("message", async (channel, message) => await this.onSubscribeIndices(message));
     await this.callForIndices();
   }
 
@@ -71,6 +71,7 @@ export default class FeedHandler {
     this.feedIdxPrices.set(ticker, { price: price, ts: timestampMs });
     // recalculate indices
     let affectedClientIdxNames: string[] | undefined = this.feedToDependentClientIndices.get(ticker);
+    //console.log("affected ids", affectedClientIdxNames);
     if (affectedClientIdxNames == undefined) {
       // no subscribers, leave
       // log: console.log(`no dependent subscribers for ticker ${ticker}`);
@@ -121,7 +122,7 @@ export default class FeedHandler {
    */
   private async onSubscribeIndices(message: string) {
     // message: BTC-USDC:MATIC-USD:ETH-USD
-    console.log("Received feedRequest");
+    console.log("Received feedRequest", message);
     let indices = message.split(":");
     // clear state
     this.clientIdxToFeedIdxPath.clear();

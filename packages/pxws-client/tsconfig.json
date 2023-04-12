@@ -10,8 +10,5 @@
     "forceConsistentCasingInFileNames": true /* Ensure that casing is correct in imports. */,
     "skipLibCheck": true /* Skip type checking all .d.ts files. */
   },
-  "include": [
-    "./src/**/*",
-    "./src/**/*.json"
-  ]
+  "include": ["./src/**/*", "./src/**/*.json"]
 }

@@ -84,9 +84,11 @@ export default class D8XBrokerBackendApp {
           let obj = JSON.parse(data.toString());
           if (obj.type == "ping") {
             ws.send(D8XBrokerBackendApp.JSONResponse("ping", "pong", {}));
+          } else if (obj.type == "unsubscribe") {
+            eventListener.unsubscribe(ws);
           } else {
-            //type = subscription
             console.log("received: ", obj);
+            //type = subscription
             if (typeof obj.traderAddr != "string" || typeof obj.symbol != "string") {
               throw new Error("wrong arguments. Requires traderAddr and symbol");
             }
