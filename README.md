@@ -23,18 +23,20 @@ Either
 - node (used v18.14.0 for testing)
 - yarn
   Or just Docker.
+- Run a price service from the [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server)
+
+[details running without docker](README_MONOREPO.md)
 
 ## Using Docker
 
-- check `wsConfig.json`, especially edit the entry `wsEndpoints` and add your own endpoint, in addition to the public endpoint `wss://xc-testnet.pyth.network/ws`
+- check `packages/src/wsConfig.json`, especially edit the entry `wsEndpoints` and add your own endpoint for the price
+  service [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server)
 - Copy `.envExample` file and paste as `.env` file. No changes should be necessary for testnet.
 - `cd` into the repository root directory and
 
 ```bash
-docker compose  --env-file .env up
+docker compose  --env-file .env up --build
 ```
-
-[specifics on mono-repo](README_MONOREPO.md)
 
 ## Broker-fee
 
@@ -143,6 +145,14 @@ interface SubscriptionInterface {
   symbol: string;
   // address of the trader
   traderAddr: string;
+}
+```
+
+To unsubscribe, send
+
+```
+{
+ "type": "unsubscribe"
 }
 ```
 
@@ -260,6 +270,32 @@ from the websocket feeds. Upon receipt of `"feedUpdate"` the eventListener gets 
 index prices from REDIS and processes them (change of mark-price, mid-price etc.) and streams the relevant
 information via Websocket to the frontend.
 
-# GitFlow
+# Configuration Example
 
-check the git flow in the GitFlow.md
+- Each chain id can have an entry as below
+- _wsEndpoints_ can contain several endpoints. If there is no response from one, the system switches. The first endpoint is always used first.
+- _feedIds_ defines a name and the identifier for this id.
+- _tickers_ all the sources we want to listen too. Requires a feedId-entry with the same name. Users can subscribe to all triangulations
+  that are possible with the provided ticker-list. Typically the tickers and feedIds are congruent
+- _streamName_ is an arbitrary name and has no impact on the functions. The idea is that there can be several Pyth-like off-chain price feeds
+  and we can have different configs for those for the same chainId.
+
+```
+[
+{
+    "chainId": 80001,
+    "streamName": "crypto1",
+    "wsEndpoints": ["wss://pyth.testnet.quantena.tech/ws"],
+    "tickers": ["BTC-USD", "ETH-USD", "MATIC-USD"],
+    "feedIds": [
+      ["BTC-USD", "0xf9c0172ba10dfa4d19088d94f5bf61d3b54d5bd7483a322a982e1373ee8ea31b"],
+      ["MATIC-USD", "0xd2c2c1f2bba8e0964f9589e060c2ee97f5e19057267ac3284caef3bd50bd2cb5"],
+      ["ETH-USD", "0xca80ba6dc32e08d06f1aa886011eed1d77c77be9eb761cc10d72b7d0a2fd57a6"],
+      ["USDC-USD", "0x41f3625971ca2ed2263e78573fe5ce23e13d2558ed3f2e47ab0f84fb9e7ae722"],
+      ["USD-CHF", "0x796d24444ff50728b58e94b1f53dc3a406b2f1ba9d0d0b91d4406c37491a6feb"],
+      ["GBP-USD", "0xbcbdc2755bd74a2065f9d3283c2b8acbd898e473bdb90a6764b3dbd467c56ecd"],
+      ["XAU-USD", "0x30a19158f5a54c0adf8fb7560627343f22a1bc852b89d56be1accdc5dbf96d0e"]
+    ]
+  }
+]
+```
