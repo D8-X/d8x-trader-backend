@@ -103,7 +103,6 @@ export default class EventListener extends IndexPriceInterface {
    * @returns true if newly subscribed
    */
   public subscribe(ws: WebSocket.WebSocket, perpetualsSymbol: string, traderAddr: string): boolean {
-    console.log("subscribe");
     let id = this.traderInterface.getPerpIdFromSymbol(perpetualsSymbol);
     if (this.clients.get(ws) == undefined) {
       this.clients.set(ws, new Array<{ perpetualId: number; symbol: string; traderAddr: string }>());
@@ -199,6 +198,7 @@ export default class EventListener extends IndexPriceInterface {
    */
   private sendToSubscribers(perpetualId: number, message: string, traderAddr?: string) {
     // traderAddr -> ws
+    console.log("update for id=", perpetualId, message);
     let subscribers: Map<string, WebSocket.WebSocket[]> | undefined = this.subscriptions.get(perpetualId);
     if (subscribers == undefined) {
       // console.log(`no subscribers for perpetual ${perpetualId}`);
