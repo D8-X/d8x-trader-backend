@@ -148,6 +148,14 @@ interface SubscriptionInterface {
 }
 ```
 
+To unsubscribe, send
+
+```
+{
+ "type": "unsubscribe"
+}
+```
+
 response:
 
 ```
