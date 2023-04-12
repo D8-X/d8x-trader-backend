@@ -64,15 +64,6 @@
     ethers "^5.7.2"
     process "^0.11.10"
 
-"@d8x/perpetuals-sdk@0.4.0":
-  version "0.4.0"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.4.0.tgz#68c201fcdf5250322f934fcf4dea8f7584637ce7"
-  integrity sha512-eFy6GWQ0o044FkEcmOkvJH/2/7mxAvwNCSOda2F+AyY1+OU8XF19ZtFBfaT23R0BpMe4Tvy/4mTHzeuOkwpgYg==
-  dependencies:
-    buffer "^6.0.3"
-    ethers "^5.7.2"
-    process "^0.11.10"
-
 "@d8x/perpetuals-sdk@0.4.1":
   version "0.4.1"
   resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.4.1.tgz#5be20b62f042fc8d73e9a01789f17457ad59bee5"
