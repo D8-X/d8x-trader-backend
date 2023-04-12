@@ -198,7 +198,7 @@ export default class EventListener extends IndexPriceInterface {
    */
   private sendToSubscribers(perpetualId: number, message: string, traderAddr?: string) {
     // traderAddr -> ws
-    console.log("update for id=", perpetualId, message);
+
     let subscribers: Map<string, WebSocket.WebSocket[]> | undefined = this.subscriptions.get(perpetualId);
     if (subscribers == undefined) {
       // console.log(`no subscribers for perpetual ${perpetualId}`);
