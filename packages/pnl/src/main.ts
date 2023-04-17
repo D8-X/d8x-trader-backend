@@ -3,7 +3,7 @@ import { EventListener } from "./contracts/listeners";
 import * as dotenv from "dotenv";
 import { HistoricalDataFilterer } from "./contracts/historical";
 import { JsonRpcProvider } from "ethers";
-import { TradeEvent } from "./contracts/types";
+import { TradeEvent, UpdateMarginAccountEvent } from "./contracts/types";
 
 // TODO set this up for actual production use
 const defaultLogger = () => {
@@ -54,15 +54,11 @@ const main = () => {
 	});
 	eventsListener.listen();
 
-	// Historical data processor
 	const hd = new HistoricalDataFilterer(
 		new JsonRpcProvider(process.env.RPC_URL as string),
-		process.env.SC_ADDRESS_PERPETUAL_MANAGER_PROXY as string,
-		logger
+		process.env.SC_ADDRESS_PERPETUAL_MANAGER_PROXY as string
 	);
-	hd.filterTrades("0xsdfsdf", new Date("2023-01-01"), (event: TradeEvent) => {
-		console.log(event);
-	});
+	//  TODO use historical data filterer
 };
 
 main();
