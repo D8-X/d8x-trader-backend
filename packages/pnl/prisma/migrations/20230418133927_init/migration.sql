@@ -12,11 +12,12 @@ CREATE TABLE "trades_history" (
     "chain_id" INTEGER NOT NULL,
     "side" "trade_side" NOT NULL,
     "type" "trade_type" NOT NULL,
-    "price" BIGINT NOT NULL,
-    "quantity" BIGINT NOT NULL,
-    "feee" BIGINT NOT NULL,
-    "realized_profit" BIGINT NOT NULL,
+    "price" DECIMAL(40,0) NOT NULL,
+    "quantity" DECIMAL(40,0) NOT NULL,
+    "feee" DECIMAL(40,0) NOT NULL,
+    "realized_profit" DECIMAL(40,0) NOT NULL,
     "order_digest_hash" TEXT NOT NULL,
+    "tx_hash" TEXT NOT NULL,
     "trade_timestamp" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "trades_history_pkey" PRIMARY KEY ("id")
@@ -38,3 +39,6 @@ CREATE INDEX "trades_history_wallet_address_idx" ON "trades_history" USING HASH 
 
 -- CreateIndex
 CREATE INDEX "trades_history_order_digest_hash_idx" ON "trades_history" USING HASH ("order_digest_hash");
+
+-- CreateIndex
+CREATE INDEX "trades_history_tx_hash_idx" ON "trades_history" USING HASH ("tx_hash");

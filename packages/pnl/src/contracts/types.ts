@@ -1,65 +1,63 @@
-import { BigNumberish } from "ethers";
-
 export type EventCallback<Event> = (
 	event: Event,
 	txHash: string,
-	blockNumber: BigNumberish
+	blockNumber: number
 ) => void;
 
 // Trade event shape as retrieved from logs
 export interface TradeEvent {
-	perpetualId: BigNumberish;
+	perpetualId: bigint;
 	trader: string;
 	positionId: string;
 	order: {
-		flags: BigNumberish;
-		iPerpetualId: BigNumberish;
-		brokerFeeTbps: BigNumberish;
+		flags: bigint;
+		iPerpetualId: bigint;
+		brokerFeeTbps: bigint;
 		traderAddr: string;
 		brokerAddr: string;
 		referrerAddr: string;
 		brokerSignature: string;
-		fAmount: BigNumberish;
-		fLimitPrice: BigNumberish;
-		fTriggerPrice: BigNumberish;
-		fLeverage: BigNumberish;
-		iDeadline: BigNumberish;
-		createdTimestamp: BigNumberish;
-		submittedTimestamp: BigNumberish;
+		fAmount: bigint;
+		fLimitPrice: bigint;
+		fTriggerPrice: bigint;
+		fLeverage: bigint;
+		iDeadline: bigint;
+		createdTimestamp: bigint;
+		submittedTimestamp: bigint;
 	};
 	orderDigest: string;
-	newPositionSizeBC: BigNumberish;
-	price: BigNumberish;
-	fFeeCC: BigNumberish;
-	fPnlCC: BigNumberish;
+	newPositionSizeBC: bigint;
+	price: bigint;
+	fFeeCC: bigint;
+	fPnlCC: bigint;
 }
 
 // Callback function for Trade events
 export type TradesFilteredCb = EventCallback<TradeEvent>;
 
 export interface LiquidateEvent {
-	perpetualId: BigNumberish; //unique perpetual id
+	perpetualId: bigint; //unique perpetual id
 	liquidator: string;
 	trader: string;
 	positionId: string;
-	amountLiquidatedBC: BigNumberish; //amount liquidated in base crrency, ABDK
-	liquidationPrice: BigNumberish; //liquidation price in quote crrency, ABDK
-	newPositionSizeBC: BigNumberish; //size after liq in base currency, ABDK
-	fFeeCC: BigNumberish; //fee in collateral currency, ABDK format
-	fPnlCC: BigNumberish; //P&L in collateral cu
+	amountLiquidatedBC: bigint; //amount liquidated in base crrency, ABDK
+	liquidationPrice: bigint; //liquidation price in quote crrency, ABDK
+	newPositionSizeBC: bigint; //size after liq in base currency, ABDK
+	fFeeCC: bigint; //fee in collateral currency, ABDK format
+	fPnlCC: bigint; //P&L in collateral cu
 }
 
 export type LiquidationsFilteredCb = EventCallback<LiquidateEvent>;
 
 export interface UpdateMarginAccountEvent {
-	perpetualId: BigNumberish;
+	perpetualId: bigint;
 	trader: string;
 	positionId: string;
-	fPositionBC: BigNumberish;
-	fCashCC: BigNumberish;
-	fLockedInValueQC: BigNumberish;
-	fFundingPaymentCC: BigNumberish;
-	fOpenInterestBC: BigNumberish;
+	fPositionBC: bigint;
+	fCashCC: bigint;
+	fLockedInValueQC: bigint;
+	fFundingPaymentCC: bigint;
+	fOpenInterestBC: bigint;
 }
 
 export type UpdateMarginAccountFilteredCb = EventCallback<UpdateMarginAccountEvent>;
