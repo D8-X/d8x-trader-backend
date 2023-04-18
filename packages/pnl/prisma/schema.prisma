@@ -23,36 +23,40 @@ enum trade_type{
   liquidation
 }
 
+// Decimal with 40 precision is used for int128 fields, since 128 bit number can
+// have 39 digits.
 model Trade{
   @@map("trades_history")
   id BigInt @id @default(autoincrement())
   // Wallet address of user 
   wallet_address String @db.Text
-  perpetual_id BigInt
+  perpetual_id BigInt @db.BigInt 
   chain_id Int
   side trade_side
   type trade_type
   // price is stored in ABDK format
-  price BigInt 
+  price Decimal @db.Decimal(40,0) 
   // quanityt is stored in ABDK format
-  quantity BigInt
+  quantity Decimal @db.Decimal(40,0)
   // fee is stored in ABDK format
-  feee BigInt
+  feee Decimal @db.Decimal(40,0)
   // realized profit is stored in ABDK format
-  realized_profit BigInt
+  realized_profit Decimal @db.Decimal(40,0)
   order_digest_hash String @db.Text 
+  tx_hash String @db.Text 
   trade_timestamp DateTime @db.Timestamptz @default(now())
 
   @@index([wallet_address], type: Hash)
   @@index([order_digest_hash], type: Hash)
+  @@index([tx_hash], type: Hash)
 }
 
 model FundingRatePayment{
   @@map("funding_rate_payments")
   id BigInt @id @default(autoincrement())
   wallet_address String @db.Text
-  perpetual_id BigInt
+  perpetual_id BigInt @db.BigInt
   // amount can be negative - user paid
-  payment_amount BigInt
+  payment_amount BigInt @db.BigInt
   payment_timestamp DateTime @db.Timestamptz @default(now())
 }

@@ -8,11 +8,12 @@
 	],
 	"license": "MIT",
 	"scripts": {
-		"build": "rimraf ./dist && tsc",
+		"build": "npx prisma generate && rimraf ./dist && tsc",
 		"watch": "nodemon ./src/main.ts",
 		"prisma-dev": "npx prisma migrate dev"
 	},
 	"dependencies": {
+		"@prisma/client": "^4.12.0",
 		"ethers": "^6.2.3",
 		"nodemon": "^2.0.22",
 		"ts-node": "^10.9.1",

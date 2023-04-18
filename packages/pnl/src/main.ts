@@ -2,8 +2,10 @@ import * as winston from "winston";
 import { EventListener } from "./contracts/listeners";
 import * as dotenv from "dotenv";
 import { HistoricalDataFilterer } from "./contracts/historical";
-import { JsonRpcProvider } from "ethers";
+import { BigNumberish, JsonRpcProvider } from "ethers";
 import { TradeEvent, UpdateMarginAccountEvent } from "./contracts/types";
+import { PrismaClient } from "@prisma/client";
+import { TradingHistory } from "./db/trading_history";
 
 // TODO set this up for actual production use
 const defaultLogger = () => {
@@ -39,8 +41,11 @@ const loadEnv = () => {
 };
 
 // Entrypoint of PnL service
-const main = () => {
+const main = async () => {
 	loadEnv();
+
+	// Initialize db client
+	const prisma = new PrismaClient();
 
 	logger.info("starting pnl service");
 
@@ -54,11 +59,23 @@ const main = () => {
 	});
 	eventsListener.listen();
 
+	const provider = new JsonRpcProvider(process.env.RPC_URL as string);
+
 	const hd = new HistoricalDataFilterer(
-		new JsonRpcProvider(process.env.RPC_URL as string),
+		provider,
 		process.env.SC_ADDRESS_PERPETUAL_MANAGER_PROXY as string
 	);
 	//  TODO use historical data filterer
+	const { chainId } = await provider.getNetwork();
+	const th = new TradingHistory(chainId, prisma, logger);
+
+	hd.filterTrades(
+		"0x6FE871703EB23771c4016eB62140367944e8EdFc" as any as string,
+		new Date("2023-01-01"),
+		(e: TradeEvent, txHash: string, blockNum: BigNumberish) => {
+			th.insertNewTradeEvent(e, txHash);
+		}
+	);
 };
 
 main();
