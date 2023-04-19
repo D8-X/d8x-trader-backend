@@ -10,8 +10,8 @@ The services run over http/ws and it is required to install a reverse proxy on t
 
 # Buidl and run backend
 
-- Build your own instance of the Pyth Price service:
-  - Using [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server) (fork required for trade cancellations)
+- Optional: build your own instance of the Pyth Price service:
+  - Using [repo](https://github.com/pyth-network/pyth-crosschain/tree/main/price_service/server)
   - Set the endpoint of your price service in the field `wsEndpoints` of the file packages/utils/src/wsConfig.json. Note that you can have
     multiple servers in the configuration instead of just one.
 
@@ -23,14 +23,13 @@ Either
 - node (used v18.14.0 for testing)
 - yarn
   Or just Docker.
-- Run a price service from the [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server)
 
 [details running without docker](README_MONOREPO.md)
 
 ## Using Docker
 
-- check `packages/src/wsConfig.json`, especially edit the entry `wsEndpoints` and add your own endpoint for the price
-  service [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server)
+- check `packages/src/wsConfig.json`, especially edit the entry `wsEndpoints` optionally add your own endpoint for the
+  [price service](https://github.com/pyth-network/pyth-crosschain/tree/main/price_service/server)
 - Copy `.envExample` file and paste as `.env` file. No changes should be necessary for testnet.
 - `cd` into the repository root directory and
 
@@ -285,7 +284,7 @@ information via Websocket to the frontend.
 {
     "chainId": 80001,
     "streamName": "crypto1",
-    "wsEndpoints": ["wss://pyth.testnet.quantena.tech/ws"],
+    "wsEndpoints": ["wss://xc-testnet.pyth.network/ws"],
     "tickers": ["BTC-USD", "ETH-USD", "MATIC-USD"],
     "feedIds": [
       ["BTC-USD", "0xf9c0172ba10dfa4d19088d94f5bf61d3b54d5bd7483a322a982e1373ee8ea31b"],

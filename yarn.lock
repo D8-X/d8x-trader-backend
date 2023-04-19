@@ -73,6 +73,15 @@
     ethers "^5.7.2"
     process "^0.11.10"
 
+"@d8x/perpetuals-sdk@0.4.5":
+  version "0.4.5"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.4.5.tgz#b459d25dab0b6ea1659127f4bd1dfb6f6aa615cb"
+  integrity sha512-3mVbAccxLMFGxd1OPZh1TnGHl9LR8z4XU5RLL7NG9fU7+CUmDPlPrgnOf2zj7Tznto2PkwM923DxmkgIZEETkQ==
+  dependencies:
+    buffer "^6.0.3"
+    ethers "^5.7.2"
+    process "^0.11.10"
+
 "@ethersproject/abi@5.7.0", "@ethersproject/abi@^5.7.0":
   version "5.7.0"
   resolved "https://registry.npmjs.org/@ethersproject/abi/-/abi-5.7.0.tgz"
