@@ -19,7 +19,9 @@ npx prisma migrate dev
 
 # Historical data
 
-Discussion Mantas&Basile
+## Description
+
+## Discussion Mantas&Basile
 
     - We don't want everything upfront, but if someone searches for a wallet and it doesn't exist in our database, we need to launch some bg process which will then read the event logs of txs for that user wallet (let's say 6months in the past) and fetch the historical trades information
     - Look up at the latest timestamp for that address on startup
@@ -27,7 +29,7 @@ Discussion Mantas&Basile
     - Use block timestamp when reading historical data and creating new entries
     - Events: Trade; Liquidate; UpdateMarginAccount;
 
-Proposed architecture
+### Proposed architecture
 
 1. Functionality (code) which is able to retrieve (filter) historical logs and
    retrieve the events. This piece of code will be used either in pnl service or
@@ -55,12 +57,12 @@ Proposed architecture
 
 # TODO
 
-[] Historical data
+[x] Historical data
 
     - Log filterer (HistoricalDataFilterer)
     - Db layer for upserting event data into db
     - Missing data
 
 [] Contract event listeners
-[] DB functionality with prisma
+[x] DB functionality with prisma
 [] REST Api with express

@@ -13,14 +13,8 @@ datasource db {
 enum trade_side{
   buy
   sell
-}
-
-enum trade_type{
-  market
-  limit
-  market_stop
-  limit_stop
-  liquidation
+  liquidate_buy
+  liquidate_sell
 }
 
 // Decimal with 40 precision is used for int128 fields, since 128 bit number can
@@ -33,7 +27,8 @@ model Trade{
   perpetual_id BigInt @db.BigInt 
   chain_id Int
   side trade_side
-  type trade_type
+  // Order flags will be present only for trade events
+  order_flags BigInt @default(0) 
   // price is stored in ABDK format
   price Decimal @db.Decimal(40,0) 
   // quanityt is stored in ABDK format
@@ -57,6 +52,9 @@ model FundingRatePayment{
   wallet_address String @db.Text
   perpetual_id BigInt @db.BigInt
   // amount can be negative - user paid
-  payment_amount BigInt @db.BigInt
+  payment_amount  Decimal @db.Decimal(40,0)
   payment_timestamp DateTime @db.Timestamptz @default(now())
+  tx_hash String @db.Text 
+
+  @@index([tx_hash], type: Hash)
 }

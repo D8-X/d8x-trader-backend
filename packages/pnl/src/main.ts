@@ -6,6 +6,7 @@ import { BigNumberish, JsonRpcProvider } from "ethers";
 import { TradeEvent, UpdateMarginAccountEvent } from "./contracts/types";
 import { PrismaClient } from "@prisma/client";
 import { TradingHistory } from "./db/trading_history";
+import { FundingRate } from "./db/funding_rate";
 
 // TODO set this up for actual production use
 const defaultLogger = () => {
@@ -65,15 +66,34 @@ const main = async () => {
 		provider,
 		process.env.SC_ADDRESS_PERPETUAL_MANAGER_PROXY as string
 	);
-	//  TODO use historical data filterer
+
+	// Init db handlers
 	const { chainId } = await provider.getNetwork();
-	const th = new TradingHistory(chainId, prisma, logger);
+	const dbTrades = new TradingHistory(chainId, prisma, logger);
+	const dbFundingRatePayments = new FundingRate(chainId, prisma, logger);
 
 	hd.filterTrades(
 		"0x6FE871703EB23771c4016eB62140367944e8EdFc" as any as string,
 		new Date("2023-01-01"),
-		(e: TradeEvent, txHash: string, blockNum: BigNumberish) => {
-			th.insertNewTradeEvent(e, txHash);
+		(
+			e: TradeEvent,
+			txHash: string,
+			blockNum: BigNumberish,
+			blockTimestamp: number
+		) => {
+			dbTrades.insertTradeHistoryRecord(e, txHash, blockTimestamp);
+		}
+	);
+	hd.filterUpdateMarginAccount(
+		"0x6FE871703EB23771c4016eB62140367944e8EdFc" as any as string,
+		new Date("2023-01-01"),
+		(
+			e: UpdateMarginAccountEvent,
+			txHash: string,
+			blockNum: BigNumberish,
+			blockTimestamp: number
+		) => {
+			dbFundingRatePayments.insertFundingRatePayment(e, txHash, blockTimestamp);
 		}
 	);
 };

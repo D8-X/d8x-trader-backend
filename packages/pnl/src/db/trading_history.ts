@@ -1,7 +1,11 @@
-import { PrismaClient, Trade, trade_side, trade_type } from "@prisma/client";
+import { PrismaClient, Trade, trade_side, Prisma } from "@prisma/client";
 import { BigNumberish, Numeric, Result } from "ethers";
 import { TradeEvent } from "../contracts/types";
 import { Logger } from "winston";
+import { UpdateMarginAccountEvent } from "../contracts/types";
+import { LiquidateEvent } from "../contracts/types";
+
+type TradeHistoryEvent = TradeEvent | LiquidateEvent;
 
 //
 export class TradingHistory {
@@ -11,7 +15,19 @@ export class TradingHistory {
 		public l: Logger
 	) {}
 
-	public async insertNewTradeEvent(e: TradeEvent, txHash: string) {
+	/**
+	 * Insert Trade or Liquidation event into trade_history. Only if event from
+	 * given txHash is not already present in db.
+	 *
+	 * @param e
+	 * @param txHash
+	 * @returns
+	 */
+	public async insertTradeHistoryRecord(
+		e: TradeHistoryEvent,
+		txHash: string,
+		tradeBlockTimestamp: number
+	) {
 		const exists = await this.prisma.trade.findFirst({
 			where: {
 				tx_hash: {
@@ -22,8 +38,10 @@ export class TradingHistory {
 		if (exists === null) {
 			let newTrade: Trade;
 			try {
-				newTrade = await this.prisma.trade.create({
-					data: {
+				let data: Prisma.TradeCreateInput;
+				if ((e as TradeEvent).order !== undefined) {
+					e = e as TradeEvent;
+					data = {
 						chain_id: parseInt(this.chainId.toString()),
 						order_digest_hash: e.orderDigest.toString(),
 						feee: e.fFeeCC.toString(),
@@ -34,10 +52,32 @@ export class TradingHistory {
 						side: (parseInt(e.order.fAmount.toString()) > 0
 							? "buy"
 							: "sell") as trade_side,
+						// Order flags are only present
+						order_flags: e.order.flags,
 						tx_hash: txHash,
-						type: this.determineOrderType(e),
 						wallet_address: e.trader,
-					},
+						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
+					};
+				} else {
+					e = e as LiquidateEvent;
+					data = {
+						chain_id: parseInt(this.chainId.toString()),
+						order_digest_hash: "",
+						feee: e.fFeeCC.toString(),
+						perpetual_id: e.perpetualId,
+						price: e.liquidationPrice.toString(),
+						quantity: e.amountLiquidatedBC.toString(),
+						realized_profit: e.fPnlCC.toString(),
+						side: (parseInt(e.amountLiquidatedBC.toString()) > 0
+							? "liquidate_buy"
+							: "liquidate_sell") as trade_side,
+						tx_hash: txHash,
+						wallet_address: e.trader,
+						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
+					};
+				}
+				newTrade = await this.prisma.trade.create({
+					data,
 				});
 			} catch (e) {
 				this.l.error("inserting new trade", { error: e });
@@ -45,9 +85,5 @@ export class TradingHistory {
 			}
 			this.l.info("inserted new trade", { trade_id: newTrade.id });
 		}
-	}
-
-	private determineOrderType(e: TradeEvent): trade_type {
-		return "limit";
 	}
 }
