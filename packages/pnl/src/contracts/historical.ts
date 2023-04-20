@@ -77,9 +77,18 @@ export class HistoricalDataFilterer {
 			filter,
 			await this.calculateBlockFromTime(since),
 			"Trade",
-			(decodedTradeEvent: Record<string, any>, e: ethers.EventLog) => {
+			(
+				decodedTradeEvent: Record<string, any>,
+				e: ethers.EventLog,
+				blockTimestamp: number
+			) => {
 				decodedTradeEvent.order = decodedTradeEvent.order.toObject();
-				cb(decodedTradeEvent as TradeEvent, e.transactionHash, e.blockNumber);
+				cb(
+					decodedTradeEvent as TradeEvent,
+					e.transactionHash,
+					e.blockNumber,
+					blockTimestamp
+				);
 			}
 		);
 	}
@@ -101,8 +110,17 @@ export class HistoricalDataFilterer {
 			filter,
 			await this.calculateBlockFromTime(since),
 			"Liquidate",
-			(decodedEvent: Record<string, any>, e: ethers.EventLog) => {
-				cb(decodedEvent as TradeEvent, e.transactionHash, e.blockNumber);
+			(
+				decodedEvent: Record<string, any>,
+				e: ethers.EventLog,
+				blockTimestamp: number
+			) => {
+				cb(
+					decodedEvent as TradeEvent,
+					e.transactionHash,
+					e.blockNumber,
+					blockTimestamp
+				);
 			}
 		);
 	}
@@ -127,11 +145,16 @@ export class HistoricalDataFilterer {
 			filter,
 			await this.calculateBlockFromTime(since),
 			"UpdateMarginAccount",
-			(decodedEvent: Record<string, any>, e: ethers.EventLog) => {
+			(
+				decodedEvent: Record<string, any>,
+				e: ethers.EventLog,
+				blockTimestamp: number
+			) => {
 				cb(
 					decodedEvent as UpdateMarginAccountEvent,
 					e.transactionHash,
-					e.blockNumber
+					e.blockNumber,
+					blockTimestamp
 				);
 			}
 		);
@@ -149,7 +172,11 @@ export class HistoricalDataFilterer {
 		filter: ethers.DeferredTopicFilter,
 		fromBlock: BigNumberish,
 		eventName: string,
-		cb: (decodedEvent: Record<string, any>, event: ethers.EventLog) => void
+		cb: (
+			decodedEvent: Record<string, any>,
+			event: ethers.EventLog,
+			blockTimestamp: number
+		) => void
 	) {
 		const events = (await this.PerpManagerProxy.queryFilter(
 			filter,
@@ -161,11 +188,15 @@ export class HistoricalDataFilterer {
 		) as ethers.EventFragment;
 
 		const iface = new Interface([eventFragment]);
-		events.forEach((event) => {
+
+		for (let i = 0; i < events.length; i++) {
+			const event = events[i];
 			let log = iface
 				.decodeEventLog(eventFragment, event.data, event.topics)
 				.toObject();
-			cb(log, event);
-		});
+			const b = await event.getBlock();
+
+			cb(log, event, b.timestamp);
+		}
 	}
 }

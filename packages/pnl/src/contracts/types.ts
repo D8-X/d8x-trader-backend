@@ -1,7 +1,8 @@
 export type EventCallback<Event> = (
 	event: Event,
 	txHash: string,
-	blockNumber: number
+	blockNumber: number,
+	blockTimestamp: number
 ) => void;
 
 // Trade event shape as retrieved from logs

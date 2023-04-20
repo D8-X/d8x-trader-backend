@@ -1,8 +1,5 @@
 -- CreateEnum
-CREATE TYPE "trade_side" AS ENUM ('buy', 'sell');
-
--- CreateEnum
-CREATE TYPE "trade_type" AS ENUM ('market', 'limit', 'market_stop', 'limit_stop', 'liquidation');
+CREATE TYPE "trade_side" AS ENUM ('buy', 'sell', 'liquidate_buy', 'liquidate_sell');
 
 -- CreateTable
 CREATE TABLE "trades_history" (
@@ -11,7 +8,7 @@ CREATE TABLE "trades_history" (
     "perpetual_id" BIGINT NOT NULL,
     "chain_id" INTEGER NOT NULL,
     "side" "trade_side" NOT NULL,
-    "type" "trade_type" NOT NULL,
+    "order_flags" BIGINT NOT NULL DEFAULT 0,
     "price" DECIMAL(40,0) NOT NULL,
     "quantity" DECIMAL(40,0) NOT NULL,
     "feee" DECIMAL(40,0) NOT NULL,
@@ -28,8 +25,9 @@ CREATE TABLE "funding_rate_payments" (
     "id" BIGSERIAL NOT NULL,
     "wallet_address" TEXT NOT NULL,
     "perpetual_id" BIGINT NOT NULL,
-    "payment_amount" BIGINT NOT NULL,
+    "payment_amount" DECIMAL(40,0) NOT NULL,
     "payment_timestamp" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "tx_hash" TEXT NOT NULL,
 
     CONSTRAINT "funding_rate_payments_pkey" PRIMARY KEY ("id")
 );
@@ -42,3 +40,6 @@ CREATE INDEX "trades_history_order_digest_hash_idx" ON "trades_history" USING HA
 
 -- CreateIndex
 CREATE INDEX "trades_history_tx_hash_idx" ON "trades_history" USING HASH ("tx_hash");
+
+-- CreateIndex
+CREATE INDEX "funding_rate_payments_tx_hash_idx" ON "funding_rate_payments" USING HASH ("tx_hash");
