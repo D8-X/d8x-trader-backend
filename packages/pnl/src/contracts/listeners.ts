@@ -1,8 +1,10 @@
 import { JsonRpcProvider, Log, Provider, ethers } from "ethers";
 import { Logger } from "winston";
 import perpProxyABI from "../abi/PerpetualManagerProxy.json";
+import { LiquidateEvent, TradeEvent, UpdateMarginAccountEvent } from "./types";
+import { TradingHistory } from "../db/trading_history";
+import { FundingRatePayments } from "../db/funding_rate";
 export interface EventListenerOptions {
-	rpcNodeUrl: string;
 	logger: Logger;
 
 	// smart contract addresses which will be used to listen to incoming events
@@ -15,14 +17,16 @@ export interface EventListenerOptions {
 }
 
 export class EventListener {
-	public provider: Provider;
-
 	private l: Logger;
 
 	private opts: EventListenerOptions;
 
-	constructor(opts: EventListenerOptions) {
-		this.provider = new JsonRpcProvider(opts.rpcNodeUrl);
+	constructor(
+		opts: EventListenerOptions,
+		public provider: Provider,
+		private dbTrades: TradingHistory,
+		private dbFundingRates: FundingRatePayments
+	) {
 		this.l = opts.logger;
 		this.opts = opts;
 	}
@@ -31,7 +35,9 @@ export class EventListener {
 	 * listen starts all event listeners
 	 */
 	public listen() {
-		this.l.info("starting smart contract event listeners");
+		this.l.info("starting smart contract event listeners", {
+			contract_address: this.opts.contractAddresses.perpetualManagerProxy,
+		});
 
 		// perpertual proxy manager - main contract
 		const pmp = new ethers.Contract(
@@ -41,19 +47,113 @@ export class EventListener {
 		);
 
 		// Trade event
-		pmp.on("Trade", (event) => {
-			this.l.info("trade event received");
-			console.log(event);
-		});
+		pmp.on(
+			"Trade",
+			async (
+				perpetualId,
+				trader,
+				positionId,
+				order,
+				orderDigest,
+				newPositionSizeBC,
+				price,
+				fFeeCC,
+				fPnlCC,
+				event: ethers.ContractEventPayload
+			) => {
+				this.l.info("got trade event", { perpetualId, trader });
 
-		pmp.on("Liquidate", (event) => {
-			this.l.info("Liquidate event received");
-			console.log(event);
-		});
+				const trade: TradeEvent = {
+					perpetualId,
+					trader,
+					positionId,
+					order,
+					orderDigest,
+					newPositionSizeBC,
+					price,
+					fFeeCC,
+					fPnlCC,
+				};
+				trade.order = (
+					trade.order as unknown as ethers.Result
+				).toObject() as TradeEvent["order"];
 
-		pmp.on("UpdateMarginAccount", (event) => {
-			this.l.info("UpdateMarginAccount event received");
-			console.log(event);
-		});
+				this.dbTrades.insertTradeHistoryRecord(
+					trade,
+					event.log.transactionHash,
+					new Date().getTime() / 1000
+				);
+			}
+		);
+
+		pmp.once(
+			"Liquidate",
+			(
+				perpetualId,
+				liquidator,
+				trader,
+				positionId,
+				amountLiquidatedBC,
+				liquidationPrice,
+				newPositionSizeBC,
+				fFeeCC,
+				fPnlCC,
+				event: ethers.ContractEventPayload
+			) => {
+				this.l.info("got liquidate event", { perpetualId, trader, liquidator });
+				const liquidation: LiquidateEvent = {
+					perpetualId,
+					liquidator,
+					trader,
+					positionId,
+					amountLiquidatedBC,
+					liquidationPrice,
+					newPositionSizeBC,
+					fFeeCC,
+					fPnlCC,
+				};
+				this.dbTrades.insertTradeHistoryRecord(
+					liquidation,
+					event.log.transactionHash,
+					new Date().getTime() / 1000
+				);
+			}
+		);
+
+		pmp.once(
+			"UpdateMarginAccount",
+			(
+				perpetualId,
+				trader,
+				positionId,
+				fPositionBC,
+				fCashCC,
+				fLockedInValueQC,
+				fFundingPaymentCC,
+				fOpenInterestBC,
+				event: ethers.ContractEventPayload
+			) => {
+				this.l.info("got update margin account event", {
+					perpetualId,
+					trader,
+					positionId,
+				});
+				const updateMACC: UpdateMarginAccountEvent = {
+					perpetualId,
+					trader,
+					positionId,
+					fPositionBC,
+					fCashCC,
+					fLockedInValueQC,
+					fFundingPaymentCC,
+					fOpenInterestBC,
+				};
+				this.dbFundingRates.insertFundingRatePayment(
+					updateMACC,
+					event.log.transactionHash,
+					new Date().getTime() / 1000
+				);
+			}
+		);
 	}
 }

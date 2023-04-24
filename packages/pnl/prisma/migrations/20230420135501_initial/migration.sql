@@ -36,10 +36,10 @@ CREATE TABLE "funding_rate_payments" (
 CREATE INDEX "trades_history_wallet_address_idx" ON "trades_history" USING HASH ("wallet_address");
 
 -- CreateIndex
-CREATE INDEX "trades_history_order_digest_hash_idx" ON "trades_history" USING HASH ("order_digest_hash");
+CREATE INDEX "trades_history_tx_hash_idx" ON "trades_history" USING HASH ("tx_hash");
 
 -- CreateIndex
-CREATE INDEX "trades_history_tx_hash_idx" ON "trades_history" USING HASH ("tx_hash");
+CREATE INDEX "trades_history_trade_timestamp_idx" ON "trades_history"("trade_timestamp");
 
 -- CreateIndex
 CREATE INDEX "funding_rate_payments_tx_hash_idx" ON "funding_rate_payments" USING HASH ("tx_hash");

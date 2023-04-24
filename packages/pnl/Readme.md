@@ -1,11 +1,38 @@
 # Profit and loss service
 
-This directory contains the PnL service codebase
+This directory contains the PnL service codebase. This service
 
-## Service architecture
+Service entrypoint is `src/main.ts`
 
-PnL service consists of contract event listeners which track orders and trades
-and a REST api which exposes tracked data.
+To build project:
+
+```bash
+yarn build
+```
+
+For development:
+
+```bash
+yarn watch
+```
+
+## Environment variables
+
+```
+DATABASE_URL - postgres DSN string
+HTTP_RPC_URL - node http url
+WS_RPC_URL - node wss url (for event listeners)
+API_PORT - port on which the REST API will be exposed on
+SC_ADDRESS_PERPETUAL_MANAGER_PROXY - perpetual manager proxy contract address
+```
+
+## Profit and loss service structure
+
+PnL service consists of:
+
+-   Blockchain interactions code (historical data filterers and event listeners) `src/contracts`
+-   Minimal express REST API for serving results from db `src/api`
+-   DB layer via Prisma `src/db`
 
 ## Database and migrations
 
@@ -15,6 +42,12 @@ To run migrations for development:
 
 ```bash
 npx prisma migrate dev
+```
+
+To run migrations for production:
+
+```bash
+npx prisma migrate deploy
 ```
 
 # Historical data
@@ -66,3 +99,10 @@ npx prisma migrate dev
 [] Contract event listeners
 [x] DB functionality with prisma
 [] REST Api with express
+
+-- April 20th
+[x] Filter events at the startup (from last timestamp of most last event data)
+[x] Don't filter based on address
+[x] On handlers we don't load anything
+[x] Start the event listeners and process them
+[] Check for filtering without fetching all logs
