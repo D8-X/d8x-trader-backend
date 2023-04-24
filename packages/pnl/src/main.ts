@@ -2,11 +2,12 @@ import * as winston from "winston";
 import { EventListener } from "./contracts/listeners";
 import * as dotenv from "dotenv";
 import { HistoricalDataFilterer } from "./contracts/historical";
-import { BigNumberish, JsonRpcProvider } from "ethers";
+import { BigNumberish, JsonRpcProvider, WebSocketProvider, ethers } from "ethers";
 import { TradeEvent, UpdateMarginAccountEvent } from "./contracts/types";
 import { PrismaClient } from "@prisma/client";
 import { TradingHistory } from "./db/trading_history";
-import { FundingRate } from "./db/funding_rate";
+import { FundingRatePayments } from "./db/funding_rate";
+import { PNLRestAPI } from "./api/server";
 
 // TODO set this up for actual production use
 const defaultLogger = () => {
@@ -32,7 +33,12 @@ const loadEnv = () => {
 	}
 
 	// Check if required env variables were provided
-	const required = ["RPC_URL", "DATABASE_URL", "SC_ADDRESS_PERPETUAL_MANAGER_PROXY"];
+	const required = [
+		"HTTP_RPC_URL",
+		"WS_RPC_URL",
+		"DATABASE_URL",
+		"SC_ADDRESS_PERPETUAL_MANAGER_PROXY",
+	];
 	required.forEach((e) => {
 		if (!(e in process.env)) {
 			logger.error(`environment variable ${e} must be provided!`);
@@ -44,37 +50,50 @@ const loadEnv = () => {
 // Entrypoint of PnL service
 const main = async () => {
 	loadEnv();
+	logger.info("starting pnl service");
 
 	// Initialize db client
 	const prisma = new PrismaClient();
 
-	logger.info("starting pnl service");
+	// Init blockchain provider
+	let wsRpcUrl = process.env.WS_RPC_URL as string;
+	let httpRpcUrl = process.env.HTTP_RPC_URL as string;
 
-	const eventsListener = new EventListener({
-		rpcNodeUrl: process.env.RPC_URL as string,
-		logger,
-		contractAddresses: {
-			perpetualManagerProxy: process.env
-				.SC_ADDRESS_PERPETUAL_MANAGER_PROXY as string,
-		},
-	});
-	eventsListener.listen();
+	console.log(wsRpcUrl, httpRpcUrl);
+	let wsProvider: ethers.Provider = new WebSocketProvider(wsRpcUrl);
+	let httpProvider: ethers.Provider = new JsonRpcProvider(httpRpcUrl);
 
-	const provider = new JsonRpcProvider(process.env.RPC_URL as string);
-
-	const hd = new HistoricalDataFilterer(
-		provider,
-		process.env.SC_ADDRESS_PERPETUAL_MANAGER_PROXY as string
-	);
+	logger.info("initialized rpc provider", { wsRpcUrl, httpRpcUrl });
 
 	// Init db handlers
-	const { chainId } = await provider.getNetwork();
+	const { chainId } = await httpProvider.getNetwork();
 	const dbTrades = new TradingHistory(chainId, prisma, logger);
-	const dbFundingRatePayments = new FundingRate(chainId, prisma, logger);
+	const dbFundingRatePayments = new FundingRatePayments(chainId, prisma, logger);
 
+	const eventsListener = new EventListener(
+		{
+			logger,
+			contractAddresses: {
+				perpetualManagerProxy: process.env
+					.SC_ADDRESS_PERPETUAL_MANAGER_PROXY as string,
+			},
+		},
+		wsProvider,
+		dbTrades,
+		dbFundingRatePayments
+	);
+	eventsListener.listen();
+
+	const hd = new HistoricalDataFilterer(
+		httpProvider,
+		process.env.SC_ADDRESS_PERPETUAL_MANAGER_PROXY as string,
+		logger
+	);
+
+	// Filter all trades on startup
 	hd.filterTrades(
-		"0x6FE871703EB23771c4016eB62140367944e8EdFc" as any as string,
-		new Date("2023-01-01"),
+		null as any as string,
+		await dbTrades.getLatestTimestamp(),
 		(
 			e: TradeEvent,
 			txHash: string,
@@ -85,8 +104,8 @@ const main = async () => {
 		}
 	);
 	hd.filterUpdateMarginAccount(
-		"0x6FE871703EB23771c4016eB62140367944e8EdFc" as any as string,
-		new Date("2023-01-01"),
+		null as any as string,
+		await dbFundingRatePayments.getLatestTimestamp(),
 		(
 			e: UpdateMarginAccountEvent,
 			txHash: string,
@@ -96,6 +115,20 @@ const main = async () => {
 			dbFundingRatePayments.insertFundingRatePayment(e, txHash, blockTimestamp);
 		}
 	);
+
+	// Start the pnl api
+	const api = new PNLRestAPI(
+		{
+			port: 8888,
+			prisma,
+			db: {
+				fundingRatePayment: dbFundingRatePayments,
+				tradeHistory: dbTrades,
+			},
+		},
+		logger
+	);
+	api.start();
 };
 
 main();

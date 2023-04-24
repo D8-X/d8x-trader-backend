@@ -12,7 +12,7 @@ import { UpdateMarginAccountEvent } from "../contracts/types";
 import { LiquidateEvent } from "../contracts/types";
 
 //
-export class FundingRate {
+export class FundingRatePayments {
 	constructor(
 		public chainId: BigNumberish,
 		public prisma: PrismaClient,
@@ -46,13 +46,12 @@ export class FundingRate {
 			},
 		});
 
-		this.l.info(`Payment amount: ${e.fFundingPaymentCC}`);
 		if (exists === null) {
 			let fungingRatePayment: FundingRatePayment;
 			try {
 				let data: Prisma.FundingRatePaymentCreateInput = {
 					payment_amount: e.fFundingPaymentCC.toString(),
-					wallet_address: e.trader,
+					wallet_address: e.trader.toLocaleLowerCase(),
 					perpetual_id: e.perpetualId,
 					tx_hash: txHash,
 					payment_timestamp: new Date(blockTimestamp * 1000),
@@ -69,5 +68,23 @@ export class FundingRate {
 				trade_id: fungingRatePayment.id,
 			});
 		}
+	}
+
+	/**
+	 * Retrieve the latest timestamp of most latest trade event record or
+	 * current date on deefault
+	 * @returns
+	 */
+	public async getLatestTimestamp(): Promise<Date | undefined> {
+		const fp = await this.prisma.fundingRatePayment.findFirst({
+			select: {
+				payment_timestamp: true,
+			},
+			orderBy: {
+				payment_timestamp: "desc",
+			},
+		});
+
+		return fp?.payment_timestamp;
 	}
 }

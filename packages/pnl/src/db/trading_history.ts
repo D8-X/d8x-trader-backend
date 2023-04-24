@@ -54,8 +54,8 @@ export class TradingHistory {
 							: "sell") as trade_side,
 						// Order flags are only present
 						order_flags: e.order.flags,
-						tx_hash: txHash,
-						wallet_address: e.trader,
+						tx_hash: txHash.toLowerCase(),
+						wallet_address: e.trader.toLowerCase(),
 						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
 					};
 				} else {
@@ -71,8 +71,8 @@ export class TradingHistory {
 						side: (parseInt(e.amountLiquidatedBC.toString()) > 0
 							? "liquidate_buy"
 							: "liquidate_sell") as trade_side,
-						tx_hash: txHash,
-						wallet_address: e.trader,
+						tx_hash: txHash.toLowerCase(),
+						wallet_address: e.trader.toLowerCase(),
 						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
 					};
 				}
@@ -85,5 +85,23 @@ export class TradingHistory {
 			}
 			this.l.info("inserted new trade", { trade_id: newTrade.id });
 		}
+	}
+
+	/**
+	 * Retrieve the latest timestamp of most latest trade event record or
+	 * current date on deefault
+	 * @returns
+	 */
+	public async getLatestTimestamp(): Promise<Date | undefined> {
+		const tradeDate = await this.prisma.trade.findFirst({
+			select: {
+				trade_timestamp: true,
+			},
+			orderBy: {
+				trade_timestamp: "desc",
+			},
+		});
+
+		return tradeDate?.trade_timestamp;
 	}
 }

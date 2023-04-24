@@ -42,8 +42,8 @@ model Trade{
   trade_timestamp DateTime @db.Timestamptz @default(now())
 
   @@index([wallet_address], type: Hash)
-  @@index([order_digest_hash], type: Hash)
   @@index([tx_hash], type: Hash)
+  @@index([trade_timestamp])
 }
 
 model FundingRatePayment{
