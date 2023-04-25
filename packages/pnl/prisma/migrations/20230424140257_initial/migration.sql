@@ -11,7 +11,7 @@ CREATE TABLE "trades_history" (
     "order_flags" BIGINT NOT NULL DEFAULT 0,
     "price" DECIMAL(40,0) NOT NULL,
     "quantity" DECIMAL(40,0) NOT NULL,
-    "feee" DECIMAL(40,0) NOT NULL,
+    "fee" DECIMAL(40,0) NOT NULL,
     "realized_profit" DECIMAL(40,0) NOT NULL,
     "order_digest_hash" TEXT NOT NULL,
     "tx_hash" TEXT NOT NULL,

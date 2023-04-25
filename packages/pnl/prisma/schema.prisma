@@ -34,7 +34,7 @@ model Trade{
   // quanityt is stored in ABDK format
   quantity Decimal @db.Decimal(40,0)
   // fee is stored in ABDK format
-  feee Decimal @db.Decimal(40,0)
+  fee Decimal @db.Decimal(40,0)
   // realized profit is stored in ABDK format
   realized_profit Decimal @db.Decimal(40,0)
   order_digest_hash String @db.Text 

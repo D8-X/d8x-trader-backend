@@ -106,3 +106,5 @@ npx prisma migrate deploy
 [x] On handlers we don't load anything
 [x] Start the event listeners and process them
 [] Check for filtering without fetching all logs
+--
+[x] Check the bigint toString conversion (we don't want to have E notation)
