@@ -1,10 +1,16 @@
-import { FundingRatePayment, PrismaClient } from "@prisma/client";
-import express, { Express, Request, Response } from "express";
+import { FundingRatePayment, Prisma, PrismaClient } from "@prisma/client";
+import express, { Express, Request, Response, response } from "express";
 import { Logger } from "winston";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
 import { toJson } from "../utils/response";
 import { getAddress } from "ethers";
+
+// Make sure the decimal values are always return as normal numeric strings
+// instead of scientific notation
+Prisma.Decimal.prototype.toJSON = function () {
+	return this.toFixed();
+};
 
 export interface DBHandlers {
 	fundingRatePayment: FundingRatePayments;

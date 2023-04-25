@@ -44,7 +44,7 @@ export class TradingHistory {
 					data = {
 						chain_id: parseInt(this.chainId.toString()),
 						order_digest_hash: e.orderDigest.toString(),
-						feee: e.fFeeCC.toString(),
+						fee: e.fFeeCC.toString(),
 						perpetual_id: e.perpetualId,
 						price: e.price.toString(),
 						quantity: e.order.fAmount.toString(),
@@ -63,7 +63,7 @@ export class TradingHistory {
 					data = {
 						chain_id: parseInt(this.chainId.toString()),
 						order_digest_hash: "",
-						feee: e.fFeeCC.toString(),
+						fee: e.fFeeCC.toString(),
 						perpetual_id: e.perpetualId,
 						price: e.liquidationPrice.toString(),
 						quantity: e.amountLiquidatedBC.toString(),
