@@ -3,12 +3,17 @@ import { EventListener } from "./contracts/listeners";
 import * as dotenv from "dotenv";
 import { HistoricalDataFilterer } from "./contracts/historical";
 import { BigNumberish, JsonRpcProvider, WebSocketProvider, ethers } from "ethers";
-import { TradeEvent, UpdateMarginAccountEvent } from "./contracts/types";
-import { PrismaClient } from "@prisma/client";
+import {
+	LiquidityAddedEvent,
+	TradeEvent,
+	UpdateMarginAccountEvent,
+} from "./contracts/types";
+import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { TradingHistory } from "./db/trading_history";
 import { FundingRatePayments } from "./db/funding_rate";
 import { PNLRestAPI } from "./api/server";
 import { getPerpetualManagerProxyAddress, getDefaultRPC } from "./utils/abi";
+import { EstimatedEarnings } from "./db/estimated_earnings";
 
 // TODO set this up for actual production use
 const defaultLogger = () => {
@@ -69,6 +74,8 @@ const main = async () => {
 	const dbTrades = new TradingHistory(chainId, prisma, logger);
 	const dbFundingRatePayments = new FundingRatePayments(chainId, prisma, logger);
 	const proxyContractAddr = getPerpetualManagerProxyAddress();
+	const dbEstimatedEarnings = new EstimatedEarnings(chainId, prisma, logger);
+
 	const eventsListener = new EventListener(
 		{
 			logger,
@@ -78,7 +85,8 @@ const main = async () => {
 		},
 		wsProvider,
 		dbTrades,
-		dbFundingRatePayments
+		dbFundingRatePayments,
+		dbEstimatedEarnings
 	);
 	eventsListener.listen();
 
@@ -97,6 +105,7 @@ const main = async () => {
 			dbTrades.insertTradeHistoryRecord(e, txHash, blockTimestamp);
 		}
 	);
+
 	hd.filterUpdateMarginAccount(
 		null as any as string,
 		await dbFundingRatePayments.getLatestTimestamp(),
@@ -107,6 +116,47 @@ const main = async () => {
 			blockTimestamp: number
 		) => {
 			dbFundingRatePayments.insertFundingRatePayment(e, txHash, blockTimestamp);
+		}
+	);
+
+	hd.filterLiquidityAdded(
+		null,
+		await dbEstimatedEarnings.getLatestTimestamp(
+			estimated_earnings_event_type.liquidity_added
+		),
+		(
+			e: LiquidityAddedEvent,
+			txHash: string,
+			blockNum: BigNumberish,
+			blockTimestamp: number
+		) => {
+			dbEstimatedEarnings.insertLiquidityAdded(
+				e.user,
+				e.tokenAmount,
+				e.poolId,
+				txHash,
+				blockTimestamp
+			);
+		}
+	);
+	hd.filterLiquidityRemoved(
+		null,
+		await dbEstimatedEarnings.getLatestTimestamp(
+			estimated_earnings_event_type.liquidity_removed
+		),
+		(
+			e: LiquidityAddedEvent,
+			txHash: string,
+			blockNum: BigNumberish,
+			blockTimestamp: number
+		) => {
+			dbEstimatedEarnings.insertLiquidityRemoved(
+				e.user,
+				e.tokenAmount,
+				e.poolId,
+				txHash,
+				blockTimestamp
+			);
 		}
 	);
 

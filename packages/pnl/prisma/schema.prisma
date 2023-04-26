@@ -17,6 +17,7 @@ enum trade_side{
   liquidate_sell
 }
 
+
 // Decimal with 40 precision is used for int128 fields, since 128 bit number can
 // have 39 digits.
 model Trade{
@@ -57,4 +58,27 @@ model FundingRatePayment{
   tx_hash String @db.Text 
 
   @@index([tx_hash], type: Hash)
+}
+
+enum  estimated_earnings_event_type{
+    liquidity_added
+    liquidity_removed
+    share_token_p2p_transfer
+}
+
+
+model EstimatedEarningTokens{
+    @@map("estimated_earnings_tokens")
+    id BigInt @id @default(autoincrement())
+    wallet_address String @db.Text
+    perpetual_id BigInt @db.BigInt
+    tx_hash String @db.Text    
+    token_amount Decimal @db.Decimal(40,0)
+    created_at DateTime @db.Timestamptz @default(now())
+
+    event_type estimated_earnings_event_type
+
+    @@index([tx_hash], type: Hash)
+    @@index([wallet_address], type: Hash)
+    @@index([perpetual_id], type: Hash)
 }

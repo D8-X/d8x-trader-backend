@@ -1,6 +1,13 @@
 import { JsonRpcProvider, Log, Provider, ethers } from "ethers";
 import { Logger } from "winston";
-import { LiquidateEvent, TradeEvent, UpdateMarginAccountEvent } from "./types";
+import { getPerpetualManagerABI } from "../utils/abi";
+import {
+	LiquidateEvent,
+	LiquidityAddedEvent,
+	LiquidityRemovedEvent,
+	TradeEvent,
+	UpdateMarginAccountEvent,
+} from "./types";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
 import { getPerpetualManagerABI } from "../utils/abi";
@@ -25,7 +32,8 @@ export class EventListener {
 		opts: EventListenerOptions,
 		public provider: Provider,
 		private dbTrades: TradingHistory,
-		private dbFundingRates: FundingRatePayments
+		private dbFundingRates: FundingRatePayments,
+		private dbEstimatedEarnings: EstimatedEarnings
 	) {
 		this.l = opts.logger;
 		this.opts = opts;
@@ -150,6 +158,64 @@ export class EventListener {
 				};
 				this.dbFundingRates.insertFundingRatePayment(
 					updateMACC,
+					event.log.transactionHash,
+					new Date().getTime() / 1000
+				);
+			}
+		);
+
+		pmp.once(
+			"LiquidityAdded",
+			(
+				poolId,
+				user,
+				tokenAmount,
+				shareAmount,
+				event: ethers.ContractEventPayload
+			) => {
+				this.l.info("got liquidity added event", {
+					poolId,
+					user,
+				});
+				const e: LiquidityAddedEvent = {
+					poolId,
+					user,
+					tokenAmount,
+					shareAmount,
+				};
+				this.dbEstimatedEarnings.insertLiquidityAdded(
+					user,
+					tokenAmount,
+					poolId,
+					event.log.transactionHash,
+					new Date().getTime() / 1000
+				);
+			}
+		);
+
+		pmp.once(
+			"LiquidityRemoved",
+			(
+				poolId,
+				user,
+				tokenAmount,
+				shareAmount,
+				event: ethers.ContractEventPayload
+			) => {
+				this.l.info("got liquidity removed event", {
+					poolId,
+					user,
+				});
+				const e: LiquidityRemovedEvent = {
+					poolId,
+					user,
+					tokenAmount,
+					shareAmount,
+				};
+				this.dbEstimatedEarnings.insertLiquidityRemoved(
+					user,
+					tokenAmount,
+					poolId,
 					event.log.transactionHash,
 					new Date().getTime() / 1000
 				);

@@ -1,5 +1,10 @@
 import { Logger } from "winston";
 import {
+	LiquidationsFilteredCb,
+	LiquidityAddedEvent,
+	LiquidityAddedFilteredCb,
+	LiquidityRemovedEvent,
+	LiquidityRemovedFilteredCb,
 	TradeEvent,
 	TradesFilteredCb,
 	UpdateMarginAccountEvent,
@@ -82,7 +87,7 @@ export class HistoricalDataFilterer {
 	 * @param cb
 	 */
 	public async filterTrades(
-		walletAddress: string,
+		walletAddress: string | null,
 		since: Date | undefined,
 		cb: TradesFilteredCb
 	) {
@@ -117,7 +122,7 @@ export class HistoricalDataFilterer {
 	 * @param cb
 	 */
 	public async filterLiquidations(
-		walletAddress: string,
+		walletAddress: string | null,
 		since: Date | undefined,
 		cb: TradesFilteredCb
 	) {
@@ -152,7 +157,7 @@ export class HistoricalDataFilterer {
 	 * @param cb
 	 */
 	public async filterUpdateMarginAccount(
-		walletAddress: string,
+		walletAddress: string | null,
 		since: Date | undefined,
 		cb: UpdateMarginAccountFilteredCb
 	) {
@@ -173,6 +178,75 @@ export class HistoricalDataFilterer {
 			) => {
 				cb(
 					decodedEvent as UpdateMarginAccountEvent,
+					e.transactionHash,
+					e.blockNumber,
+					blockTimestamp
+				);
+			}
+		);
+	}
+	/**
+	 * Retrieve LiquidityAdded events for given walletAddress from a provided since date.
+	 *
+	 * @param walletAddress - trader field
+	 * @param since
+	 * @param cb
+	 */
+	public async filterLiquidityAdded(
+		walletAddress: string | null,
+		since: Date | undefined,
+		cb: LiquidityAddedFilteredCb
+	) {
+		this.l.info("started liquidity added filtering", { date: since });
+
+		const filter = this.PerpManagerProxy.filters.LiquidityAdded(null, walletAddress);
+		this.genericFilterer(
+			filter,
+			await this.calculateBlockFromTime(since),
+			"LiquidityAdded",
+			(
+				decodedEvent: Record<string, any>,
+				e: ethers.EventLog,
+				blockTimestamp: number
+			) => {
+				cb(
+					decodedEvent as LiquidityAddedEvent,
+					e.transactionHash,
+					e.blockNumber,
+					blockTimestamp
+				);
+			}
+		);
+	}
+	/**
+	 * Retrieve UpdateMarginAccount events for given walletAddress from a provided since date.
+	 *
+	 * @param walletAddress - trader field
+	 * @param since
+	 * @param cb
+	 */
+	public async filterLiquidityRemoved(
+		walletAddress: string | null,
+		since: Date | undefined,
+		cb: LiquidityRemovedFilteredCb
+	) {
+		this.l.info("started liquidity removed filtering", { date: since });
+
+		const filter = this.PerpManagerProxy.filters.LiquidityRemoved(
+			null,
+			walletAddress
+		);
+		this.genericFilterer(
+			filter,
+			await this.calculateBlockFromTime(since),
+			"LiquidityRemoved",
+			(
+				decodedEvent: Record<string, any>,
+				e: ethers.EventLog,
+				blockTimestamp: number
+			) => {
+				cb(
+					decodedEvent as LiquidityRemovedEvent,
 					e.transactionHash,
 					e.blockNumber,
 					blockTimestamp
