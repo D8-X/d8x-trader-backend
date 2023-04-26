@@ -108,3 +108,8 @@ npx prisma migrate deploy
 [] Check for filtering without fetching all logs
 --
 [x] Check the bigint toString conversion (we don't want to have E notation)
+
+---
+
+[] Block-time is hard-coded to 15 seconds
+[] ABI (PerpetualManagerProxy.json) is copied into environment but must come from SDK
