@@ -269,7 +269,11 @@ from the websocket feeds. Upon receipt of `"feedUpdate"` the eventListener gets 
 index prices from REDIS and processes them (change of mark-price, mid-price etc.) and streams the relevant
 information via Websocket to the frontend.
 
-# Configuration Example
+# Historical data
+
+See [PnL](packages/pnl/Readme.md)
+
+# GitFlow
 
 - Each chain id can have an entry as below
 - _wsEndpoints_ can contain several endpoints. If there is no response from one, the system switches. The first endpoint is always used first.
