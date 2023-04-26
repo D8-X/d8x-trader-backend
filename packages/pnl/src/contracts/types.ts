@@ -63,3 +63,21 @@ export interface UpdateMarginAccountEvent {
 }
 
 export type UpdateMarginAccountFilteredCb = EventCallback<UpdateMarginAccountEvent>;
+
+export interface LiquidityAddedEvent {
+	poolId: bigint;
+	user: string;
+	tokenAmount: bigint;
+	shareAmount: bigint;
+}
+
+export type LiquidityAddedFilteredCb = EventCallback<LiquidityAddedEvent>;
+
+export interface LiquidityRemovedEvent {
+	poolId: bigint;
+	user: string;
+	tokenAmount: bigint;
+	shareAmount: bigint;
+}
+
+export type LiquidityRemovedFilteredCb = EventCallback<LiquidityRemovedEvent>;
