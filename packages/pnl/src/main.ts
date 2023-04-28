@@ -14,6 +14,7 @@ import { FundingRatePayments } from "./db/funding_rate";
 import { PNLRestAPI } from "./api/server";
 import { getPerpetualManagerProxyAddress, getDefaultRPC } from "./utils/abi";
 import { EstimatedEarnings } from "./db/estimated_earnings";
+import { PriceInfo } from "./db/price_info";
 
 // TODO set this up for actual production use
 const defaultLogger = () => {
@@ -30,7 +31,7 @@ const defaultLogger = () => {
 
 export const logger = defaultLogger();
 
-const loadEnv = () => {
+export const loadEnv = (wantEnvs?: string[] | undefined) => {
 	const config = dotenv.config({
 		path: ".env",
 	});
@@ -75,6 +76,7 @@ const main = async () => {
 	const dbFundingRatePayments = new FundingRatePayments(chainId, prisma, logger);
 	const proxyContractAddr = getPerpetualManagerProxyAddress();
 	const dbEstimatedEarnings = new EstimatedEarnings(chainId, prisma, logger);
+	const dbPriceInfo = new PriceInfo(prisma, logger);
 
 	const eventsListener = new EventListener(
 		{
@@ -86,7 +88,8 @@ const main = async () => {
 		wsProvider,
 		dbTrades,
 		dbFundingRatePayments,
-		dbEstimatedEarnings
+		dbEstimatedEarnings,
+		dbPriceInfo
 	);
 	eventsListener.listen();
 
@@ -118,7 +121,6 @@ const main = async () => {
 			dbFundingRatePayments.insertFundingRatePayment(e, txHash, blockTimestamp);
 		}
 	);
-
 	hd.filterLiquidityAdded(
 		null,
 		await dbEstimatedEarnings.getLatestTimestamp(

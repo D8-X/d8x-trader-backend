@@ -130,22 +130,3 @@ http://localhost:8888/trades-history/0x9d5aaB428e98678d0E645ea4AeBd25f744341a05
    handler of REST API (providing the wallet address in question).
 
 # TODO
-
-[x] Historical data
-
-    - Log filterer (HistoricalDataFilterer)
-    - Db layer for upserting event data into db
-    - Missing data
-
-[] Contract event listeners
-[x] DB functionality with prisma
-[] REST Api with express
-
--- April 20th
-[x] Filter events at the startup (from last timestamp of most last event data)
-[x] Don't filter based on address
-[x] On handlers we don't load anything
-[x] Start the event listeners and process them
-[] Check for filtering without fetching all logs
---
-[x] Check the bigint toString conversion (we don't want to have E notation)
