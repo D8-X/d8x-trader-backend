@@ -33,7 +33,8 @@ export class EventListener {
 		public provider: Provider,
 		private dbTrades: TradingHistory,
 		private dbFundingRates: FundingRatePayments,
-		private dbEstimatedEarnings: EstimatedEarnings
+		private dbEstimatedEarnings: EstimatedEarnings,
+		private dbPriceInfos: PriceInfo
 	) {
 		this.l = opts.logger;
 		this.opts = opts;
@@ -190,6 +191,10 @@ export class EventListener {
 					event.log.transactionHash,
 					new Date().getTime() / 1000
 				);
+
+				// Insert price info
+				const price = dec18ToFloat(e.tokenAmount) / dec18ToFloat(e.shareAmount);
+				this.dbPriceInfos.insert(price, poolId);
 			}
 		);
 
@@ -219,7 +224,14 @@ export class EventListener {
 					event.log.transactionHash,
 					new Date().getTime() / 1000
 				);
+
+				// Insert price info
+				const price = dec18ToFloat(e.tokenAmount) / dec18ToFloat(e.shareAmount);
+				this.dbPriceInfos.insert(price, poolId);
 			}
 		);
+
+		// TODO
+		// pmp.once("ShareTokenP2PTransfer", () => {});
 	}
 }
