@@ -54,7 +54,7 @@ npx prisma migrate deploy
 
 ## Description
 
-## Discussion Mantas&Basile
+## Discussion M&B
 
     - We don't want everything upfront, but if someone searches for a wallet and it doesn't exist in our database, we need to launch some bg process which will then read the event logs of txs for that user wallet (let's say 6months in the past) and fetch the historical trades information
     - Look up at the latest timestamp for that address on startup
