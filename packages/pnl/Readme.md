@@ -1,3 +1,38 @@
+# Setup
+
+To install packages run
+
+```bash
+cd packages/pnl
+yarn install
+```
+
+-   Create a Postgres database and run the Postgres instance.
+-   Copy `.env.example` to `.env` and edit according to to [Environment variables](#environment-variables)
+-   Run the following command which will create the necessary tables in the database you created
+    ```bash
+    cd packages/pnl
+    npx prisma migrate deploy
+    ```
+    the output should be: "All migrations have been successfully applied." The database should have the tables
+    funding_rate_payments and trades_history.
+
+Build the project with
+
+```bash
+yarn build
+```
+
+in directory packages/pnl.
+
+Run the PnL service:
+
+```bash
+node ./dist/main.js
+```
+
+in directory packages/pnl.
+
 # Profit and loss service
 
 This directory contains the PnL service codebase. This service
@@ -7,12 +42,14 @@ Service entrypoint is `src/main.ts`
 To build project:
 
 ```bash
+cd packages/pnl
 yarn build
 ```
 
 For development:
 
 ```bash
+cd packages/pnl
 yarn watch
 ```
 
@@ -23,8 +60,22 @@ DATABASE_URL - postgres DSN string
 HTTP_RPC_URL - node http url
 WS_RPC_URL - node wss url (for event listeners)
 API_PORT - port on which the REST API will be exposed on
-SC_ADDRESS_PERPETUAL_MANAGER_PROXY - perpetual manager proxy contract address
+SDK_CONFIG_NAME=testnet
 ```
+
+DATABASE_URL:
+
+-   Create an empty postgres database my_db
+-   The URL is of the form `postgresql://username:password@host:port/databaseName`, e.g., `postgresql://postgres:postgres@host:5432/my_db`
+-   What port? By default, PostgreSQL runs on port number 5432. If the server is running on a different port,
+    you need to find out the port number from the PostgreSQL configuration file postgresql.conf.
+    You can also check the port number by running `sudo netstat -nlp | grep postgres`. This will display the active listening ports of the PostgreSQL server.
+
+HTTP_RPC_URL, WS_RPC_URL:
+
+-   specifify the URL of the RPC for the same network as SDK_CONFIG_NAME
+-   no default for the websocket-url (application fails if not provided)
+-   if left empty (HTTP_RPC_URL=""), the application will choose the default RPC provider specified in the d8x node SDK
 
 ## Profit and loss service structure
 
@@ -34,25 +85,15 @@ PnL service consists of:
 -   Minimal express REST API for serving results from db `src/api`
 -   DB layer via Prisma `src/db`
 
-## Database and migrations
+# API
 
-PnL service uses Postgres 14+. [Prisma](https://www.prisma.io) is used for migration handling.
+## Funding Rate Payments
 
-To run migrations for development:
+Example: http://localhost:8888/funding-rate-payments/0xDEDf0dd46757cE93E0D9439F78382c0c68cF76C2
 
-```bash
-npx prisma migrate dev
-```
+## Trades History
 
-To run migrations for production:
-
-```bash
-npx prisma migrate deploy
-```
-
-# Historical data
-
-## Description
+http://localhost:8888/trades-history/0x9d5aaB428e98678d0E645ea4AeBd25f744341a05
 
 ## Discussion M&B
 
@@ -108,8 +149,3 @@ npx prisma migrate deploy
 [] Check for filtering without fetching all logs
 --
 [x] Check the bigint toString conversion (we don't want to have E notation)
-
----
-
-[] Block-time is hard-coded to 15 seconds
-[] ABI (PerpetualManagerProxy.json) is copied into environment but must come from SDK

@@ -8,6 +8,7 @@ import { PrismaClient } from "@prisma/client";
 import { TradingHistory } from "./db/trading_history";
 import { FundingRatePayments } from "./db/funding_rate";
 import { PNLRestAPI } from "./api/server";
+import { getPerpetualManagerProxyAddress, getDefaultRPC } from "./utils/abi";
 
 // TODO set this up for actual production use
 const defaultLogger = () => {
@@ -33,12 +34,7 @@ const loadEnv = () => {
 	}
 
 	// Check if required env variables were provided
-	const required = [
-		"HTTP_RPC_URL",
-		"WS_RPC_URL",
-		"DATABASE_URL",
-		"SC_ADDRESS_PERPETUAL_MANAGER_PROXY",
-	];
+	const required = ["HTTP_RPC_URL", "WS_RPC_URL", "DATABASE_URL", "SDK_CONFIG_NAME"];
 	required.forEach((e) => {
 		if (!(e in process.env)) {
 			logger.error(`environment variable ${e} must be provided!`);
@@ -58,7 +54,11 @@ const main = async () => {
 	// Init blockchain provider
 	let wsRpcUrl = process.env.WS_RPC_URL as string;
 	let httpRpcUrl = process.env.HTTP_RPC_URL as string;
-
+	if (httpRpcUrl == "") {
+		httpRpcUrl = getDefaultRPC();
+		const msg = `no rpc provider specified, using default ${httpRpcUrl}`;
+		logger.info(msg);
+	}
 	console.log(wsRpcUrl, httpRpcUrl);
 	let wsProvider: ethers.Provider = new WebSocketProvider(wsRpcUrl);
 	let httpProvider: ethers.Provider = new JsonRpcProvider(httpRpcUrl);
@@ -69,13 +69,12 @@ const main = async () => {
 	const { chainId } = await httpProvider.getNetwork();
 	const dbTrades = new TradingHistory(chainId, prisma, logger);
 	const dbFundingRatePayments = new FundingRatePayments(chainId, prisma, logger);
-
+	const proxyContractAddr = getPerpetualManagerProxyAddress();
 	const eventsListener = new EventListener(
 		{
 			logger,
 			contractAddresses: {
-				perpetualManagerProxy: process.env
-					.SC_ADDRESS_PERPETUAL_MANAGER_PROXY as string,
+				perpetualManagerProxy: proxyContractAddr,
 			},
 		},
 		wsProvider,
@@ -84,11 +83,7 @@ const main = async () => {
 	);
 	eventsListener.listen();
 
-	const hd = new HistoricalDataFilterer(
-		httpProvider,
-		process.env.SC_ADDRESS_PERPETUAL_MANAGER_PROXY as string,
-		logger
-	);
+	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
 
 	// Filter all trades on startup
 	hd.filterTrades(
