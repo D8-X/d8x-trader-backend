@@ -80,7 +80,16 @@ HTTP_RPC_URL, WS_RPC_URL:
 ```
 /funding-rate-payments/:user_wallet - retrieve funding rate payments for given user_wallet
 /trades-history/:user_wallet - retrieve trading history for given user_wallet
-/apy/:pool_id/:from_timestamp/:to_timestamp
+
+/apy/:pool_id/:from_timestamp/:to_timestamp - apy endpoint. Provided pool_id for the perpetual pool, from_timestamp is any time in the past which will be used to find nearest available price information, to_timestamp is analogous for from_timestamp for end timestamp of APY calculation. Successful response will contain the following data
+{
+    start_timestamp - found nearest start timestamp
+    end_timestamp - found nearest end timestamp
+    start_price - start price
+    end_price - end price
+    pool_id - pool id
+    apy - calculated APY value
+}
 ```
 
 ## Profit and loss service structure
