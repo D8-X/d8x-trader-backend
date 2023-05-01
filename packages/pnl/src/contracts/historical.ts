@@ -6,7 +6,8 @@ import {
 	UpdateMarginAccountFilteredCb,
 } from "./types";
 import { Contract, Provider, ethers, Interface, BigNumberish } from "ethers";
-import pmpAbi from "../abi/PerpetualManagerProxy.json";
+import { getPerpetualManagerABI } from "../utils/abi";
+
 /**
  * HistoricalDataFilterer retrieves historical data for trades, liquidations and
  * other events from perpetual manager proxy contract
@@ -20,6 +21,7 @@ export class HistoricalDataFilterer {
 		public perpetualManagerProxyAddress: string,
 		public l: Logger
 	) {
+		let pmpAbi = getPerpetualManagerABI();
 		// Init the contract binding
 		this.PerpManagerProxy = new Contract(
 			perpetualManagerProxyAddress,
