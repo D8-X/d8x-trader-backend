@@ -77,6 +77,12 @@ HTTP_RPC_URL, WS_RPC_URL:
 -   no default for the websocket-url (application fails if not provided)
 -   if left empty (HTTP_RPC_URL=""), the application will choose the default RPC provider specified in the d8x node SDK
 
+```
+/funding-rate-payments/:user_wallet - retrieve funding rate payments for given user_wallet
+/trades-history/:user_wallet - retrieve trading history for given user_wallet
+/apy/:pool_id/:from_timestamp/:to_timestamp
+```
+
 ## Profit and loss service structure
 
 PnL service consists of:
@@ -130,3 +136,10 @@ http://localhost:8888/trades-history/0x9d5aaB428e98678d0E645ea4AeBd25f744341a05
    handler of REST API (providing the wallet address in question).
 
 # TODO
+
+--- Liquidity provision
+[] Add historical filterers and event listeners for ShareTokenP2PTransfer event once it is ready
+[] Create cron job installer to pull prices daily
+[] Use d8x sdk to get the contract addresses
+
+---

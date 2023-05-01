@@ -1,5 +1,6 @@
 /**
- * This script must be run as a cron job
+ * This script must be run as a cron job. It retrieves the price information for
+ * each perpetual pool and stores it in db.
  */
 
 import { JsonRpcProvider, ethers } from "ethers";
@@ -7,6 +8,7 @@ import { loadEnv } from "./main";
 import { loadABIs } from "@d8x/perpetuals-sdk";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { getPerpetualManagerABI } from "./abi/get";
+import { getNewPositionLeverage } from "@d8x/perpetuals-sdk";
 // Fetch the latest price from chain and put it in db
 const run = async () => {
 	// Assert that required env variables are present
