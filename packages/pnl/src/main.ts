@@ -59,7 +59,6 @@ const main = async () => {
 		const msg = `no rpc provider specified, using default ${httpRpcUrl}`;
 		logger.info(msg);
 	}
-	console.log(wsRpcUrl, httpRpcUrl);
 	let wsProvider: ethers.Provider = new WebSocketProvider(wsRpcUrl);
 	let httpProvider: ethers.Provider = new JsonRpcProvider(httpRpcUrl);
 

@@ -43,6 +43,9 @@ export class FundingRatePayments {
 				tx_hash: {
 					equals: txHash,
 				},
+				wallet_address: {
+					equals: e.trader,
+				},
 			},
 		});
 

@@ -4,7 +4,6 @@ import { LiquidateEvent, TradeEvent, UpdateMarginAccountEvent } from "./types";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
 import { getPerpetualManagerABI } from "../utils/abi";
-
 export interface EventListenerOptions {
 	logger: Logger;
 
@@ -39,11 +38,11 @@ export class EventListener {
 		this.l.info("starting smart contract event listeners", {
 			contract_address: this.opts.contractAddresses.perpetualManagerProxy,
 		});
-		const perpProxyABI = getPerpetualManagerABI();
+
 		// perpertual proxy manager - main contract
 		const pmp = new ethers.Contract(
 			this.opts.contractAddresses.perpetualManagerProxy,
-			perpProxyABI,
+			getPerpetualManagerABI(),
 			this.provider
 		);
 

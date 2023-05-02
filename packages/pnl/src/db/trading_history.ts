@@ -33,6 +33,9 @@ export class TradingHistory {
 				tx_hash: {
 					equals: txHash,
 				},
+				wallet_address: {
+					equals: e.trader,
+				},
 			},
 		});
 		if (exists === null) {
