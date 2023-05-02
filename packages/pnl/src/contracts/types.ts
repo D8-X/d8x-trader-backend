@@ -6,6 +6,7 @@ export type EventCallback<Event> = (
 ) => void;
 
 // Trade event shape as retrieved from logs
+// topic hash 0xcae6abbbeb6085c86dba93ff60c0913157ef0adb7bbc1da47d768f95d9147341
 export interface TradeEvent {
 	perpetualId: bigint;
 	trader: string;
