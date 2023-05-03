@@ -3,7 +3,7 @@ import express, { Express, Request, Response, response } from "express";
 import { Logger } from "winston";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
-import { toJson } from "../utils/response";
+import { correctQueryArgs, errorResp, toJson } from "../utils/response";
 import { getAddress } from "ethers";
 
 // Make sure the decimal values are always return as normal numeric strings
@@ -45,16 +45,9 @@ export class PNLRestAPI {
 	 * Register routes of pnl API
 	 */
 	private registerRoutes(app: express.Application) {
-		app.get(
-			"/funding-rate-payments/:user_wallet",
-			this.fundingRatePayments.bind(this)
-		);
-		app.get("/trades-history/:user_wallet", this.historicalTrades.bind(this));
-
-		app.get(
-			"/apy/:pool_id/:from_timestamp/:to_timestamp",
-			this.apyCalculation.bind(this)
-		);
+		app.get("/funding-rate-payments", this.fundingRatePayments.bind(this));
+		app.get("/trades-history", this.historicalTrades.bind(this));
+		app.get("/apy", this.apyCalculation.bind(this));
 	}
 
 	/**
@@ -72,15 +65,22 @@ export class PNLRestAPI {
 	 * @param resp
 	 */
 	private async fundingRatePayments(
-		req: Request<{ user_wallet: string }>,
+		req: Request<any, any, any, { user_wallet: string }>,
 		resp: Response
 	) {
+		const usage = "required query parameters: user_wallet";
+		if (!correctQueryArgs(req.query, ["user_wallet"])) {
+			resp.send(errorResp("please provide correct query parameters", usage));
+			return;
+		}
+
+		const user_wallet = req.query.user_wallet;
 		// Parse wallet address and see if it is correct
 		try {
-			getAddress(req.params.user_wallet);
+			getAddress(user_wallet);
 		} catch (e) {
 			resp.status(400);
-			resp.send("invalid wallet address");
+			resp.send(errorResp("invalid wallet address", usage));
 			return;
 		}
 
@@ -90,7 +90,7 @@ export class PNLRestAPI {
 			},
 			where: {
 				wallet_address: {
-					equals: req.params.user_wallet.toLowerCase(),
+					equals: user_wallet.toLowerCase(),
 				},
 			},
 		});
@@ -106,15 +106,23 @@ export class PNLRestAPI {
 	 * @param resp
 	 */
 	private async historicalTrades(
-		req: Request<{ user_wallet: string }>,
+		req: Request<any, any, any, { user_wallet: string }>,
 		resp: Response
 	) {
+		const usage = "required query parameters: user_wallet";
+		if (!correctQueryArgs(req.query, ["user_wallet"])) {
+			resp.send(errorResp("please provide correct query parameters", usage));
+			return;
+		}
+
+		const user_wallet = req.query.user_wallet;
+
 		// Parse wallet address and see if it is correct
 		try {
-			getAddress(req.params.user_wallet);
+			getAddress(user_wallet);
 		} catch (e) {
 			resp.status(400);
-			resp.send("invalid wallet address");
+			resp.send(errorResp("invalid wallet address", usage));
 			return;
 		}
 
@@ -124,7 +132,7 @@ export class PNLRestAPI {
 			},
 			where: {
 				wallet_address: {
-					equals: req.params.user_wallet.toLowerCase(),
+					equals: user_wallet.toLowerCase(),
 				},
 			},
 		});
@@ -135,27 +143,42 @@ export class PNLRestAPI {
 	}
 
 	private async apyCalculation(
-		req: Request<{
-			pool_id: string;
-			// Date/timestamp from which we check the APY
-			from_timestamp: string;
-			// Either NOW or later date than from_timestamp
-			to_timestamp: string;
-		}>,
+		req: Request<
+			any,
+			any,
+			any,
+			{
+				pool_id: string;
+				// Date/timestamp from which we check the APY
+				from_timestamp: string;
+				// Either NOW or later date than from_timestamp
+				to_timestamp: string;
+			}
+		>,
 		resp: Response
 	) {
+		const usage = "required query parameters: pool_id, from_timestamp, to_timestamp ";
+		if (!correctQueryArgs(req.query, ["pool_id", "from_timestamp", "to_timestamp"])) {
+			resp.send(errorResp("please provide correct query parameters", usage));
+			return;
+		}
+		const { pool_id, from_timestamp, to_timestamp } = req.query;
+
 		// Check if provided timestamps are numbers
-		let t_from = parseInt(req.params.from_timestamp),
-			t_to = parseInt(req.params.to_timestamp);
+		let t_from = parseInt(from_timestamp),
+			t_to = parseInt(to_timestamp);
 		const reDigit = /^\d+$/;
 		if (
 			isNaN(t_from) ||
 			isNaN(t_to) ||
-			req.params.from_timestamp.match(reDigit) === null ||
-			req.params.to_timestamp.match(reDigit) === null
+			from_timestamp.match(reDigit) === null ||
+			to_timestamp.match(reDigit) === null
 		) {
 			resp.send(
-				"invalid from_timestamp or to_timestamp, please provide correct unix timestamp"
+				errorResp(
+					"invalid from_timestamp or to_timestamp, please provide correct unix timestamp",
+					usage
+				)
 			);
 			return;
 		}
@@ -165,21 +188,23 @@ export class PNLRestAPI {
 		from = new Date(t_from * 1000);
 		to = new Date(t_to * 1000);
 
+		console.log(from, to);
+
 		if (isNaN(from.getTime()) || isNaN(to.getTime())) {
 			this.l.error("apy calculation: invalid dates provided", {
 				params: req.params,
 			});
 
-			resp.send("please provide valid timestamps");
+			resp.send(errorResp("please provide valid timestamps", usage));
 			return;
 		}
 
 		if (from > to) {
-			resp.send("from date can not be later than to");
+			resp.send(errorResp("from date can not be later than to", usage));
 			return;
 		}
 
-		const poolId = BigInt(req.params.pool_id);
+		const poolId = BigInt(pool_id);
 
 		interface p_info {
 			pool_token_price: number;
@@ -219,7 +244,7 @@ export class PNLRestAPI {
 
 			// division by 0
 			if (t_diff === 0) {
-				resp.send("not enough data to calculate APY");
+				resp.send(errorResp("not enough data to calculate APY", usage));
 				return;
 			}
 			// APY = (priceCurrent/priceOld-1)/(TimestampSec.now()-TimestampSec.priceOld) * #secondsInYear
@@ -230,14 +255,14 @@ export class PNLRestAPI {
 				end_timestamp,
 				start_price: toPriceInfo[0].pool_token_price,
 				end_price: fromPriceInfo[0].pool_token_price,
-				pool_id: req.params.pool_id,
+				pool_id: pool_id,
 				apy,
 			};
 			resp.send(toJson(response));
 			return;
 		}
 
-		resp.send("could not retrieve price info");
+		resp.send(errorResp("not enough data to calculate APY", usage));
 		return;
 	}
 }
