@@ -1,6 +1,5 @@
 import { JsonRpcProvider, Log, Provider, ethers } from "ethers";
 import { Logger } from "winston";
-import { getPerpetualManagerABI } from "../utils/abi";
 import {
 	LiquidateEvent,
 	LiquidityAddedEvent,
@@ -11,6 +10,9 @@ import {
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
 import { getPerpetualManagerABI } from "../utils/abi";
+import { EstimatedEarnings } from "../db/estimated_earnings";
+import { PriceInfo } from "../db/price_info";
+import { dec18ToFloat } from "../utils/bigint";
 export interface EventListenerOptions {
 	logger: Logger;
 
