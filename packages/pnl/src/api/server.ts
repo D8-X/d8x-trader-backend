@@ -5,7 +5,6 @@ import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
 import { toJson } from "../utils/response";
 import { getAddress } from "ethers";
-import { format } from "date-fns";
 
 // Make sure the decimal values are always return as normal numeric strings
 // instead of scientific notation
