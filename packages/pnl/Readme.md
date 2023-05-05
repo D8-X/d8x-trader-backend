@@ -78,10 +78,10 @@ HTTP_RPC_URL, WS_RPC_URL:
 -   if left empty (HTTP_RPC_URL=""), the application will choose the default RPC provider specified in the d8x node SDK
 
 ```
-/funding-rate-payments/:user_wallet - retrieve funding rate payments for given user_wallet
-/trades-history/:user_wallet - retrieve trading history for given user_wallet
+/funding-rate-payments (query params: user_wallet) - retrieve funding rate payments for given user_wallet
+/trades-history (query params: user_wallet) - retrieve trading history for given user_wallet
 
-/apy/:pool_id/:from_timestamp/:to_timestamp - apy endpoint. Provided pool_id for the perpetual pool, from_timestamp is any time in the past which will be used to find nearest available price information, to_timestamp is analogous for from_timestamp for end timestamp of APY calculation. Successful response will contain the following data
+/apy (query params: from_timestamp, to_timestamp, pool_id) - apy endpoint. Provided pool_id for the perpetual pool, from_timestamp is any time in the past which will be used to find nearest available price information, to_timestamp is analogous for from_timestamp for end timestamp of APY calculation. Successful response will contain the following data
 {
     start_timestamp - found nearest start timestamp
     end_timestamp - found nearest end timestamp
@@ -90,6 +90,15 @@ HTTP_RPC_URL, WS_RPC_URL:
     pool_id - pool id
     apy - calculated APY value
 }
+
+/earnings  (query params: user_wallet, pool_id) - tokens earnings aggregator for requested pool and wallet.
+example response:
+{
+"pool_id": "5",
+"user": "0x6FE871703EB23771c4016eB62140367944e8EdFc",
+"earnings": "8961932606623"
+}
+Note that earnings will be returned as a numerical string, since the value might be too big to be held in int64. BigInt should be used when handling the earnings value.
 ```
 
 ## Profit and loss service structure
@@ -147,8 +156,9 @@ http://localhost:8888/trades-history/0x9d5aaB428e98678d0E645ea4AeBd25f744341a05
 # TODO
 
 --- Liquidity provision
-[] Add historical filterers and event listeners for ShareTokenP2PTransfer event once it is ready
 [] Create cron job installer to pull prices daily
-[] Use d8x sdk to get the contract addresses
+[] In earnings API endpoint, retrieve the share tokens owned now and provide full calculation for users.
+[] Add historical filterers and event listeners for ShareTokenP2PTransfer event once it is ready
+[] Add LiquidityWithdrawalInitiated event
 
 ---
