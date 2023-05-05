@@ -36,7 +36,7 @@ export class EstimatedEarnings {
 	public async insert(
 		wallet: string,
 		amount: bigint,
-		perpetualId: bigint,
+		pool_id: bigint,
 		txHash: string,
 		type: estimated_earnings_event_type,
 		blockTimestamp?: number
@@ -54,7 +54,7 @@ export class EstimatedEarnings {
 			try {
 				fungingRatePayment = await this.prisma.estimatedEarningTokens.create({
 					data: {
-						perpetual_id: perpetualId,
+						pool_id,
 						token_amount: amount.toString(),
 						tx_hash: txHash,
 						wallet_address: wallet,

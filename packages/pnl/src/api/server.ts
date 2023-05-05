@@ -48,6 +48,7 @@ export class PNLRestAPI {
 		app.get("/funding-rate-payments", this.fundingRatePayments.bind(this));
 		app.get("/trades-history", this.historicalTrades.bind(this));
 		app.get("/apy", this.apyCalculation.bind(this));
+		app.get("/earnings", this.earnings.bind(this));
 	}
 
 	/**
@@ -57,6 +58,55 @@ export class PNLRestAPI {
 		this.app.listen(this.opts.port, () => {
 			this.l.info("starting pnl rest api server", { port: this.opts.port });
 		});
+	}
+
+	private async earnings(
+		req: Request<any, any, any, { user_wallet: string; pool_id: string }>,
+		resp: Response
+	) {
+		const usage = "required query parameters: user_wallet, pool_id";
+		if (!correctQueryArgs(req.query, ["user_wallet", "pool_id"])) {
+			resp.send(errorResp("please provide correct query parameters", usage));
+			return;
+		}
+		const { user_wallet, pool_id } = req.query;
+
+		const poolIdNum = parseInt(pool_id);
+		if (isNaN(poolIdNum)) {
+			resp.send(errorResp("please provide a correct numeric pool_id value", usage));
+			return;
+		}
+
+		const result = await this.opts.prisma.estimatedEarningTokens.aggregate({
+			_sum: {
+				token_amount: true,
+			},
+			where: {
+				AND: [
+					{
+						wallet_address: {
+							equals: user_wallet,
+						},
+					},
+					{
+						pool_id: {
+							equals: poolIdNum,
+						},
+					},
+				],
+			},
+		});
+
+		let earningsTokensSum = result._sum.token_amount ?? 0;
+
+		resp.contentType("json");
+		resp.send(
+			toJson({
+				pool_id,
+				user: user_wallet,
+				earnings: earningsTokensSum,
+			})
+		);
 	}
 
 	/**

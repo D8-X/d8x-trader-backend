@@ -40,7 +40,12 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 	}
 
 	// Check if required env variables were provided
-	const required = ["HTTP_RPC_URL", "WS_RPC_URL", "DATABASE_URL", "SDK_CONFIG_NAME"];
+	const required = wantEnvs ?? [
+		"HTTP_RPC_URL",
+		"WS_RPC_URL",
+		"DATABASE_URL",
+		"SDK_CONFIG_NAME",
+	];
 	required.forEach((e) => {
 		if (!(e in process.env)) {
 			logger.error(`environment variable ${e} must be provided!`);
