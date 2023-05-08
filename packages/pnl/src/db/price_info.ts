@@ -15,8 +15,6 @@ import { UpdateMarginAccountEvent } from "../contracts/types";
 import { LiquidateEvent } from "../contracts/types";
 import { dec18ToFloat } from "../utils/bigint";
 
-eth.toBigInt;
-
 export class PriceInfo {
 	constructor(public prisma: PrismaClient, public l: Logger) {}
 

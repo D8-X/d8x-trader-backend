@@ -97,10 +97,10 @@
     ethers "^5.7.2"
     process "^0.11.10"
 
-"@d8x/perpetuals-sdk@^0.5.0":
-  version "0.5.0"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.5.0.tgz#a6301316dd4ce8fd8e69ee354ab71b211335e824"
-  integrity sha512-IoIwSaXNOdnin2x+7n+V4W6iY/sECSdnPHh1mo8cv9hnN+AN76RqP//IBTOSF34SJI2vSaGRgBrN2TCACPVy5Q==
+"@d8x/perpetuals-sdk@^0.5.1":
+  version "0.5.1"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.5.1.tgz#1cd8285bcb626aca306550a6559d83c1eb6d9667"
+  integrity sha512-XgITjC7T1D073Fn0FTdul7rTQ/CVQmOGASUxS1R/Gt2AV/yeb0xVuUOnMNxkoCTPVBX4nAQHOntWMQvjLfgeLQ==
   dependencies:
     "@ethersproject/abi" "^5.7.0"
     "@ethersproject/abstract-signer" "^5.7.0"

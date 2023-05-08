@@ -5,6 +5,9 @@ import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
 import { correctQueryArgs, errorResp, toJson } from "../utils/response";
 import { getAddress } from "ethers";
+import { MarketData } from "@d8x/perpetuals-sdk";
+import { getSDKFromEnv } from "../utils/abi";
+import { dec18ToFloat } from "../utils/bigint";
 
 // Make sure the decimal values are always return as normal numeric strings
 // instead of scientific notation
@@ -27,6 +30,8 @@ export class PNLRestAPI {
 	private app: express.Application;
 
 	private db: DBHandlers;
+
+	private md?: MarketData;
 	/**
 	 * Initialize ResAPI parameters, routes, middelware, etc
 	 * @param opts
@@ -37,6 +42,16 @@ export class PNLRestAPI {
 		this.app = express();
 		this.registerMiddleware();
 		this.registerRoutes(this.app);
+	}
+
+	/**
+	 * Initialize PNLRestAPI
+	 */
+	public async init() {
+		// Init marked data
+		const md = new MarketData(getSDKFromEnv());
+		await md.createProxyInstance();
+		this.md = md;
 	}
 
 	private registerMiddleware() {}
@@ -54,7 +69,9 @@ export class PNLRestAPI {
 	/**
 	 * Starts the express app
 	 */
-	public start() {
+	public async start() {
+		await this.init();
+
 		this.app.listen(this.opts.port, () => {
 			this.l.info("starting pnl rest api server", { port: this.opts.port });
 		});
@@ -96,8 +113,15 @@ export class PNLRestAPI {
 				],
 			},
 		});
-
-		let earningsTokensSum = result._sum.token_amount ?? 0;
+		let earningsTokensSum = dec18ToFloat(
+			BigInt(result._sum.token_amount?.toFixed() ?? 0)
+		);
+		const participationValue = await this.md?.getParticipationValue(
+			user_wallet,
+			poolIdNum
+		);
+		// Value is shareTokenBalance * latest price from contract
+		earningsTokensSum += participationValue?.value ?? 0;
 
 		resp.contentType("json");
 		resp.send(
