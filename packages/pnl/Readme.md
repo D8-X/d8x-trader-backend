@@ -53,14 +53,44 @@ cd packages/pnl
 yarn watch
 ```
 
+## Setting up the price fetcher cron job
+
+Price fetcher script `./src/price_fetcher.ts` or compiled version
+`./dist/price_fetcher.js` is used to fetch the pool share token price
+information. This script must be set up to run on a daily basis in order to have
+up to date price info in the database.
+
+You can use a helper script to set up a crontab entry which will run price
+fetcher daily. Replace the `SDK_CONFIG_NAME` `DATABASE_URL` values according to
+your setup:
+
+```bash
+SDK_CONFIG_NAME=testnet DATABASE_URL="postgresql://username:password@localhost:5432/db?schema=public" bash ./src/cron_installer.sh
+```
+
+If you don't want to or can't use cron, alternatively you can set up any other
+tool (for example supervisor) to run the price fetcher script. We recommend to
+schedule it to run on a daily basis. Make sure you provide correct
+`SDK_CONFIG_NAME` and `DATABASE_URL` environment variables when running price
+fetcher.
+
+Example:
+
+```bash
+SDK_CONFIG_NAME=testnet DATABASE_URL="postgresql://username:password@localhost:5432/db?schema=public" node ./dist/price_fetcher.js
+``
+
+
 ## Environment variables
 
 ```
+
 DATABASE_URL - postgres DSN string
 HTTP_RPC_URL - node http url
 WS_RPC_URL - node wss url (for event listeners)
 API_PORT - port on which the REST API will be exposed on
 SDK_CONFIG_NAME=testnet
+
 ```
 
 DATABASE_URL:
@@ -78,27 +108,29 @@ HTTP_RPC_URL, WS_RPC_URL:
 -   if left empty (HTTP_RPC_URL=""), the application will choose the default RPC provider specified in the d8x node SDK
 
 ```
+
 /funding-rate-payments (query params: user_wallet) - retrieve funding rate payments for given user_wallet
 /trades-history (query params: user_wallet) - retrieve trading history for given user_wallet
 
 /apy (query params: from_timestamp, to_timestamp, pool_id) - apy endpoint. Provided pool_id for the perpetual pool, from_timestamp is any time in the past which will be used to find nearest available price information, to_timestamp is analogous for from_timestamp for end timestamp of APY calculation. Successful response will contain the following data
 {
-    start_timestamp - found nearest start timestamp
-    end_timestamp - found nearest end timestamp
-    start_price - start price
-    end_price - end price
-    pool_id - pool id
-    apy - calculated APY value
+start_timestamp - found nearest start timestamp
+end_timestamp - found nearest end timestamp
+start_price - start price
+end_price - end price
+pool_id - pool id
+apy - calculated APY value
 }
 
-/earnings  (query params: user_wallet, pool_id) - tokens earnings aggregator for requested pool and wallet.
+/earnings (query params: user_wallet, pool_id) - tokens earnings aggregator for requested pool and wallet.
 example response:
 {
 "pool_id": "5",
 "user": "0x6FE871703EB23771c4016eB62140367944e8EdFc",
-"earnings": "8961932606623"
+"earnings": -4918.951264610514
 }
-Note that earnings will be returned as a numerical string, since the value might be too big to be held in int64. BigInt should be used when handling the earnings value.
+Note that earnings will be returned as decimal 18 adjusted number value.
+
 ```
 
 ## Profit and loss service structure
@@ -156,9 +188,7 @@ http://localhost:8888/trades-history/0x9d5aaB428e98678d0E645ea4AeBd25f744341a05
 # TODO
 
 --- Liquidity provision
-[] Create cron job installer to pull prices daily
-[] In earnings API endpoint, retrieve the share tokens owned now and provide full calculation for users.
 [] Add historical filterers and event listeners for ShareTokenP2PTransfer event once it is ready
 [] Add LiquidityWithdrawalInitiated event
-
 ---
+```
