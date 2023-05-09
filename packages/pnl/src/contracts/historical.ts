@@ -5,13 +5,15 @@ import {
 	LiquidityAddedFilteredCb,
 	LiquidityRemovedEvent,
 	LiquidityRemovedFilteredCb,
+	P2PTransferEvent,
+	P2PTransferFilteredCb,
 	TradeEvent,
 	TradesFilteredCb,
 	UpdateMarginAccountEvent,
 	UpdateMarginAccountFilteredCb,
 } from "./types";
 import { Contract, Provider, ethers, Interface, BigNumberish } from "ethers";
-import { getPerpetualManagerABI } from "../utils/abi";
+import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
 
 /**
  * HistoricalDataFilterer retrieves historical data for trades, liquidations and
@@ -98,6 +100,7 @@ export class HistoricalDataFilterer {
 			filter,
 			await this.calculateBlockFromTime(since),
 			"Trade",
+			this.PerpManagerProxy,
 			(
 				decodedTradeEvent: Record<string, any>,
 				e: ethers.EventLog,
@@ -134,6 +137,7 @@ export class HistoricalDataFilterer {
 			filter,
 			await this.calculateBlockFromTime(since),
 			"Liquidate",
+			this.PerpManagerProxy,
 			(
 				decodedEvent: Record<string, any>,
 				e: ethers.EventLog,
@@ -171,6 +175,7 @@ export class HistoricalDataFilterer {
 			filter,
 			await this.calculateBlockFromTime(since),
 			"UpdateMarginAccount",
+			this.PerpManagerProxy,
 			(
 				decodedEvent: Record<string, any>,
 				e: ethers.EventLog,
@@ -204,6 +209,8 @@ export class HistoricalDataFilterer {
 			filter,
 			await this.calculateBlockFromTime(since),
 			"LiquidityAdded",
+
+			this.PerpManagerProxy,
 			(
 				decodedEvent: Record<string, any>,
 				e: ethers.EventLog,
@@ -240,6 +247,8 @@ export class HistoricalDataFilterer {
 			filter,
 			await this.calculateBlockFromTime(since),
 			"LiquidityRemoved",
+
+			this.PerpManagerProxy,
 			(
 				decodedEvent: Record<string, any>,
 				e: ethers.EventLog,
@@ -256,6 +265,51 @@ export class HistoricalDataFilterer {
 	}
 
 	/**
+	 *
+	 * Retrieve P2PTransfers from all given sharetTokenContracts
+	 * @param shareTokenContracts - share token contract addresses
+	 * @param since - array of since dates for each ith sharetTokenContracts address
+	 * @param cb
+	 */
+	public async filterP2Ptransfers(
+		shareTokenContracts: string[],
+		since: Array<Date | undefined>,
+		cb: P2PTransferFilteredCb
+	) {
+		this.l.info("started p2p transfer filtering");
+		this.l.info("share token contracts", { shareTokenContracts });
+
+		const shareTokenAbi = await getShareTokenContractABI();
+		for (let i = 0; i < shareTokenContracts.length; i++) {
+			const currentAddress = shareTokenContracts[i];
+			// Pools start at 1
+			const poolId = i + 1;
+
+			const c = new Contract(currentAddress, shareTokenAbi, this.provider);
+			const filter = c.filters.P2PTransfer();
+			this.genericFilterer(
+				filter,
+				await this.calculateBlockFromTime(since[i]),
+				"P2PTransfer",
+				c,
+				(
+					decodedTradeEvent: Record<string, any>,
+					e: ethers.EventLog,
+					blockTimestamp: number
+				) => {
+					cb(
+						decodedTradeEvent as P2PTransferEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp,
+						{ poolId }
+					);
+				}
+			);
+		}
+	}
+
+	/**
 	 * Filter event logs based on provided parameters.
 	 *
 	 * @param filter
@@ -267,20 +321,16 @@ export class HistoricalDataFilterer {
 		filter: ethers.DeferredTopicFilter,
 		fromBlock: BigNumberish,
 		eventName: string,
+		c: Contract,
 		cb: (
 			decodedEvent: Record<string, any>,
 			event: ethers.EventLog,
 			blockTimestamp: number
 		) => void
 	) {
-		const events = (await this.PerpManagerProxy.queryFilter(
-			filter,
-			fromBlock
-		)) as ethers.EventLog[];
+		const events = (await c.queryFilter(filter, fromBlock)) as ethers.EventLog[];
 
-		const eventFragment = this.PerpManagerProxy.interface.getEvent(
-			eventName
-		) as ethers.EventFragment;
+		const eventFragment = c.interface.getEvent(eventName) as ethers.EventFragment;
 
 		const iface = new Interface([eventFragment]);
 

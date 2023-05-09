@@ -37,14 +37,16 @@ export class FundingRatePayments {
 		if (e.fFundingPaymentCC.toString() === "0") {
 			return;
 		}
+		const trader = e.trader.toLowerCase();
+		const tx_hash = txHash.toLowerCase();
 
 		const exists = await this.prisma.fundingRatePayment.findFirst({
 			where: {
 				tx_hash: {
-					equals: txHash,
+					equals: tx_hash,
 				},
 				wallet_address: {
-					equals: e.trader,
+					equals: trader,
 				},
 			},
 		});
@@ -54,9 +56,9 @@ export class FundingRatePayments {
 			try {
 				let data: Prisma.FundingRatePaymentCreateInput = {
 					payment_amount: e.fFundingPaymentCC.toString(),
-					wallet_address: e.trader.toLocaleLowerCase(),
+					wallet_address: trader,
 					perpetual_id: e.perpetualId,
-					tx_hash: txHash,
+					tx_hash,
 					payment_timestamp: new Date(blockTimestamp * 1000),
 				};
 
