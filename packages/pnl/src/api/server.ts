@@ -262,8 +262,6 @@ export class PNLRestAPI {
 		from = new Date(t_from * 1000);
 		to = new Date(t_to * 1000);
 
-		console.log(from, to);
-
 		if (isNaN(from.getTime()) || isNaN(to.getTime())) {
 			this.l.error("apy calculation: invalid dates provided", {
 				params: req.params,

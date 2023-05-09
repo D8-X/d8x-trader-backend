@@ -28,13 +28,16 @@ export class TradingHistory {
 		txHash: string,
 		tradeBlockTimestamp: number
 	) {
+		const tx_hash = txHash.toLowerCase();
+		const trader = e.trader.toLowerCase();
+
 		const exists = await this.prisma.trade.findFirst({
 			where: {
 				tx_hash: {
-					equals: txHash,
+					equals: tx_hash,
 				},
 				wallet_address: {
-					equals: e.trader,
+					equals: trader,
 				},
 			},
 		});
@@ -57,8 +60,8 @@ export class TradingHistory {
 							: "sell") as trade_side,
 						// Order flags are only present
 						order_flags: e.order.flags,
-						tx_hash: txHash.toLowerCase(),
-						wallet_address: e.trader.toLowerCase(),
+						tx_hash,
+						wallet_address: trader,
 						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
 					};
 				} else {
@@ -74,9 +77,9 @@ export class TradingHistory {
 						side: (parseInt(e.amountLiquidatedBC.toString()) > 0
 							? "liquidate_buy"
 							: "liquidate_sell") as trade_side,
-						tx_hash: txHash.toLowerCase(),
-						wallet_address: e.trader.toLowerCase(),
 						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
+						tx_hash,
+						wallet_address: trader,
 					};
 				}
 				newTrade = await this.prisma.trade.create({

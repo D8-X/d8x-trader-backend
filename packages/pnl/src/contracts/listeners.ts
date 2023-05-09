@@ -1,4 +1,4 @@
-import { JsonRpcProvider, Log, Provider, ethers } from "ethers";
+import { Contract, JsonRpcProvider, Log, Provider, ethers } from "ethers";
 import { Logger } from "winston";
 import {
 	LiquidateEvent,
@@ -9,10 +9,11 @@ import {
 } from "./types";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
-import { getPerpetualManagerABI } from "../utils/abi";
+import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
 import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
 import { dec18ToFloat } from "../utils/bigint";
+import { retrieveShareTokenContracts } from "./tokens";
 export interface EventListenerOptions {
 	logger: Logger;
 
@@ -45,7 +46,7 @@ export class EventListener {
 	/**
 	 * listen starts all event listeners
 	 */
-	public listen() {
+	public async listen() {
 		this.l.info("starting smart contract event listeners", {
 			contract_address: this.opts.contractAddresses.perpetualManagerProxy,
 		});
@@ -97,7 +98,7 @@ export class EventListener {
 			}
 		);
 
-		pmp.once(
+		pmp.on(
 			"Liquidate",
 			(
 				perpetualId,
@@ -131,7 +132,7 @@ export class EventListener {
 			}
 		);
 
-		pmp.once(
+		pmp.on(
 			"UpdateMarginAccount",
 			(
 				perpetualId,
@@ -167,7 +168,7 @@ export class EventListener {
 			}
 		);
 
-		pmp.once(
+		pmp.on(
 			"LiquidityAdded",
 			(
 				poolId,
@@ -200,7 +201,7 @@ export class EventListener {
 			}
 		);
 
-		pmp.once(
+		pmp.on(
 			"LiquidityRemoved",
 			(
 				poolId,
@@ -232,6 +233,38 @@ export class EventListener {
 				this.dbPriceInfos.insert(price, poolId);
 			}
 		);
+
+		// List to token transfers for all share token contracts
+		const abi = await getShareTokenContractABI();
+		const shareTokenContracts = await retrieveShareTokenContracts();
+		for (let i = 0; i < shareTokenContracts.length; i++) {
+			const c = new Contract(shareTokenContracts[i], abi, this.provider);
+			const poolId = i + 1;
+
+			this.l.info("starting share token P2PTransfer listener", {
+				share_token_contract: shareTokenContracts[i],
+			});
+			c.on(
+				"P2PTransfer",
+				(
+					from: string,
+					to: string,
+					amountD18: bigint,
+					priceD18: bigint,
+					event: ethers.ContractEventPayload
+				) => {
+					this.dbEstimatedEarnings.insertShareTokenP2PTransfer(
+						from,
+						to,
+						amountD18,
+						priceD18,
+						BigInt(poolId),
+						event.log.transactionHash,
+						new Date().getTime() / 1000
+					);
+				}
+			);
+		}
 
 		// TODO
 		// pmp.once("ShareTokenP2PTransfer", () => {});

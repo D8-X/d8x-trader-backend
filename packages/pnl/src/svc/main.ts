@@ -15,6 +15,7 @@ import { PNLRestAPI } from "../api/server";
 import { getPerpetualManagerProxyAddress, getDefaultRPC } from "../utils/abi";
 import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
+import { retrieveShareTokenContracts } from "../contracts/tokens";
 
 // TODO set this up for actual production use
 const defaultLogger = () => {
@@ -82,6 +83,9 @@ export const main = async () => {
 	const proxyContractAddr = getPerpetualManagerProxyAddress();
 	const dbEstimatedEarnings = new EstimatedEarnings(chainId, prisma, logger);
 	const dbPriceInfo = new PriceInfo(prisma, logger);
+
+	// Share token contracts
+	const shareTokenAddresses = await retrieveShareTokenContracts();
 
 	const eventsListener = new EventListener(
 		{
@@ -163,6 +167,25 @@ export const main = async () => {
 				e.poolId,
 				txHash,
 				blockTimestamp
+			);
+		}
+	);
+
+	// Share tokens p2p transfers
+	hd.filterP2Ptransfers(
+		shareTokenAddresses,
+		await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
+			shareTokenAddresses.length
+		),
+		(e, txHash, blockNumber, blockTimeStamp, params) => {
+			dbEstimatedEarnings.insertShareTokenP2PTransfer(
+				e.from,
+				e.to,
+				e.amountD18,
+				e.priceD18,
+				params?.poolId as unknown as bigint,
+				txHash,
+				blockTimeStamp
 			);
 		}
 	);

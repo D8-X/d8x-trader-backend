@@ -43,8 +43,13 @@ export class EstimatedEarnings {
 	) {
 		const exists = await this.prisma.estimatedEarningTokens.findFirst({
 			where: {
-				tx_hash: {
-					equals: txHash,
+				AND: {
+					tx_hash: {
+						equals: txHash,
+					},
+					event_type: {
+						equals: type,
+					},
 				},
 			},
 		});
@@ -115,7 +120,7 @@ export class EstimatedEarnings {
 		wallet_to: string,
 		amountD18: bigint,
 		priceD18: bigint,
-		perpetualId: bigint,
+		poolId: bigint,
 		txHash: string,
 		blockTimestamp: number
 	) {
@@ -128,7 +133,7 @@ export class EstimatedEarnings {
 		await this.insert(
 			wallet_from,
 			BigInt(Math.floor(estimatedEarningsTokensAmnt)),
-			perpetualId,
+			poolId,
 			txHash,
 			estimated_earnings_event_type.share_token_p2p_transfer,
 			blockTimestamp
@@ -138,7 +143,7 @@ export class EstimatedEarnings {
 		return this.insert(
 			wallet_to,
 			BigInt(Math.floor(estimatedEarningsTokensAmnt)) * BigInt(-1),
-			perpetualId,
+			poolId,
 			txHash,
 			estimated_earnings_event_type.share_token_p2p_transfer,
 			blockTimestamp
@@ -166,5 +171,35 @@ export class EstimatedEarnings {
 		});
 
 		return res?.created_at;
+	}
+
+	/**
+	 * Retrieve the latest timestamps for each pool id for p2ptransfer events.
+	 * Returned result is up to 255 elements array, where each index
+	 * @param nShareTokens total number of share tokens / pools currently available - this determines the size of return array
+	 * @returns
+	 */
+	public async getLatestTimestampsP2PTransfer(
+		nShareTokens: number
+	): Promise<Array<Date | undefined>> {
+		const res = await this.prisma.$queryRaw<{ pool_id: bigint; created_at: Date }[]>`
+        select pool_id, max(created_at) as created_at from estimated_earnings_tokens 
+        group by pool_id 
+        order by pool_Id
+        `;
+
+		const poolDates: Array<Date | undefined> = new Array(nShareTokens).fill(
+			undefined,
+			0,
+			nShareTokens
+		);
+
+		// Set the last date for each pool (pool id is the index of return array)
+		res.forEach((r) => {
+			// Pool ids start from 1
+			poolDates[parseInt(r.pool_id.toString()) - 1] = new Date(r.created_at);
+		});
+
+		return poolDates;
 	}
 }

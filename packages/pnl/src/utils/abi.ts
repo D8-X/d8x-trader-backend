@@ -1,5 +1,7 @@
 import { PerpetualDataHandler } from "@d8x/perpetuals-sdk";
+
 import { ethers } from "ethers";
+import shareTokenContractAbi from "../contracts/abi/shareToken.json";
 
 export const getSDKFromEnv = () => {
 	const configName = (process.env.SDK_CONFIG_NAME as string) ?? "";
@@ -21,3 +23,7 @@ export function getPerpetualManagerProxyAddress(): string {
 export function getDefaultRPC(): string {
 	return getSDKFromEnv().nodeURL;
 }
+
+export const getShareTokenContractABI = async () => {
+	return shareTokenContractAbi as ethers.InterfaceAbi;
+};
