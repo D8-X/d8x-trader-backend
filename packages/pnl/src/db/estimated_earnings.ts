@@ -75,6 +75,7 @@ export class EstimatedEarnings {
 			}
 			this.l.info("inserted new estimated earning record", {
 				trade_id: fungingRatePayment.id,
+				type,
 			});
 		}
 	}
