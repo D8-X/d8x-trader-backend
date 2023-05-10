@@ -276,12 +276,12 @@ export class HistoricalDataFilterer {
 		since: Array<Date | undefined>,
 		cb: P2PTransferFilteredCb
 	) {
-		this.l.info("started p2p transfer filtering");
-		this.l.info("share token contracts", { shareTokenContracts });
-
 		const shareTokenAbi = await getShareTokenContractABI();
 		for (let i = 0; i < shareTokenContracts.length; i++) {
 			const currentAddress = shareTokenContracts[i];
+			this.l.info("starting p2p transfer filtering", {
+				share_token_contract: currentAddress,
+			});
 			// Pools start at 1
 			const poolId = i + 1;
 

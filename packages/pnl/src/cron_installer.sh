@@ -25,6 +25,11 @@ echo "Creating crontab entry to fetch price info daily";
 CRON_ENTRY="0 0 * * * export DATABASE_URL='${DATABASE_URL}'; export SDK_CONFIG_NAME='${SDK_CONFIG_NAME}'; node ${DIST_DIR}"
 echo "$CRON_ENTRY"
 
+if  crontab -l | grep -qF "$CRON_ENTRY"; then
+    echo "Crontab entry already added!";
+else
 (crontab -l 2>/dev/null; echo "$CRON_ENTRY") | crontab -
+fi
+
 
 

@@ -188,11 +188,6 @@ http://localhost:8888/trades-history/0x9d5aaB428e98678d0E645ea4AeBd25f744341a05
 # TODO
 
 --- Liquidity provision
-[] Make sure cron_job installer works if we install it twice
-[] Share P2P event is actually P2PTransfer, listen to all share token cotracts
-    - Historical data is also needed
-    - And event listeners
-    - Use market data and retrieve all contract addresses from there
 [] Add LiquidityWithdrawalInitiated event
 [] LiquidityWithdrawalInitiated should be for another endpoint and not in the earnings entries
 ---
