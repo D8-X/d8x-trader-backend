@@ -95,3 +95,18 @@ model Price{
     @@index([pool_id], type: Hash)
     @@index([timestamp])
 }
+
+model LiquidityWithdrawal{
+    @@map("liquidity_withdrawals")
+    id BigInt @id @default(autoincrement())
+    user_wallet String
+    pool_id Int
+    amount Decimal @db.Decimal(40, 0)
+    tx_hash String @db.Text    
+    is_removal Boolean
+    timestamp DateTime @db.Timestamptz @default(now())
+    
+    @@index([pool_id], type:Hash)
+    @@index([user_wallet], type:Hash)
+    @@index([timestamp])
+}

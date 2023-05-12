@@ -16,6 +16,7 @@ import { getPerpetualManagerProxyAddress, getDefaultRPC } from "../utils/abi";
 import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
 import { retrieveShareTokenContracts } from "../contracts/tokens";
+import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 
 // TODO set this up for actual production use
 const defaultLogger = () => {
@@ -83,6 +84,7 @@ export const main = async () => {
 	const proxyContractAddr = getPerpetualManagerProxyAddress();
 	const dbEstimatedEarnings = new EstimatedEarnings(chainId, prisma, logger);
 	const dbPriceInfo = new PriceInfo(prisma, logger);
+	const dbLPWithdrawals = new LiquidityWithdrawals(prisma, logger);
 
 	// Share token contracts
 	const shareTokenAddresses = await retrieveShareTokenContracts();
@@ -98,11 +100,23 @@ export const main = async () => {
 		dbTrades,
 		dbFundingRatePayments,
 		dbEstimatedEarnings,
-		dbPriceInfo
+		dbPriceInfo,
+		dbLPWithdrawals
 	);
 	eventsListener.listen();
 
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
+
+	// LP withdrawals must be first thing that we filter, because
+	// LiquidityRemoved event filterer must run after we already have withdrawal
+	// records in database
+	await hd.filterLiquidityWithdrawalInitiations(
+		null,
+		await dbLPWithdrawals.getLatestTimestamp(),
+		async (e, txHash, blockNumber, blockTimeStamp, params) => {
+			await dbLPWithdrawals.insert(e, false, txHash, blockTimeStamp);
+		}
+	);
 
 	// Filter all trades on startup
 	hd.filterTrades(
@@ -168,9 +182,9 @@ export const main = async () => {
 				txHash,
 				blockTimestamp
 			);
+			dbLPWithdrawals.insert(e, true, txHash, blockTimestamp);
 		}
 	);
-
 	// Share tokens p2p transfers
 	hd.filterP2Ptransfers(
 		shareTokenAddresses,

@@ -5,6 +5,8 @@ import {
 	LiquidityAddedFilteredCb,
 	LiquidityRemovedEvent,
 	LiquidityRemovedFilteredCb,
+	LiquidityWithdrawalInitiated,
+	LiquidityWithdrawalInitiatedFilteredCb,
 	P2PTransferEvent,
 	P2PTransferFilteredCb,
 	TradeEvent,
@@ -225,6 +227,7 @@ export class HistoricalDataFilterer {
 			}
 		);
 	}
+
 	/**
 	 * Retrieve UpdateMarginAccount events for given walletAddress from a provided since date.
 	 *
@@ -307,6 +310,38 @@ export class HistoricalDataFilterer {
 				}
 			);
 		}
+	}
+	public async filterLiquidityWithdrawalInitiations(
+		walletAddress: string | null,
+		since: Date | undefined,
+		cb: LiquidityWithdrawalInitiatedFilteredCb
+	) {
+		this.l.info("started liquidity withdrawal initiated filtering", { date: since });
+
+		const filter = this.PerpManagerProxy.filters.LiquidityWithdrawalInitiated(
+			null,
+			walletAddress
+		);
+
+		// We want to process lpwi events in a synchronous way
+		await this.genericFilterer(
+			filter,
+			await this.calculateBlockFromTime(since),
+			"LiquidityWithdrawalInitiated",
+			this.PerpManagerProxy,
+			(
+				decodedTradeEvent: Record<string, any>,
+				e: ethers.EventLog,
+				blockTimestamp: number
+			) => {
+				cb(
+					decodedTradeEvent as LiquidityWithdrawalInitiated,
+					e.transactionHash,
+					e.blockNumber,
+					blockTimestamp
+				);
+			}
+		);
 	}
 
 	/**

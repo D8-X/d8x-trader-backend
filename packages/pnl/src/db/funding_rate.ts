@@ -52,7 +52,7 @@ export class FundingRatePayments {
 		});
 
 		if (exists === null) {
-			let fungingRatePayment: FundingRatePayment;
+			let fundingRatePayment: FundingRatePayment;
 			try {
 				let data: Prisma.FundingRatePaymentCreateInput = {
 					payment_amount: e.fFundingPaymentCC.toString(),
@@ -62,7 +62,7 @@ export class FundingRatePayments {
 					payment_timestamp: new Date(blockTimestamp * 1000),
 				};
 
-				fungingRatePayment = await this.prisma.fundingRatePayment.create({
+				fundingRatePayment = await this.prisma.fundingRatePayment.create({
 					data,
 				});
 			} catch (e) {
@@ -70,7 +70,7 @@ export class FundingRatePayments {
 				return;
 			}
 			this.l.info("inserted new funding rate payment", {
-				trade_id: fungingRatePayment.id,
+				trade_id: fundingRatePayment.id,
 			});
 		}
 	}

@@ -25,5 +25,5 @@ export function getDefaultRPC(): string {
 }
 
 export const getShareTokenContractABI = async () => {
-	return shareTokenContractAbi as ethers.InterfaceAbi;
+	return getSDKFromEnv().shareTokenABI as ethers.InterfaceAbi;
 };

@@ -90,3 +90,11 @@ export interface P2PTransferEvent {
 	priceD18: bigint;
 }
 export type P2PTransferFilteredCb = EventCallback<P2PTransferEvent, { poolId: number }>;
+
+export interface LiquidityWithdrawalInitiated {
+	poolId: bigint;
+	user: string;
+	shareAmount: bigint;
+}
+export type LiquidityWithdrawalInitiatedFilteredCb =
+	EventCallback<LiquidityWithdrawalInitiated>;

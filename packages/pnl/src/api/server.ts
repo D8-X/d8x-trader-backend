@@ -64,6 +64,7 @@ export class PNLRestAPI {
 		app.get("/trades-history", this.historicalTrades.bind(this));
 		app.get("/apy", this.apyCalculation.bind(this));
 		app.get("/earnings", this.earnings.bind(this));
+		app.get("/open-withdrawal", this.withdrawals.bind(this));
 	}
 
 	/**
@@ -77,6 +78,85 @@ export class PNLRestAPI {
 		});
 	}
 
+	/**
+	 * Retrieve open withdrawal information
+	 *
+	 * @param req
+	 * @param resp
+	 * @returns
+	 */
+	private async withdrawals(
+		req: Request<any, any, any, { user_wallet: string; pool_id: string }>,
+		resp: Response
+	) {
+		const usage = "required query parameters: user_wallet, pool_id";
+		if (!correctQueryArgs(req.query, ["user_wallet", "pool_id"])) {
+			resp.send(errorResp("please provide correct query parameters", usage));
+			return;
+		}
+		let { user_wallet, pool_id } = req.query;
+		user_wallet = user_wallet.toLowerCase();
+
+		const poolIdNum = parseInt(pool_id);
+		if (isNaN(poolIdNum)) {
+			resp.send(errorResp("please provide a correct numeric pool_id value", usage));
+			return;
+		}
+
+		const withdrawals = await this.opts.prisma.liquidityWithdrawal.findMany({
+			where: {
+				AND: [
+					{
+						pool_id: {
+							equals: poolIdNum,
+						},
+						user_wallet: {
+							equals: user_wallet,
+						},
+					},
+				],
+			},
+			select: {
+				amount: true,
+				is_removal: true,
+				timestamp: true,
+			},
+			orderBy: {
+				timestamp: "desc",
+			},
+			// Take the last one - if is_removal=true, that means we have no
+			// active withdrawals and last withdrawal was completed.
+			take: 1,
+		});
+
+		let withdrawalsData: {
+			share_amount: string | number;
+			time_elapsed_sec: number;
+		}[] = [];
+
+		// Here we'll check if our last withdrawal for given pool and user
+		// consists of liqduidity withdrawal initiation and liquidity removal
+		if (withdrawals.length === 1) {
+			const w = withdrawals[0];
+			if (!w.is_removal) {
+				withdrawalsData.push({
+					share_amount: dec18ToFloat(BigInt(w.amount.toFixed())),
+					time_elapsed_sec: Math.floor(
+						new Date().getTime() / 1000 - w.timestamp.getTime() / 1000
+					),
+				});
+			}
+		}
+
+		resp.send(
+			toJson({
+				user_wallet,
+				pool_id,
+				withdrawals: withdrawalsData,
+			})
+		);
+	}
+
 	private async earnings(
 		req: Request<any, any, any, { user_wallet: string; pool_id: string }>,
 		resp: Response
@@ -86,7 +166,8 @@ export class PNLRestAPI {
 			resp.send(errorResp("please provide correct query parameters", usage));
 			return;
 		}
-		const { user_wallet, pool_id } = req.query;
+		let { user_wallet, pool_id } = req.query;
+		user_wallet = user_wallet.toLowerCase();
 
 		const poolIdNum = parseInt(pool_id);
 		if (isNaN(poolIdNum)) {
@@ -148,7 +229,7 @@ export class PNLRestAPI {
 			return;
 		}
 
-		const user_wallet = req.query.user_wallet;
+		const user_wallet = req.query.user_wallet.toLowerCase();
 		// Parse wallet address and see if it is correct
 		try {
 			getAddress(user_wallet);
@@ -164,7 +245,7 @@ export class PNLRestAPI {
 			},
 			where: {
 				wallet_address: {
-					equals: user_wallet.toLowerCase(),
+					equals: user_wallet,
 				},
 			},
 		});
@@ -189,7 +270,7 @@ export class PNLRestAPI {
 			return;
 		}
 
-		const user_wallet = req.query.user_wallet;
+		const user_wallet = req.query.user_wallet.toLowerCase();
 
 		// Parse wallet address and see if it is correct
 		try {
@@ -206,7 +287,7 @@ export class PNLRestAPI {
 			},
 			where: {
 				wallet_address: {
-					equals: user_wallet.toLowerCase(),
+					equals: user_wallet,
 				},
 			},
 		});
