@@ -4,6 +4,7 @@ import {
 	LiquidateEvent,
 	LiquidityAddedEvent,
 	LiquidityRemovedEvent,
+	LiquidityWithdrawalInitiated,
 	TradeEvent,
 	UpdateMarginAccountEvent,
 } from "./types";
@@ -14,6 +15,7 @@ import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
 import { dec18ToFloat } from "../utils/bigint";
 import { retrieveShareTokenContracts } from "./tokens";
+import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 export interface EventListenerOptions {
 	logger: Logger;
 
@@ -37,7 +39,8 @@ export class EventListener {
 		private dbTrades: TradingHistory,
 		private dbFundingRates: FundingRatePayments,
 		private dbEstimatedEarnings: EstimatedEarnings,
-		private dbPriceInfos: PriceInfo
+		private dbPriceInfos: PriceInfo,
+		private dbLPWithdrawals: LiquidityWithdrawals
 	) {
 		this.l = opts.logger;
 		this.opts = opts;
@@ -220,17 +223,24 @@ export class EventListener {
 					tokenAmount,
 					shareAmount,
 				};
+				const [txHash, timestamp] = [
+					event.log.transactionHash,
+					new Date().getTime() / 1000,
+				];
 				this.dbEstimatedEarnings.insertLiquidityRemoved(
 					user,
 					tokenAmount,
 					poolId,
-					event.log.transactionHash,
-					new Date().getTime() / 1000
+					txHash,
+					timestamp
 				);
 
 				// Insert price info
 				const price = dec18ToFloat(e.tokenAmount) / dec18ToFloat(e.shareAmount);
 				this.dbPriceInfos.insert(price, poolId);
+
+				// Attempt to finalize lp withdrawal
+				this.dbLPWithdrawals.insert(e, true, txHash, timestamp);
 			}
 		);
 
@@ -266,7 +276,29 @@ export class EventListener {
 			);
 		}
 
-		// TODO
-		// pmp.once("ShareTokenP2PTransfer", () => {});
+		pmp.on(
+			"LiquidityWithdrawalInitiated",
+			async (
+				poolId: bigint,
+				user: string,
+				shareAmount: bigint,
+				event: ethers.ContractEventPayload
+			) => {
+				this.l.info("starting liquidity withdrawal initiated events listener");
+
+				const e: LiquidityWithdrawalInitiated = {
+					poolId,
+					user,
+					shareAmount,
+				};
+
+				this.dbLPWithdrawals.insert(
+					e,
+					false,
+					event.log.transactionHash,
+					new Date().getTime() / 1000
+				);
+			}
+		);
 	}
 }

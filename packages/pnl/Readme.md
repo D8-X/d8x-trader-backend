@@ -68,6 +68,8 @@ your setup:
 SDK_CONFIG_NAME=testnet DATABASE_URL="postgresql://username:password@localhost:5432/db?schema=public" bash ./src/cron_installer.sh
 ```
 
+Note that running the helper script is idempotent, and won't add same entry twice.
+
 If you don't want to or can't use cron, alternatively you can set up any other
 tool (for example supervisor) to run the price fetcher script. We recommend to
 schedule it to run on a daily basis. Make sure you provide correct

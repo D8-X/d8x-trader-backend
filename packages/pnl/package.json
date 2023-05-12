@@ -13,7 +13,7 @@
 		"prisma-dev": "npx prisma migrate dev"
 	},
 	"dependencies": {
-		"@d8x/perpetuals-sdk": "^0.5.1",
+		"@d8x/perpetuals-sdk": "^0.5.2",
 		"@prisma/client": "^4.12.0",
 		"date-fns": "^2.30.0",
 		"ethers": "^6.2.3",
