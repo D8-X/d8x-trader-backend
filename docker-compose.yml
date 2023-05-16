@@ -29,6 +29,21 @@ services:
       - "${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
       - "${PORT_REST}:${PORT_REST}"
     restart: on-failure
+  backend_pnl:
+    build:
+      context: .
+      dockerfile: ./packages/pnl/Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      - HTTP_RPC_URL=${HTTP_RPC_URL}
+      - WS_RPC_URL=${WS_RPC_URL}
+      - API_PORT=${PNL_API_PORT}
+      - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
+    ports:
+      - "${PNL_API_PORT}:${PNL_API_PORT}"
+    restart: on-failure
 
   backend_pyth_connection:
     stdin_open: true # docker run -i
@@ -44,3 +59,16 @@ services:
       PORT_WEBSOCKET: ${PORT_WEBSOCKET}
       CHAIN_ID: ${CHAIN_ID}
     restart: on-failure
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - 5432:5432
+    volumes:
+      - pgdb:/var/lib/postgresql/data
+volumes:
+  pgdb:
