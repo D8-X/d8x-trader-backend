@@ -8,6 +8,30 @@ The entire backend for the D8X Perpetuals trading frontend package consists of
 
 The services run over http/ws and it is required to install a reverse proxy on the servers so the traffic can flow via https/wss.
 
+# Docker compose setup
+
+You can spin up all services from this repo + Postgres database via `docker
+compose`. Copy the `.envExample` contents to `.env` file and set the values of
+`HTTP_RPC_URL` and `WS_RPC_URL` variables to your node http and websockets urls
+respectively. Then run
+
+```bash
+docker compose up
+```
+
+to start all services. On the first run this will initialize postgres database
+in a docker container with a named volume `pgdb` with credentials and db name
+specified by `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` variables from
+`.env` file.
+
+## Inspecting the database
+
+You can inspect the database via `psql` or any other GUI tool such as DBeaver.
+The port (5432 by default) is set and exposed in `docker-compose.yml` file. You
+can connect to your `POSTGRES_DB` database with `POSTGRES_USER` and
+`POSTGRES_PASSWORD` credentials that you provided in your `.env` file on the
+first `docker compose up` run.
+
 # Buidl and run backend
 
 - Optional: build your own instance of the Pyth Price service:
