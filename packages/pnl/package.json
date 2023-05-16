@@ -10,7 +10,9 @@
 	"scripts": {
 		"build": "npx prisma generate && rimraf ./dist && tsc",
 		"watch": "nodemon ./src/main.ts",
-		"prisma-dev": "npx prisma migrate dev"
+		"prisma-dev": "npx prisma migrate dev",
+		"prisma-prod": "npx prisma migrate deploy",
+		"run-production": "yarn prisma-prod && node ./dist/main.js"
 	},
 	"dependencies": {
 		"@d8x/perpetuals-sdk": "^0.5.2",
