@@ -363,7 +363,35 @@ export class HistoricalDataFilterer {
 			blockTimestamp: number
 		) => void
 	) {
-		const events = (await c.queryFilter(filter, fromBlock)) as ethers.EventLog[];
+		// limit: 10_000 blocks in one eth_getLogs call
+		const deltaBlocks = 9_999;
+		const endBlock = await this.provider.getBlockNumber();
+
+		this.l.info("querying historical logs", {
+			fromBlock: fromBlock,
+			numBlocks: endBlock - Number(fromBlock),
+		});
+
+		await new Promise((resolve) => setTimeout(resolve, 1_100));
+		let numRequests = 0;
+		let events: ethers.EventLog[] = [];
+
+		for (let i = Number(fromBlock); i < endBlock; i += deltaBlocks) {
+			const _startBlock = i;
+			const _endBlock = Math.min(endBlock, i + deltaBlocks - 1);
+			const _events = (await c.queryFilter(
+				filter,
+				_startBlock,
+				_endBlock
+			)) as ethers.EventLog[];
+			events = [...events, ..._events];
+			// limit: 25 requests per second
+			numRequests++;
+			if (numRequests >= 25) {
+				numRequests = 0;
+				await new Promise((resolve) => setTimeout(resolve, 1_100));
+			}
+		}
 
 		const eventFragment = c.interface.getEvent(eventName) as ethers.EventFragment;
 
@@ -379,6 +407,13 @@ export class HistoricalDataFilterer {
 			const b = await event.getBlock();
 
 			cb(log, event, b.timestamp);
+
+			// limit: 25 requests per second
+			numRequests++;
+			if (numRequests >= 25) {
+				numRequests = 0;
+				await new Promise((resolve) => setTimeout(resolve, 1_100));
+			}
 		}
 	}
 }
