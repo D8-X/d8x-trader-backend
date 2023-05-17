@@ -2,7 +2,13 @@ import * as winston from "winston";
 import { EventListener } from "../contracts/listeners";
 import * as dotenv from "dotenv";
 import { HistoricalDataFilterer } from "../contracts/historical";
-import { BigNumberish, JsonRpcProvider, WebSocketProvider, ethers } from "ethers";
+import {
+	BigNumberish,
+	JsonRpcProvider,
+	Network,
+	WebSocketProvider,
+	ethers,
+} from "ethers";
 import {
 	LiquidityAddedEvent,
 	TradeEvent,
@@ -47,6 +53,7 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 		"WS_RPC_URL",
 		"DATABASE_URL",
 		"SDK_CONFIG_NAME",
+		"CHAIN_ID",
 	];
 	required.forEach((e) => {
 		if (!(e in process.env)) {
@@ -67,18 +74,21 @@ export const main = async () => {
 	// Init blockchain provider
 	let wsRpcUrl = process.env.WS_RPC_URL as string;
 	let httpRpcUrl = process.env.HTTP_RPC_URL as string;
+	let chainId = Number(<string>process.env.CHAIN_ID || -1);
 	if (httpRpcUrl == "") {
 		httpRpcUrl = getDefaultRPC();
 		const msg = `no rpc provider specified, using default ${httpRpcUrl}`;
 		logger.info(msg);
 	}
-	let wsProvider: ethers.Provider = new WebSocketProvider(wsRpcUrl);
-	let httpProvider: ethers.Provider = new JsonRpcProvider(httpRpcUrl);
+	const network = Network.from(chainId);
+	let wsProvider: ethers.Provider = new WebSocketProvider(wsRpcUrl, network);
+	let httpProvider: ethers.Provider = new JsonRpcProvider(httpRpcUrl, network, {
+		staticNetwork: network,
+	});
 
 	logger.info("initialized rpc provider", { wsRpcUrl, httpRpcUrl });
 
 	// Init db handlers
-	const { chainId } = await httpProvider.getNetwork();
 	const dbTrades = new TradingHistory(chainId, prisma, logger);
 	const dbFundingRatePayments = new FundingRatePayments(chainId, prisma, logger);
 	const proxyContractAddr = getPerpetualManagerProxyAddress();
