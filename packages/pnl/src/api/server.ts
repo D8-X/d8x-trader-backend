@@ -1,6 +1,6 @@
 import { FundingRatePayment, Trade, Prisma, PrismaClient } from "@prisma/client";
 import express, { Express, Request, Response, response } from "express";
-import { Logger } from "winston";
+import { Logger, error } from "winston";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
 import { correctQueryArgs, errorResp, toJson } from "../utils/response";
@@ -64,7 +64,7 @@ export class PNLRestAPI {
 		app.get("/trades-history", this.historicalTrades.bind(this));
 		app.get("/apy", this.apyCalculation.bind(this));
 		app.get("/earnings", this.earnings.bind(this));
-		app.get("/open-withdrawal", this.withdrawals.bind(this));
+		app.get("/open-withdrawals", this.withdrawals.bind(this));
 	}
 
 	/**
@@ -86,20 +86,20 @@ export class PNLRestAPI {
 	 * @returns
 	 */
 	private async withdrawals(
-		req: Request<any, any, any, { user_wallet: string; pool_id: string }>,
+		req: Request<any, any, any, { lpAddr: string; poolSymbol: string }>,
 		resp: Response
 	) {
-		const usage = "required query parameters: user_wallet, pool_id";
-		if (!correctQueryArgs(req.query, ["user_wallet", "pool_id"])) {
+		const usage = "required query parameters: lpAddr, poolSymbol";
+		if (!correctQueryArgs(req.query, ["lpAddr", "poolSymbol"])) {
 			resp.send(errorResp("please provide correct query parameters", usage));
 			return;
 		}
-		let { user_wallet, pool_id } = req.query;
-		user_wallet = user_wallet.toLowerCase();
 
-		const poolIdNum = parseInt(pool_id);
-		if (isNaN(poolIdNum)) {
-			resp.send(errorResp("please provide a correct numeric pool_id value", usage));
+		const user_wallet = req.query.lpAddr.toLowerCase();
+		const poolIdNum = this.md?.getPoolIdFromSymbol(req.query.poolSymbol)!;
+
+		if (poolIdNum === undefined || isNaN(poolIdNum)) {
+			resp.send(errorResp("please provide a correct poolSymbol", usage));
 			return;
 		}
 
@@ -150,28 +150,37 @@ export class PNLRestAPI {
 
 		resp.send(
 			toJson({
-				user_wallet,
-				pool_id,
-				withdrawals: withdrawalsData,
+				withdrawals: withdrawalsData.map((w) => ({
+					shareAmount: w.share_amount,
+					timeElapsedSec: w.time_elapsed_sec,
+				})),
 			})
 		);
 	}
 
 	private async earnings(
-		req: Request<any, any, any, { user_wallet: string; pool_id: string }>,
+		req: Request<any, any, any, { lpAddr: string; poolSymbol: string }>,
 		resp: Response
 	) {
-		const usage = "required query parameters: user_wallet, pool_id";
-		if (!correctQueryArgs(req.query, ["user_wallet", "pool_id"])) {
+		const usage = "required query parameters: lpAddr, poolSymbol";
+		if (!correctQueryArgs(req.query, ["lpAddr", "poolSymbol"])) {
 			resp.send(errorResp("please provide correct query parameters", usage));
 			return;
 		}
-		let { user_wallet, pool_id } = req.query;
-		user_wallet = user_wallet.toLowerCase();
 
-		const poolIdNum = parseInt(pool_id);
-		if (isNaN(poolIdNum)) {
-			resp.send(errorResp("please provide a correct numeric pool_id value", usage));
+		const user_wallet = req.query.lpAddr.toLowerCase();
+		let poolIdNum: number;
+		try {
+			poolIdNum = this.md!.getPoolIdFromSymbol(req.query.poolSymbol)!;
+		} catch (error) {
+			resp.send(
+				errorResp(`no pool found for symbol ${req.query.poolSymbol} `, usage)
+			);
+			return;
+		}
+
+		if (poolIdNum === undefined || isNaN(poolIdNum)) {
+			resp.send(errorResp("please provide a correct poolSymbol", usage));
 			return;
 		}
 
@@ -207,8 +216,6 @@ export class PNLRestAPI {
 		resp.contentType("json");
 		resp.send(
 			toJson({
-				pool_id,
-				user: user_wallet,
 				earnings: earningsTokensSum,
 			})
 		);
@@ -220,16 +227,16 @@ export class PNLRestAPI {
 	 * @param resp
 	 */
 	private async fundingRatePayments(
-		req: Request<any, any, any, { user_wallet: string }>,
+		req: Request<any, any, any, { traderAddr: string }>,
 		resp: Response
 	) {
-		const usage = "required query parameters: user_wallet";
-		if (!correctQueryArgs(req.query, ["user_wallet"])) {
+		const usage = "required query parameters: traderAddr";
+		if (!correctQueryArgs(req.query, ["traderAddr"])) {
 			resp.send(errorResp("please provide correct query parameters", usage));
 			return;
 		}
 
-		const user_wallet = req.query.user_wallet.toLowerCase();
+		const user_wallet = req.query.traderAddr.toLowerCase();
 		// Parse wallet address and see if it is correct
 		try {
 			getAddress(user_wallet);
@@ -256,8 +263,10 @@ export class PNLRestAPI {
 		resp.send(
 			toJson(
 				data.map((f: FundingRatePayment) => ({
-					...f,
-					payment_amount: ABK64x64ToFloat(BigInt(f.payment_amount.toString())),
+					perpetualId: Number(f.perpetual_id),
+					amount: ABK64x64ToFloat(BigInt(f.payment_amount.toString())),
+					timestamp: f.payment_timestamp,
+					transactionHash: f.tx_hash,
 				}))
 			)
 		);
@@ -269,15 +278,15 @@ export class PNLRestAPI {
 	 * @param resp
 	 */
 	private async historicalTrades(
-		req: Request<any, any, any, { user_wallet: string }>,
+		req: Request<any, any, any, { traderAddr: string }>,
 		resp: Response
 	) {
-		const usage = "required query parameters: user_wallet";
-		if (!correctQueryArgs(req.query, ["user_wallet"])) {
+		const usage = "required query parameters: traderAddr";
+		if (!correctQueryArgs(req.query, ["traderAddr"])) {
 			resp.send(errorResp("please provide correct query parameters", usage));
 			return;
 		}
-		const user_wallet = req.query.user_wallet.toLowerCase();
+		const user_wallet = req.query.traderAddr.toLowerCase();
 
 		// Parse wallet address and see if it is correct
 		try {
@@ -304,11 +313,19 @@ export class PNLRestAPI {
 		resp.send(
 			toJson(
 				data.map((t: Trade) => ({
-					...t,
-					fee: ABK64x64ToFloat(BigInt(t.fee.toFixed())),
+					chainId: Number(t.chain_id),
+					perpetualId: Number(t.perpetual_id),
+
+					orderId: t.order_digest_hash,
+					orderFlags: t.order_flags,
+					side: t.side,
 					price: ABK64x64ToFloat(BigInt(t.price.toFixed())),
 					quantity: ABK64x64ToFloat(BigInt(t.quantity.toFixed())),
-					realized_profit: ABK64x64ToFloat(BigInt(t.realized_profit.toFixed())),
+					fee: ABK64x64ToFloat(BigInt(t.fee.toFixed())),
+					realizedPnl: ABK64x64ToFloat(BigInt(t.realized_profit.toFixed())),
+
+					transactionHash: t.tx_hash,
+					timestamp: t.trade_timestamp,
 				}))
 			)
 		);
@@ -320,35 +337,47 @@ export class PNLRestAPI {
 			any,
 			any,
 			{
-				pool_id: string;
+				poolSymbol: string;
 				// Date/timestamp from which we check the APY
-				from_timestamp: string;
+				fromTimestamp: string;
 				// Either NOW or later date than from_timestamp
-				to_timestamp: string;
+				toTimestamp: string;
 			}
 		>,
 		resp: Response
 	) {
-		const usage = "required query parameters: pool_id, from_timestamp, to_timestamp ";
-		if (!correctQueryArgs(req.query, ["pool_id", "from_timestamp", "to_timestamp"])) {
+		const usage =
+			"required query parameters: poolSymbol, fromTimestamp, toTimestamp ";
+		if (
+			!correctQueryArgs(req.query, ["poolSymbol", "fromTimestamp", "toTimestamp"])
+		) {
 			resp.send(errorResp("please provide correct query parameters", usage));
 			return;
 		}
-		const { pool_id, from_timestamp, to_timestamp } = req.query;
+		let pool_id: number;
+		try {
+			pool_id = this.md!.getPoolIdFromSymbol(req.query.poolSymbol)!;
+		} catch (error) {
+			resp.send(
+				errorResp(`no pool found for symbol ${req.query.poolSymbol} `, usage)
+			);
+			return;
+		}
+		const { fromTimestamp, toTimestamp } = req.query;
 
 		// Check if provided timestamps are numbers
-		let t_from = parseInt(from_timestamp),
-			t_to = parseInt(to_timestamp);
+		let t_from = parseInt(fromTimestamp),
+			t_to = parseInt(toTimestamp);
 		const reDigit = /^\d+$/;
 		if (
 			isNaN(t_from) ||
 			isNaN(t_to) ||
-			from_timestamp.match(reDigit) === null ||
-			to_timestamp.match(reDigit) === null
+			fromTimestamp.match(reDigit) === null ||
+			toTimestamp.match(reDigit) === null
 		) {
 			resp.send(
 				errorResp(
-					"invalid from_timestamp or to_timestamp, please provide correct unix timestamp",
+					"invalid fromTimestamp or toTimestamp, please provide correct unix timestamps",
 					usage
 				)
 			);
@@ -374,7 +403,7 @@ export class PNLRestAPI {
 			return;
 		}
 
-		const poolId = BigInt(pool_id);
+		const poolId = BigInt(pool_id!);
 
 		interface p_info {
 			pool_token_price: number;
@@ -421,11 +450,10 @@ export class PNLRestAPI {
 			const apy = ((price_ratio - 1) / t_diff) * secondsInYear;
 
 			const response = {
-				start_timestamp,
-				end_timestamp,
-				start_price: toPriceInfo[0].pool_token_price,
-				end_price: fromPriceInfo[0].pool_token_price,
-				pool_id: pool_id,
+				startTimestamp: start_timestamp,
+				endTimestamp: end_timestamp,
+				startPrice: toPriceInfo[0].pool_token_price,
+				endPrice: fromPriceInfo[0].pool_token_price,
 				apy,
 			};
 			resp.send(toJson(response));
