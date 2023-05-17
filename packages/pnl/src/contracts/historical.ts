@@ -45,12 +45,15 @@ export class HistoricalDataFilterer {
 	 */
 	public async calculateBlockFromTime(time: Date | undefined): Promise<number> {
 		if (time === undefined) {
-			return 0;
+			return 33600000;
 		}
 
 		const timestamp = time.getTime() / 1000;
 		let max = await this.provider.getBlockNumber();
-		let min = 0;
+		let min = 33600000;
+		if (max <= min) {
+			return min;
+		}
 		let midpoint = Math.floor((max + min) / 2);
 
 		// allow up to 5 blocks (in past) of error when finding the block
@@ -375,21 +378,35 @@ export class HistoricalDataFilterer {
 		await new Promise((resolve) => setTimeout(resolve, 1_100));
 		let numRequests = 0;
 		let events: ethers.EventLog[] = [];
+		const maxNumErrors = 5;
+		let numErrors = 0;
 
-		for (let i = Number(fromBlock); i < endBlock; i += deltaBlocks) {
+		for (let i = Number(fromBlock); i < endBlock; ) {
 			const _startBlock = i;
 			const _endBlock = Math.min(endBlock, i + deltaBlocks - 1);
-			const _events = (await c.queryFilter(
-				filter,
-				_startBlock,
-				_endBlock
-			)) as ethers.EventLog[];
-			events = [...events, ..._events];
-			// limit: 25 requests per second
-			numRequests++;
-			if (numRequests >= 25) {
-				numRequests = 0;
-				await new Promise((resolve) => setTimeout(resolve, 1_100));
+			try {
+				const _events = (await c.queryFilter(
+					filter,
+					_startBlock,
+					_endBlock
+				)) as ethers.EventLog[];
+				events = [...events, ..._events];
+				// limit: 25 requests per second
+				numRequests++;
+				if (numRequests >= 25) {
+					numRequests = 0;
+					await new Promise((resolve) => setTimeout(resolve, 1_100));
+				}
+				i += deltaBlocks;
+			} catch (error) {
+				if (numErrors < maxNumErrors) {
+					// rate limited: wait before re-trying
+					await new Promise((resolve) => setTimeout(resolve, 6_000));
+					numRequests = 0;
+					numErrors++;
+				} else {
+					throw new Error(error as string | undefined);
+				}
 			}
 		}
 
