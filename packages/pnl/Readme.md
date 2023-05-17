@@ -49,11 +49,9 @@ in directory packages/pnl.
 
 # Profit and loss service
 
-This directory contains the PnL service codebase. This service
+This directory contains the PnL service codebase. This service's entrypoint is `src/main.ts`
 
-Service entrypoint is `src/main.ts`
-
-To build project:
+To build the project:
 
 ```bash
 cd packages/pnl
@@ -69,8 +67,8 @@ yarn watch
 
 ## Setting up the price fetcher cron job
 
-Price fetcher script `./src/price_fetcher.ts` or compiled version
-`./dist/price_fetcher.js` is used to fetch the pool share token price
+The price fetcher script `./src/price_fetcher.ts`, or its compiled version
+`./dist/price_fetcher.js`, is used to fetch the pool share token price
 information. This script must be set up to run on a daily basis in order to have
 up to date price info in the database.
 
@@ -84,7 +82,7 @@ SDK_CONFIG_NAME=testnet DATABASE_URL="postgresql://username:password@localhost:5
 
 Note that running the helper script is idempotent, and won't add same entry twice.
 
-If you don't want to or can't use cron, alternatively you can set up any other
+If you don't want to or can't use cron, you may alternatively set up any other
 tool (for example supervisor) to run the price fetcher script. We recommend to
 schedule it to run on a daily basis. Make sure you provide correct
 `SDK_CONFIG_NAME` and `DATABASE_URL` environment variables when running price
@@ -104,7 +102,9 @@ DATABASE_URL - postgres DSN string
 HTTP_RPC_URL - node http url
 WS_RPC_URL - node wss url (for event listeners)
 API_PORT - port on which the REST API will be exposed on
+CHAIN_ID - corresponding to the apprropriate network
 SDK_CONFIG_NAME=testnet
+
 
 ```
 
@@ -136,21 +136,19 @@ PnL service consists of:
 
 Endpoint: `/funding-rate-payments`
 
-Query params: `user_wallet`
+Query params: `traderAddr`
 
-Example: http://localhost:8888/funding-rate-payments?user_wallet=0x9d5aab428e98678d0e645ea4aebd25f744341a05
+Example: http://localhost:8888/funding-rate-payments?traderAddr=0x6fe871703eb23771c4016eb62140367944e8edfc
 
 Sample Response:
 
 ```json
 [
 	{
-		"id": "2",
-		"wallet_address": "0x9d5aab428e98678d0e645ea4aebd25f744341a05",
-		"perpetual_id": "100001",
-		"payment_amount": "5736060149664922",
-		"payment_timestamp": "2023-04-30T23:21:54.000Z",
-		"tx_hash": "0x6f9fa207f1b0874df37ef556ce5663bb8c78d0d3765c896ca70136ec5ad1335e"
+		"perpetualId": 100001,
+		"amount": 0.002591422437757812,
+		"timestamp": "2023-04-30T23:21:54.000Z",
+		"transactionHash": "0x6f9fa207f1b0874df37ef556ce5663bb8c78d0d3765c896ca70136ec5ad1335e"
 	}
 ]
 ```
@@ -159,43 +157,26 @@ Sample Response:
 
 Endpoint: `/trades-history`
 
-Query params: `user_wallet`
+Query params: `traderAddr`
 
-Example: http://localhost:8888/trades-history?user_wallet=0x9d5aab428e98678d0e645ea4aebd25f744341a05
+Example: http://localhost:8888/trades-history?traderAddr=0x6fe871703eb23771c4016eb62140367944e8edfc
 
 Sample Response:
 
 ```json
 [
 	{
-		"id": "2",
-		"wallet_address": "0x9d5aab428e98678d0e645ea4aebd25f744341a05",
-		"perpetual_id": "100001",
-		"chain_id": 80001,
+		"chainId": 80001,
+		"perpetualId": 100001,
+		"orderId": "0x401a854d1d5c2e74a5732d411371892e0729314c21eede515ee0df49d2cac4bc",
+		"orderFlags": "1073741824",
 		"side": "buy",
-		"order_flags": "1073741824",
-		"price": "34814354995126549210201",
-		"quantity": "1844674407370955160",
-		"fee": "5318589376144345804",
-		"realized_profit": "-5674393472287671561",
-		"order_digest_hash": "0x401a854d1d5c2e74a5732d411371892e0729314c21eede515ee0df49d2cac4bc",
-		"tx_hash": "0x6f9fa207f1b0874df37ef556ce5663bb8c78d0d3765c896ca70136ec5ad1335e",
-		"trade_timestamp": "2023-04-30T23:21:54.000Z"
-	},
-	{
-		"id": "1",
-		"wallet_address": "0x9d5aab428e98678d0e645ea4aebd25f744341a05",
-		"perpetual_id": "100001",
-		"chain_id": 80001,
-		"side": "buy",
-		"order_flags": "1073741824",
-		"price": "34917851646879323276795",
-		"quantity": "1844674407370955160",
-		"fee": "5318453973402102417",
-		"realized_profit": "-5674189917584069793",
-		"order_digest_hash": "0x59168e0544182346f87baeaf911b58cf77f47fc4adb11cd26d4ea2a51dc09537",
-		"tx_hash": "0x62f8354e2c86443a162e887dc27535fe02688ec5b41a61534f8d56e55025953e",
-		"trade_timestamp": "2023-04-30T23:14:08.000Z"
+		"price": 1827.7619218467787,
+		"quantity": 0.1,
+		"fee": 0.26750443671354435,
+		"realizedPnl": 3.513758261674475,
+		"transactionHash": "0xd48fb25981434dd7c882ac6289bade191ef81f5e88466dc45ac7abb1754843f2",
+		"timestamp": "2023-04-30T23:21:54.000Z"
 	}
 ]
 ```
@@ -204,19 +185,18 @@ Sample Response:
 
 Endpoint: `/apy`
 
-Query params: `from_timestamp` - unix timestamp; `to_timestamp` - unix timestamp, `pool_id` - number
+Query params: `fromTimestamp` - unix timestamp; `toTimestamp` - unix timestamp, `poolSymbol` - string
 
-Example: http://localhost:8888/apy?from_timestamp=1612324439&to_timestamp=1684324439&pool_id=1
+Example: http://localhost:8888/apy?fromTimestamp=1612324439&toTimestamp=1684324439&poolSymbol=USDC
 
 Sample Response:
 
 ```json
 {
-	"start_timestamp": 1641072720,
-	"end_timestamp": 1684326028.306,
-	"start_price": 342422,
-	"end_price": 340323,
-	"pool_id": "1",
+	"startTimestamp": 1641072720,
+	"endTimestamp": 1684326028.306,
+	"startPrice": 1.0123,
+	"endPrice": 1.234,
 	"apy": 0.004496850129718713
 }
 ```
@@ -225,17 +205,15 @@ Sample Response:
 
 Endpoint: `/earnings`
 
-Query params: `user_wallet`; `pool_id` - number
+Query params: `lpAddr` - liquidity provider address; `poolSymbol` - string
 
-Example: http://localhost:8888/earnings?user_wallet=0x9d5aab428e98678d0e645ea4aebd25f744341a05&pool_id=
+Example: http://localhost:8888/earnings?lpAddr=0x9d5aab428e98678d0e645ea4aebd25f744341a05&poolSymbol=MATIC
 
 Sample Response:
 
 ```json
 {
-	"pool_id": "1",
-	"user": "0x9d5aab428e98678d0e645ea4aebd25f744341a05",
-	"earnings": 12007637.680452734
+	"earnings": 499914.0164721594
 }
 ```
 
@@ -243,18 +221,16 @@ Note that `earnings` will be returned as decimal 18 adjusted number value.
 
 ## Open withdrawal
 
-Endpoint: `/open-withdrawal`
+Endpoint: `/open-withdrawals`
 
-Query params: `user_wallet`; `pool_id` - number
+Query params: `lpAddr` - liquidity provider address; `poolSymbol` - string
 
-Example: http://localhost:8888/open-withdrawal?user_wallet=0x9d5aab428e98678d0e645ea4aebd25f744341a05&pool_id=
+Example: http://localhost:8888/open-withdrawal?lpAddr=0x9d5aab428e98678d0e645ea4aebd25f744341a05&poolSymbol=MATIC
 
 Sample Response:
 
 ```json
 {
-	"user_wallet": "0x9d5aab428e98678d0e645ea4aebd25f744341a05",
-	"pool_id": "1",
-	"withdrawals": [{ "share_amount": 1200000, "time_elapsed_sec": 907960 }]
+	"withdrawals": [{ "shareAmount": 1200000, "timeElapsedSec": 907960 }]
 }
 ```
