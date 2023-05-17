@@ -44,7 +44,7 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 		path: ".env",
 	});
 	if (config.error || config.parsed === undefined) {
-		logger.error("could not parse .env file");
+		logger.warn("could not parse .env file");
 	}
 
 	// Check if required env variables were provided
