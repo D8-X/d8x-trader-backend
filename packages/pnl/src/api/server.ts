@@ -1,4 +1,4 @@
-import { FundingRatePayment, Prisma, PrismaClient } from "@prisma/client";
+import { FundingRatePayment, Trade, Prisma, PrismaClient } from "@prisma/client";
 import express, { Express, Request, Response, response } from "express";
 import { Logger } from "winston";
 import { TradingHistory } from "../db/trading_history";
@@ -7,7 +7,7 @@ import { correctQueryArgs, errorResp, toJson } from "../utils/response";
 import { getAddress } from "ethers";
 import { MarketData } from "@d8x/perpetuals-sdk";
 import { getSDKFromEnv } from "../utils/abi";
-import { dec18ToFloat } from "../utils/bigint";
+import { dec18ToFloat, ABK64x64ToFloat } from "../utils/bigint";
 
 // Make sure the decimal values are always return as normal numeric strings
 // instead of scientific notation
@@ -239,20 +239,28 @@ export class PNLRestAPI {
 			return;
 		}
 
-		const data = await this.opts.prisma.fundingRatePayment.findMany({
-			orderBy: {
-				payment_timestamp: "desc",
-			},
-			where: {
-				wallet_address: {
-					equals: user_wallet,
+		const data: FundingRatePayment[] =
+			await this.opts.prisma.fundingRatePayment.findMany({
+				orderBy: {
+					payment_timestamp: "desc",
 				},
-			},
-		});
+				where: {
+					wallet_address: {
+						equals: user_wallet,
+					},
+				},
+			});
 
 		// return response
 		resp.contentType("json");
-		resp.send(toJson(data));
+		resp.send(
+			toJson(
+				data.map((f: FundingRatePayment) => ({
+					...f,
+					payment_amount: ABK64x64ToFloat(BigInt(f.payment_amount.toString())),
+				}))
+			)
+		);
 	}
 
 	/**
@@ -280,7 +288,7 @@ export class PNLRestAPI {
 			return;
 		}
 
-		const data = await this.opts.prisma.trade.findMany({
+		const data: Trade[] = await this.opts.prisma.trade.findMany({
 			orderBy: {
 				trade_timestamp: "desc",
 			},
@@ -293,7 +301,17 @@ export class PNLRestAPI {
 
 		// return response
 		resp.contentType("json");
-		resp.send(toJson(data));
+		resp.send(
+			toJson(
+				data.map((t: Trade) => ({
+					...t,
+					fee: ABK64x64ToFloat(BigInt(t.fee.toFixed())),
+					price: ABK64x64ToFloat(BigInt(t.price.toFixed())),
+					quantity: ABK64x64ToFloat(BigInt(t.quantity.toFixed())),
+					realized_profit: ABK64x64ToFloat(BigInt(t.realized_profit.toFixed())),
+				}))
+			)
+		);
 	}
 
 	private async apyCalculation(
