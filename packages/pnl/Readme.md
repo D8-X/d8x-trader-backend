@@ -1,5 +1,19 @@
 # Setup
 
+You can either use documentation provided in the root README to spin up all
+services with `docker compose` or refer to [Manual Setup](#manual-setup) for
+setting up only PNL service manually.
+
+Cron job setup must be done manually and is not automatically included via
+docker setup. If you are using docker to spin up the services and postgres
+database, make sure to adjust `DATABASE_URL` variable to match your database
+credentials when installing the
+[price fetcher cron job](#setting-up-the-price-fetcher-cron-job)
+
+## Manual Setup
+
+The following section documents how to run PNL service from source files.
+
 To install packages run
 
 ```bash
@@ -80,8 +94,7 @@ Example:
 
 ```bash
 SDK_CONFIG_NAME=testnet DATABASE_URL="postgresql://username:password@localhost:5432/db?schema=public" node ./dist/price_fetcher.js
-``
-
+```
 
 ## Environment variables
 
@@ -109,9 +122,22 @@ HTTP_RPC_URL, WS_RPC_URL:
 -   no default for the websocket-url (application fails if not provided)
 -   if left empty (HTTP_RPC_URL=""), the application will choose the default RPC provider specified in the d8x node SDK
 
+## Profit and loss service structure
+
+PnL service consists of:
+
+-   Blockchain interactions code (historical data filterers and event listeners) `src/contracts`
+-   Minimal express REST API for serving results from db `src/api`
+-   DB layer via Prisma `src/db`
+
+# API Endpoints
+
 ```
 
-/funding-rate-payments (query params: user_wallet) - retrieve funding rate payments for given user_wallet
+ - retrieve funding rate payments for given user_wallet:
+
+
+
 /trades-history (query params: user_wallet) - retrieve trading history for given user_wallet
 
 /apy (query params: from_timestamp, to_timestamp, pool_id) - apy endpoint. Provided pool_id for the perpetual pool, from_timestamp is any time in the past which will be used to find nearest available price information, to_timestamp is analogous for from_timestamp for end timestamp of APY calculation. Successful response will contain the following data
@@ -131,66 +157,133 @@ example response:
 "user": "0x6FE871703EB23771c4016eB62140367944e8EdFc",
 "earnings": -4918.951264610514
 }
-Note that earnings will be returned as decimal 18 adjusted number value.
+
 
 ```
 
-## Profit and loss service structure
-
-PnL service consists of:
-
--   Blockchain interactions code (historical data filterers and event listeners) `src/contracts`
--   Minimal express REST API for serving results from db `src/api`
--   DB layer via Prisma `src/db`
-
-# API
-
 ## Funding Rate Payments
 
-Example: http://localhost:8888/funding-rate-payments/0xDEDf0dd46757cE93E0D9439F78382c0c68cF76C2
+Endpoint: `/funding-rate-payments`
+
+Query params: `user_wallet`
+
+Example: http://localhost:8888/funding-rate-payments?user_wallet=0x9d5aab428e98678d0e645ea4aebd25f744341a05
+
+Sample Response:
+
+```json
+[
+	{
+		"id": "2",
+		"wallet_address": "0x9d5aab428e98678d0e645ea4aebd25f744341a05",
+		"perpetual_id": "100001",
+		"payment_amount": "5736060149664922",
+		"payment_timestamp": "2023-04-30T23:21:54.000Z",
+		"tx_hash": "0x6f9fa207f1b0874df37ef556ce5663bb8c78d0d3765c896ca70136ec5ad1335e"
+	}
+]
+```
 
 ## Trades History
 
-http://localhost:8888/trades-history/0x9d5aaB428e98678d0E645ea4AeBd25f744341a05
+Endpoint: `/trades-history`
 
-## Discussion M&B
+Query params: `user_wallet`
 
-    - We don't want everything upfront, but if someone searches for a wallet and it doesn't exist in our database, we need to launch some bg process which will then read the event logs of txs for that user wallet (let's say 6months in the past) and fetch the historical trades information
-    - Look up at the latest timestamp for that address on startup
-    - Recovery mechanism from crash of service
-    - Use block timestamp when reading historical data and creating new entries
-    - Events: Trade; Liquidate; UpdateMarginAccount;
+Example: http://localhost:8888/trades-history?user_wallet=0x9d5aab428e98678d0e645ea4aebd25f744341a05
 
-### Proposed architecture
+Sample Response:
 
-1. Functionality (code) which is able to retrieve (filter) historical logs and
-   retrieve the events. This piece of code will be used either in pnl service or
-   in another background process which will receive messages from the API or #3
-   and start processing historical data. `src/contracts/historical.ts`
-   (HistoricalDataFilterer)
+```json
+[
+	{
+		"id": "2",
+		"wallet_address": "0x9d5aab428e98678d0e645ea4aebd25f744341a05",
+		"perpetual_id": "100001",
+		"chain_id": 80001,
+		"side": "buy",
+		"order_flags": "1073741824",
+		"price": "34814354995126549210201",
+		"quantity": "1844674407370955160",
+		"fee": "5318589376144345804",
+		"realized_profit": "-5674393472287671561",
+		"order_digest_hash": "0x401a854d1d5c2e74a5732d411371892e0729314c21eede515ee0df49d2cac4bc",
+		"tx_hash": "0x6f9fa207f1b0874df37ef556ce5663bb8c78d0d3765c896ca70136ec5ad1335e",
+		"trade_timestamp": "2023-04-30T23:21:54.000Z"
+	},
+	{
+		"id": "1",
+		"wallet_address": "0x9d5aab428e98678d0e645ea4aebd25f744341a05",
+		"perpetual_id": "100001",
+		"chain_id": 80001,
+		"side": "buy",
+		"order_flags": "1073741824",
+		"price": "34917851646879323276795",
+		"quantity": "1844674407370955160",
+		"fee": "5318453973402102417",
+		"realized_profit": "-5674189917584069793",
+		"order_digest_hash": "0x59168e0544182346f87baeaf911b58cf77f47fc4adb11cd26d4ea2a51dc09537",
+		"tx_hash": "0x62f8354e2c86443a162e887dc27535fe02688ec5b41a61534f8d56e55025953e",
+		"trade_timestamp": "2023-04-30T23:14:08.000Z"
+	}
+]
+```
 
-    - Specify the timestamp how much back in the past we want to start
-      retrieving the event logs. Based on the timestamp we calculate the block
-      from which we start
-    - Event specific params: user wallet address (must be indexed)
+## APY
 
-2. DB layer. Database layer is built with prisma. We inject the functionality
-   into the callbacks for HistoricalDataFilterer. From there db layer
-   functionality checks if given events should be inserted into db or not
+Endpoint: `/apy`
 
-    - Check the order hashes, block times, amounts to avoid duplication in db
+Query params: `from_timestamp` - unix timestamp; `to_timestamp` - unix timestamp, `pool_id` - number
 
-3. Missing data checker (Something sitting between the API and
-   HistoricalDataFilterer or called up upon restart of pnl service). Checks
-   latest data available in database for given wallets and starts retrieving and
-   processing data (via #1) if needed. Notification to check the wallet address
-   data could be implemented as a RPC/HTTP call to pnl service via middleware or
-   handler of REST API (providing the wallet address in question).
+Example: http://localhost:8888/apy?from_timestamp=1612324439&to_timestamp=1684324439&pool_id=1
 
-# TODO
+Sample Response:
 
---- Liquidity provision
-[] Add LiquidityWithdrawalInitiated event
-[] LiquidityWithdrawalInitiated should be for another endpoint and not in the earnings entries
----
+```json
+{
+	"start_timestamp": 1641072720,
+	"end_timestamp": 1684326028.306,
+	"start_price": 342422,
+	"end_price": 340323,
+	"pool_id": "1",
+	"apy": 0.004496850129718713
+}
+```
+
+## Earnings
+
+Endpoint: `/earnings`
+
+Query params: `user_wallet`; `pool_id` - number
+
+Example: http://localhost:8888/earnings?user_wallet=0x9d5aab428e98678d0e645ea4aebd25f744341a05&pool_id=
+
+Sample Response:
+
+```json
+{
+	"pool_id": "1",
+	"user": "0x9d5aab428e98678d0e645ea4aebd25f744341a05",
+	"earnings": 12007637.680452734
+}
+```
+
+Note that `earnings` will be returned as decimal 18 adjusted number value.
+
+## Open withdrawal
+
+Endpoint: `/open-withdrawal`
+
+Query params: `user_wallet`; `pool_id` - number
+
+Example: http://localhost:8888/open-withdrawal?user_wallet=0x9d5aab428e98678d0e645ea4aebd25f744341a05&pool_id=
+
+Sample Response:
+
+```json
+{
+	"user_wallet": "0x9d5aab428e98678d0e645ea4aebd25f744341a05",
+	"pool_id": "1",
+	"withdrawals": [{ "share_amount": 1200000, "time_elapsed_sec": 907960 }]
+}
 ```
