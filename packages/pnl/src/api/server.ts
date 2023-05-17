@@ -269,7 +269,6 @@ export class PNLRestAPI {
 			resp.send(errorResp("please provide correct query parameters", usage));
 			return;
 		}
-
 		const user_wallet = req.query.user_wallet.toLowerCase();
 
 		// Parse wallet address and see if it is correct
