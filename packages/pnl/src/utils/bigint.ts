@@ -12,3 +12,8 @@ export const dec18ToFloat = (x: bigint) => {
 	var NumberStr = xInt.toString() + "." + sPad + xDec.toString();
 	return parseFloat(NumberStr) * sign;
 };
+
+// see ABDK29ToFloat from "@d8x/perpetuals-sdk"
+export const ABDK29ToFloat = (x: bigint) => {
+	return x / BigInt(Math.pow(2, 29));
+};
