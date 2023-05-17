@@ -132,35 +132,6 @@ PnL service consists of:
 
 # API Endpoints
 
-```
-
- - retrieve funding rate payments for given user_wallet:
-
-
-
-/trades-history (query params: user_wallet) - retrieve trading history for given user_wallet
-
-/apy (query params: from_timestamp, to_timestamp, pool_id) - apy endpoint. Provided pool_id for the perpetual pool, from_timestamp is any time in the past which will be used to find nearest available price information, to_timestamp is analogous for from_timestamp for end timestamp of APY calculation. Successful response will contain the following data
-{
-start_timestamp - found nearest start timestamp
-end_timestamp - found nearest end timestamp
-start_price - start price
-end_price - end price
-pool_id - pool id
-apy - calculated APY value
-}
-
-/earnings (query params: user_wallet, pool_id) - tokens earnings aggregator for requested pool and wallet.
-example response:
-{
-"pool_id": "5",
-"user": "0x6FE871703EB23771c4016eB62140367944e8EdFc",
-"earnings": -4918.951264610514
-}
-
-
-```
-
 ## Funding Rate Payments
 
 Endpoint: `/funding-rate-payments`

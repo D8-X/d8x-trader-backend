@@ -55,3 +55,8 @@ export function floatToABK64x64(x: number): bigint {
 	let xDecBig = (xDec * ONE_64x64) / DECIMALS18;
 	return (xIntBig + xDecBig) * BigInt(sg);
 }
+
+// see ABDK29ToFloat from "@d8x/perpetuals-sdk"
+export const ABDK29ToFloat = (x: bigint) => {
+	return x / BigInt(Math.pow(2, 29));
+};
