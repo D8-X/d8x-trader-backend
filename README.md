@@ -13,16 +13,21 @@ The services run over http/ws and it is required to install a reverse proxy on t
 You can spin up all services from this repo + Postgres database via `docker
 compose`. Copy the `.envExample` contents to `.env` file and set the values of
 `HTTP_RPC_URL` and `WS_RPC_URL` variables to your node http and websockets urls
-respectively. Then run
+respectively. Then to start all services simply run:
 
 ```bash
 docker compose up
 ```
 
-to start all services. On the first run this will initialize postgres database
-in a docker container with a named volume `pgdb` with credentials and db name
-specified by `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` variables from
-`.env` file.
+On the first run this will initialize postgres database in a docker container
+with a named volume `pgdb` with credentials and db name specified by
+`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` variables from `.env` file.
+Make sure to not change these credentials after postgres is initialized,
+otherwise you might get authentication errors (or will need to rebuild the
+database).
+
+**Note that initially it might take ~5 minutes to download historical data from
+the blockchain**
 
 ## Inspecting the database
 
