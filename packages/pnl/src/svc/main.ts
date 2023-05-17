@@ -84,6 +84,7 @@ export const main = async () => {
 	let wsProvider: ethers.Provider = new WebSocketProvider(wsRpcUrl, network);
 	let httpProvider: ethers.Provider = new JsonRpcProvider(httpRpcUrl, network, {
 		staticNetwork: network,
+		batchMaxCount: 25,
 	});
 
 	logger.info("initialized rpc provider", { wsRpcUrl, httpRpcUrl });
