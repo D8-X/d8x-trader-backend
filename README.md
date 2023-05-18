@@ -2,11 +2,17 @@
 
 The entire backend for the D8X Perpetuals trading frontend package consists of
 
-- this backend code
+- this backend code - lerna monorepo consisting of a few services:
+
+  - api
+  - pnl - Profit and loss and APY API
+  - pxws-client
+
 - candle stick chart server: https://github.com/D8-X/candleD8
 - a price server that provides off-chain oracle prices: [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server)
 
-The services run over http/ws and it is required to install a reverse proxy on the servers so the traffic can flow via https/wss.
+The services run over http/ws and it is required to install a reverse proxy on
+the servers so the traffic can flow via https/wss.
 
 # Docker compose setup
 
@@ -64,6 +70,15 @@ Either
 
 ```bash
 docker compose  --env-file .env up --build
+```
+
+## Updating packages with lerna
+
+You can update packages for each subpackage via `lerna exec`. For example to
+update to latest `@d8x/perpetuals-sdk` version:
+
+```bash
+npx lerna exec -- yarn upgrade @d8x/perpetuals-sdk@latest
 ```
 
 ## Broker-fee
