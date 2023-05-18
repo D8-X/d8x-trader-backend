@@ -2,17 +2,24 @@
 
 You can either use documentation provided in the root README to spin up all
 services with `docker compose` or refer to [Manual Setup](#manual-setup) for
-setting up only PNL service manually.
+setting up only the PNL service manually.
 
 Cron job setup must be done manually and is not automatically included via
 docker setup. If you are using docker to spin up the services and postgres
 database, make sure to adjust `DATABASE_URL` variable to match your database
 credentials when installing the
-[price fetcher cron job](#setting-up-the-price-fetcher-cron-job)
+[price fetcher cron job](#setting-up-the-price-fetcher-cron-job).
+For the default docker compose setup (assuming you did not change `POSTGRES_*`
+env variables when copying `.envExample` to `.env`), the `DATABASE_URL`
+environment variable provided for `cron_installer.sh` should look like this:
+
+```bash
+DATABASE_URL="postgresql://user:password@localhost:5432/db?schema=public"
+```
 
 ## Manual Setup
 
-The following section documents how to run PNL service from source files.
+The following section documents how to run PNL service from the source files.
 
 To install packages run
 
@@ -97,15 +104,12 @@ SDK_CONFIG_NAME=testnet DATABASE_URL="postgresql://username:password@localhost:5
 ## Environment variables
 
 ```
-
 DATABASE_URL - postgres DSN string
 HTTP_RPC_URL - node http url
 WS_RPC_URL - node wss url (for event listeners)
 API_PORT - port on which the REST API will be exposed on
 CHAIN_ID - corresponding to the apprropriate network
 SDK_CONFIG_NAME=testnet
-
-
 ```
 
 DATABASE_URL:
