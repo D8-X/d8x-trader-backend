@@ -8,6 +8,7 @@ import { getAddress } from "ethers";
 import { MarketData } from "@d8x/perpetuals-sdk";
 import { getSDKFromEnv } from "../utils/abi";
 import { dec18ToFloat, ABK64x64ToFloat } from "../utils/bigint";
+import cors from "cors";
 
 // Make sure the decimal values are always return as normal numeric strings
 // instead of scientific notation
@@ -40,6 +41,7 @@ export class PNLRestAPI {
 	constructor(private opts: RestAPIOptions, public l: Logger) {
 		this.db = opts.db;
 		this.app = express();
+
 		this.registerMiddleware();
 		this.registerRoutes(this.app);
 	}
@@ -54,7 +56,9 @@ export class PNLRestAPI {
 		this.md = md;
 	}
 
-	private registerMiddleware() {}
+	private registerMiddleware() {
+		this.app.use(cors());
+	}
 
 	/**
 	 * Register routes of pnl API
