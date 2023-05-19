@@ -54,17 +54,6 @@ update to latest `@d8x/perpetuals-sdk` version:
 ```bash
 npx lerna exec -- yarn upgrade @d8x/perpetuals-sdk@latest
 ```
-
-# Architecture
-
-## API
-
-<img src="./docs/BackendDiagram.png">
-
-## PNL
-
-<img src="./docs/PnlService.png">
-
 # Services
 
 Each service has its own README where you can find more documentation about the
@@ -73,4 +62,16 @@ data, setup, etc of each service in its respective README doc.
 
 - [API](./packages/api/README.md) - main backend http and websockets API documentation
 - [PNL](./packages/pnl/README.md) - profit and loss, historical trades, APY API documentation
-- [PXWS-Client](./packages/pxws-client/README.md)
+- [PXWS-Client](./packages/pxws-client/README.md) - off-chain index price data streaming
+
+# Architecture
+
+## API & PXWS-Client
+
+<img src="./docs/BackendDiagram.png">
+
+## PNL
+
+<img src="./docs/PnlService.png">
+
+
