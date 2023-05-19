@@ -1,8 +1,9 @@
 # Setup
 
 You can either use documentation provided in the root README to spin up all
-services with `docker compose` or refer to [Manual Setup](#manual-setup) for
-setting up only the PNL service manually.
+services with `docker compose` [here](../../README.md#docker-compose-setup) or
+refer to [Manual Setup](#manual-setup) for setting up only the PNL service
+manually.
 
 Cron job setup must be done manually and is not automatically included via
 docker setup. If you are using docker to spin up the services and postgres
