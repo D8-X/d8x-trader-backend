@@ -322,7 +322,7 @@ export class PNLRestAPI {
 
 					orderId: t.order_digest_hash,
 					orderFlags: t.order_flags,
-					side: t.side.replace("_", " ").toUpperCase(),
+					side: t.side.toUpperCase(),
 					price: ABK64x64ToFloat(BigInt(t.price.toFixed())),
 					quantity: ABK64x64ToFloat(BigInt(t.quantity.toFixed())),
 					fee: ABK64x64ToFloat(BigInt(t.fee.toFixed())),
