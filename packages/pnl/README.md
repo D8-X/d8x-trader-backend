@@ -241,7 +241,7 @@ Endpoint: `/open-withdrawals`
 
 Query params: `lpAddr` - liquidity provider address; `poolSymbol` - string
 
-Example: http://localhost:8888/open-withdrawal?lpAddr=0x9d5aab428e98678d0e645ea4aebd25f744341a05&poolSymbol=MATIC
+Example: http://localhost:8888/open-withdrawals?lpAddr=0x9d5aab428e98678d0e645ea4aebd25f744341a05&poolSymbol=MATIC
 
 Sample Response:
 
