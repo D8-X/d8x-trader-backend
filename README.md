@@ -46,6 +46,10 @@ can connect to your `POSTGRES_DB` database with `POSTGRES_USER` and
 `POSTGRES_PASSWORD` credentials that you provided in your `.env` file on the
 first `docker compose up` run.
 
+```
+psql "dbname=db host=hosthere user=user password=password port=5432"
+```
+
 # Updating packages with lerna
 
 You can update packages for each subpackage via `lerna exec`. For example to
