@@ -84,7 +84,18 @@ You can use a helper script to set up a crontab entry which will run price
 fetcher daily. Replace the `SDK_CONFIG_NAME` `DATABASE_URL` values according to
 your setup:
 
+1. Setup and run locally
 ```bash
+cd ./packages/pnl
+yarn
+yarn build
+# go back to project root
+cd ../../ 
+SDK_CONFIG_NAME=testnet DATABASE_URL="postgresql://username:password@localhost:5432/db?schema=public" node ./packages/pnl/dist/price_fetcher.js
+```
+
+2. If this works, setup cron:
+```
 SDK_CONFIG_NAME=testnet DATABASE_URL="postgresql://username:password@localhost:5432/db?schema=public" bash ./src/cron_installer.sh
 ```
 
