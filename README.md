@@ -47,7 +47,7 @@ can connect to your `POSTGRES_DB` database with `POSTGRES_USER` and
 first `docker compose up` run.
 
 ```
-psql "dbname=db host=hosthere user=user password=password port=5432"
+psql "dbname=db host=localhost user=user password=password port=5432"
 ```
 
 # Updating packages with lerna
