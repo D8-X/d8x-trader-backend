@@ -18,7 +18,7 @@ compose`. Copy the `.envExample` contents to `.env` file and set the values of
 respectively. Then to start all services simply run:
 
 ```bash
-docker compose up
+docker compose up --build
 ```
 
 On the first run this will initialize postgres database in a docker container
