@@ -5,19 +5,6 @@ services with `docker compose` [here](../../README.md#docker-compose-setup) or
 refer to [Manual Setup](#manual-setup) for setting up only the PNL service
 manually.
 
-Cron job setup must be done manually and is not automatically included via
-docker setup. If you are using docker to spin up the services and postgres
-database, make sure to adjust `DATABASE_URL` variable to match your database
-credentials when installing the
-[price fetcher cron job](#setting-up-the-price-fetcher-cron-job).
-For the default docker compose setup (assuming you did not change `POSTGRES_*`
-env variables when copying `.envExample` to `.env`), the `DATABASE_URL`
-environment variable provided for `cron_installer.sh` should look like this:
-
-```bash
-DATABASE_URL="postgresql://user:password@localhost:5432/db?schema=public"
-```
-
 ## Manual Setup
 
 The following section documents how to run PNL service from the source files.
@@ -71,46 +58,6 @@ For development:
 ```bash
 cd packages/pnl
 yarn watch
-```
-
-## Setting up the price fetcher cron job
-
-The price fetcher script `./src/price_fetcher.ts`, or its compiled version
-`./dist/price_fetcher.js`, is used to fetch the pool share token price
-information. This script must be set up to run on a daily basis in order to have
-up to date price info in the database.
-
-You can use a helper script to set up a crontab entry which will run price
-fetcher daily. Replace the `SDK_CONFIG_NAME` `DATABASE_URL` values according to
-your setup:
-
-1. Setup and run locally
-```bash
-cd ./packages/pnl
-yarn
-yarn build
-# go back to project root
-cd ../../ 
-SDK_CONFIG_NAME=testnet DATABASE_URL="postgresql://username:password@localhost:5432/db?schema=public" node ./packages/pnl/dist/price_fetcher.js
-```
-
-2. If this works, setup cron:
-```
-SDK_CONFIG_NAME=testnet DATABASE_URL="postgresql://username:password@localhost:5432/db?schema=public" bash ./src/cron_installer.sh
-```
-
-Note that running the helper script is idempotent, and won't add same entry twice.
-
-If you don't want to or can't use cron, you may alternatively set up any other
-tool (for example supervisor) to run the price fetcher script. We recommend to
-schedule it to run on a daily basis. Make sure you provide correct
-`SDK_CONFIG_NAME` and `DATABASE_URL` environment variables when running price
-fetcher.
-
-Example:
-
-```bash
-SDK_CONFIG_NAME=testnet DATABASE_URL="postgresql://username:password@localhost:5432/db?schema=public" node ./dist/price_fetcher.js
 ```
 
 ## Environment variables
