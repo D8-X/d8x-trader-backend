@@ -9,6 +9,7 @@ import { MarketData } from "@d8x/perpetuals-sdk";
 import { getSDKFromEnv } from "../utils/abi";
 import { dec18ToFloat, ABK64x64ToFloat } from "../utils/bigint";
 import cors from "cors";
+import { PriceInfo } from "../db/price_info";
 
 // Make sure the decimal values are always return as normal numeric strings
 // instead of scientific notation
@@ -19,6 +20,7 @@ Prisma.Decimal.prototype.toJSON = function () {
 export interface DBHandlers {
 	fundingRatePayment: FundingRatePayments;
 	tradeHistory: TradingHistory;
+	priceInfo: PriceInfo;
 }
 export interface RestAPIOptions {
 	port: number;
@@ -335,6 +337,41 @@ export class PNLRestAPI {
 		);
 	}
 
+	/**
+	 * In memory cache for last price fetch time for poolSymbol
+	 */
+	public lastPriceFetchCache = new Map<number, Date>();
+
+	/**
+	 * Fetch the latest price of asked poolSymbol if previous fetch was over an
+	 * hour ago.
+	 * @param poolSymbol
+	 */
+	private async fetchAndStoreLatestPriceForPool(poolId: number) {
+		if (this.lastPriceFetchCache.has(poolId)) {
+			const moreThan1HAgo =
+				(new Date().getTime() / 1000 -
+					this.lastPriceFetchCache.get(poolId)!.getTime() / 1000) /
+					3600 >=
+				1;
+
+			if (!moreThan1HAgo) {
+				return;
+			}
+		}
+
+		// Perform the price fetching
+		const price = await this.md!.getShareTokenPrice(poolId);
+
+		if (!isNaN(price)) {
+			this.lastPriceFetchCache.set(poolId, new Date());
+			this.l.info("fetched price info", { poolId, price });
+
+			// Push the price info to db
+			await this.db.priceInfo.insert(price, BigInt(poolId));
+		}
+	}
+
 	private async apyCalculation(
 		req: Request<
 			any,
@@ -408,6 +445,10 @@ export class PNLRestAPI {
 		}
 
 		const poolId = BigInt(pool_id!);
+
+		// Immitate the price fetched cron job. Periodically (atm every 1 hour)
+		// fetch latest price info for requested pool
+		this.fetchAndStoreLatestPriceForPool(pool_id);
 
 		interface p_info {
 			pool_token_price: number;

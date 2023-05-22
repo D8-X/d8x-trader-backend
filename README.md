@@ -31,13 +31,6 @@ database).
 **Note that initially it might take up to a minute to download historical data from
 the blockchain**
 
-## Setting up price fetcher cron job
-
-PNL service requires you to set up a price fetcher cron job in order to retrieve
-up to date pricing info and store it in database on a daily basis. Please refer to
-[PNL Doc](./packages/pnl/README.md#setting-up-the-price-fetcher-cron-job)
-on how to set it up.
-
 ## Inspecting the database
 
 You can inspect the database via `psql` or any other GUI tool such as DBeaver.

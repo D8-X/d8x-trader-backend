@@ -223,6 +223,7 @@ export const main = async () => {
 			db: {
 				fundingRatePayment: dbFundingRatePayments,
 				tradeHistory: dbTrades,
+				priceInfo: dbPriceInfo,
 			},
 		},
 		logger
