@@ -378,8 +378,8 @@ export class HistoricalDataFilterer {
 		await new Promise((resolve) => setTimeout(resolve, 1_100));
 		let numRequests = 0;
 		let events: ethers.EventLog[] = [];
-		const maxNumErrors = 5;
-		let numErrors = 0;
+		let lastWaitSeconds = 2;
+		let maxWaitSeconds = 32;
 
 		for (let i = Number(fromBlock); i < endBlock; ) {
 			const _startBlock = i;
@@ -399,11 +399,17 @@ export class HistoricalDataFilterer {
 				}
 				i += deltaBlocks;
 			} catch (error) {
-				if (numErrors < maxNumErrors) {
+				if (maxWaitSeconds < lastWaitSeconds) {
+					this.l.warn(
+						"attempted to make too many requests to node, performing a wait",
+						{ wait_seconds: lastWaitSeconds }
+					);
 					// rate limited: wait before re-trying
-					await new Promise((resolve) => setTimeout(resolve, 6_000));
+					await new Promise((resolve) =>
+						setTimeout(resolve, lastWaitSeconds * 1000)
+					);
 					numRequests = 0;
-					numErrors++;
+					lastWaitSeconds *= 2;
 				} else {
 					throw new Error(error as string | undefined);
 				}
