@@ -97,9 +97,6 @@ export const main = async () => {
 	const dbPriceInfo = new PriceInfo(prisma, logger);
 	const dbLPWithdrawals = new LiquidityWithdrawals(prisma, logger);
 
-	// Share token contracts
-	const shareTokenAddresses = await retrieveShareTokenContracts();
-
 	const eventsListener = new EventListener(
 		{
 			logger,
@@ -116,14 +113,82 @@ export const main = async () => {
 	);
 	eventsListener.listen();
 
+	// Start the historical data filterers on serivice start...
+	const hdOpts: hdFilterersOpt = {
+		dbEstimatedEarnings,
+		dbFundingRatePayments,
+		dbLPWithdrawals,
+		dbPriceInfo,
+		dbTrades,
+		httpProvider,
+		proxyContractAddr,
+		useTimestamp: undefined,
+	};
+	await runHistoricalDataFilterers(hdOpts);
+	// ...and re-run them every day for redundancy. This will ensure that any
+	// lost events will eventually be stored in db
+	setInterval(async () => {
+		const daysInPast = 2;
+		const d = new Date();
+		d.setDate(d.getDate() - daysInPast);
+		hdOpts.useTimestamp = new Date(d);
+		logger.info("running historical data filterers for redundancy", {
+			from: hdOpts.useTimestamp,
+		});
+		await runHistoricalDataFilterers(hdOpts);
+	}, 1000 * 24 * 3600);
+
+	// Start the pnl api
+	const api = new PNLRestAPI(
+		{
+			port: 8888,
+			prisma,
+			db: {
+				fundingRatePayment: dbFundingRatePayments,
+				tradeHistory: dbTrades,
+				priceInfo: dbPriceInfo,
+			},
+		},
+		logger
+	);
+	api.start();
+};
+
+export interface hdFilterersOpt {
+	// If useTimestamp is provided, it will be used instead of latest timestamp
+	// from historical data db records
+	useTimestamp: Date | undefined;
+	httpProvider: ethers.Provider;
+	proxyContractAddr: string;
+	dbTrades: TradingHistory;
+	dbFundingRatePayments: FundingRatePayments;
+	dbEstimatedEarnings: EstimatedEarnings;
+	dbPriceInfo: PriceInfo;
+	dbLPWithdrawals: LiquidityWithdrawals;
+}
+
+export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
+	const {
+		useTimestamp,
+		httpProvider,
+		proxyContractAddr,
+		dbTrades,
+		dbFundingRatePayments,
+		dbEstimatedEarnings,
+		dbPriceInfo,
+		dbLPWithdrawals,
+	} = opts;
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
+
+	// Share token contracts
+	const shareTokenAddresses = await retrieveShareTokenContracts();
 
 	// LP withdrawals must be first thing that we filter, because
 	// LiquidityRemoved event filterer must run after we already have withdrawal
 	// records in database
 	await hd.filterLiquidityWithdrawalInitiations(
 		null,
-		await dbLPWithdrawals.getLatestTimestamp(),
+		useTimestamp ?? (await dbLPWithdrawals.getLatestTimestamp()),
 		async (e, txHash, blockNumber, blockTimeStamp, params) => {
 			await dbLPWithdrawals.insert(e, false, txHash, blockTimeStamp);
 		}
@@ -132,7 +197,7 @@ export const main = async () => {
 	// Filter all trades on startup
 	hd.filterTrades(
 		null as any as string,
-		await dbTrades.getLatestTimestamp(),
+		useTimestamp ?? (await dbTrades.getLatestTimestamp()),
 		(
 			e: TradeEvent,
 			txHash: string,
@@ -145,7 +210,7 @@ export const main = async () => {
 
 	hd.filterUpdateMarginAccount(
 		null as any as string,
-		await dbFundingRatePayments.getLatestTimestamp(),
+		useTimestamp ?? (await dbFundingRatePayments.getLatestTimestamp()),
 		(
 			e: UpdateMarginAccountEvent,
 			txHash: string,
@@ -157,9 +222,10 @@ export const main = async () => {
 	);
 	hd.filterLiquidityAdded(
 		null,
-		await dbEstimatedEarnings.getLatestTimestamp(
-			estimated_earnings_event_type.liquidity_added
-		),
+		useTimestamp ??
+			(await dbEstimatedEarnings.getLatestTimestamp(
+				estimated_earnings_event_type.liquidity_added
+			)),
 		(
 			e: LiquidityAddedEvent,
 			txHash: string,
@@ -177,9 +243,10 @@ export const main = async () => {
 	);
 	hd.filterLiquidityRemoved(
 		null,
-		await dbEstimatedEarnings.getLatestTimestamp(
-			estimated_earnings_event_type.liquidity_removed
-		),
+		useTimestamp ??
+			(await dbEstimatedEarnings.getLatestTimestamp(
+				estimated_earnings_event_type.liquidity_removed
+			)),
 		(
 			e: LiquidityAddedEvent,
 			txHash: string,
@@ -197,11 +264,14 @@ export const main = async () => {
 		}
 	);
 	// Share tokens p2p transfers
+	const p2pTimestamps = useTimestamp
+		? new Array(shareTokenAddresses.length).fill(useTimestamp)
+		: await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
+				shareTokenAddresses.length
+		  );
 	hd.filterP2Ptransfers(
 		shareTokenAddresses,
-		await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
-			shareTokenAddresses.length
-		),
+		p2pTimestamps,
 		(e, txHash, blockNumber, blockTimeStamp, params) => {
 			dbEstimatedEarnings.insertShareTokenP2PTransfer(
 				e.from,
@@ -214,19 +284,4 @@ export const main = async () => {
 			);
 		}
 	);
-
-	// Start the pnl api
-	const api = new PNLRestAPI(
-		{
-			port: 8888,
-			prisma,
-			db: {
-				fundingRatePayment: dbFundingRatePayments,
-				tradeHistory: dbTrades,
-				priceInfo: dbPriceInfo,
-			},
-		},
-		logger
-	);
-	api.start();
 };
