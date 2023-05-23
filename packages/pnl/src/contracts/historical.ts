@@ -17,6 +17,8 @@ import {
 import { Contract, Provider, ethers, Interface, BigNumberish } from "ethers";
 import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
 
+global.Error.stackTraceLimit = Infinity;
+
 /**
  * HistoricalDataFilterer retrieves historical data for trades, liquidations and
  * other events from perpetual manager proxy contract
@@ -395,11 +397,13 @@ export class HistoricalDataFilterer {
 				numRequests++;
 				if (numRequests >= 25) {
 					numRequests = 0;
+					lastWaitSeconds = 2;
 					await new Promise((resolve) => setTimeout(resolve, 1_100));
 				}
 				i += deltaBlocks;
 			} catch (error) {
-				if (maxWaitSeconds < lastWaitSeconds) {
+				this.l.info("seconds", { maxWaitSeconds, lastWaitSeconds });
+				if (maxWaitSeconds > lastWaitSeconds) {
 					this.l.warn(
 						"attempted to make too many requests to node, performing a wait",
 						{ wait_seconds: lastWaitSeconds }
