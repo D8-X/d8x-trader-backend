@@ -54,6 +54,7 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 		"DATABASE_URL",
 		"SDK_CONFIG_NAME",
 		"CHAIN_ID",
+		"API_PORT",
 	];
 	required.forEach((e) => {
 		if (!(e in process.env)) {
@@ -141,7 +142,7 @@ export const main = async () => {
 	// Start the pnl api
 	const api = new PNLRestAPI(
 		{
-			port: 8888,
+			port: parseInt(process.env.API_PORT!),
 			prisma,
 			db: {
 				fundingRatePayment: dbFundingRatePayments,
