@@ -25,8 +25,10 @@ export default class D8XBrokerBackendApp {
   private portWS: number;
   private wss: WebSocketServer;
   private eventListener: EventListener;
+  private CORS_ON: boolean;
 
   constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig) {
+    dotenv.config();
     this.express = express();
 
     this.swaggerData = fs.readFileSync(__dirname + "/swagger.json", "utf-8");
@@ -34,6 +36,7 @@ export default class D8XBrokerBackendApp {
     if (process.env.PORT_REST == undefined) {
       throw Error("define PORT_REST in .env");
     }
+    this.CORS_ON = !(process.env.CORS_ON == undefined || process.env.CORS_ON == "FALSE");
     if (process.env.PORT_WEBSOCKET == undefined) {
       throw Error("define PORT_WEBSOCKET in .env");
     }
@@ -45,7 +48,7 @@ export default class D8XBrokerBackendApp {
     this.eventListener = new EventListener(sdkConfig);
     console.log("url=", this.swaggerDocument.servers[0].url);
     this.sdk = new SDKInterface(broker);
-    dotenv.config();
+
     this.middleWare();
   }
 
@@ -117,7 +120,9 @@ export default class D8XBrokerBackendApp {
 
   private middleWare() {
     this.express.use(express.urlencoded({ extended: false }));
-    this.express.use(cors()); //needs to be above express.json
+    if (this.CORS_ON) {
+      this.express.use(cors()); //needs to be above express.json
+    }
     this.express.use(express.json());
   }
 
