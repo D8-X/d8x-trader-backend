@@ -1,0 +1,112 @@
+// This is your Prisma schema file, learn more about it in the docs:
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum trade_side{
+  buy
+  sell
+  liquidate_buy
+  liquidate_sell
+}
+
+
+// Decimal with 40 precision is used for int128 fields, since 128 bit number can
+// have 39 digits.
+model Trade{
+  @@map("trades_history")
+  id BigInt @id @default(autoincrement())
+  // Wallet address of user 
+  wallet_address String @db.Text
+  perpetual_id BigInt @db.BigInt 
+  chain_id Int
+  side trade_side
+  // Order flags will be present only for trade events
+  order_flags BigInt @default(0) 
+  // price is stored in ABDK format
+  price Decimal @db.Decimal(40,0) 
+  // quanityt is stored in ABDK format
+  quantity Decimal @db.Decimal(40,0)
+  // fee is stored in ABDK format
+  fee Decimal @db.Decimal(40,0)
+  // realized profit is stored in ABDK format
+  realized_profit Decimal @db.Decimal(40,0)
+  order_digest_hash String @db.Text 
+  tx_hash String @db.Text 
+  trade_timestamp DateTime @db.Timestamptz @default(now())
+
+  @@index([wallet_address], type: Hash)
+  @@index([tx_hash], type: Hash)
+  @@index([trade_timestamp])
+}
+
+model FundingRatePayment{
+  @@map("funding_rate_payments")
+  id BigInt @id @default(autoincrement())
+  wallet_address String @db.Text
+  perpetual_id BigInt @db.BigInt
+  // amount can be negative - user paid
+  payment_amount  Decimal @db.Decimal(40,0)
+  payment_timestamp DateTime @db.Timestamptz @default(now())
+  tx_hash String @db.Text 
+
+  @@index([tx_hash], type: Hash)
+}
+
+enum  estimated_earnings_event_type{
+    liquidity_added
+    liquidity_removed
+    share_token_p2p_transfer
+}
+
+
+model EstimatedEarningTokens{
+    @@map("estimated_earnings_tokens")
+    id BigInt @id @default(autoincrement())
+    wallet_address String @db.Text
+    // liquidity pool id
+    pool_id BigInt @db.BigInt
+    tx_hash String @db.Text    
+    token_amount Decimal @db.Decimal(40,0)
+    created_at DateTime @db.Timestamptz @default(now())
+
+    event_type estimated_earnings_event_type
+
+    @@index([tx_hash], type: Hash)
+    @@index([wallet_address], type: Hash)
+    @@index([pool_id], type: Hash)
+}
+
+model Price{
+    @@map("price_info")
+    id BigInt @id @default(autoincrement())
+    pool_token_price Float @db.DoublePrecision
+    // pool id
+    pool_id BigInt @db.BigInt
+    timestamp DateTime @db.Timestamptz @default(now())
+
+    @@index([pool_id], type: Hash)
+    @@index([timestamp])
+}
+
+model LiquidityWithdrawal{
+    @@map("liquidity_withdrawals")
+    id BigInt @id @default(autoincrement())
+    user_wallet String
+    pool_id Int
+    amount Decimal @db.Decimal(40, 0)
+    tx_hash String @db.Text    
+    is_removal Boolean
+    timestamp DateTime @db.Timestamptz @default(now())
+    
+    @@index([pool_id], type:Hash)
+    @@index([user_wallet], type:Hash)
+    @@index([timestamp])
+}

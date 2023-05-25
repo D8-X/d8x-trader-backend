@@ -1,0 +1,296 @@
+import * as winston from "winston";
+import { EventListener } from "../contracts/listeners";
+import * as dotenv from "dotenv";
+import { HistoricalDataFilterer } from "../contracts/historical";
+import {
+	BigNumberish,
+	JsonRpcProvider,
+	Network,
+	WebSocketProvider,
+	ethers,
+} from "ethers";
+import {
+	LiquidityAddedEvent,
+	TradeEvent,
+	UpdateMarginAccountEvent,
+} from "../contracts/types";
+import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
+import { TradingHistory } from "../db/trading_history";
+import { FundingRatePayments } from "../db/funding_rate";
+import { PNLRestAPI } from "../api/server";
+import { getPerpetualManagerProxyAddress, getDefaultRPC } from "../utils/abi";
+import { EstimatedEarnings } from "../db/estimated_earnings";
+import { PriceInfo } from "../db/price_info";
+import { retrieveShareTokenContracts } from "../contracts/tokens";
+import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
+
+// TODO set this up for actual production use
+const defaultLogger = () => {
+	return winston.createLogger({
+		level: "info",
+		format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+		defaultMeta: { service: "pnl-service" },
+		transports: [
+			new winston.transports.Console(),
+			new winston.transports.File({ filename: "pnl.log" }),
+		],
+	});
+};
+
+export const logger = defaultLogger();
+
+export const loadEnv = (wantEnvs?: string[] | undefined) => {
+	const config = dotenv.config({
+		path: ".env",
+	});
+	if (config.error || config.parsed === undefined) {
+		logger.warn("could not parse .env file");
+	}
+
+	// Check if required env variables were provided
+	const required = wantEnvs ?? [
+		"HTTP_RPC_URL",
+		"WS_RPC_URL",
+		"DATABASE_URL",
+		"SDK_CONFIG_NAME",
+		"CHAIN_ID",
+		"API_PORT",
+	];
+	required.forEach((e) => {
+		if (!(e in process.env)) {
+			logger.error(`environment variable ${e} must be provided!`);
+			process.exit(1);
+		}
+	});
+};
+
+// Entrypoint of PnL service
+export const main = async () => {
+	loadEnv();
+	logger.info("starting pnl service");
+
+	// Initialize db client
+	const prisma = new PrismaClient();
+
+	// Init blockchain provider
+	let wsRpcUrl = process.env.WS_RPC_URL as string;
+	let httpRpcUrl = process.env.HTTP_RPC_URL as string;
+	let chainId = Number(<string>process.env.CHAIN_ID || -1);
+	if (httpRpcUrl == "") {
+		httpRpcUrl = getDefaultRPC();
+		const msg = `no rpc provider specified, using default ${httpRpcUrl}`;
+		logger.info(msg);
+	}
+	const network = Network.from(chainId);
+	let wsProvider: ethers.WebSocketProvider = new WebSocketProvider(wsRpcUrl, network);
+	let httpProvider: ethers.JsonRpcProvider = new JsonRpcProvider(httpRpcUrl, network, {
+		staticNetwork: network,
+		batchMaxCount: 25,
+	});
+
+	logger.info("initialized rpc provider", { wsRpcUrl, httpRpcUrl });
+
+	// Init db handlers
+	const dbTrades = new TradingHistory(chainId, prisma, logger);
+	const dbFundingRatePayments = new FundingRatePayments(chainId, prisma, logger);
+	const proxyContractAddr = getPerpetualManagerProxyAddress();
+	const dbEstimatedEarnings = new EstimatedEarnings(chainId, prisma, logger);
+	const dbPriceInfo = new PriceInfo(prisma, logger);
+	const dbLPWithdrawals = new LiquidityWithdrawals(prisma, logger);
+
+	const eventsListener = new EventListener(
+		{
+			logger,
+			contractAddresses: {
+				perpetualManagerProxy: proxyContractAddr,
+			},
+		},
+		wsProvider,
+		dbTrades,
+		dbFundingRatePayments,
+		dbEstimatedEarnings,
+		dbPriceInfo,
+		dbLPWithdrawals
+	);
+
+	setInterval(async () => {
+		const latestBlock = await httpProvider.getBlockNumber();
+		const isAlive = eventsListener.checkHeartbeat(latestBlock - 1); // allow one block behind
+		if (!isAlive) {
+			process.exit(1);
+		}
+	}, 15 * 60 * 1_000);
+
+	eventsListener.listen();
+
+	// Start the historical data filterers on serivice start...
+	const hdOpts: hdFilterersOpt = {
+		dbEstimatedEarnings,
+		dbFundingRatePayments,
+		dbLPWithdrawals,
+		dbPriceInfo,
+		dbTrades,
+		httpProvider,
+		proxyContractAddr,
+		useTimestamp: undefined,
+	};
+	await runHistoricalDataFilterers(hdOpts);
+	// ...and re-run them every day for redundancy. This will ensure that any
+	// lost events will eventually be stored in db
+	setInterval(async () => {
+		const secondsInPast = 1.5 * 60 * 60;
+		const timestampStart = Date.now() - secondsInPast * 1000;
+		hdOpts.useTimestamp = new Date(timestampStart);
+		logger.info("running historical data filterers for redundancy", {
+			from: hdOpts.useTimestamp,
+		});
+		await runHistoricalDataFilterers(hdOpts);
+	}, 1000 * 3600);
+
+	// Start the pnl api
+	const api = new PNLRestAPI(
+		{
+			port: parseInt(process.env.API_PORT!),
+			prisma,
+			db: {
+				fundingRatePayment: dbFundingRatePayments,
+				tradeHistory: dbTrades,
+				priceInfo: dbPriceInfo,
+			},
+		},
+		logger
+	);
+	api.start();
+};
+
+export interface hdFilterersOpt {
+	// If useTimestamp is provided, it will be used instead of latest timestamp
+	// from historical data db records
+	useTimestamp: Date | undefined;
+	httpProvider: ethers.Provider;
+	proxyContractAddr: string;
+	dbTrades: TradingHistory;
+	dbFundingRatePayments: FundingRatePayments;
+	dbEstimatedEarnings: EstimatedEarnings;
+	dbPriceInfo: PriceInfo;
+	dbLPWithdrawals: LiquidityWithdrawals;
+}
+
+export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
+	const {
+		useTimestamp,
+		httpProvider,
+		proxyContractAddr,
+		dbTrades,
+		dbFundingRatePayments,
+		dbEstimatedEarnings,
+		dbPriceInfo,
+		dbLPWithdrawals,
+	} = opts;
+	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
+
+	// Share token contracts
+	const shareTokenAddresses = await retrieveShareTokenContracts();
+
+	// LP withdrawals must be first thing that we filter, because
+	// LiquidityRemoved event filterer must run after we already have withdrawal
+	// records in database
+	await hd.filterLiquidityWithdrawalInitiations(
+		null,
+		useTimestamp ?? (await dbLPWithdrawals.getLatestTimestamp()),
+		async (e, txHash, blockNumber, blockTimeStamp, params) => {
+			await dbLPWithdrawals.insert(e, false, txHash, blockTimeStamp);
+		}
+	);
+
+	// Filter all trades on startup
+	hd.filterTrades(
+		null as any as string,
+		useTimestamp ?? (await dbTrades.getLatestTimestamp()),
+		(
+			e: TradeEvent,
+			txHash: string,
+			blockNum: BigNumberish,
+			blockTimestamp: number
+		) => {
+			dbTrades.insertTradeHistoryRecord(e, txHash, blockTimestamp);
+		}
+	);
+
+	hd.filterUpdateMarginAccount(
+		null as any as string,
+		useTimestamp ?? (await dbFundingRatePayments.getLatestTimestamp()),
+		(
+			e: UpdateMarginAccountEvent,
+			txHash: string,
+			blockNum: BigNumberish,
+			blockTimestamp: number
+		) => {
+			dbFundingRatePayments.insertFundingRatePayment(e, txHash, blockTimestamp);
+		}
+	);
+	hd.filterLiquidityAdded(
+		null,
+		useTimestamp ??
+			(await dbEstimatedEarnings.getLatestTimestamp(
+				estimated_earnings_event_type.liquidity_added
+			)),
+		(
+			e: LiquidityAddedEvent,
+			txHash: string,
+			blockNum: BigNumberish,
+			blockTimestamp: number
+		) => {
+			dbEstimatedEarnings.insertLiquidityAdded(
+				e.user,
+				e.tokenAmount,
+				e.poolId,
+				txHash,
+				blockTimestamp
+			);
+		}
+	);
+	hd.filterLiquidityRemoved(
+		null,
+		useTimestamp ??
+			(await dbEstimatedEarnings.getLatestTimestamp(
+				estimated_earnings_event_type.liquidity_removed
+			)),
+		(
+			e: LiquidityAddedEvent,
+			txHash: string,
+			blockNum: BigNumberish,
+			blockTimestamp: number
+		) => {
+			dbEstimatedEarnings.insertLiquidityRemoved(
+				e.user,
+				e.tokenAmount,
+				e.poolId,
+				txHash,
+				blockTimestamp
+			);
+			dbLPWithdrawals.insert(e, true, txHash, blockTimestamp);
+		}
+	);
+	// Share tokens p2p transfers
+	const p2pTimestamps = useTimestamp
+		? new Array(shareTokenAddresses.length).fill(useTimestamp)
+		: await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
+				shareTokenAddresses.length
+		  );
+	hd.filterP2Ptransfers(
+		shareTokenAddresses,
+		p2pTimestamps,
+		(e, txHash, blockNumber, blockTimeStamp, params) => {
+			dbEstimatedEarnings.insertShareTokenP2PTransfer(
+				e.from,
+				e.to,
+				e.amountD18,
+				e.priceD18,
+				params?.poolId as unknown as bigint,
+				txHash,
+				blockTimeStamp
+			);
+		}
+	);
+};
