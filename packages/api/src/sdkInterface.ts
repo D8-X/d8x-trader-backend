@@ -222,11 +222,31 @@ export default class SDKInterface extends Observable {
     }
   }
 
+  /**
+   * Send open orders for a given trader in either one perpetual or
+   * all perpetuals of the pool
+   * @param addr trader address
+   * @param symbol either a pool symbol ("MATIC") or a perpetual ("BTC-USD-MATIC")
+   * @returns JSON array with open orders { orders: Order[]; orderIds: string[] }
+   */
   public async openOrders(addr: string, symbol: string) {
     try {
       this.checkAPIInitialized();
-      let res = await this.apiInterface?.openOrders(addr, symbol);
-      return JSON.stringify(res);
+      let resArray: Array<{ orders: Order[]; orderIds: string[] }> = [];
+      if (symbol.split("-").length == 1) {
+        // pool symbol
+        const symbols = this.apiInterface!.getPerpetualSymbolsInPool(symbol);
+        let prom: Array<Promise<{ orders: Order[]; orderIds: string[] }>> = [];
+        for (let k = 0; k < symbols.length; k++) {
+          let p = this.apiInterface!.openOrders(addr, symbols[k]);
+          prom.push(p);
+        }
+        resArray = await Promise.all(prom);
+      } else {
+        let res = await this.apiInterface?.openOrders(addr, symbol);
+        resArray.push(res!);
+      }
+      return JSON.stringify(resArray);
     } catch (error) {
       return JSON.stringify({ error: extractErrorMsg(error) });
     }
@@ -237,7 +257,7 @@ export default class SDKInterface extends Observable {
    * all perpetuals of the pool
    * @param addr address of the trader
    * @param symbol either a pool symbol ("MATIC") or a perpetual ("BTC-USD-MATIC")
-   * @returns
+   * @returns JSON array with MarginAccount
    */
   public async positionRisk(addr: string, symbol: string) {
     this.checkAPIInitialized();
