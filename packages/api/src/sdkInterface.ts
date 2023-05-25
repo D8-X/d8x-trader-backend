@@ -232,21 +232,8 @@ export default class SDKInterface extends Observable {
   public async openOrders(addr: string, symbol: string) {
     try {
       this.checkAPIInitialized();
-      let resArray: Array<{ orders: Order[]; orderIds: string[] }> = [];
-      if (symbol.split("-").length == 1) {
-        // pool symbol
-        const symbols = this.apiInterface!.getPerpetualSymbolsInPool(symbol);
-        let prom: Array<Promise<{ orders: Order[]; orderIds: string[] }>> = [];
-        for (let k = 0; k < symbols.length; k++) {
-          let p = this.apiInterface!.openOrders(addr, symbols[k]);
-          prom.push(p);
-        }
-        resArray = await Promise.all(prom);
-      } else {
-        let res = await this.apiInterface?.openOrders(addr, symbol);
-        resArray.push(res!);
-      }
-      return JSON.stringify(resArray);
+      let res = await this.apiInterface?.openOrders(addr, symbol);
+      return JSON.stringify(res);
     } catch (error) {
       return JSON.stringify({ error: extractErrorMsg(error) });
     }
@@ -261,29 +248,20 @@ export default class SDKInterface extends Observable {
    */
   public async positionRisk(addr: string, symbol: string) {
     this.checkAPIInitialized();
-    let resArray: Array<MarginAccount> = [];
-    if (symbol.split("-").length == 1) {
-      // pool symbol to id:
-      const symbols = this.apiInterface!.getPerpetualSymbolsInPool(symbol);
-      let prom: Array<Promise<MarginAccount>> = [];
-      for (let k = 0; k < symbols.length; k++) {
-        let p = this.apiInterface!.positionRisk(addr, symbols[k]);
-        prom.push(p);
-      }
-      resArray = await Promise.all(prom);
-    } else {
-      let res = await this.apiInterface?.positionRisk(addr, symbol);
-      resArray.push(res!);
-    }
+    let resArray = await this.apiInterface!.positionRisk(addr, symbol);
     return JSON.stringify(resArray);
   }
 
   public async maxOrderSizeForTrader(addr: string, symbol: string) {
     this.checkAPIInitialized();
-    let positionRisk: MarginAccount | undefined = await this.apiInterface!.positionRisk(addr, symbol);
-    let sizeBUY = await this.apiInterface!.maxOrderSizeForTrader(BUY_SIDE, positionRisk);
-    let sizeSELL = await this.apiInterface!.maxOrderSizeForTrader(SELL_SIDE, positionRisk);
-    return JSON.stringify({ buy: sizeBUY, sell: sizeSELL });
+    let positionRiskArr: MarginAccount[] | undefined = await this.apiInterface!.positionRisk(addr, symbol);
+    if (positionRiskArr != undefined) {
+      let sizeBUY = await this.apiInterface!.maxOrderSizeForTrader(BUY_SIDE, positionRiskArr[0]);
+      let sizeSELL = await this.apiInterface!.maxOrderSizeForTrader(SELL_SIDE, positionRiskArr[0]);
+      return JSON.stringify({ buy: sizeBUY, sell: sizeSELL });
+    } else {
+      return JSON.stringify({ error: "positionRisk not available for trader" });
+    }
   }
 
   public async getCurrentTraderVolume(traderAddr: string, symbol: string): Promise<string> {
@@ -351,8 +329,8 @@ export default class SDKInterface extends Observable {
 
   public async positionRiskOnTrade(order: Order, traderAddr: string): Promise<string> {
     this.checkAPIInitialized();
-    let positionRisk: MarginAccount | undefined = await this.apiInterface!.positionRisk(traderAddr, order.symbol);
-    let res = await this.apiInterface!.positionRiskOnTrade(traderAddr, order, positionRisk);
+    let positionRisk: MarginAccount[] | undefined = await this.apiInterface!.positionRisk(traderAddr, order.symbol);
+    let res = await this.apiInterface!.positionRiskOnTrade(traderAddr, order, positionRisk[0]);
     return JSON.stringify({ newPositionRisk: res.newPositionRisk, orderCost: res.orderCost });
   }
 
