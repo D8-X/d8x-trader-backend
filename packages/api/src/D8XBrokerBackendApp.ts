@@ -177,7 +177,7 @@ export default class D8XBrokerBackendApp {
 
     // in swagger
     this.express.get("/open-orders", async (req: Request, res: Response) => {
-      // openOrders?traderAddr=0xCafee&symbol=BTC-USD-MATIC
+      // open-orders?traderAddr=0xCafee&symbol=BTC-USD-MATIC
       let rsp;
       try {
         let addr: string;
