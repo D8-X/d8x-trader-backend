@@ -9,7 +9,7 @@ services:
     environment:
       - REDIS_ARGS=--requirepass ${REDIS_PASSWORD}
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     command: redis-server --bind 0.0.0.0 --requirepass ${REDIS_PASSWORD}
 
   # REST/WS server for frontend
@@ -25,9 +25,27 @@ services:
       - PORT_WEBSOCKET=${PORT_WEBSOCKET}
       - CHAIN_ID=${CHAIN_ID}
       - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
+      - CORS_ON=${CORS_ON}
     ports:
-      - "${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
-      - "${PORT_REST}:${PORT_REST}"
+      - "127.0.0.1:${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
+      - "127.0.0.1:${PORT_REST}:${PORT_REST}"
+    restart: on-failure
+  backend_pnl:
+    build:
+      context: .
+      dockerfile: ./packages/pnl/Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      - HTTP_RPC_URL=${HTTP_RPC_URL}
+      - WS_RPC_URL=${WS_RPC_URL}
+      - API_PORT=${PNL_API_PORT}
+      - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
+      - CHAIN_ID=${CHAIN_ID}
+      - CORS_ON=${CORS_ON}
+    ports:
+      - "127.0.0.1:${PNL_API_PORT}:${PNL_API_PORT}"
     restart: on-failure
 
   backend_pyth_connection:
@@ -44,3 +62,16 @@ services:
       PORT_WEBSOCKET: ${PORT_WEBSOCKET}
       CHAIN_ID: ${CHAIN_ID}
     restart: on-failure
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - 127.0.0.1:5432:5432
+    volumes:
+      - pgdb:/var/lib/postgresql/data
+volumes:
+  pgdb:

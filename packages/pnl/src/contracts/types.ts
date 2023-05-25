@@ -1,8 +1,9 @@
-export type EventCallback<Event> = (
+export type EventCallback<Event, Params = any> = (
 	event: Event,
 	txHash: string,
 	blockNumber: number,
-	blockTimestamp: number
+	blockTimestamp: number,
+	params?: Params
 ) => void;
 
 // Trade event shape as retrieved from logs
@@ -63,3 +64,37 @@ export interface UpdateMarginAccountEvent {
 }
 
 export type UpdateMarginAccountFilteredCb = EventCallback<UpdateMarginAccountEvent>;
+
+export interface LiquidityAddedEvent {
+	poolId: bigint;
+	user: string;
+	tokenAmount: bigint;
+	shareAmount: bigint;
+}
+
+export type LiquidityAddedFilteredCb = EventCallback<LiquidityAddedEvent>;
+
+export interface LiquidityRemovedEvent {
+	poolId: bigint;
+	user: string;
+	tokenAmount: bigint;
+	shareAmount: bigint;
+}
+
+export type LiquidityRemovedFilteredCb = EventCallback<LiquidityRemovedEvent>;
+
+export interface P2PTransferEvent {
+	from: string;
+	to: string;
+	amountD18: bigint;
+	priceD18: bigint;
+}
+export type P2PTransferFilteredCb = EventCallback<P2PTransferEvent, { poolId: number }>;
+
+export interface LiquidityWithdrawalInitiated {
+	poolId: bigint;
+	user: string;
+	shareAmount: bigint;
+}
+export type LiquidityWithdrawalInitiatedFilteredCb =
+	EventCallback<LiquidityWithdrawalInitiated>;
