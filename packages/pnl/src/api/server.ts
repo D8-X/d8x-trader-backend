@@ -8,6 +8,7 @@ import { getAddress } from "ethers";
 import { MarketData } from "@d8x/perpetuals-sdk";
 import { getSDKFromEnv } from "../utils/abi";
 import { dec18ToFloat, ABK64x64ToFloat } from "../utils/bigint";
+import dotenv from "dotenv";
 import cors from "cors";
 import { PriceInfo } from "../db/price_info";
 
@@ -35,12 +36,19 @@ export class PNLRestAPI {
 	private db: DBHandlers;
 
 	private md?: MarketData;
+
+	private CORS_ON: boolean;
+
 	/**
 	 * Initialize ResAPI parameters, routes, middelware, etc
 	 * @param opts
 	 * @param l
 	 */
 	constructor(private opts: RestAPIOptions, public l: Logger) {
+		dotenv.config();
+		this.CORS_ON = !(
+			process.env.CORS_ON == undefined || process.env.CORS_ON == "FALSE"
+		);
 		this.db = opts.db;
 		this.app = express();
 
@@ -59,7 +67,9 @@ export class PNLRestAPI {
 	}
 
 	private registerMiddleware() {
-		this.app.use(cors());
+		if (this.CORS_ON) {
+			this.app.use(cors());
+		}
 	}
 
 	/**
