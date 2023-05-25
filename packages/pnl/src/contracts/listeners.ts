@@ -30,6 +30,7 @@ export interface EventListenerOptions {
 
 export class EventListener {
 	private l: Logger;
+	private blockNumber: number = Infinity;
 
 	private opts: EventListenerOptions;
 
@@ -46,12 +47,38 @@ export class EventListener {
 		this.opts = opts;
 	}
 
+	public checkHeartbeat(latestBlock: number) {
+		const isAlive = this.blockNumber + 1 >= latestBlock; // allow one block behind
+
+		this.l.info(
+			`${new Date(Date.now()).toISOString()}: ws=${
+				this.blockNumber
+			}, http=${latestBlock}`
+		);
+		if (!isAlive) {
+			this.l.error(
+				`${new Date(Date.now()).toISOString()}: websocket connection ended`
+			);
+			return false;
+		}
+		return true;
+	}
+
 	/**
 	 * listen starts all event listeners
 	 */
 	public async listen() {
 		this.l.info("starting smart contract event listeners", {
 			contract_address: this.opts.contractAddresses.perpetualManagerProxy,
+		});
+
+		// does not exist on v6
+		// this.provider.on("error", (e) => {
+		// 	process.exit(1);
+		// });
+
+		this.provider.on("block", (blockNumber) => {
+			this.blockNumber = blockNumber;
 		});
 
 		// perpertual proxy manager - main contract

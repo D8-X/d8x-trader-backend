@@ -28,7 +28,7 @@ import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 const defaultLogger = () => {
 	return winston.createLogger({
 		level: "info",
-		format: winston.format.json(),
+		format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
 		defaultMeta: { service: "pnl-service" },
 		transports: [
 			new winston.transports.Console(),
@@ -82,8 +82,8 @@ export const main = async () => {
 		logger.info(msg);
 	}
 	const network = Network.from(chainId);
-	let wsProvider: ethers.Provider = new WebSocketProvider(wsRpcUrl, network);
-	let httpProvider: ethers.Provider = new JsonRpcProvider(httpRpcUrl, network, {
+	let wsProvider: ethers.WebSocketProvider = new WebSocketProvider(wsRpcUrl, network);
+	let httpProvider: ethers.JsonRpcProvider = new JsonRpcProvider(httpRpcUrl, network, {
 		staticNetwork: network,
 		batchMaxCount: 25,
 	});
@@ -112,6 +112,15 @@ export const main = async () => {
 		dbPriceInfo,
 		dbLPWithdrawals
 	);
+
+	setInterval(async () => {
+		const latestBlock = await httpProvider.getBlockNumber();
+		const isAlive = eventsListener.checkHeartbeat(latestBlock - 1); // allow one block behind
+		if (!isAlive) {
+			process.exit(1);
+		}
+	}, 15 * 60 * 1_000);
+
 	eventsListener.listen();
 
 	// Start the historical data filterers on serivice start...
@@ -129,8 +138,8 @@ export const main = async () => {
 	// ...and re-run them every day for redundancy. This will ensure that any
 	// lost events will eventually be stored in db
 	setInterval(async () => {
-		const secondsInPast = 1.5*60*60;
-		const timestampStart = Date.now()-secondsInPast*1000;
+		const secondsInPast = 1.5 * 60 * 60;
+		const timestampStart = Date.now() - secondsInPast * 1000;
 		hdOpts.useTimestamp = new Date(timestampStart);
 		logger.info("running historical data filterers for redundancy", {
 			from: hdOpts.useTimestamp,
