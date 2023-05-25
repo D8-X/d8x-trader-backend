@@ -129,15 +129,14 @@ export const main = async () => {
 	// ...and re-run them every day for redundancy. This will ensure that any
 	// lost events will eventually be stored in db
 	setInterval(async () => {
-		const daysInPast = 2;
-		const d = new Date();
-		d.setDate(d.getDate() - daysInPast);
-		hdOpts.useTimestamp = new Date(d);
+		const secondsInPast = 1.5*60*60;
+		const timestampStart = Date.now()-secondsInPast*1000;
+		hdOpts.useTimestamp = new Date(timestampStart);
 		logger.info("running historical data filterers for redundancy", {
 			from: hdOpts.useTimestamp,
 		});
 		await runHistoricalDataFilterers(hdOpts);
-	}, 1000 * 24 * 3600);
+	}, 1000 * 3600);
 
 	// Start the pnl api
 	const api = new PNLRestAPI(
