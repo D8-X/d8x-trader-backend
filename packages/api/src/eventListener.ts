@@ -20,7 +20,7 @@ import {
   TraderInterface,
 } from "@d8x/perpetuals-sdk";
 import { BigNumber } from "ethers";
-import {IncomingMessage} from "http";
+import { IncomingMessage } from "http";
 import WebSocket from "ws";
 
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
@@ -135,16 +135,16 @@ export default class EventListener extends IndexPriceInterface {
     return true;
   }
 
-  private _getIP(req: IncomingMessage) : string {
-    const headers = req.headers['x-forwarded-for']
-    var v:string = "(x-forwarded-for not defined)";
-    if (typeof(headers)=="string") {
-        v = String(headers);
-        v = v!.split(',')[0].trim();
+  private _getIP(req: IncomingMessage): string {
+    const headers = req.headers["x-forwarded-for"];
+    var v: string = "(x-forwarded-for not defined)";
+    if (typeof headers == "string") {
+      v = String(headers);
+      v = v!.split(",")[0].trim();
     } else {
-        console.log(req.headers)
+      console.log(req.headers);
     }
-    
+
     return v;
   }
 
@@ -456,7 +456,7 @@ export default class EventListener extends IndexPriceInterface {
   private async onUpdateMarginCollateral(perpetualId: number, trader: string, amount: BigNumber) {
     this.lastBlockChainEventTs = Date.now();
     let symbol = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
-    let pos = <MarginAccount>JSON.parse(await this.sdkInterface!.positionRisk(trader, symbol));
+    let pos = (<MarginAccount[]>JSON.parse(await this.sdkInterface!.positionRisk(trader, symbol)))[0];
     if (pos.positionNotionalBaseCCY == 0 && amount.lt(0)) {
       // position is zero after a withdrawal: this will be caught as a margin account update, ignore
       return;
