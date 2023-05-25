@@ -20,6 +20,7 @@ import {
   TraderInterface,
 } from "@d8x/perpetuals-sdk";
 import { BigNumber } from "ethers";
+import {IncomingMessage} from "http";
 import WebSocket from "ws";
 
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
@@ -134,12 +135,25 @@ export default class EventListener extends IndexPriceInterface {
     return true;
   }
 
-  public unsubscribe(ws: WebSocket.WebSocket) {
+  private _getIP(req: IncomingMessage) : string {
+    const headers = req.headers['x-forwarded-for']
+    var v:string = "(x-forwarded-for not defined)";
+    if (typeof(headers)=="string") {
+        v = String(headers);
+        v = v!.split(',')[0].trim();
+    } else {
+        console.log(req.headers)
+    }
+    
+    return v;
+  }
+
+  public unsubscribe(ws: WebSocket.WebSocket, req: IncomingMessage) {
     console.log(`${new Date(Date.now())}: #ws=${this.clients.size}, client unsubscribed`);
     //subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>;
     let clientSubscriptions = this.clients.get(ws);
     if (clientSubscriptions == undefined) {
-      console.log("unknown client unsubscribed");
+      console.log("unknown client unsubscribed, ip=", this._getIP(req));
       return;
     }
     for (let k = 0; k < clientSubscriptions?.length; k++) {

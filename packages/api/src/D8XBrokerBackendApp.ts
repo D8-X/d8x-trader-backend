@@ -1,5 +1,6 @@
 import express, { Express, Request, Response } from "express";
 import WebSocket, { WebSocketServer } from "ws";
+import {IncomingMessage} from "http";
 import swaggerJSDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import dotenv from "dotenv";
@@ -77,7 +78,7 @@ export default class D8XBrokerBackendApp {
   private initWebSocket() {
     let eventListener = this.eventListener;
     let sdk = this.sdk;
-    this.wss.on("connection", function connection(ws: WebSocket.WebSocket) {
+    this.wss.on("connection", function connection(ws: WebSocket.WebSocket, req: IncomingMessage) {
       ws.on("error", console.error);
       ws.on("message", async (data: WebSocket.RawData) => {
         try {
@@ -85,7 +86,7 @@ export default class D8XBrokerBackendApp {
           if (obj.type == "ping") {
             ws.send(D8XBrokerBackendApp.JSONResponse("ping", "pong", {}));
           } else if (obj.type == "unsubscribe") {
-            eventListener.unsubscribe(ws);
+            eventListener.unsubscribe(ws, req);
           } else {
             console.log("received: ", obj);
             //type = subscription
@@ -107,7 +108,7 @@ export default class D8XBrokerBackendApp {
         }
       });
       ws.on("close", () => {
-        eventListener.unsubscribe(ws);
+        eventListener.unsubscribe(ws, req);
       });
       ws.send(D8XBrokerBackendApp.JSONResponse("connect", `success`, {}));
     });
