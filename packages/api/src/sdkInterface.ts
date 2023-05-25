@@ -232,10 +232,30 @@ export default class SDKInterface extends Observable {
     }
   }
 
+  /**
+   * Send position risk for a given trader in either one perpetual or
+   * all perpetuals of the pool
+   * @param addr address of the trader
+   * @param symbol either a pool symbol ("MATIC") or a perpetual ("BTC-USD-MATIC")
+   * @returns
+   */
   public async positionRisk(addr: string, symbol: string) {
     this.checkAPIInitialized();
-    let res = await this.apiInterface?.positionRisk(addr, symbol);
-    return JSON.stringify(res);
+    let resArray: Array<MarginAccount> = [];
+    if (symbol.split("-").length == 1) {
+      // pool symbol to id:
+      const symbols = this.apiInterface!.getPerpetualSymbolsInPool(symbol);
+      let prom: Array<Promise<MarginAccount>> = [];
+      for (let k = 0; k < symbols.length; k++) {
+        let p = this.apiInterface!.positionRisk(addr, symbols[k]);
+        prom.push(p);
+      }
+      resArray = await Promise.all(prom);
+    } else {
+      let res = await this.apiInterface?.positionRisk(addr, symbol);
+      resArray.push(res!);
+    }
+    return JSON.stringify(resArray);
   }
 
   public async maxOrderSizeForTrader(addr: string, symbol: string) {
