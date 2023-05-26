@@ -120,7 +120,7 @@ export const main = async () => {
 		if (!isAlive) {
 			process.exit(1);
 		}
-	}, 300_000); // 5 * 60 * 1_000 miliseconds
+	}, 300_000); // 300_000 = 5 * 60 * 1_000 miliseconds
 
 	// kill and restart WS provider periodically. Not as cheap so less often
 	// 2.5 hours - typically the connection should stay alive longer, so this ensures no gaps
