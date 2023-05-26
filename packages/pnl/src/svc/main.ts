@@ -113,16 +113,7 @@ export const main = async () => {
 		dbLPWithdrawals
 	);
 
-	// kill and restart WS connection every 2.5 hours - typically the connection should stay alive longer, so this ensures no gaps
-	setInterval(async () => {
-		const latestBlock = await httpProvider.getBlockNumber();
-		const isAlive = eventsListener.checkHeartbeat(latestBlock - 1); // allow one block behind
-		if (!isAlive) {
-			process.exit(1);
-		}
-	}, 9_000_000); // 2.5 * 60 * 60 * 1000 miliseconds
-
-	// check heartbeat of WS connection every 5 minutes - cheap on RPC (one eth_call)
+	// check heartbeat of RPC connection every 5 minutes - cheap (one eth_call)
 	setInterval(async () => {
 		const latestBlock = await httpProvider.getBlockNumber();
 		const isAlive = eventsListener.checkHeartbeat(latestBlock - 1); // allow one block behind
@@ -131,7 +122,9 @@ export const main = async () => {
 		}
 	}, 300_000); // 5 * 60 * 1_000 miliseconds
 
-	eventsListener.listen();
+	// kill and restart WS provider periodically. Not as cheap so less often
+	// 2.5 hours - typically the connection should stay alive longer, so this ensures no gaps
+	eventsListener.listen(wsRpcUrl, 9_000_000); // 2.5 * 60 * 60 * 1000 miliseconds
 
 	// Start the historical data filterers on serivice start...
 	const hdOpts: hdFilterersOpt = {
@@ -145,8 +138,7 @@ export const main = async () => {
 		useTimestamp: undefined,
 	};
 	await runHistoricalDataFilterers(hdOpts);
-	// ...and re-run them periodically for redundancy. This will ensure that any
-	// lost events will eventually be stored in db
+	// Re fetch  periodically for redundancy. This will ensure that any lost events will eventually be stored in db
 	// every 4 hours poll 5 hours, just under 10_000 blocks, so this call covers as many blocks as possible for a fixed RPC cost
 	setInterval(async () => {
 		const secondsInPast = 18_000; // 5 * 60 * 60 seconds
