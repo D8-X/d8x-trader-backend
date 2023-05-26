@@ -1,11 +1,4 @@
-import {
-	Contract,
-	JsonRpcProvider,
-	Log,
-	Provider,
-	WebSocketProvider,
-	ethers,
-} from "ethers";
+import { Contract, WebSocketProvider, ethers } from "ethers";
 import { Logger } from "winston";
 import {
 	LiquidateEvent,
@@ -76,11 +69,15 @@ export class EventListener {
 	 */
 	public async listen(wsURL: string, reconnectEveryMS: number) {
 		setInterval(async () => {
-			await this.provider.removeAllListeners();
-			this.provider = new WebSocketProvider(
-				wsURL,
-				await this.provider.getNetwork()
-			);
+			if (this.blockNumber < Infinity) {
+				// if it was running, stop and make new provider
+				await this.provider.removeAllListeners();
+				this.provider = new WebSocketProvider(
+					wsURL,
+					await this.provider.getNetwork()
+				);
+				this.blockNumber = Infinity;
+			}
 			this._listen();
 		}, reconnectEveryMS);
 	}
