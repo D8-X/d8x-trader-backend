@@ -1,4 +1,11 @@
-import { Contract, JsonRpcProvider, Log, Provider, ethers } from "ethers";
+import {
+	Contract,
+	JsonRpcProvider,
+	Log,
+	Provider,
+	WebSocketProvider,
+	ethers,
+} from "ethers";
 import { Logger } from "winston";
 import {
 	LiquidateEvent,
@@ -36,7 +43,7 @@ export class EventListener {
 
 	constructor(
 		opts: EventListenerOptions,
-		public provider: Provider,
+		public provider: WebSocketProvider,
 		private dbTrades: TradingHistory,
 		private dbFundingRates: FundingRatePayments,
 		private dbEstimatedEarnings: EstimatedEarnings,
@@ -67,15 +74,21 @@ export class EventListener {
 	/**
 	 * listen starts all event listeners
 	 */
-	public async listen() {
+	public async listen(wsURL: string, reconnectEveryMS: number) {
+		setInterval(async () => {
+			await this.provider.removeAllListeners();
+			this.provider = new WebSocketProvider(
+				wsURL,
+				await this.provider.getNetwork()
+			);
+			this._listen();
+		}, reconnectEveryMS);
+	}
+
+	private async _listen() {
 		this.l.info("starting smart contract event listeners", {
 			contract_address: this.opts.contractAddresses.perpetualManagerProxy,
 		});
-
-		// does not exist on v6
-		// this.provider.on("error", (e) => {
-		// 	process.exit(1);
-		// });
 
 		this.provider.on("block", (blockNumber) => {
 			this.blockNumber = blockNumber;
