@@ -105,23 +105,13 @@ export const main = async () => {
 				perpetualManagerProxy: proxyContractAddr,
 			},
 		},
-		wsProvider,
+		// wsProvider,
 		dbTrades,
 		dbFundingRatePayments,
 		dbEstimatedEarnings,
 		dbPriceInfo,
 		dbLPWithdrawals
 	);
-
-	setInterval(async () => {
-		const latestBlock = await httpProvider.getBlockNumber();
-		const isAlive = eventsListener.checkHeartbeat(latestBlock - 1); // allow one block behind
-		if (!isAlive) {
-			process.exit(1);
-		}
-	}, 15 * 60 * 1_000);
-
-	eventsListener.listen();
 
 	// Start the historical data filterers on serivice start...
 	const hdOpts: hdFilterersOpt = {
@@ -135,17 +125,29 @@ export const main = async () => {
 		useTimestamp: undefined,
 	};
 	await runHistoricalDataFilterers(hdOpts);
-	// ...and re-run them every day for redundancy. This will ensure that any
-	// lost events will eventually be stored in db
+
+	// re-start listeners with new WS provider periodically
+	// 2.5 hours - typically the connection should stay alive longer, so this ensures no gaps
 	setInterval(async () => {
-		const secondsInPast = 1.5 * 60 * 60;
+		eventsListener.listen(new WebSocketProvider(wsRpcUrl));
+	}, 9_000_000); // 2.5 * 60 * 60 * 1000 miliseconds
+
+	// check heartbeat of RPC connection every 5 minutes - cheap (one eth_call)
+	setInterval(async () => {
+		eventsListener.checkHeartbeat(await httpProvider.getBlockNumber());
+	}, 300_000);
+
+	// Re fetch  periodically for redundancy. This will ensure that any lost events will eventually be stored in db
+	// every 4 hours poll 5 hours, just under 10_000 blocks, so this call covers as many blocks as possible for a fixed RPC cost
+	setInterval(async () => {
+		const secondsInPast = 18_000; // 5 * 60 * 60 seconds
 		const timestampStart = Date.now() - secondsInPast * 1000;
 		hdOpts.useTimestamp = new Date(timestampStart);
 		logger.info("running historical data filterers for redundancy", {
 			from: hdOpts.useTimestamp,
 		});
 		await runHistoricalDataFilterers(hdOpts);
-	}, 1000 * 3600);
+	}, 14_400_000); // 4 * 60 * 60 * 1000 miliseconds
 
 	// Start the pnl api
 	const api = new PNLRestAPI(
