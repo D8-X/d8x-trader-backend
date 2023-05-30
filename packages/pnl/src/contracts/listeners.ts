@@ -1,4 +1,4 @@
-import { Contract, JsonRpcProvider, Log, Provider, ethers } from "ethers";
+import { Contract, WebSocketProvider, ethers } from "ethers";
 import { Logger } from "winston";
 import {
 	LiquidateEvent,
@@ -18,7 +18,6 @@ import { retrieveShareTokenContracts } from "./tokens";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 export interface EventListenerOptions {
 	logger: Logger;
-
 	// smart contract addresses which will be used to listen to incoming events
 	contractAddresses: {
 		perpetualManagerProxy: string;
@@ -31,12 +30,12 @@ export interface EventListenerOptions {
 export class EventListener {
 	private l: Logger;
 	private blockNumber: number = Infinity;
-
+	private provider: WebSocketProvider | undefined;
 	private opts: EventListenerOptions;
 
 	constructor(
 		opts: EventListenerOptions,
-		public provider: Provider,
+		// public provider: WebSocketProvider,
 		private dbTrades: TradingHistory,
 		private dbFundingRates: FundingRatePayments,
 		private dbEstimatedEarnings: EstimatedEarnings,
@@ -59,7 +58,7 @@ export class EventListener {
 			this.l.error(
 				`${new Date(Date.now()).toISOString()}: websocket connection ended`
 			);
-			return false;
+			process.exit(1);
 		}
 		return true;
 	}
@@ -67,17 +66,18 @@ export class EventListener {
 	/**
 	 * listen starts all event listeners
 	 */
-	public async listen() {
+	public async listen(provider: WebSocketProvider) {
+		if (this.provider) {
+			await this.provider.removeAllListeners();
+		}
+
+		this.provider = provider;
+
 		this.l.info("starting smart contract event listeners", {
 			contract_address: this.opts.contractAddresses.perpetualManagerProxy,
 		});
 
-		// does not exist on v6
-		// this.provider.on("error", (e) => {
-		// 	process.exit(1);
-		// });
-
-		this.provider.on("block", (blockNumber) => {
+		provider.on("block", (blockNumber) => {
 			this.blockNumber = blockNumber;
 		});
 
@@ -85,7 +85,7 @@ export class EventListener {
 		const pmp = new ethers.Contract(
 			this.opts.contractAddresses.perpetualManagerProxy,
 			getPerpetualManagerABI(),
-			this.provider
+			provider
 		);
 
 		// Trade event
@@ -275,7 +275,7 @@ export class EventListener {
 		const abi = await getShareTokenContractABI();
 		const shareTokenContracts = await retrieveShareTokenContracts();
 		for (let i = 0; i < shareTokenContracts.length; i++) {
-			const c = new Contract(shareTokenContracts[i], abi, this.provider);
+			const c = new Contract(shareTokenContracts[i], abi, provider);
 			const poolId = i + 1;
 
 			this.l.info("starting share token P2PTransfer listener", {
