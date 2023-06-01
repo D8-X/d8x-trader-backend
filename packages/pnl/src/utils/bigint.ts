@@ -69,7 +69,7 @@ export function floatToDecN(x: number, numDec: number): bigint {
 	const DECIMALS = BigInt(Math.pow(10, numDec));
 	let sg = Math.sign(x);
 	x = Math.abs(x);
-	let strX = x.toFixed(18);
+	let strX = x.toFixed(numDec);
 	const arrX = strX.split(".");
 	let xInt = BigInt(arrX[0]);
 	let xDec = BigInt(arrX[1]);
