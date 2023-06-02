@@ -4,13 +4,14 @@ import { Logger, error } from "winston";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
 import { correctQueryArgs, errorResp, toJson } from "../utils/response";
-import { getAddress } from "ethers";
+import { EthersError, Provider, getAddress } from "ethers";
 import { MarketData } from "@d8x/perpetuals-sdk";
 import { getSDKFromEnv } from "../utils/abi";
-import { dec18ToFloat, ABK64x64ToFloat } from "../utils/bigint";
+import { dec18ToFloat, ABK64x64ToFloat, decNToFloat } from "../utils/bigint";
 import dotenv from "dotenv";
 import cors from "cors";
 import { PriceInfo } from "../db/price_info";
+import { TokenDecimals } from "../db/token_decimals";
 
 // Make sure the decimal values are always return as normal numeric strings
 // instead of scientific notation
@@ -22,11 +23,13 @@ export interface DBHandlers {
 	fundingRatePayment: FundingRatePayments;
 	tradeHistory: TradingHistory;
 	priceInfo: PriceInfo;
+	tokenDecimals: TokenDecimals;
 }
 export interface RestAPIOptions {
 	port: number;
 	db: DBHandlers;
 	prisma: PrismaClient;
+	provider: Provider;
 }
 
 // Profit and loss express REST API
@@ -150,13 +153,18 @@ export class PNLRestAPI {
 			time_elapsed_sec: number;
 		}[] = [];
 
+		// Retrieve the share token decimals
+		const decimals = await this.opts.db.tokenDecimals.retrievePoolShareTokenDecimals(
+			poolIdNum
+		);
+
 		// Here we'll check if our last withdrawal for given pool and user
 		// consists of liqduidity withdrawal initiation and liquidity removal
 		if (withdrawals.length === 1) {
 			const w = withdrawals[0];
 			if (!w.is_removal) {
 				withdrawalsData.push({
-					share_amount: dec18ToFloat(BigInt(w.amount.toFixed())),
+					share_amount: decNToFloat(BigInt(w.amount.toFixed()), decimals),
 					time_elapsed_sec: Math.floor(
 						new Date().getTime() / 1000 - w.timestamp.getTime() / 1000
 					),

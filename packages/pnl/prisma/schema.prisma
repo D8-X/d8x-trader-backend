@@ -110,3 +110,12 @@ model LiquidityWithdrawal{
     @@index([user_wallet], type:Hash)
     @@index([timestamp])
 }
+
+model TokenDecimals{
+    @@map("token_decimals")
+    token_address String @id
+    decimals Int
+    pool_id Int
+    @@index([token_address], type:Hash)
+    @@index([pool_id])
+}

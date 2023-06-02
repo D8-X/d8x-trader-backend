@@ -21,8 +21,9 @@ import { PNLRestAPI } from "../api/server";
 import { getPerpetualManagerProxyAddress, getDefaultRPC } from "../utils/abi";
 import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
-import { retrieveShareTokenContracts } from "../contracts/tokens";
+import { getShareTokenDecimals, retrieveShareTokenContracts } from "../contracts/tokens";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
+import { TokenDecimals } from "../db/token_decimals";
 
 // TODO set this up for actual production use
 const defaultLogger = () => {
@@ -97,6 +98,7 @@ export const main = async () => {
 	const dbEstimatedEarnings = new EstimatedEarnings(chainId, prisma, logger);
 	const dbPriceInfo = new PriceInfo(prisma, logger);
 	const dbLPWithdrawals = new LiquidityWithdrawals(prisma, logger);
+	const dbTokenDecimals = new TokenDecimals(prisma, logger);
 
 	const eventsListener = new EventListener(
 		{
@@ -123,6 +125,7 @@ export const main = async () => {
 		httpProvider,
 		proxyContractAddr,
 		useTimestamp: undefined,
+		dbTokenDecimals,
 	};
 	await runHistoricalDataFilterers(hdOpts);
 
@@ -158,7 +161,9 @@ export const main = async () => {
 				fundingRatePayment: dbFundingRatePayments,
 				tradeHistory: dbTrades,
 				priceInfo: dbPriceInfo,
+				tokenDecimals: dbTokenDecimals,
 			},
+			provider: httpProvider,
 		},
 		logger
 	);
@@ -176,6 +181,7 @@ export interface hdFilterersOpt {
 	dbEstimatedEarnings: EstimatedEarnings;
 	dbPriceInfo: PriceInfo;
 	dbLPWithdrawals: LiquidityWithdrawals;
+	dbTokenDecimals: TokenDecimals;
 }
 
 export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
@@ -188,11 +194,16 @@ export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
 		dbEstimatedEarnings,
 		dbPriceInfo,
 		dbLPWithdrawals,
+		dbTokenDecimals,
 	} = opts;
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
 
-	// Share token contracts
+	// Retrieve Share token decimals
 	const shareTokenAddresses = await retrieveShareTokenContracts();
+	for (let i = 0; i < shareTokenAddresses.length; i++) {
+		const dec = await getShareTokenDecimals(shareTokenAddresses[i], httpProvider);
+		await dbTokenDecimals.insert(i + 1, shareTokenAddresses[i], dec);
+	}
 
 	// LP withdrawals must be first thing that we filter, because
 	// LiquidityRemoved event filterer must run after we already have withdrawal
