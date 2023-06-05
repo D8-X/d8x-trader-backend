@@ -1,13 +1,13 @@
 import { FundingRatePayment, Trade, Prisma, PrismaClient } from "@prisma/client";
-import express, { Express, Request, Response, response } from "express";
-import { Logger, error } from "winston";
+import express, { Request, Response } from "express";
+import { Logger } from "winston";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
 import { correctQueryArgs, errorResp, toJson } from "../utils/response";
-import { EthersError, Provider, getAddress } from "ethers";
+import { Provider, getAddress } from "ethers";
 import { MarketData } from "@d8x/perpetuals-sdk";
 import { getSDKFromEnv } from "../utils/abi";
-import { dec18ToFloat, ABK64x64ToFloat, decNToFloat } from "../utils/bigint";
+import { ABK64x64ToFloat, decNToFloat } from "../utils/bigint";
 import dotenv from "dotenv";
 import cors from "cors";
 import { PriceInfo } from "../db/price_info";
@@ -43,7 +43,7 @@ export class PNLRestAPI {
 	private CORS_ON: boolean;
 
 	/**
-	 * Initialize ResAPI parameters, routes, middelware, etc
+	 * Initialize Rest API parameters, routes, middelware, etc
 	 * @param opts
 	 * @param l
 	 */
@@ -227,8 +227,15 @@ export class PNLRestAPI {
 				],
 			},
 		});
-		let earningsTokensSum = dec18ToFloat(
-			BigInt(result._sum.token_amount?.toFixed() ?? 0)
+
+		// Retrieve margin token decimals
+		const decimals = await this.opts.db.tokenDecimals.retrievePoolMarginTokenDecimals(
+			poolIdNum
+		);
+
+		let earningsTokensSum = decNToFloat(
+			BigInt(result._sum.token_amount?.toFixed() ?? 0),
+			decimals
 		);
 		const participationValue = await this.md?.getParticipationValue(
 			user_wallet,

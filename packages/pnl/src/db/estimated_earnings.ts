@@ -62,7 +62,7 @@ export class EstimatedEarnings {
 						pool_id,
 						token_amount: amount.toString(),
 						tx_hash: txHash,
-						wallet_address: wallet,
+						wallet_address: wallet.toLowerCase(),
 						created_at: blockTimestamp
 							? new Date(blockTimestamp * 1000)
 							: undefined,
@@ -88,7 +88,7 @@ export class EstimatedEarnings {
 		blockTimestamp: number
 	) {
 		return this.insert(
-			wallet,
+			wallet.toLowerCase(),
 			// Liquidity Added  goes with - sign
 			amount * BigInt(-1),
 			perpetualId,
@@ -106,7 +106,7 @@ export class EstimatedEarnings {
 		blockTimestamp: number
 	) {
 		return this.insert(
-			wallet,
+			wallet.toLowerCase(),
 			// Liquidity Removed  goes with + sign so we leave it as it is
 			amount,
 			perpetualId,
@@ -132,7 +132,7 @@ export class EstimatedEarnings {
 
 		// For wallet_from amount sign is plus
 		await this.insert(
-			wallet_from,
+			wallet_from.toLowerCase(),
 			BigInt(Math.floor(estimatedEarningsTokensAmnt)),
 			poolId,
 			txHash,
@@ -142,7 +142,7 @@ export class EstimatedEarnings {
 
 		// For wallet_from amount sign is - (minus)
 		return this.insert(
-			wallet_to,
+			wallet_to.toLowerCase(),
 			BigInt(Math.floor(estimatedEarningsTokensAmnt)) * BigInt(-1),
 			poolId,
 			txHash,

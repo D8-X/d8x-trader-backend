@@ -1,4 +1,4 @@
-import { Contract, WebSocketProvider, ethers } from "ethers";
+import { Contract, Provider, WebSocketProvider, ethers } from "ethers";
 import { Logger } from "winston";
 import {
 	LiquidateEvent,
@@ -14,8 +14,9 @@ import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
 import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
 import { dec18ToFloat } from "../utils/bigint";
-import { retrieveShareTokenContracts } from "./tokens";
+import { insertPoolTokenDecimalsInDb, retrieveShareTokenContracts } from "./tokens";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
+import { TokenDecimals } from "../db/token_decimals";
 export interface EventListenerOptions {
 	logger: Logger;
 	// smart contract addresses which will be used to listen to incoming events
@@ -40,7 +41,8 @@ export class EventListener {
 		private dbFundingRates: FundingRatePayments,
 		private dbEstimatedEarnings: EstimatedEarnings,
 		private dbPriceInfos: PriceInfo,
-		private dbLPWithdrawals: LiquidityWithdrawals
+		private dbLPWithdrawals: LiquidityWithdrawals,
+		private dbTokenDecimals: TokenDecimals
 	) {
 		this.l = opts.logger;
 		this.opts = opts;
@@ -324,6 +326,13 @@ export class EventListener {
 					false,
 					event.log.transactionHash,
 					new Date().getTime() / 1000
+				);
+
+				// Make sure decimals are updated
+				await insertPoolTokenDecimalsInDb(
+					parseInt(poolId.toString()),
+					this.dbTokenDecimals,
+					this.provider! as Provider
 				);
 			}
 		);

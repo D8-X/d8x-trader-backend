@@ -111,11 +111,16 @@ model LiquidityWithdrawal{
     @@index([timestamp])
 }
 
+enum token_decimals_type{
+    share_token
+    margin_token
+}
 model TokenDecimals{
     @@map("token_decimals")
     token_address String @id
     decimals Int
     pool_id Int
-    @@index([token_address], type:Hash)
+    token_type token_decimals_type
     @@index([pool_id])
+    @@index([token_address], type:Hash)
 }

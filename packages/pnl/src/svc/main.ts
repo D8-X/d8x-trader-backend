@@ -21,7 +21,12 @@ import { PNLRestAPI } from "../api/server";
 import { getPerpetualManagerProxyAddress, getDefaultRPC } from "../utils/abi";
 import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
-import { getShareTokenDecimals, retrieveShareTokenContracts } from "../contracts/tokens";
+import {
+	getTokenDecimals,
+	insertPoolTokenDecimalsInDb,
+	retrieveMarginTokenContracts,
+	retrieveShareTokenContracts,
+} from "../contracts/tokens";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 import { TokenDecimals } from "../db/token_decimals";
 
@@ -112,7 +117,8 @@ export const main = async () => {
 		dbFundingRatePayments,
 		dbEstimatedEarnings,
 		dbPriceInfo,
-		dbLPWithdrawals
+		dbLPWithdrawals,
+		dbTokenDecimals
 	);
 
 	// Start the historical data filterers on serivice start...
@@ -198,11 +204,13 @@ export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
 	} = opts;
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
 
-	// Retrieve Share token decimals
+	// Retrieve Share and Margin token decimals
 	const shareTokenAddresses = await retrieveShareTokenContracts();
+
+	// Insert any missing token decimal details for each pool.
 	for (let i = 0; i < shareTokenAddresses.length; i++) {
-		const dec = await getShareTokenDecimals(shareTokenAddresses[i], httpProvider);
-		await dbTokenDecimals.insert(i + 1, shareTokenAddresses[i], dec);
+		const poolId = i + 1;
+		await insertPoolTokenDecimalsInDb(poolId, dbTokenDecimals, httpProvider);
 	}
 
 	// LP withdrawals must be first thing that we filter, because
