@@ -97,28 +97,10 @@
     buffer "^6.0.3"
     process "^0.11.10"
 
-"@d8x/perpetuals-sdk@^0.6.0":
-  version "0.6.0"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.6.0.tgz#dfa03ac03dc8ceef8187e4a6d15e291a2b14811b"
-  integrity sha512-IKBXF0D32rxV1fI9h+ZxtOU2aq+1x2J3u3avuz3zLU6FfSnaS4DU3ldZmnh0quc4QfiGy3wM8sh4LVqPid8L1Q==
-  dependencies:
-    "@ethersproject/abi" "^5.7.0"
-    "@ethersproject/abstract-signer" "^5.7.0"
-    "@ethersproject/bignumber" "^5.7.0"
-    "@ethersproject/bytes" "^5.7.0"
-    "@ethersproject/contracts" "^5.7.0"
-    "@ethersproject/keccak256" "^5.7.0"
-    "@ethersproject/providers" "^5.7.2"
-    "@ethersproject/strings" "^5.7.0"
-    "@ethersproject/units" "^5.7.0"
-    "@ethersproject/wallet" "^5.7.0"
-    buffer "^6.0.3"
-    process "^0.11.10"
-
-"@d8x/perpetuals-sdk@^0.6.5":
-  version "0.6.5"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.6.5.tgz#5ada17d14b01508f56c840253fe9e1108caea306"
-  integrity sha512-IcGcYGSanmI4ySfN8avMnjp4joXN8l8oyJSrwW5ZOxQMGek6SRx8FrVTUo6cBJmQC44a3kaSB+O/6A3Li4YztA==
+"@d8x/perpetuals-sdk@^0.6.6":
+  version "0.6.6"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.6.6.tgz#1cc1c44f227770ff2b480fbc95583cb2ffde0406"
+  integrity sha512-bDAZml2sH+r4/CQzaVr82UqCjsgxgINtZdQF9Xk8T5j9aSpckncCy+0hX39fiwoTYsSARlI/WAnSOHNJLcw1zQ==
   dependencies:
     "@ethersproject/abi" "^5.7.0"
     "@ethersproject/abstract-signer" "^5.7.0"
