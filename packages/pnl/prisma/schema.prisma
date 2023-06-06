@@ -32,10 +32,12 @@ model Trade{
   order_flags BigInt @default(0) 
   // price is stored in ABDK format
   price Decimal @db.Decimal(40,0) 
-  // quanityt is stored in ABDK format
+  // quantity is stored in ABDK format
   quantity Decimal @db.Decimal(40,0)
   // fee is stored in ABDK format
   fee Decimal @db.Decimal(40,0)
+  // brokerFeeTbps is stored in tenth of 1 basis point (1e-5)
+  broker_fee_tbps Int
   // realized profit is stored in ABDK format
   realized_profit Decimal @db.Decimal(40,0)
   order_digest_hash String @db.Text 
