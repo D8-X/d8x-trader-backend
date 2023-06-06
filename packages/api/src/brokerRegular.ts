@@ -13,6 +13,10 @@ export default class BrokerRegular extends BrokerIntegration {
     this.brokerFeeTenthOfBasisPoints = brokerFeeTenthOfBasisPoints;
   }
 
+  public async initialize() {
+    await this.sdk.createProxyInstance();
+  }
+
   public getBrokerAddress(traderAddr: string, order?: Order): string {
     return this.sdk.getAddress();
   }
