@@ -115,14 +115,3 @@ export function floatToABK64x64(x: number): bigint {
 	let xDecBig = (xDec * ONE_64x64) / DECIMALS18;
 	return (xIntBig + xDecBig) * BigInt(sg);
 }
-
-/**
- * Convert ABK64x64/2^35 bigint-format to float.
- * Divide by 2^64 to get a float, but it's already "divided" by 2^35,
- * so there's only 2^29 left
- * @param  {bigint|number} x number in ABDK-format/2^35
- * @returns {number} x/2^64 in number-format (float)
- */
-export const ABDK29ToFloat = (x: bigint) => {
-	return x / BigInt(Math.pow(2, 29));
-};
