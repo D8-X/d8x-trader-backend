@@ -15,7 +15,7 @@ export interface TradeEvent {
 	order: {
 		flags: bigint;
 		iPerpetualId: bigint;
-		brokerFeeTbps: bigint;
+		brokerFeeTbps: number;
 		traderAddr: string;
 		brokerAddr: string;
 		referrerAddr: string;
