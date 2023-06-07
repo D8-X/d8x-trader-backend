@@ -36,7 +36,7 @@ export class EstimatedEarnings {
 	public async insert(
 		wallet: string,
 		amount: bigint,
-		pool_id: bigint,
+		pool_id: number,
 		txHash: string,
 		type: estimated_earnings_event_type,
 		blockTimestamp?: number
@@ -83,7 +83,7 @@ export class EstimatedEarnings {
 	public async insertLiquidityAdded(
 		wallet: string,
 		amount: bigint,
-		perpetualId: bigint,
+		perpetualId: number,
 		txHash: string,
 		blockTimestamp: number
 	) {
@@ -101,7 +101,7 @@ export class EstimatedEarnings {
 	public async insertLiquidityRemoved(
 		wallet: string,
 		amount: bigint,
-		perpetualId: bigint,
+		perpetualId: number,
 		txHash: string,
 		blockTimestamp: number
 	) {
@@ -121,7 +121,7 @@ export class EstimatedEarnings {
 		wallet_to: string,
 		amountD18: bigint,
 		priceD18: bigint,
-		poolId: bigint,
+		poolId: number,
 		txHash: string,
 		blockTimestamp: number
 	) {

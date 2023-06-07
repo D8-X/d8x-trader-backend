@@ -295,7 +295,7 @@ export class EventListener {
 						to,
 						amountD18,
 						priceD18,
-						BigInt(poolId),
+						poolId,
 						event.log.transactionHash,
 						new Date().getTime() / 1000
 					);
@@ -306,7 +306,7 @@ export class EventListener {
 		pmp.on(
 			"LiquidityWithdrawalInitiated",
 			async (
-				poolId: bigint,
+				poolId: number,
 				user: string,
 				shareAmount: bigint,
 				event: ethers.ContractEventPayload

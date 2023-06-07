@@ -289,7 +289,7 @@ export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
 				e.to,
 				e.amountD18,
 				e.priceD18,
-				params?.poolId as unknown as bigint,
+				params?.poolId as unknown as number,
 				txHash,
 				blockTimeStamp
 			);
