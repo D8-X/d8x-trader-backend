@@ -112,3 +112,12 @@ model LiquidityWithdrawal{
     @@index([user_wallet], type:Hash)
     @@index([timestamp])
 }
+
+
+model MarginTokenInfo {
+  @@map("margin_token_info")
+  pool_id Int @id
+  token_addr String @db.VarChar(42)
+  token_name String @db.VarChar(20)
+  token_decimals Int
+}
