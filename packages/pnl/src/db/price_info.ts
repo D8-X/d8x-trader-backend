@@ -1,19 +1,5 @@
-import {
-	PrismaClient,
-	Trade,
-	trade_side,
-	Prisma,
-	FundingRatePayment,
-	EstimatedEarningTokens,
-	estimated_earnings_event_type,
-} from "@prisma/client";
-import { BigNumberish, ethers, Numeric, Result } from "ethers";
-import * as eth from "ethers";
-import { TradeEvent } from "../contracts/types";
+import { PrismaClient } from "@prisma/client";
 import { Logger } from "winston";
-import { UpdateMarginAccountEvent } from "../contracts/types";
-import { LiquidateEvent } from "../contracts/types";
-import { dec18ToFloat } from "../utils/bigint";
 
 export class PriceInfo {
 	constructor(public prisma: PrismaClient, public l: Logger) {}
