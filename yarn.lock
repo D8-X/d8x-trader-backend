@@ -79,7 +79,7 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@d8x/perpetuals-sdk@^0.5.2", "@d8x/perpetuals-sdk@^0.5.3":
+"@d8x/perpetuals-sdk@^0.5.3":
   version "0.5.3"
   resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.5.3.tgz#e346f1076d3d2f20b70773544c33651444c2aaf4"
   integrity sha512-8a4+a8Ir/LVQ4lyCPV5/xZJAVxdELM0lKBa+AxoAYW1rW1vOwgdAJC1Yui1hoxlXO9gOeYisW+Ns7S48Jgzmjw==
@@ -1067,6 +1067,11 @@
   version "4.12.0-67.659ef412370fa3b41cd7bf6e94587c1dfb7f67e7"
   resolved "https://registry.yarnpkg.com/@prisma/engines-version/-/engines-version-4.12.0-67.659ef412370fa3b41cd7bf6e94587c1dfb7f67e7.tgz#51a1cc5c886564b542acde64a873645d0dee2566"
   integrity sha512-JIHNj5jlXb9mcaJwakM0vpgRYJIAurxTUqM0iX0tfEQA5XLZ9ONkIckkhuAKdAzocZ+80GYg7QSsfpjg7OxbOA==
+
+"@prisma/engines@4.15.0":
+  version "4.15.0"
+  resolved "https://registry.yarnpkg.com/@prisma/engines/-/engines-4.15.0.tgz#d8687a9fda615fab88b75b466931280289de9e26"
+  integrity sha512-FTaOCGs0LL0OW68juZlGxFtYviZa4xdQj/rQEdat2txw0s3Vu/saAPKjNVXfIgUsGXmQ72HPgNr6935/P8FNAA==
 
 "@sigstore/protobuf-specs@^0.1.0":
   version "0.1.0"
@@ -4898,6 +4903,13 @@ pretty-format@29.4.3:
     "@jest/schemas" "^29.4.3"
     ansi-styles "^5.0.0"
     react-is "^18.0.0"
+
+prisma@^4.15.0:
+  version "4.15.0"
+  resolved "https://registry.yarnpkg.com/prisma/-/prisma-4.15.0.tgz#4faa94f0d584828b68468953ff0bc88f37912c8c"
+  integrity sha512-iKZZpobPl48gTcSZVawLMQ3lEy6BnXwtoMj7hluoGFYu2kQ6F9LBuBrUyF95zRVnNo8/3KzLXJXJ5TEnLSJFiA==
+  dependencies:
+    "@prisma/engines" "4.15.0"
 
 proc-log@^2.0.0, proc-log@^2.0.1:
   version "2.0.1"
