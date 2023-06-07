@@ -59,7 +59,7 @@ export class EstimatedEarnings {
 			try {
 				fungingRatePayment = await this.prisma.estimatedEarningTokens.create({
 					data: {
-						pool_id,
+						pool_id: Number(pool_id),
 						token_amount: amount.toString(),
 						tx_hash: txHash,
 						wallet_address: wallet,
