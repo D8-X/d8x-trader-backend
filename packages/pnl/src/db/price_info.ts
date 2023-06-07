@@ -25,7 +25,7 @@ export class PriceInfo {
 	 * @param pool_id
 	 * @param timestamp if undefined, current date will be used
 	 */
-	public async insert(pool_token_price: number, pool_id: bigint, timestamp?: Date) {
+	public async insert(pool_token_price: number, pool_id: number, timestamp?: Date) {
 		const res = await this.prisma.price.create({
 			data: {
 				pool_id: pool_id,

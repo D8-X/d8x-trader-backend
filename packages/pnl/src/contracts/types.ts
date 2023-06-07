@@ -9,12 +9,12 @@ export type EventCallback<Event, Params = any> = (
 // Trade event shape as retrieved from logs
 // topic hash 0xcae6abbbeb6085c86dba93ff60c0913157ef0adb7bbc1da47d768f95d9147341
 export interface TradeEvent {
-	perpetualId: bigint;
+	perpetualId: number;
 	trader: string;
 	positionId: string;
 	order: {
 		flags: bigint;
-		iPerpetualId: bigint;
+		iPerpetualId: number;
 		brokerFeeTbps: number;
 		traderAddr: string;
 		brokerAddr: string;
@@ -39,7 +39,7 @@ export interface TradeEvent {
 export type TradesFilteredCb = EventCallback<TradeEvent>;
 
 export interface LiquidateEvent {
-	perpetualId: bigint; //unique perpetual id
+	perpetualId: number; //unique perpetual id
 	liquidator: string;
 	trader: string;
 	positionId: string;
@@ -53,7 +53,7 @@ export interface LiquidateEvent {
 export type LiquidationsFilteredCb = EventCallback<LiquidateEvent>;
 
 export interface UpdateMarginAccountEvent {
-	perpetualId: bigint;
+	perpetualId: number;
 	trader: string;
 	positionId: string;
 	fPositionBC: bigint;
@@ -66,7 +66,7 @@ export interface UpdateMarginAccountEvent {
 export type UpdateMarginAccountFilteredCb = EventCallback<UpdateMarginAccountEvent>;
 
 export interface LiquidityAddedEvent {
-	poolId: bigint;
+	poolId: number;
 	user: string;
 	tokenAmount: bigint;
 	shareAmount: bigint;
@@ -75,7 +75,7 @@ export interface LiquidityAddedEvent {
 export type LiquidityAddedFilteredCb = EventCallback<LiquidityAddedEvent>;
 
 export interface LiquidityRemovedEvent {
-	poolId: bigint;
+	poolId: number;
 	user: string;
 	tokenAmount: bigint;
 	shareAmount: bigint;
@@ -92,7 +92,7 @@ export interface P2PTransferEvent {
 export type P2PTransferFilteredCb = EventCallback<P2PTransferEvent, { poolId: number }>;
 
 export interface LiquidityWithdrawalInitiated {
-	poolId: bigint;
+	poolId: number;
 	user: string;
 	shareAmount: bigint;
 }

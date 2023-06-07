@@ -378,7 +378,7 @@ export class PNLRestAPI {
 			this.l.info("fetched price info", { poolId, price });
 
 			// Push the price info to db
-			await this.db.priceInfo.insert(price, BigInt(poolId));
+			await this.db.priceInfo.insert(price, poolId);
 		}
 	}
 
