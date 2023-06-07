@@ -21,8 +21,13 @@ import { PNLRestAPI } from "../api/server";
 import { getPerpetualManagerProxyAddress, getDefaultRPC } from "../utils/abi";
 import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
-import { retrieveShareTokenContracts } from "../contracts/tokens";
+import {
+	retrieveShareTokenContracts,
+	initShareAndPoolTokenContracts,
+	checkAndWriteMarginTokenInfoToDB,
+} from "../contracts/tokens";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
+import { MarginTokenInfo } from "../db/margin_token_info";
 
 // TODO set this up for actual production use
 const defaultLogger = () => {
@@ -97,6 +102,12 @@ export const main = async () => {
 	const dbEstimatedEarnings = new EstimatedEarnings(chainId, prisma, logger);
 	const dbPriceInfo = new PriceInfo(prisma, logger);
 	const dbLPWithdrawals = new LiquidityWithdrawals(prisma, logger);
+	const dbMarginTokenInfo = new MarginTokenInfo(prisma, logger);
+
+	// get sharepool token info and margin token info
+	await initShareAndPoolTokenContracts(httpProvider);
+	// store margin token info to DB
+	await checkAndWriteMarginTokenInfoToDB(dbMarginTokenInfo);
 
 	const eventsListener = new EventListener(
 		{
