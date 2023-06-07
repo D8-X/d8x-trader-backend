@@ -61,7 +61,9 @@ export class PNLRestAPI {
 	 */
 	public async init() {
 		// Init marked data
-		const md = new MarketData(getSDKFromEnv());
+		let config = getSDKFromEnv();
+		config.nodeURL = process.env.HTTP_RPC_URL;
+		const md = new MarketData(config);
 		await md.createProxyInstance();
 		this.md = md;
 	}
