@@ -18,3 +18,10 @@ WS_RPC_URL=
 POSTGRES_USER=user
 POSTGRES_PASSWORD=password
 POSTGRES_DB=db
+
+#--- BROKER SETTINGS (optional) ----
+# Broker key
+BROKER_KEY=""
+# Broker fee in tenth of basis point.
+# For example 0.06% = 6 bps = 60 tbps
+BROKER_FEE_TBPS=60

@@ -57,8 +57,8 @@ export class FundingRatePayments {
 				let data: Prisma.FundingRatePaymentCreateInput = {
 					payment_amount: e.fFundingPaymentCC.toString(),
 					wallet_address: trader,
-					perpetual_id: e.perpetualId,
-					tx_hash,
+					perpetual_id: Number(e.perpetualId),
+					tx_hash: tx_hash,
 					payment_timestamp: new Date(blockTimestamp * 1000),
 				};
 
