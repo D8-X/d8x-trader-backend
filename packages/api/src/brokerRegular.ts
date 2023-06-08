@@ -15,6 +15,7 @@ export default class BrokerRegular extends BrokerIntegration {
 
   public async initialize() {
     await this.sdk.createProxyInstance();
+    console.log("Initialized broker with address=", this.sdk.getAddress());
   }
 
   public getBrokerAddress(traderAddr: string, order?: Order): string {
