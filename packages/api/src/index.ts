@@ -2,7 +2,8 @@ import fs from "fs";
 import dotenv from "dotenv";
 
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
-import NoBroker from "./noBroker";
+import BrokerNone from "./brokerNone";
+import BrokerRegular from "./brokerRegular";
 import { PerpetualDataHandler, NodeSDKConfig } from "@d8x/perpetuals-sdk";
 
 function chooseRandomRPC() {
@@ -30,7 +31,14 @@ async function start() {
   const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig(configName);
   sdkConfig.nodeURL = chooseRandomRPC();
   console.log(`RPC = ${sdkConfig.nodeURL}`);
-  let d8XBackend = new D8XBrokerBackendApp(new NoBroker(), sdkConfig);
+  let broker;
+  if (process.env.BROKER_KEY == undefined || process.env.BROKER_KEY == "") {
+    broker = new BrokerNone();
+  } else {
+    const feeTbps = process.env.BROKER_FEE_TBPS == undefined ? 0 : Number(process.env.BROKER_FEE_TBPS);
+    broker = new BrokerRegular(process.env.BROKER_KEY, feeTbps, sdkConfig);
+  }
+  let d8XBackend = new D8XBrokerBackendApp(broker, sdkConfig);
   await d8XBackend.initialize();
 }
 start();

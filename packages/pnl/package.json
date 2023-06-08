@@ -15,7 +15,7 @@
 		"run-production": "yarn prisma-prod && node ./dist/main.js"
 	},
 	"dependencies": {
-		"@d8x/perpetuals-sdk": "^0.5.3",
+		"@d8x/perpetuals-sdk": "^0.6.6",
 		"@prisma/client": "^4.12.0",
 		"cors": "^2.8.5",
 		"date-fns": "^2.30.0",
