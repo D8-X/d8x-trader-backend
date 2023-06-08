@@ -7,7 +7,7 @@ import { correctQueryArgs, errorResp, toJson } from "../utils/response";
 import { getAddress } from "ethers";
 import { MarketData } from "@d8x/perpetuals-sdk";
 import { getSDKFromEnv } from "../utils/abi";
-import { dec18ToFloat, ABK64x64ToFloat } from "../utils/bigint";
+import { dec18ToFloat, ABK64x64ToFloat } from "utils/src/bigint";
 import dotenv from "dotenv";
 import cors from "cors";
 import { PriceInfo } from "../db/price_info";

@@ -13,7 +13,7 @@ import { TradeEvent } from "../contracts/types";
 import { Logger } from "winston";
 import { UpdateMarginAccountEvent } from "../contracts/types";
 import { LiquidateEvent } from "../contracts/types";
-import { dec18ToFloat } from "../utils/bigint";
+import { dec18ToFloat } from "../../../utils/src/bigint";
 
 eth.toBigInt;
 
