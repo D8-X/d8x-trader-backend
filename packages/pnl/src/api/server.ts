@@ -61,7 +61,9 @@ export class PNLRestAPI {
 	 */
 	public async init() {
 		// Init marked data
-		const md = new MarketData(getSDKFromEnv());
+		let config = getSDKFromEnv();
+		config.nodeURL = process.env.HTTP_RPC_URL;
+		const md = new MarketData(config);
 		await md.createProxyInstance();
 		this.md = md;
 	}
@@ -378,7 +380,7 @@ export class PNLRestAPI {
 			this.l.info("fetched price info", { poolId, price });
 
 			// Push the price info to db
-			await this.db.priceInfo.insert(price, BigInt(poolId));
+			await this.db.priceInfo.insert(price, poolId);
 		}
 	}
 

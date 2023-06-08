@@ -5,6 +5,8 @@ import {
 	ONE_64x64,
 	floatToABK64x64,
 	floatToDec18,
+	floatToDecN,
+	decNToFloat,
 } from "../src/utils/bigint";
 
 async function main() {
@@ -21,6 +23,13 @@ async function main() {
 
 	let x12 = dec18ToFloat(x11);
 	console.log(`${x11} as float = ${x12}`);
+
+	let numDec = 6;
+	let x31 = floatToDecN(x00, numDec);
+	console.log(`${x00} as dec${numDec} = ${x31}`);
+
+	let x32 = decNToFloat(x31, 6);
+	console.log(`${x31} (dec${numDec}) as float = ${x32}`);
 
 	let x2 = dec18ToFloat(DECIMALS18);
 	console.log(`one from dec18 = ${x2}`);
