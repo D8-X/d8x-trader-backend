@@ -1,19 +1,5 @@
-import {
-	PrismaClient,
-	Trade,
-	trade_side,
-	Prisma,
-	FundingRatePayment,
-	EstimatedEarningTokens,
-	estimated_earnings_event_type,
-} from "@prisma/client";
-import { BigNumberish, ethers, Numeric, Result } from "ethers";
-import * as eth from "ethers";
-import { TradeEvent } from "../contracts/types";
+import { PrismaClient } from "@prisma/client";
 import { Logger } from "winston";
-import { UpdateMarginAccountEvent } from "../contracts/types";
-import { LiquidateEvent } from "../contracts/types";
-import { dec18ToFloat } from "../utils/bigint";
 
 export class PriceInfo {
 	constructor(public prisma: PrismaClient, public l: Logger) {}
@@ -25,7 +11,7 @@ export class PriceInfo {
 	 * @param pool_id
 	 * @param timestamp if undefined, current date will be used
 	 */
-	public async insert(pool_token_price: number, pool_id: bigint, timestamp?: Date) {
+	public async insert(pool_token_price: number, pool_id: number, timestamp?: Date) {
 		const res = await this.prisma.price.create({
 			data: {
 				pool_id: pool_id,

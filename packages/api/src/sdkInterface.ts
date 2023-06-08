@@ -36,6 +36,7 @@ export default class SDKInterface extends Observable {
   public async initialize(sdkConfig: NodeSDKConfig) {
     this.apiInterface = new TraderInterface(sdkConfig);
     await this.apiInterface.createProxyInstance();
+    await this.broker.initialize();
     console.log(`SDK v${D8X_SDK_VERSION} API initialized`);
   }
 
@@ -294,13 +295,13 @@ export default class SDKInterface extends Observable {
     if (!orders.every((order: Order) => order.symbol == orders[0].symbol)) {
       throw Error("orders must have the same symbol");
     }
-    let SCOrders = orders!.map((order: Order) => {
+    let SCOrders = await Promise.all(orders!.map(async (order: Order) => {
       order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
       order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
       let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
-      this.broker.signOrder(SCOrder!);
+      SCOrder!.brokerSignature = await this.broker.signOrder(SCOrder!);
       return SCOrder!;
-    });
+    }));
     // now we can create the digest that is to be signed by the trader
     let digests = await Promise.all(
       SCOrders.map((SCOrder: SmartContractOrder) => {
