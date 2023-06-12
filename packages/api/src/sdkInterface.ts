@@ -36,7 +36,8 @@ export default class SDKInterface extends Observable {
   public async initialize(sdkConfig: NodeSDKConfig) {
     this.apiInterface = new TraderInterface(sdkConfig);
     await this.apiInterface.createProxyInstance();
-    await this.broker.initialize();
+    const brokerAddress = await this.broker.initialize();
+    await this.redisClient.set("BrokerAddress", brokerAddress);
     console.log(`SDK v${D8X_SDK_VERSION} API initialized`);
   }
 

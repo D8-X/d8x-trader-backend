@@ -2,7 +2,6 @@ import { PrismaClient, Trade, trade_side, Prisma } from "@prisma/client";
 import { BigNumberish, Numeric, Result } from "ethers";
 import { TradeEvent } from "../contracts/types";
 import { Logger } from "winston";
-import { UpdateMarginAccountEvent } from "../contracts/types";
 import { LiquidateEvent } from "../contracts/types";
 
 type TradeHistoryEvent = TradeEvent | LiquidateEvent;
@@ -36,7 +35,7 @@ export class TradingHistory {
 				tx_hash: {
 					equals: tx_hash,
 				},
-				wallet_address: {
+				trader_addr: {
 					equals: trader,
 				},
 			},
@@ -52,6 +51,7 @@ export class TradingHistory {
 						order_digest_hash: e.orderDigest.toString(),
 						fee: e.fFeeCC.toString(),
 						broker_fee_tbps: Number(e.order.brokerFeeTbps),
+						broker_addr: e.order.brokerAddr,
 						perpetual_id: Number(e.perpetualId),
 						price: e.price.toString(),
 						quantity: e.order.fAmount.toString(),
@@ -62,7 +62,7 @@ export class TradingHistory {
 						// Order flags are only present
 						order_flags: e.order.flags,
 						tx_hash,
-						wallet_address: trader,
+						trader_addr: trader,
 						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
 					};
 				} else {
@@ -81,7 +81,7 @@ export class TradingHistory {
 							: "liquidate_sell") as trade_side,
 						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
 						tx_hash,
-						wallet_address: trader,
+						trader_addr: trader,
 					};
 				}
 				newTrade = await this.prisma.trade.create({

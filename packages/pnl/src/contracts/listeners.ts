@@ -13,7 +13,7 @@ import { FundingRatePayments } from "../db/funding_rate";
 import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
 import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
-import { dec18ToFloat } from "utils/src/bigint";
+import { dec18ToFloat } from "utils";
 import { retrieveShareTokenContracts } from "./tokens";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 export interface EventListenerOptions {

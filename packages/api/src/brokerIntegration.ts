@@ -8,5 +8,5 @@ export default abstract class BrokerIntegration {
   abstract getBrokerAddress(traderAddr: string, order?: Order): string;
   abstract getBrokerFeeTBps(traderAddr: string, order?: Order): number;
   abstract signOrder(SCOrder: SmartContractOrder): Promise<string>;
-  abstract initialize(): Promise<void>;
+  abstract initialize(): Promise<string>;
 }

@@ -22,6 +22,7 @@
     "typescript": "4.9.5"
   },
   "scripts": {
+    "buildPrisma": "npx prisma generate --schema=`./packages/utils/prisma/schema.prisma`",
     "build": "npx tsc",
     "startWSClient": "node dist/src/indexPXWSClient/startIndexPXWSClient.js",
     "start": "node dist/src/index.js"

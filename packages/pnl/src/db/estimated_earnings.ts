@@ -13,7 +13,7 @@ import { TradeEvent } from "../contracts/types";
 import { Logger } from "winston";
 import { UpdateMarginAccountEvent } from "../contracts/types";
 import { LiquidateEvent } from "../contracts/types";
-import { dec18ToFloat } from "../../../utils/src/bigint";
+import { dec18ToFloat } from "utils";
 
 eth.toBigInt;
 
@@ -55,14 +55,14 @@ export class EstimatedEarnings {
 		});
 
 		if (exists === null) {
-			let fungingRatePayment: EstimatedEarningTokens;
+			let earning: EstimatedEarningTokens;
 			try {
-				fungingRatePayment = await this.prisma.estimatedEarningTokens.create({
+				earning = await this.prisma.estimatedEarningTokens.create({
 					data: {
 						pool_id: Number(pool_id),
 						token_amount: amount.toString(),
 						tx_hash: txHash,
-						wallet_address: wallet,
+						liq_provider_addr: wallet,
 						created_at: blockTimestamp
 							? new Date(blockTimestamp * 1000)
 							: undefined,
@@ -74,7 +74,7 @@ export class EstimatedEarnings {
 				return;
 			}
 			this.l.info("inserted new estimated earning record", {
-				trade_id: fungingRatePayment.id,
+				trade_id: earning.id,
 				type,
 			});
 		}
