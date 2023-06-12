@@ -17,7 +17,7 @@ yarn install
 ```
 
 -   Create a Postgres database and run the Postgres instance.
--   Copy `.env.example` to `.env` and edit according to to [Environment variables](#environment-variables)
+-   Copy `.envExample` to `.env` and edit according to to [Environment variables](#environment-variables)
 -   Run the following command which will create the necessary tables in the database you created
     ```bash
     cd packages/pnl

@@ -10,6 +10,8 @@ The entire backend for the D8X Perpetuals trading frontend package consists of
 The services run over http/ws and it is required to install a reverse proxy on
 the servers so the traffic can flow via https/wss.
 
+There must be one backend per chain-id.
+
 # Docker compose setup
 
 You can spin up all services from this repo + Postgres database via `docker
@@ -51,6 +53,7 @@ update to latest `@d8x/perpetuals-sdk` version:
 ```bash
 npx lerna exec -- yarn upgrade @d8x/perpetuals-sdk@latest
 ```
+
 # Services
 
 Each service has its own README where you can find more documentation about the
@@ -70,5 +73,3 @@ data, setup, etc of each service in its respective README doc.
 ## PNL
 
 <img src="./docs/PnlService.png">
-
-

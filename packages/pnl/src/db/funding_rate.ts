@@ -45,7 +45,7 @@ export class FundingRatePayments {
 				tx_hash: {
 					equals: tx_hash,
 				},
-				wallet_address: {
+				trader_addr: {
 					equals: trader,
 				},
 			},
@@ -56,7 +56,7 @@ export class FundingRatePayments {
 			try {
 				let data: Prisma.FundingRatePaymentCreateInput = {
 					payment_amount: e.fFundingPaymentCC.toString(),
-					wallet_address: trader,
+					trader_addr: trader,
 					perpetual_id: Number(e.perpetualId),
 					tx_hash: tx_hash,
 					payment_timestamp: new Date(blockTimestamp * 1000),

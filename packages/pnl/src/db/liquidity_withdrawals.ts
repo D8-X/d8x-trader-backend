@@ -23,7 +23,7 @@ export class LiquidityWithdrawals {
 				tx_hash: {
 					equals: tx_hash,
 				},
-				user_wallet: {
+				liq_provider_addr: {
 					equals: user_wallet,
 				},
 				is_removal: {
@@ -39,7 +39,7 @@ export class LiquidityWithdrawals {
 					data: {
 						amount: e.shareAmount.toString(),
 						pool_id: parseInt(e.poolId.toString()),
-						user_wallet,
+						liq_provider_addr: user_wallet,
 						timestamp: new Date(blockTimestamp * 1000),
 						is_removal: isRemovedEvent,
 						tx_hash,
@@ -52,7 +52,7 @@ export class LiquidityWithdrawals {
 				return;
 			}
 			this.l.info("inserted new liquidity withdrawal record", {
-				wallet: lpw.user_wallet,
+				liq_provider_addr: lpw.liq_provider_addr,
 				pool_id: lpw.pool_id,
 				is_removal: isRemovedEvent,
 			});

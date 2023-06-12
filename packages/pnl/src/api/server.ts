@@ -7,7 +7,7 @@ import { correctQueryArgs, errorResp, toJson } from "../utils/response";
 import { getAddress } from "ethers";
 import { MarketData } from "@d8x/perpetuals-sdk";
 import { getSDKFromEnv } from "../utils/abi";
-import { dec18ToFloat, ABK64x64ToFloat } from "utils/src/bigint";
+import { dec18ToFloat, ABK64x64ToFloat } from "utils";
 import dotenv from "dotenv";
 import cors from "cors";
 import { PriceInfo } from "../db/price_info";
@@ -97,7 +97,7 @@ export class PNLRestAPI {
 	}
 
 	/**
-	 * Retrieve open withdrawal information
+	 * Retrieve open liquidity provider withdrawal information
 	 *
 	 * @param req
 	 * @param resp
@@ -113,7 +113,7 @@ export class PNLRestAPI {
 			return;
 		}
 
-		const user_wallet = req.query.lpAddr.toLowerCase();
+		const liqprovider_wallet = req.query.lpAddr.toLowerCase();
 		const poolIdNum = this.md?.getPoolIdFromSymbol(req.query.poolSymbol)!;
 
 		if (poolIdNum === undefined || isNaN(poolIdNum)) {
@@ -128,8 +128,8 @@ export class PNLRestAPI {
 						pool_id: {
 							equals: poolIdNum,
 						},
-						user_wallet: {
-							equals: user_wallet,
+						liq_provider_addr: {
+							equals: liqprovider_wallet,
 						},
 					},
 				],
@@ -186,7 +186,7 @@ export class PNLRestAPI {
 			return;
 		}
 
-		const user_wallet = req.query.lpAddr.toLowerCase();
+		const liqprovider_wallet = req.query.lpAddr.toLowerCase();
 		let poolIdNum: number;
 		try {
 			poolIdNum = this.md!.getPoolIdFromSymbol(req.query.poolSymbol)!;
@@ -209,8 +209,8 @@ export class PNLRestAPI {
 			where: {
 				AND: [
 					{
-						wallet_address: {
-							equals: user_wallet,
+						liq_provider_addr: {
+							equals: liqprovider_wallet,
 						},
 					},
 					{
@@ -225,7 +225,7 @@ export class PNLRestAPI {
 			BigInt(result._sum.token_amount?.toFixed() ?? 0)
 		);
 		const participationValue = await this.md?.getParticipationValue(
-			user_wallet,
+			liqprovider_wallet,
 			poolIdNum
 		);
 		// Value is shareTokenBalance * latest price from contract
@@ -254,10 +254,10 @@ export class PNLRestAPI {
 			return;
 		}
 
-		const user_wallet = req.query.traderAddr.toLowerCase();
+		const trader_wallet = req.query.traderAddr.toLowerCase();
 		// Parse wallet address and see if it is correct
 		try {
-			getAddress(user_wallet);
+			getAddress(trader_wallet);
 		} catch (e) {
 			resp.status(400);
 			resp.send(errorResp("invalid wallet address", usage));
@@ -270,8 +270,8 @@ export class PNLRestAPI {
 					payment_timestamp: "desc",
 				},
 				where: {
-					wallet_address: {
-						equals: user_wallet,
+					trader_addr: {
+						equals: trader_wallet,
 					},
 				},
 			});
@@ -304,11 +304,11 @@ export class PNLRestAPI {
 			resp.send(errorResp("please provide correct query parameters", usage));
 			return;
 		}
-		const user_wallet = req.query.traderAddr.toLowerCase();
+		const trader_wallet = req.query.traderAddr.toLowerCase();
 
 		// Parse wallet address and see if it is correct
 		try {
-			getAddress(user_wallet);
+			getAddress(trader_wallet);
 		} catch (e) {
 			resp.status(400);
 			resp.send(errorResp("invalid wallet address", usage));
@@ -320,8 +320,8 @@ export class PNLRestAPI {
 				trade_timestamp: "desc",
 			},
 			where: {
-				wallet_address: {
-					equals: user_wallet,
+				trader_addr: {
+					equals: trader_wallet,
 				},
 			},
 		});
