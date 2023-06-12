@@ -426,11 +426,14 @@ export class PNLRestAPI {
 			isNaN(t_from) ||
 			isNaN(t_to) ||
 			fromTimestamp.match(reDigit) === null ||
-			toTimestamp.match(reDigit) === null
+			toTimestamp.match(reDigit) === null ||
+            t_from<1681387920 || t_to<1681387920 || // ts (seconds) before this date are not realistic
+            t_to>Date.now()+86_400*1000 || // ts (milliseconds) after this date are not realistic
+            t_from>t_to
 		) {
 			resp.send(
 				errorResp(
-					"invalid fromTimestamp or toTimestamp, please provide correct unix timestamps",
+					"invalid fromTimestamp or toTimestamp, please provide correct unix timestamps (s or ms)",
 					usage
 				)
 			);
@@ -439,8 +442,14 @@ export class PNLRestAPI {
 
 		// Retrieve the dates
 		let from: Date, to: Date;
-		from = new Date(t_from * 1000);
-		to = new Date(t_to * 1000);
+        function toMilli(timeStmp: number) : number {
+            // if the timestamp is larger than the date-now+buffer in seconds,
+            // then the timestamp must be in millisecond units
+            const tsNearFutureInSeconds = Date.now()/1000+5*86400;
+            return timeStmp > tsNearFutureInSeconds ? timeStmp : timeStmp*1000;
+        }
+        from = new Date(toMilli(t_from));
+		to = new Date(toMilli(t_to));
 
 		if (isNaN(from.getTime()) || isNaN(to.getTime())) {
 			this.l.error("apy calculation: invalid dates provided", {
