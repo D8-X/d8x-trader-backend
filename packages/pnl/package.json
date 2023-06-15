@@ -9,7 +9,6 @@
 	"license": "MIT",
 	"scripts": {
 		"build": "npx prisma generate && rimraf ./dist && tsc",
-		"watch": "nodemon ./src/main.ts",
 		"prisma-dev": "npx prisma migrate dev",
 		"prisma-prod": "npx prisma migrate deploy",
 		"run-production": "yarn prisma-prod && node ./dist/main.js"
@@ -25,6 +24,7 @@
 		"nodemon": "^2.0.22",
 		"ts-node": "^10.9.1",
 		"winston": "^3.8.2",
+		"watch": "nodemon ./src/main.ts",
 		"utils": "*"
 	},
 	"devDependencies": {}
