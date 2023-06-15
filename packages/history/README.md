@@ -2,17 +2,17 @@
 
 You can either use documentation provided in the root README to spin up all
 services with `docker compose` [here](../../README.md#docker-compose-setup) or
-refer to [Manual Setup](#manual-setup) for setting up only the PNL service
+refer to [Manual Setup](#manual-setup) for setting up only the history service
 manually.
 
 ## Manual Setup
 
-The following section documents how to run PNL service from the source files.
+The following section documents how to run history service from the source files.
 
 To install packages run
 
 ```bash
-cd packages/pnl
+cd packages/history
 yarn install
 ```
 
@@ -20,7 +20,7 @@ yarn install
 -   Copy `.envExample` to `.env` and edit according to to [Environment variables](#environment-variables)
 -   Run the following command which will create the necessary tables in the database you created
     ```bash
-    cd packages/pnl
+    cd packages/history
     npx prisma migrate deploy
     ```
     the output should be: "All migrations have been successfully applied." The database should have the tables
@@ -32,31 +32,31 @@ Build the project with
 yarn build
 ```
 
-in directory packages/pnl.
+in directory packages/history.
 
-Run the PnL service:
+Run the history service:
 
 ```bash
 node ./dist/main.js
 ```
 
-in directory packages/pnl.
+in directory packages/history.
 
-# Profit and loss service
+# History and Profit and loss service
 
-This directory contains the PnL service codebase. This service's entrypoint is `src/main.ts`
+This directory contains the history service codebase. This service's entrypoint is `src/main.ts`
 
 To build the project:
 
 ```bash
-cd packages/pnl
+cd packages/history
 yarn build
 ```
 
 For development:
 
 ```bash
-cd packages/pnl
+cd packages/history
 yarn watch
 ```
 
@@ -85,9 +85,9 @@ HTTP_RPC_URL, WS_RPC_URL:
 -   no default for the websocket-url (application fails if not provided)
 -   if left empty (HTTP_RPC_URL=""), the application will choose the default RPC provider specified in the d8x node SDK
 
-## Profit and loss service structure
+## History and profit and loss service structure
 
-PnL service consists of:
+History service consists of:
 
 -   Blockchain interactions code (historical data filterers and event listeners) `src/contracts`
 -   Minimal express REST API for serving results from db `src/api`

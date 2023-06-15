@@ -2,7 +2,7 @@
 
 The entire backend for the D8X Perpetuals trading frontend package consists of
 
-- this backend code - lerna monorepo consisting of a few services(pnl; api;
+- this backend code - lerna monorepo consisting of a few services(history; api;
   pxws-client) read [here](#services) to find out more about the services.
 - candle stick chart server: https://github.com/D8-X/candleD8
 - a price server that provides off-chain oracle prices: [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server)
@@ -61,7 +61,7 @@ functionality of the service. You can find information about API endpoints,
 data, setup, etc of each service in its respective README doc.
 
 - [API](./packages/api/README.md) - main backend http and websockets API documentation
-- [PNL](./packages/pnl/README.md) - profit and loss, historical trades, APY API documentation
+- [HISTORY](./packages/history/README.md) - profit and loss, historical trades, APY API documentation
 - [PXWS-Client](./packages/pxws-client/README.md) - off-chain index price data streaming
 
 # Architecture
@@ -70,6 +70,6 @@ data, setup, etc of each service in its respective README doc.
 
 <img src="./docs/BackendDiagram.png">
 
-## PNL
+## History
 
-<img src="./docs/PnlService.png">
+<img src="./docs/HistoryService.png">
