@@ -7,7 +7,11 @@ export const getSDKFromEnv = () => {
 	if (configName == "") {
 		throw Error("SDK_CONFIG_NAME missing in .env");
 	}
-	return PerpetualDataHandler.readSDKConfig(configName);
+	let config = PerpetualDataHandler.readSDKConfig(configName);
+	if (process.env.HTTP_RPC_URL != "") {
+		config.nodeURL = process.env.HTTP_RPC_URL;
+	}
+	return config;
 };
 
 export function getPerpetualManagerABI(): ethers.InterfaceAbi {
