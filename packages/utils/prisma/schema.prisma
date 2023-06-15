@@ -32,8 +32,10 @@ model Trade{
   order_flags BigInt @default(0) 
   // price is stored in ABDK format
   price Decimal @db.Decimal(40,0) 
-  // quantity is stored in ABDK format
-  quantity Decimal @db.Decimal(40,0)
+  // quantity (base currency) is stored in ABDK format
+  quantity Decimal @db.Decimal(40,0) 
+  // quantity_cc (collateral currency) is stored in ABDK format
+  quantity_cc Decimal? @db.Decimal(40,0)
   // fee is stored in ABDK format
   fee Decimal @db.Decimal(40,0)
   // brokerFeeTbps is stored in tenth of 1 basis point (1e-5)
@@ -123,7 +125,7 @@ model MarginTokenInfo {
   token_decimals Int
 }
 
-// referrall codes are "globally unique" (the code is a database key)
+// referral codes are "globally unique" (the code is a database key)
 // e.g., they apply to all pools
 model ReferralCode {
   @@map("referral_code")
@@ -157,6 +159,7 @@ model ReferralCodeUsage {
 model ReferralPayment {
   @@map("referral_payment")
   trader_addr String @db.VarChar(42)
+  broker_addr String @db.VarChar(42)
   referral_code ReferralCode @relation(fields: [code], references: [code])
   code String @db.VarChar(200)
   pool_id Int

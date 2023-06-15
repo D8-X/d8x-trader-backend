@@ -44,6 +44,7 @@ export class TradingHistory {
 			let newTrade: Trade;
 			try {
 				let data: Prisma.TradeCreateInput;
+				this.l.warn("TODO: quantity_cc is not correctly calculated");
 				if ((e as TradeEvent).order !== undefined) {
 					e = e as TradeEvent;
 					data = {
@@ -55,6 +56,8 @@ export class TradingHistory {
 						perpetual_id: Number(e.perpetualId),
 						price: e.price.toString(),
 						quantity: e.order.fAmount.toString(),
+						//todo: fix amount with exchange rate
+						quantity_cc: e.order.fAmount.toString(),
 						realized_profit: e.fPnlCC.toString(),
 						side: (parseInt(e.order.fAmount.toString()) > 0
 							? "buy"

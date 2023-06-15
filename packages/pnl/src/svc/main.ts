@@ -23,9 +23,9 @@ import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
 import {
 	retrieveShareTokenContracts,
-	initShareAndPoolTokenContracts,
+	initStaticData,
 	checkAndWriteMarginTokenInfoToDB,
-} from "../contracts/tokens";
+} from "../contracts/static_info";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 import { MarginTokenInfo } from "../db/margin_token_info";
 
@@ -103,10 +103,9 @@ export const main = async () => {
 	const dbPriceInfo = new PriceInfo(prisma, logger);
 	const dbLPWithdrawals = new LiquidityWithdrawals(prisma, logger);
 	const dbMarginTokenInfo = new MarginTokenInfo(prisma, logger);
-
 	// get sharepool token info and margin token info
-	await initShareAndPoolTokenContracts(httpProvider);
-	// store margin token info to DB
+	await initStaticData(httpProvider);
+	// store margin token info and perpetual info to DB
 	await checkAndWriteMarginTokenInfoToDB(dbMarginTokenInfo);
 
 	const eventsListener = new EventListener(
