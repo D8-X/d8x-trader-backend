@@ -40,7 +40,7 @@ export class PNLRestAPI {
 	private CORS_ON: boolean;
 
 	/**
-	 * Initialize ResAPI parameters, routes, middelware, etc
+	 * Initialize RestAPI parameters, routes, middleware, etc
 	 * @param opts
 	 * @param l
 	 */

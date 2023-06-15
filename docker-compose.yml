@@ -32,6 +32,9 @@ services:
       - "127.0.0.1:${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
       - "127.0.0.1:${PORT_REST}:${PORT_REST}"
     restart: on-failure
+
+  # History component listens to block-chain events and stores them in postgres
+  # Exposes a REST API
   backend_history:
     build:
       context: .
@@ -50,6 +53,26 @@ services:
       - "127.0.0.1:${PNL_API_PORT}:${PNL_API_PORT}"
     restart: on-failure
 
+  # Referral component that handles referral/agency/broker/trader rebates
+  # Exposes a REST API and uses the postgres DB that the history component mainly fills
+  backend_referral:
+    build:
+      context: .
+      dockerfile: ./packages/referral/Dockerfile
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      - REFERRAL_API_PORT=${REFERRAL_API_PORT}
+      - CHAIN_ID=${CHAIN_ID}
+      - CORS_ON=${CORS_ON}
+    ports:
+      - "127.0.0.1:${REFERRAL_API_PORT}:${REFERRAL_API_PORT}"
+    restart: on-failure
+
+  # stream oracle prices from price service (pyth 'offchain'-network)
   backend_pyth_connection:
     stdin_open: true # docker run -i
     tty: true # docker run -t
@@ -65,6 +88,7 @@ services:
       CHAIN_ID: ${CHAIN_ID}
     restart: on-failure
 
+  # Database component required by history and referral components
   postgres:
     image: postgres:15
     environment:
@@ -75,5 +99,6 @@ services:
       - 127.0.0.1:5432:5432
     volumes:
       - pgdb:/var/lib/postgresql/data
+
 volumes:
   pgdb:

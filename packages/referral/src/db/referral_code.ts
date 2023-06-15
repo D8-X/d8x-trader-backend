@@ -27,7 +27,7 @@ export default class ReferralCode {
     const cleanCodeName = this.washCode(codeName);
 
     for (let j = 0; j < 3; j++) {
-      if (rd.traderReferrerAgencyPerc[j]) {
+      if (rd.traderReferrerAgencyPerc[j] < 0) {
         this.l.warn("percentage must>0, setting to 0");
         rd.traderReferrerAgencyPerc[j] = 0;
       }
