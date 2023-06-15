@@ -9,7 +9,7 @@ SDK_CONFIG_NAME=testnet
 # CORS ON: if behind a reverse proxy turn this off (TRUE,FALSE)
 CORS_ON=FALSE
 
-# The port of PNL service 
+# The port of PNL (History) service 
 PNL_API_PORT=8888
 HTTP_RPC_URL=
 WS_RPC_URL=

@@ -32,10 +32,10 @@ services:
       - "127.0.0.1:${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
       - "127.0.0.1:${PORT_REST}:${PORT_REST}"
     restart: on-failure
-  backend_pnl:
+  backend_history:
     build:
       context: .
-      dockerfile: ./packages/pnl/Dockerfile
+      dockerfile: ./packages/history/Dockerfile
     depends_on:
       - postgres
     environment:
