@@ -29,7 +29,6 @@ import {
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 import { MarginTokenInfo } from "../db/margin_token_info";
 
-// TODO set this up for actual production use
 const defaultLogger = () => {
 	return winston.createLogger({
 		level: "info",
@@ -48,9 +47,7 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 	const config = dotenv.config({
 		path: ".env",
 	});
-	if (config.error || config.parsed === undefined) {
-		logger.warn("could not parse .env file");
-	}
+	let configNotFound = config.error || config.parsed === undefined;
 
 	// Check if required env variables were provided
 	const required = wantEnvs ?? [
@@ -63,6 +60,9 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 	];
 	required.forEach((e) => {
 		if (!(e in process.env)) {
+			if (configNotFound) {
+				logger.warn("could not parse .env file");
+			}
 			logger.error(`environment variable ${e} must be provided!`);
 			process.exit(1);
 		}
