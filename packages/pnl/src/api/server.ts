@@ -339,6 +339,8 @@ export class PNLRestAPI {
 					side: t.side.toUpperCase(),
 					price: ABK64x64ToFloat(BigInt(t.price.toFixed())),
 					quantity: ABK64x64ToFloat(BigInt(t.quantity.toFixed())),
+					//TODO: fix quantity_cc with actual exchange rate
+					quantity_cc: ABK64x64ToFloat(BigInt(t.quantity.toFixed())),
 					fee: ABK64x64ToFloat(BigInt(t.fee.toFixed())),
 					realizedPnl: ABK64x64ToFloat(BigInt(t.realized_profit.toFixed())),
 

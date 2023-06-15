@@ -4,7 +4,7 @@ import { ReferralSettings } from "./referralTypes";
 import { constructRedis, sleep } from "utils";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
-import { ReferralCodes } from "./db/referral_codes";
+import { ReferralCode } from "./db/referral_code";
 
 function loadSettings() {
   let file = require("../referralSettings.json") as ReferralSettings;
@@ -28,17 +28,22 @@ async function start() {
   let settings = loadSettings();
   // wait for broker initialization by packages/api/sdkInterface
   let brokerAddr: string | null = null;
-  while (brokerAddr == null) {
+  let count = 0;
+  while (brokerAddr == null || count > 4) {
     sleep(10_000);
+    // BrokerAddress key is set by sdkInterface.ts
     brokerAddr = await redisClient.get("BrokerAddress");
+    count++;
   }
   if (brokerAddr == "") {
-    l.info("Broker address not defined in referralSettings.json, closing referral system");
+    l.info("Broker address not found as REDIS key, closing referral system");
     return;
   }
   // Initialize db client
   const prisma = new PrismaClient();
-  const dbReferralCodes = new ReferralCodes(chainId, prisma, brokerAddr, settings.minimalBrokerSharePercent, l);
+  const dbReferralCodes = new ReferralCode(chainId, prisma, brokerAddr, settings.minimalBrokerSharePercent, l);
+
+  // Set default referral
   let s = settings.defaultReferralCode;
   await dbReferralCodes.writeDefaultReferralCodeToDB(
     s.brokerPayoutAddr,

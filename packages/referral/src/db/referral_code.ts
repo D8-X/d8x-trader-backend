@@ -8,7 +8,7 @@ interface ReferralCodeData {
   traderReferrerAgencyPerc: [number, number, number];
 }
 
-export default class ReferralCodes {
+export default class ReferralCode {
   constructor(
     private chainId: bigint,
     private prisma: PrismaClient,
@@ -16,7 +16,7 @@ export default class ReferralCodes {
     private brokerMinPerc: number,
     private l: Logger
   ) {
-    brokerMinPerc = Math.max(0, brokerMinPerc);
+    brokerMinPerc = Math.min(99, Math.max(0, brokerMinPerc));
   }
 
   public async insert(codeName: string, rd: ReferralCodeData): Promise<boolean> {
@@ -100,24 +100,35 @@ export default class ReferralCodes {
     };
   }
 
+  /**
+   * Traders that don't have a referral code are treated according to
+   * "default referral code"
+   * @param brokerPayoutAddr address the broker is paid to
+   * @param referrerAddr address of the default referrer
+   * @param agencyAddr address of the default agency or ""
+   * @param traderReferrerAgencyPerc 3-tuple of percentages
+   */
   public async writeDefaultReferralCodeToDB(
     brokerPayoutAddr: string,
     referrerAddr: string,
     agencyAddr: string,
     traderReferrerAgencyPerc: [number, number, number]
   ) {
-    await this.prisma.referralCode.delete({
-      where: {
-        code: "DEFAULT",
-      },
-    });
+    const defaultCodeName = "DEFAULT";
+    if (await this.codeExists(defaultCodeName)) {
+      await this.prisma.referralCode.delete({
+        where: {
+          code: defaultCodeName,
+        },
+      });
+    }
     let rd: ReferralCodeData = {
       brokerPayoutAddr: brokerPayoutAddr,
       referrerAddr: referrerAddr,
       agencyAddr: agencyAddr,
       traderReferrerAgencyPerc: traderReferrerAgencyPerc,
     };
-    await this.insert("DEFAULT", rd);
+    await this.insert(defaultCodeName, rd);
     this.l.info("replaced default referral code data", {
       rd,
     });
