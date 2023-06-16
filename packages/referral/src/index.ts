@@ -7,6 +7,9 @@ import { PrismaClient } from "@prisma/client";
 import ReferralAPI from "./api/referral_api";
 import ReferralCode from "./db/referral_code";
 import ReferralCut from "./db/referral_cut";
+import TokenHoldings from "./db/token_holdings";
+import TokenAccountant from "./svc/tokenAccountant";
+
 import FeeAggregator from "./db/fee_aggregator";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -75,10 +78,21 @@ async function setReferralCutSettings(dbReferralCuts: ReferralCut, settings: Ref
 
 async function start() {
   loadEnv();
+  let port: number;
+  if (process.env.REFERRAL_API_PORT == undefined) {
+    throw new Error("Set REFERRAL_API_PORT in .env (e.g. REFERRAL_API_PORT=8889)");
+  } else {
+    port = parseInt(process.env.REFERRAL_API_PORT);
+  }
 
   let chainId: number = Number(<string>process.env.CHAIN_ID || -1);
   if (chainId == -1) {
     throw new Error("Set CHAIN_ID in .env (e.g. CHAIN_ID=80001)");
+  }
+
+  let rpcUrl: string = process.env.HTTP_RPC_URL || "";
+  if (rpcUrl == "") {
+    throw new Error("Set HTTP_RPC_URL in .env");
   }
 
   let settings = loadSettings();
@@ -94,17 +108,15 @@ async function start() {
   const dbReferralCodes = new ReferralCode(BigInt(chainId), prisma, brokerAddr, logger);
   const dbReferralCuts = new ReferralCut(BigInt(chainId), prisma, logger);
   const dbFeeAggregator = new FeeAggregator(BigInt(chainId), prisma, logger);
+  const dbTokenHoldings = new TokenHoldings(BigInt(chainId), prisma, logger);
 
   await setDefaultReferralCode(dbReferralCodes, settings);
   await setReferralCutSettings(dbReferralCuts, settings);
+  let ta = new TokenAccountant(dbTokenHoldings, settings.tokenX.address);
+  ta.initProvider(rpcUrl);
+  await ta.fetchFromChain();
 
   // start REST API server
-  let port: number;
-  if (process.env.REFERRAL_API_PORT == undefined) {
-    throw new Error("Set REFERRAL_API_PORT in .env (e.g. REFERRAL_API_PORT=8889)");
-  } else {
-    port = parseInt(process.env.REFERRAL_API_PORT);
-  }
   let api = new ReferralAPI(port, dbFeeAggregator, brokerAddr, logger);
   await api.initialize();
 }
