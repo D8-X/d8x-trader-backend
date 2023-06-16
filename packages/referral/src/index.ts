@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import ReferralCode from "./db/referral_code";
 import ReferralAPI from "./api/referral_api";
+import FeeAggregator from "./db/fee_aggregator";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const defaultLogger = () => {
@@ -77,6 +78,8 @@ async function start() {
     logger
   );
 
+  const dbFeeAggregator = new FeeAggregator(BigInt(chainId), prisma, logger);
+
   // Set default referral
   let s = settings.defaultReferralCode;
   await dbReferralCodes.writeDefaultReferralCodeToDB(
@@ -92,7 +95,7 @@ async function start() {
   } else {
     port = parseInt(process.env.REFERRAL_API_PORT);
   }
-  let refCode = new ReferralAPI(port, logger);
+  let refCode = new ReferralAPI(port, dbFeeAggregator, brokerAddr, logger);
   await refCode.initialize();
 }
 start();

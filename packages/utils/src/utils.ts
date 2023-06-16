@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { Prisma } from "@prisma/client";
 import { WebsocketClientConfig } from "./wsTypes";
 
 export interface RedisConfig {
@@ -39,6 +40,20 @@ export function loadConfigJSON(chainId: number): WebsocketClientConfig[] {
     throw new Error(`Did not find any entries for chain id ${chainId} in config`);
   }
   return relevantConfigs;
+}
+/**
+ * Convert arbitrary data to json string
+ */
+export function toJson(data: any): string {
+  return JSON.stringify(data, (key, value) => {
+    if (typeof value === "bigint") {
+      return value.toString();
+    }
+    if (value instanceof Prisma.Decimal) {
+      return value.toFixed();
+    }
+    return value;
+  });
 }
 
 export function getRedisConfig(): RedisConfig {
