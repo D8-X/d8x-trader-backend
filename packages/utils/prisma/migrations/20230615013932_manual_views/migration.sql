@@ -7,20 +7,21 @@ FROM referral_payment GROUP BY trader_addr, broker_addr;
 
 --- Table that contains the aggregated fees since last payment
 CREATE VIEW aggregated_fees_per_trader AS
-SELECT th.perpetual_id/100000 as pool_id,
-th.trader_addr,
-th.broker_addr,
-COALESCE(codes.code,'DEFAULT') as code,
-sum(th.fee) as fee_sum_cc,
-ROUND(SUM((th.broker_fee_tbps * ABS(th.quantity_cc))/100000)) as broker_fee_cc,
-min(th.trade_timestamp) as ts_first_trade_considered,
-max(th.trade_timestamp) as ts_last_trade_considered,
-lp.last_payment_ts from trades_history th
+SELECT 
+    th.perpetual_id/100000 as pool_id,
+    th.trader_addr,
+    th.broker_addr,
+    COALESCE(codes.code,'DEFAULT') as code,
+    sum(th.fee) as fee_sum_cc,
+    ROUND(SUM((th.broker_fee_tbps * ABS(th.quantity_cc))/100000)) as broker_fee_cc,
+    min(th.trade_timestamp) as ts_first_trade_considered,
+    max(th.trade_timestamp) as ts_last_trade_considered,
+    lp.last_payment_ts from trades_history th
 LEFT JOIN last_payment lp
-ON lp.trader_addr=th.trader_addr
-AND lp.broker_addr=th.broker_addr
+    ON lp.trader_addr=th.trader_addr
+    AND lp.broker_addr=th.broker_addr
 LEFT JOIN referral_code_usage codes
-ON th.trader_addr = codes.trader_addr
+    ON th.trader_addr = codes.trader_addr
 WHERE (lp.last_payment_ts IS NULL OR lp.last_payment_ts<th.trade_timestamp)
 GROUP BY pool_id, th.trader_addr, lp.last_payment_ts, th.broker_addr, codes.code;
 

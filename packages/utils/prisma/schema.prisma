@@ -175,3 +175,28 @@ model ReferralPayment {
   @@index([pool_id])
   @@index([trader_addr])
 }
+
+
+// Referral cut as specified in referralSettings.json
+// The amount is stored in decimal-N format
+model ReferralSettingCut {
+    @@map("referral_setting_cut")
+    is_agency_cut Boolean
+    cut_perc Decimal @db.Decimal(5, 2)
+    holding_amount_dec_n Decimal? @db.Decimal(77, 0)
+    token_addr String @db.VarChar(42)
+    @@id([is_agency_cut, cut_perc])
+    @@index([cut_perc])
+    @@index([holding_amount_dec_n])
+}
+
+// Amount of tokens that the referrer_addr holds
+// The token address is specified in referral settings
+// The amount is stored in decimal-N format
+model ReferralTokenHoldings {
+    @@map("referral_token_holdings")
+    referrer_addr String @id @db.VarChar(42)
+    holding_amount_dec_n Decimal @db.Decimal(77, 0)
+    token_addr String @db.VarChar(42)
+    last_updated DateTime @db.Timestamptz @default(now())
+}

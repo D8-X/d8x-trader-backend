@@ -1,8 +1,12 @@
 export interface ReferralSettings {
-  minimalBrokerSharePercent: number;
+  agencyCutPercent: number;
   permissionedAgencies: string[];
-  referrerGeneratedCodeRebatesPercentForD8XHolding: Array<[number, number]>;
-  paymentScheduleMinHourDayofweekDayofmonth: "0-14-7-*";
+  referrerCutPercentForTokenXHolding: Array<[number, number]>;
+  tokenX: {
+    address: string;
+    decimals: number;
+  };
+  paymentScheduleMinHourDayofweekDayofmonth: string;
   minimalRebateCollateralCurrencyAmountPerPool: Array<[number, number]>;
   defaultReferralCode: {
     brokerPayoutAddr: string;
