@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { Logger } from "winston";
-import { TokenAccount } from "../referralTypes";
+import { TokenAccount, DBActiveReferrer } from "../referralTypes";
 
 export default class TokenHoldings {
   constructor(private chainId: bigint, private prisma: PrismaClient, private l: Logger) {}
@@ -53,13 +53,16 @@ export default class TokenHoldings {
 
   /**
    * Query all referrer addresses with active referral codes
-   * @returns array of referrer addresses
+   * @returns array of referrer addresses and date of last-update of token holdings
    */
-  public async queryActiveReferrers(): Promise<string[]> {
-    const ref = await this.prisma.$queryRaw<string[]>`
-		    select distinct referrer_addr from referral_code
-		    where expiry > ${Date()} AND referrer_addr!=NULL
-		    order by referrer_addr
+  public async queryActiveReferrers(): Promise<Array<DBActiveReferrer>> {
+    const ref = await this.prisma.$queryRaw<DBActiveReferrer[]>`
+		    SELECT distinct rc.referrer_addr, th.last_updated 
+            FROM referral_code rc
+		    LEFT JOIN referral_token_holdings th
+                ON th.referrer_addr=rc.referrer_addr
+            WHERE ${new Date()}::timestamp < expiry AND rc.referrer_addr!=''
+		    order by rc.referrer_addr
 		`;
     return ref;
   }

@@ -112,9 +112,9 @@ async function start() {
 
   await setDefaultReferralCode(dbReferralCodes, settings);
   await setReferralCutSettings(dbReferralCuts, settings);
-  let ta = new TokenAccountant(dbTokenHoldings, settings.tokenX.address);
+  let ta = new TokenAccountant(dbTokenHoldings, settings.tokenX.address, logger);
   ta.initProvider(rpcUrl);
-  await ta.fetchFromChain();
+  await ta.fetchBalancesFromChain();
 
   // start REST API server
   let api = new ReferralAPI(port, dbFeeAggregator, brokerAddr, logger);

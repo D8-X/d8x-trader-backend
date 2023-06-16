@@ -20,3 +20,7 @@ export interface TokenAccount {
   referrerAddr: string;
   tokenHoldings: bigint;
 }
+export interface DBActiveReferrer {
+  referrer_addr: string;
+  last_updated: Date | null;
+}
