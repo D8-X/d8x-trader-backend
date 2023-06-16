@@ -15,3 +15,8 @@ export interface ReferralSettings {
     traderReferrerAgencyPerc: [number, number, number];
   };
 }
+
+export interface TokenAccount {
+  referrerAddr: string;
+  tokenHoldings: bigint;
+}

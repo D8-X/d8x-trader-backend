@@ -13,6 +13,7 @@ WORKDIR packages/referral
 
 # Expose the provided API_PORT
 EXPOSE ${REFERRAL_API_PORT}
+EXPOSE ${HTTP_RPC_URL}
 
 CMD ["yarn", "run-production"]
 
