@@ -9,15 +9,7 @@ interface ReferralCodeData {
 }
 
 export default class ReferralCode {
-  constructor(
-    private chainId: bigint,
-    private prisma: PrismaClient,
-    private brokerAddr: string,
-    private brokerMinPerc: number,
-    private l: Logger
-  ) {
-    brokerMinPerc = Math.min(99, Math.max(0, brokerMinPerc));
-  }
+  constructor(private chainId: bigint, private prisma: PrismaClient, private brokerAddr: string, private l: Logger) {}
 
   public async insert(codeName: string, rd: ReferralCodeData): Promise<boolean> {
     if (await this.codeExists(codeName)) {
@@ -74,7 +66,7 @@ export default class ReferralCode {
   }
 
   /**
-   * Ensures broker's min-percentage is respected. Will scale down accordingly
+   * Ensures percentages add up to 100%. Will scale down accordingly
    * @param traPerc trader, referrer, agency percentages in this order (e.g. 10=10%)
    * @returns all percentage shares
    */
@@ -82,21 +74,17 @@ export default class ReferralCode {
     trader: number;
     referrer: number;
     agency: number;
-    broker: number;
   } {
-    if (traPerc[0] + traPerc[1] + traPerc[2] > 100 - this.brokerMinPerc) {
+    if (traPerc[0] + traPerc[1] + traPerc[2] > 100) {
       // scale down
       const oldCake = traPerc[0] + traPerc[1] + traPerc[2];
-      const totalCake = 100 - this.brokerMinPerc;
-      traPerc[0] = (traPerc[0] / oldCake) * totalCake;
-      traPerc[1] = (traPerc[1] / oldCake) * totalCake;
-      traPerc[2] = (traPerc[2] / oldCake) * totalCake;
+      traPerc[0] = (traPerc[0] / oldCake) * 100;
+      traPerc[1] = (traPerc[1] / oldCake) * 100;
     }
     return {
       trader: traPerc[0],
       referrer: traPerc[1],
-      agency: traPerc[2],
-      broker: 100 - traPerc[0] - traPerc[1] - traPerc[2],
+      agency: 100 - traPerc[0] - traPerc[1],
     };
   }
 
