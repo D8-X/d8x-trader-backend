@@ -25,7 +25,7 @@ export default class TokenHoldings {
       data: {
         holding_amount_dec_n: holdingAmountDecN.toString(),
         token_addr: tokenAddr,
-        last_updated: Date(),
+        last_updated: new Date().toISOString(),
       },
     });
   }
