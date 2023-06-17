@@ -35,6 +35,7 @@ export default class ReferralCode {
       data: {
         code: cleanCodeName,
         referrer_addr: rd.referrerAddr,
+        agency_addr: rd.agencyAddr,
         broker_addr: this.brokerAddr,
         broker_payout_addr: rd.brokerPayoutAddr,
         trader_rebate_perc: feeDistribution.trader,
@@ -42,7 +43,7 @@ export default class ReferralCode {
         agency_rebate_perc: feeDistribution.agency,
       },
     });
-    this.l.info("inserted new margin token info", {
+    this.l.info("inserted new referral code info", {
       codeName,
       rd,
     });
@@ -109,6 +110,7 @@ export default class ReferralCode {
           code: defaultCodeName,
         },
       });
+      this.l.info("deleted DEFAULT code entry for replacement");
     }
     let rd: ReferralCodeData = {
       brokerPayoutAddr: brokerPayoutAddr,
