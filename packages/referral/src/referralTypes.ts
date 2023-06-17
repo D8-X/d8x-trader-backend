@@ -24,3 +24,14 @@ export interface DBActiveReferrer {
   referrer_addr: string;
   last_updated: Date | null;
 }
+
+export interface ReferralCodePayload {
+  code: string;
+  referrerAddr: string;
+  agencyAddr: string;
+  createdOn: number;
+  traderRebatePerc: number;
+  agencyRebatePerc: number;
+  referrerRebatePerc: number;
+  signature: string;
+}
