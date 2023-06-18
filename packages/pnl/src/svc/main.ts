@@ -11,6 +11,7 @@ import {
 } from "ethers";
 import {
 	LiquidityAddedEvent,
+	LiquidityRemovedEvent,
 	TradeEvent,
 	UpdateMarginAccountEvent,
 } from "../contracts/types";
@@ -270,7 +271,7 @@ export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
 				estimated_earnings_event_type.liquidity_removed
 			)),
 		(
-			e: LiquidityAddedEvent,
+			e: LiquidityRemovedEvent,
 			txHash: string,
 			blockNum: BigNumberish,
 			blockTimestamp: number
@@ -282,6 +283,7 @@ export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
 				txHash,
 				blockTimestamp
 			);
+            // register the liquidity as being removed
 			dbLPWithdrawals.insert(e, true, txHash, blockTimestamp);
 		}
 	);
