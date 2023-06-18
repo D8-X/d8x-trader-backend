@@ -14,8 +14,8 @@ SELECT
     COALESCE(codes.code,'DEFAULT') as code,
     sum(th.fee) as fee_sum_cc,
     ROUND(SUM((th.broker_fee_tbps * ABS(th.quantity_cc))/100000)) as broker_fee_cc,
-    min(th.trade_timestamp) as ts_first_trade_considered,
-    max(th.trade_timestamp) as ts_last_trade_considered,
+    min(th.trade_timestamp) as first_trade_considered_ts,
+    max(th.trade_timestamp) as last_trade_considered_ts,
     lp.last_payment_ts from trades_history th
 LEFT JOIN referral_last_payment lp
     ON lp.trader_addr=th.trader_addr
@@ -70,7 +70,7 @@ CREATE VIEW referral_open_pay_relative AS
 SELECT af.pool_id,
     af.trader_addr,
     af.broker_addr,-- broker addr from trades -> ensure we only pay from this brkr
-    af.ts_first_trade_considered, af.ts_last_trade_considered,
+    af.first_trade_considered_ts, af.last_trade_considered_ts,
     af.last_payment_ts,
     COALESCE(curr.code,'DEFAULT') as code,
     COALESCE(curr.referrer_addr, def.referrer_addr) as referrer_addr,
@@ -92,7 +92,7 @@ CREATE VIEW referral_open_pay AS
 SELECT opf.pool_id,
     opf.trader_addr,
     opf.broker_addr,
-    opf.ts_first_trade_considered, opf.ts_last_trade_considered,
+    opf.first_trade_considered_ts, opf.last_trade_considered_ts,
     opf.last_payment_ts,
     opf.code,
     opf.referrer_addr,
@@ -101,42 +101,16 @@ SELECT opf.pool_id,
     opf.trader_rebate_perc,
     opf.referrer_rebate_perc,
     opf.agency_rebate_perc,
-    (af.broker_fee_cc * opf.cut_perc * codes.trader_rebate_perc * POWER(10, minfo.token_decimals))/100/100/18446744073709551616 as trader_cc_amtdec,
-    (af.broker_fee_cc * opf.cut_perc * codes.referrer_rebate_perc * POWER(10, minfo.token_decimals))/100/100/18446744073709551616 as referrer_cc_amtdec,
-    (af.broker_fee_cc * opf.cut_perc * codes.agency_rebate_perc * POWER(10, minfo.token_decimals))/100/100/18446744073709551616 as agency_cc_amtdec,
+    (opf.broker_fee_cc * opf.cut_perc * opf.trader_rebate_perc * POWER(10, minfo.token_decimals))/100/100/18446744073709551616 as trader_cc_amtdec,
+    (opf.broker_fee_cc * opf.cut_perc * opf.referrer_rebate_perc * POWER(10, minfo.token_decimals))/100/100/18446744073709551616 as referrer_cc_amtdec,
+    (opf.broker_fee_cc * opf.cut_perc * opf.agency_rebate_perc * POWER(10, minfo.token_decimals))/100/100/18446744073709551616 as agency_cc_amtdec,
+    opf.broker_fee_cc,
+    opf.cut_perc,
     minfo.token_addr,
     minfo.token_name,
     minfo.token_decimals as token_decimals
-FROM open_fees_relative opf
+FROM referral_open_pay_relative opf
 LEFT JOIN margin_token_info minfo
-    ON af.pool_id=minfo.pool_id;
+    ON opf.pool_id=minfo.pool_id;
 
-
---- Table with currently open payments
----- OLD
-CREATE VIEW open_fees_final AS
-SELECT af.pool_id,
-    af.trader_addr,
-    af.broker_addr,
-    af.ts_first_trade_considered, af.ts_last_trade_considered,
-    af.last_payment_ts,
-    codes.code,
-    codes.referrer_addr,
-    codes.agency_addr,
-    codes.broker_payout_addr,
-    codes.trader_rebate_perc,
-    codes.referrer_rebate_perc,
-    codes.agency_rebate_perc,
-    (af.fee_sum_cc * codes.trader_rebate_perc * POWER(10, minfo.token_decimals))/100/18446744073709551616 as trader_cc_amtdec,
-    (af.fee_sum_cc * codes.referrer_rebate_perc * POWER(10, minfo.token_decimals))/100/18446744073709551616 as referrer_cc_amtdec,
-    (af.fee_sum_cc * codes.agency_rebate_perc * POWER(10, minfo.token_decimals))/100/18446744073709551616 as agency_cc_amtdec,
-    af.fee_sum_cc as total_fee_cc,
-    minfo.token_addr,
-    minfo.token_name,
-    minfo.token_decimals as token_decimals
-FROM aggregated_fees_per_trader af
-LEFT JOIN referral_code codes
-    ON af.code = codes.code AND codes.expiry>ts_first_trade_considered AND af.broker_addr=codes.broker_addr
-LEFT JOIN margin_token_info minfo
-    ON af.pool_id=minfo.pool_id;
 
