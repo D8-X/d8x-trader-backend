@@ -79,17 +79,24 @@ export default class ReferralCodeSigner {
    * @returns true if correctly signed, false otherwise
    */
   public static async checkSignature(rc: ReferralCodePayload): Promise<boolean> {
-    let digest = ReferralCodeSigner._referralCodePayloadToMessage(rc);
-    let digestBuffer = Buffer.from(digest.substring(2, digest.length), "hex");
-    const signerAddress = await ethers.utils.verifyMessage(digestBuffer, rc.signature);
-    if (rc.agencyAddr == signerAddress) {
-      return true;
-    } else if (rc.referrerAddr == signerAddress) {
-      // without agency. We ensure agency-address is zero and no rebate for the agency
-      const zeroAgencyAddr = rc.agencyAddr == "" || ethers.constants.AddressZero == rc.agencyAddr;
-      const zeroAgencyRebate = rc.agencyRebatePerc == 0;
-      return zeroAgencyAddr && zeroAgencyRebate;
-    } else {
+    if (rc.signature == undefined || rc.signature == "") {
+      return false;
+    }
+    try {
+      let digest = ReferralCodeSigner._referralCodePayloadToMessage(rc);
+      let digestBuffer = Buffer.from(digest.substring(2, digest.length), "hex");
+      const signerAddress = await ethers.utils.verifyMessage(digestBuffer, rc.signature);
+      if (rc.agencyAddr == signerAddress) {
+        return true;
+      } else if (rc.referrerAddr == signerAddress) {
+        // without agency. We ensure agency-address is zero and no rebate for the agency
+        const zeroAgencyAddr = rc.agencyAddr == "" || ethers.constants.AddressZero == rc.agencyAddr;
+        const zeroAgencyRebate = rc.agencyRebatePerc == 0;
+        return zeroAgencyAddr && zeroAgencyRebate;
+      } else {
+        return false;
+      }
+    } catch (err) {
       return false;
     }
   }

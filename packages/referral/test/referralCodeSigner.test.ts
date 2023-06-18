@@ -12,18 +12,29 @@ async function main() {
   let myAddr = await codeSigner.getAddress();
 
   let pyld: ReferralCodePayload = {
-    code: "MY_CODE12",
-    referrerAddr: ethers.constants.AddressZero,
-    agencyAddr: myAddr,
-    createdOn: Date.now() / 1000,
+    code: "MY_CODE11",
+    referrerAddr: myAddr,
+    agencyAddr: "",
+    createdOn: 1695015897,
     traderRebatePerc: 5,
     agencyRebatePerc: 80,
     referrerRebatePerc: 20,
     signature: "",
   };
+  pyld = {
+    code: "MY_CODE_46",
+    referrerAddr: myAddr,
+    agencyAddr: "",
+    createdOn: 1695015897,
+    traderRebatePerc: 6,
+    agencyRebatePerc: 0,
+    referrerRebatePerc: 94,
+    signature: "",
+  };
 
   let sg = await codeSigner.getReferralCodeDataSignature(pyld);
   pyld.signature = sg;
+  console.log("Payload = ", pyld);
   let b = ReferralCodeSigner.checkSignature(pyld);
   if (!b) {
     Error("signature check failed");

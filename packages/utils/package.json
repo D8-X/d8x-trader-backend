@@ -18,7 +18,7 @@
     "url": "git+https://github.com/D8-X/d8x-trader-backend.git"
   },
   "scripts": {
-    "build": "rimraf ./dist && npx prisma generate && tsc"
+    "build": "yarn && rimraf ./dist && npx prisma generate && tsc"
   },
   "bugs": {
     "url": "https://github.com/D8-X/d8x-trader-backend/issues"

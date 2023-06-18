@@ -1,6 +1,6 @@
 {
   "agencyCutPercent": 80,
-  "permissionedAgencies": ["0x0123212", "0x12321", "0x98232"],
+  "permissionedAgencies": ["0x21B864083eedF1a4279dA1a9A7B1321E6102fD39", "0x12321", "0x98232"],
   "referrerCutPercentForTokenXHolding": [
     [0.2, 0],
     [1.5, 100],
@@ -14,8 +14,8 @@
     [100, 2],
     [0.01, 3]
   ],
+  "brokerPayoutAddr": "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
   "defaultReferralCode": {
-    "brokerPayoutAddr": "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
     "referrerAddr": "",
     "agencyAddr": "0x863AD9Ce46acF07fD9390147B619893461036194",
     "traderReferrerAgencyPerc": [0, 0, 45]
