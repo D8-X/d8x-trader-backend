@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { Logger } from "winston";
 import { ABK64x64ToDecN, floatToDecN, toJson } from "utils";
 
-export default class FeeAggregator {
+export default class DBFeeAggregator {
   constructor(public chainId: bigint, public prisma: PrismaClient, public l: Logger) {}
 
   public async aggregateFees(brokerAddr: string) {

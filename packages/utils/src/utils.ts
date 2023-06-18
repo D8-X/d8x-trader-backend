@@ -22,6 +22,10 @@ export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function isValidAddress(addr: string): boolean {
+  return /^(0x){1}([a-f]|[A-F]|[0-9]){40}/.test(addr);
+}
+
 /**
  * Load websocket-client config into object of type WebsocketClientConfig
  * Looks for all entries with given chainId

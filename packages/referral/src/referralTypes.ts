@@ -8,8 +8,8 @@ export interface ReferralSettings {
   };
   paymentScheduleMinHourDayofweekDayofmonth: string;
   minimalRebateCollateralCurrencyAmountPerPool: Array<[number, number]>;
+  brokerPayoutAddr: string;
   defaultReferralCode: {
-    brokerPayoutAddr: string;
     referrerAddr: string;
     agencyAddr: string;
     traderReferrerAgencyPerc: [number, number, number];

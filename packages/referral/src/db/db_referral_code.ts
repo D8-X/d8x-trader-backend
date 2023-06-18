@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { Logger } from "winston";
+import ReferralCodeValidator from "../svc/referralCodeValidator";
+import { ReferralCodePayload, ReferralSettings } from "../referralTypes";
 
 interface ReferralCodeData {
   brokerPayoutAddr: string;
@@ -8,26 +10,36 @@ interface ReferralCodeData {
   traderReferrerAgencyPerc: [number, number, number];
 }
 
-export default class ReferralCode {
-  constructor(private chainId: bigint, private prisma: PrismaClient, private brokerAddr: string, private l: Logger) {}
+export default class DBReferralCode {
+  constructor(
+    private chainId: bigint,
+    private prisma: PrismaClient,
+    private brokerAddr: string,
+    private settings: ReferralSettings,
+    private l: Logger
+  ) {}
 
-  public async insert(codeName: string, rd: ReferralCodeData): Promise<boolean> {
+  public async insertFromPayload(payload: ReferralCodePayload) {
+    const dbData: ReferralCodeData = {
+      brokerPayoutAddr: this.settings.brokerPayoutAddr,
+      referrerAddr: payload.referrerAddr,
+      agencyAddr: payload.agencyAddr,
+      traderReferrerAgencyPerc: [payload.traderRebatePerc, payload.referrerRebatePerc, payload.agencyRebatePerc],
+    };
+    await this.insert(payload.code, dbData);
+  }
+
+  /**
+   * No checks on percentages correctness or other consistencies
+   * @param codeName
+   * @param rd
+   */
+  public async insert(codeName: string, rd: ReferralCodeData): Promise<void> {
+    const cleanCodeName = ReferralCodeValidator.washCode(codeName);
     if (await this.codeExists(codeName)) {
-      this.l.warn("cannot insert code, already exists", codeName);
-      return false;
+      throw Error("cannot insert code, already exists" + cleanCodeName);
     }
-    const cleanCodeName = this.washCode(codeName);
 
-    for (let j = 0; j < 3; j++) {
-      if (rd.traderReferrerAgencyPerc[j] < 0) {
-        this.l.warn("percentage must>0, setting to 0");
-        rd.traderReferrerAgencyPerc[j] = 0;
-      }
-    }
-    if (rd.agencyAddr == "" && rd.traderReferrerAgencyPerc[2] > 0) {
-      this.l.warn("no agency address provided but percentage>0, setting to 0");
-      rd.traderReferrerAgencyPerc[2] = 0;
-    }
     // ensure percentages add up to 100%
     let feeDistribution = this.adjustPercentages(rd.traderReferrerAgencyPerc);
     //INSERT INTO referral_code (code, referrer_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc)
@@ -47,15 +59,10 @@ export default class ReferralCode {
       codeName,
       rd,
     });
-    return true;
-  }
-
-  public washCode(rawCode: string): string {
-    return rawCode.replace(/[^a-z0-9\_-]/gi, "").toUpperCase();
   }
 
   public async codeExists(code: string): Promise<boolean> {
-    let cleanCode = this.washCode(code);
+    let cleanCode = ReferralCodeValidator.washCode(code);
     const exists = await this.prisma.referralCode.findFirst({
       where: {
         code: {
@@ -76,16 +83,17 @@ export default class ReferralCode {
     referrer: number;
     agency: number;
   } {
-    if (traPerc[0] + traPerc[1] + traPerc[2] > 100) {
-      // scale down
-      const oldCake = traPerc[0] + traPerc[1] + traPerc[2];
-      traPerc[0] = (traPerc[0] / oldCake) * 100;
-      traPerc[1] = (traPerc[1] / oldCake) * 100;
+    function twoDig(x: number): number {
+      return Math.round(traPerc[0] * 100) / 100;
     }
+    let v0 = twoDig(traPerc[0]);
+    let v1 = twoDig(traPerc[1]);
+    let v2 = Math.max(0, 100 - v0 - v1);
+    // convert to string
     return {
-      trader: traPerc[0],
-      referrer: traPerc[1],
-      agency: 100 - traPerc[0] - traPerc[1],
+      trader: v0,
+      referrer: v1,
+      agency: v2,
     };
   }
 

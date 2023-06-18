@@ -52,7 +52,8 @@ export default class TokenHoldings {
   }
 
   /**
-   * Query all referrer addresses with active referral codes
+   * Query all referrer addresses with active referral codes and without
+   * agency address (with agency token holdings do not matter)
    * @returns array of referrer addresses and date of last-update of token holdings
    */
   public async queryActiveReferrers(): Promise<Array<DBActiveReferrer>> {
@@ -60,7 +61,7 @@ export default class TokenHoldings {
 		    SELECT distinct rc.referrer_addr, th.last_updated 
             FROM referral_code rc
 		    LEFT JOIN referral_token_holdings th
-                ON th.referrer_addr=rc.referrer_addr
+                ON th.referrer_addr=rc.referrer_addr AND rc.agency_addr=''
             WHERE ${new Date()}::timestamp < expiry AND rc.referrer_addr!=''
 		    order by rc.referrer_addr
 		`;

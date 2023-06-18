@@ -1,6 +1,6 @@
 import { Contract, ethers } from "ethers";
 import { Logger } from "winston";
-import TokenHoldings from "../db/token_holdings";
+import TokenHoldings from "../db/db_token_holdings";
 import { TokenAccount, DBActiveReferrer } from "../referralTypes";
 
 // specify maximal time until we update the token balance again
