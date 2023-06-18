@@ -4,11 +4,10 @@ import { Logger, error } from "winston";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
 import { correctQueryArgs, errorResp } from "../utils/response";
-import { toJson } from "util";
+import { toJson, dec18ToFloat, ABK64x64ToFloat } from "utils";
 import { getAddress } from "ethers";
 import { MarketData } from "@d8x/perpetuals-sdk";
 import { getSDKFromEnv } from "../utils/abi";
-import { dec18ToFloat, ABK64x64ToFloat } from "../utils/bigint";
 import dotenv from "dotenv";
 import cors from "cors";
 import { PriceInfo } from "../db/price_info";
@@ -203,28 +202,13 @@ export class PNLRestAPI {
 			return;
 		}
 
-		const result = await this.opts.prisma.estimatedEarningTokens.aggregate({
-			_sum: {
-				token_amount: true,
-			},
-			where: {
-				AND: [
-					{
-						liq_provider_addr: {
-							equals: user_wallet,
-						},
-					},
-					{
-						pool_id: {
-							equals: poolIdNum,
-						},
-					},
-				],
-			},
-		});
-		let earningsTokensSum = dec18ToFloat(
-			BigInt(result._sum.token_amount?.toFixed() ?? 0)
-		);
+		interface EstEarningTokenSum {
+			tkn: string;
+		}
+		const sumTokenAmount = await this.opts.prisma.$queryRaw<EstEarningTokenSum[]>`
+            select CAST(sum(token_amount) AS VARCHAR) as tkn from estimated_earnings_tokens 
+            where LOWER(wallet_address) = ${user_wallet} AND pool_id = ${poolIdNum}`;
+		let earningsTokensSum = dec18ToFloat(BigInt(sumTokenAmount[0].tkn));
 		const participationValue = await this.md?.getParticipationValue(
 			user_wallet,
 			poolIdNum
