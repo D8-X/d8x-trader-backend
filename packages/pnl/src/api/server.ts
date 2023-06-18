@@ -202,27 +202,13 @@ export class PNLRestAPI {
 			return;
 		}
 
-		const result = await this.opts.prisma.estimatedEarningTokens.aggregate({
-			_sum: {
-				token_amount: true,
-			},
-			where: {
-				AND: [
-					{
-						wallet_address: {
-							equals: user_wallet,
-						},
-					},
-					{
-						pool_id: {
-							equals: poolIdNum,
-						},
-					},
-				],
-			},
-		});
+        interface EstEarningTokenSum { tkn: string};
+        const sumTokenAmount = await this.opts.prisma.$queryRaw<EstEarningTokenSum[]>`
+            select CAST(sum(token_amount) AS VARCHAR) as tkn from estimated_earnings_tokens 
+            where LOWER(wallet_address) = ${user_wallet} AND pool_id = ${poolIdNum}`;
+
 		let earningsTokensSum = dec18ToFloat(
-			BigInt(result._sum.token_amount?.toFixed() ?? 0)
+			BigInt(sumTokenAmount[0].tkn)
 		);
 		const participationValue = await this.md?.getParticipationValue(
 			user_wallet,
