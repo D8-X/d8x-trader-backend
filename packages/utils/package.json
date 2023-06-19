@@ -18,14 +18,15 @@
     "url": "git+https://github.com/D8-X/d8x-trader-backend.git"
   },
   "scripts": {
-    "build": "rimraf ./dist && tsc"
+    "build": "yarn && rimraf ./dist && npx prisma generate && tsc"
   },
   "bugs": {
     "url": "https://github.com/D8-X/d8x-trader-backend/issues"
   },
   "homepage": "https://github.com/D8-X/d8x-trader-backend#readme",
   "dependencies": {
-    "@d8x/perpetuals-sdk": "^0.6.6",
+    "@d8x/perpetuals-sdk": "^0.7.4",
+    "@prisma/client": "^4.13.0",
     "ioredis": "^5.3.1",
     "rimraf": "^4.4.1"
   },

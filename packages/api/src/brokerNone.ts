@@ -12,7 +12,7 @@ export default class BrokerNone extends BrokerIntegration {
   public async signOrder(SCOrder: SmartContractOrder): Promise<string> {
     return await "";
   }
-  public async initialize(): Promise<void> {
-    return Promise.resolve();
+  public async initialize(): Promise<string> {
+    return Promise.resolve("");
   }
 }
