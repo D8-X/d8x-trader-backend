@@ -16,7 +16,7 @@ CREATE TABLE "trades_history" (
     "order_flags" BIGINT NOT NULL DEFAULT 0,
     "price" DECIMAL(40,0) NOT NULL,
     "quantity" DECIMAL(40,0) NOT NULL,
-    "quantity_cc" DECIMAL(40,0),
+    "quantity_cc" DECIMAL(40,0) DEFAULT 0, -- 0 for liquidation events
     "fee" DECIMAL(40,0) NOT NULL,
     "broker_fee_tbps" INTEGER NOT NULL,
     "broker_addr" VARCHAR(42) NOT NULL DEFAULT '',

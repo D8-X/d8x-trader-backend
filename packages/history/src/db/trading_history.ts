@@ -3,6 +3,7 @@ import { BigNumberish, Numeric, Result } from "ethers";
 import { TradeEvent } from "../contracts/types";
 import { Logger } from "winston";
 import { LiquidateEvent } from "../contracts/types";
+import { ONE_64x64 } from "utils";
 
 type TradeHistoryEvent = TradeEvent | LiquidateEvent;
 
@@ -44,9 +45,10 @@ export class TradingHistory {
 			let newTrade: Trade;
 			try {
 				let data: Prisma.TradeCreateInput;
-				this.l.warn("TODO: quantity_cc is not correctly calculated");
+
 				if ((e as TradeEvent).order !== undefined) {
 					e = e as TradeEvent;
+					let quantityCC = (e.fB2C * e.order.fAmount) / ONE_64x64;
 					data = {
 						chain_id: parseInt(this.chainId.toString()),
 						order_digest_hash: e.orderDigest.toString(),
@@ -56,8 +58,7 @@ export class TradingHistory {
 						perpetual_id: Number(e.perpetualId),
 						price: e.price.toString(),
 						quantity: e.order.fAmount.toString(),
-						//todo: fix amount with exchange rate
-						quantity_cc: e.order.fAmount.toString(),
+						quantity_cc: quantityCC.toString(),
 						realized_profit: e.fPnlCC.toString(),
 						side: (parseInt(e.order.fAmount.toString()) > 0
 							? "buy"

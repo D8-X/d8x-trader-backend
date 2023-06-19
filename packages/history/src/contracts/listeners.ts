@@ -102,6 +102,7 @@ export class EventListener {
 				price: bigint,
 				fFeeCC: bigint,
 				fPnlCC: bigint,
+				fB2C: bigint,
 				event: ethers.ContractEventPayload
 			) => {
 				this.l.info("got trade event", { perpetualId, trader });
@@ -116,6 +117,7 @@ export class EventListener {
 					price: price,
 					fFeeCC: fFeeCC,
 					fPnlCC: fPnlCC,
+					fB2C: fB2C,
 				};
 
 				this.dbTrades.insertTradeHistoryRecord(
