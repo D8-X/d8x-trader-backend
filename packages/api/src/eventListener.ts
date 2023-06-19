@@ -172,7 +172,7 @@ export default class EventListener extends IndexPriceInterface {
       if (subscribers == undefined || subscribers?.length == 0) {
         traderMap.delete(clientSubscriptions[k].traderAddr);
       }
-      if (this.subscriptions.get(id)?.keys.length == 0) {
+      if (this.subscriptions.get(id)?.size == 0) {
         console.log(`no more subscribers for perpetualId ${id}`);
         // unsubscribe events
         this.removeOrderBookEventHandlers(clientSubscriptions[k].symbol);
