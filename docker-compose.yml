@@ -11,6 +11,11 @@ services:
     ports:
       - "127.0.0.1:6379:6379"
     command: redis-server --bind 0.0.0.0 --requirepass ${REDIS_PASSWORD}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "10"
 
   # REST/WS server for frontend
   backend_main:
@@ -32,6 +37,11 @@ services:
       - "127.0.0.1:${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
       - "127.0.0.1:${PORT_REST}:${PORT_REST}"
     restart: on-failure
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "10"
 
   # History component listens to block-chain events and stores them in postgres
   # Exposes a REST API
@@ -52,6 +62,11 @@ services:
     ports:
       - "127.0.0.1:${PNL_API_PORT}:${PNL_API_PORT}"
     restart: on-failure
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "10"
 
   # Referral component that handles referral/agency/broker/trader rebates
   # Exposes a REST API and uses the postgres DB that the history component mainly fills
@@ -88,6 +103,11 @@ services:
       PORT_WEBSOCKET: ${PORT_WEBSOCKET}
       CHAIN_ID: ${CHAIN_ID}
     restart: on-failure
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "10"
 
   # Database component required by history and referral components
   postgres:
@@ -100,6 +120,8 @@ services:
       - 127.0.0.1:5432:5432
     volumes:
       - pgdb:/var/lib/postgresql/data
-
-volumes:
-  pgdb:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "10"
