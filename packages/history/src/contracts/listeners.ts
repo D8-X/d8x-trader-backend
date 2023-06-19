@@ -6,7 +6,7 @@ import {
 	LiquidityRemovedEvent,
 	LiquidityWithdrawalInitiated,
 	TradeEvent,
-    Order,
+	Order,
 	UpdateMarginAccountEvent,
 } from "./types";
 import { TradingHistory } from "../db/trading_history";
@@ -14,8 +14,8 @@ import { FundingRatePayments } from "../db/funding_rate";
 import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
 import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
-import { dec18ToFloat } from "utils";
-import { retrieveShareTokenContracts } from "./static_info";
+import { dec18ToFloat, decNToFloat } from "utils";
+import StaticInfo from "./static_info";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 export interface EventListenerOptions {
 	logger: Logger;
@@ -23,7 +23,7 @@ export interface EventListenerOptions {
 	contractAddresses: {
 		perpetualManagerProxy: string;
 	};
-
+	staticInfo: StaticInfo;
 	// Private key hex
 	privateKey?: string;
 }
@@ -117,7 +117,7 @@ export class EventListener {
 					fFeeCC: fFeeCC,
 					fPnlCC: fPnlCC,
 				};
-				
+
 				this.dbTrades.insertTradeHistoryRecord(
 					trade,
 					event.log.transactionHash,
@@ -129,10 +129,10 @@ export class EventListener {
 		pmp.on(
 			"Liquidate",
 			(
-				perpetualId : number,
-				liquidator : string,
-				trader : string,
-				positionId : string,
+				perpetualId: number,
+				liquidator: string,
+				trader: string,
+				positionId: string,
 				amountLiquidatedBC: bigint,
 				liquidationPrice: bigint,
 				newPositionSizeBC: bigint,
@@ -163,8 +163,8 @@ export class EventListener {
 		pmp.on(
 			"UpdateMarginAccount",
 			(
-				perpetualId : number,
-				trader : string,
+				perpetualId: number,
+				trader: string,
 				positionId: string,
 				fPositionBC: bigint,
 				fCashCC: bigint,
@@ -180,7 +180,7 @@ export class EventListener {
 				});
 				const updateMACC: UpdateMarginAccountEvent = {
 					perpetualId: perpetualId,
-                    trader: trader,
+					trader: trader,
 					positionId: positionId,
 					fPositionBC: fPositionBC,
 					fCashCC: fCashCC,
@@ -199,13 +199,13 @@ export class EventListener {
 		pmp.on(
 			"LiquidityAdded",
 			(
-                poolId: bigint,
+				poolId: bigint,
 				user: string,
 				tokenAmount: bigint,
 				shareAmount: bigint,
 				event: ethers.ContractEventPayload
 			) => {
-                const poolIdNum: number = Number(poolId.toString());
+				const poolIdNum: number = Number(poolId.toString());
 				this.l.info("got liquidity added event", {
 					poolIdNum,
 					user,
@@ -225,7 +225,9 @@ export class EventListener {
 				);
 
 				// Insert price info. Pool tokens are decimal-18
-				const price = dec18ToFloat(e.tokenAmount) / dec18ToFloat(e.shareAmount);
+				const decimals = this.opts.staticInfo.getMarginTokenDecimals(poolIdNum);
+				const price =
+					decNToFloat(e.tokenAmount, decimals) / dec18ToFloat(e.shareAmount);
 				this.dbPriceInfos.insert(price, poolIdNum);
 			}
 		);
@@ -233,13 +235,13 @@ export class EventListener {
 		pmp.on(
 			"LiquidityRemoved",
 			(
-				poolId : bigint,
-				user : string,
-				tokenAmount : bigint,
-				shareAmount : bigint,
+				poolId: bigint,
+				user: string,
+				tokenAmount: bigint,
+				shareAmount: bigint,
 				event: ethers.ContractEventPayload
 			) => {
-                const poolIdNum: number = Number(poolId.toString());
+				const poolIdNum: number = Number(poolId.toString());
 				this.l.info("got liquidity removed event", {
 					poolIdNum,
 					user,
@@ -263,7 +265,9 @@ export class EventListener {
 				);
 
 				// Insert price info
-				const price = dec18ToFloat(e.tokenAmount) / dec18ToFloat(e.shareAmount);
+				const decimals = this.opts.staticInfo.getMarginTokenDecimals(poolIdNum);
+				const price =
+					decNToFloat(e.tokenAmount, decimals) / dec18ToFloat(e.shareAmount);
 				this.dbPriceInfos.insert(price, poolIdNum);
 
 				// Attempt to finalize lp withdrawal
@@ -273,7 +277,7 @@ export class EventListener {
 
 		// List to token transfers for all share token contracts
 		const abi = await getShareTokenContractABI();
-		const shareTokenContracts = await retrieveShareTokenContracts();
+		const shareTokenContracts = this.opts.staticInfo.retrieveShareTokenContracts();
 		for (let i = 0; i < shareTokenContracts.length; i++) {
 			const c = new Contract(shareTokenContracts[i], abi, provider);
 			const poolId = i + 1;
@@ -312,7 +316,7 @@ export class EventListener {
 				event: ethers.ContractEventPayload
 			) => {
 				this.l.info("starting liquidity withdrawal initiated events listener");
-                const poolIdNum: number = Number(poolId.toString());
+				const poolIdNum: number = Number(poolId.toString());
 				const e: LiquidityWithdrawalInitiated = {
 					poolId: poolIdNum,
 					user: user,

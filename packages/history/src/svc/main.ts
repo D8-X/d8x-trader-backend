@@ -22,11 +22,7 @@ import { PNLRestAPI } from "../api/server";
 import { getPerpetualManagerProxyAddress, getDefaultRPC } from "../utils/abi";
 import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
-import {
-	retrieveShareTokenContracts,
-	initStaticData,
-	checkAndWriteMarginTokenInfoToDB,
-} from "../contracts/static_info";
+import StaticInfo from "../contracts/static_info";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 import { MarginTokenInfo } from "../db/margin_token_info";
 
@@ -105,16 +101,18 @@ export const main = async () => {
 	const dbLPWithdrawals = new LiquidityWithdrawals(prisma, logger);
 	const dbMarginTokenInfo = new MarginTokenInfo(prisma, logger);
 	// get sharepool token info and margin token info
-	await initStaticData(httpProvider);
+	const staticInfo = new StaticInfo();
+	await staticInfo.initialize(httpProvider);
 	// store margin token info and perpetual info to DB
-	await checkAndWriteMarginTokenInfoToDB(dbMarginTokenInfo);
+	await staticInfo.checkAndWriteMarginTokenInfoToDB(dbMarginTokenInfo);
 
 	const eventsListener = new EventListener(
 		{
-			logger,
+			logger: logger,
 			contractAddresses: {
 				perpetualManagerProxy: proxyContractAddr,
 			},
+			staticInfo: staticInfo,
 		},
 		// wsProvider,
 		dbTrades,
@@ -134,6 +132,7 @@ export const main = async () => {
 		httpProvider,
 		proxyContractAddr,
 		useTimestamp: undefined,
+		staticInfo: staticInfo,
 	};
 	runHistoricalDataFilterers(hdOpts);
 
@@ -171,6 +170,7 @@ export const main = async () => {
 				tradeHistory: dbTrades,
 				priceInfo: dbPriceInfo,
 			},
+			staticInfo: staticInfo,
 		},
 		logger
 	);
@@ -188,6 +188,7 @@ export interface hdFilterersOpt {
 	dbEstimatedEarnings: EstimatedEarnings;
 	dbPriceInfo: PriceInfo;
 	dbLPWithdrawals: LiquidityWithdrawals;
+	staticInfo: StaticInfo;
 }
 
 export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
@@ -200,11 +201,12 @@ export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
 		dbEstimatedEarnings,
 		dbPriceInfo,
 		dbLPWithdrawals,
+		staticInfo,
 	} = opts;
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
 
 	// Share token contracts
-	const shareTokenAddresses = await retrieveShareTokenContracts();
+	const shareTokenAddresses = await staticInfo.retrieveShareTokenContracts();
 
 	// LP withdrawals must be first thing that we filter, because
 	// LiquidityRemoved event filterer must run after we already have withdrawal

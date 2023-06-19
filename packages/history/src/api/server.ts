@@ -1,10 +1,18 @@
-import { FundingRatePayment, Trade, Prisma, PrismaClient } from "@prisma/client";
+import {
+	FundingRatePayment,
+	Trade,
+	Prisma,
+	PrismaClient,
+	MarginTokenInfo,
+} from "@prisma/client";
 import express, { Express, Request, Response, response } from "express";
 import { Logger, error } from "winston";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
+import { MarginTokenData } from "../db/margin_token_info";
+import StaticInfo from "../contracts/static_info";
 import { correctQueryArgs, errorResp } from "../utils/response";
-import { toJson, dec18ToFloat, ABK64x64ToFloat } from "utils";
+import { toJson, dec18ToFloat, decNToFloat, ABK64x64ToFloat } from "utils";
 import { getAddress } from "ethers";
 import { MarketData } from "@d8x/perpetuals-sdk";
 import { getSDKFromEnv } from "../utils/abi";
@@ -26,6 +34,7 @@ export interface DBHandlers {
 export interface RestAPIOptions {
 	port: number;
 	db: DBHandlers;
+	staticInfo: StaticInfo;
 	prisma: PrismaClient;
 }
 
@@ -153,7 +162,7 @@ export class PNLRestAPI {
 		}[] = [];
 
 		// Here we'll check if our last withdrawal for given pool and user
-		// consists of liqduidity withdrawal initiation and liquidity removal
+		// consists of liquidity withdrawal initiation and liquidity removal
 		if (withdrawals.length === 1) {
 			const w = withdrawals[0];
 			if (!w.is_removal) {
@@ -208,7 +217,13 @@ export class PNLRestAPI {
 		const sumTokenAmount = await this.opts.prisma.$queryRaw<EstEarningTokenSum[]>`
             select CAST(sum(token_amount) AS VARCHAR) as tkn from estimated_earnings_tokens 
             where LOWER(wallet_address) = ${user_wallet} AND pool_id = ${poolIdNum}`;
-		let earningsTokensSum = dec18ToFloat(BigInt(sumTokenAmount[0].tkn));
+
+		const decimalConvention = this.opts.staticInfo.getMarginTokenDecimals(poolIdNum);
+
+		let earningsTokensSum = decNToFloat(
+			BigInt(sumTokenAmount[0].tkn),
+			decimalConvention
+		);
 		const participationValue = await this.md?.getParticipationValue(
 			user_wallet,
 			poolIdNum
