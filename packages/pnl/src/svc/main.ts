@@ -136,8 +136,9 @@ export const main = async () => {
 		proxyContractAddr,
 		useTimestamp: undefined,
 	};
-	await runHistoricalDataFilterers(hdOpts);
+	runHistoricalDataFilterers(hdOpts);
 
+	eventsListener.listen(new WebSocketProvider(wsRpcUrl));
 	// re-start listeners with new WS provider periodically
 	// 2.5 hours - typically the connection should stay alive longer, so this ensures no gaps
 	setInterval(async () => {
@@ -283,7 +284,7 @@ export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
 				txHash,
 				blockTimestamp
 			);
-            // register the liquidity as being removed
+			// register the liquidity as being removed
 			dbLPWithdrawals.insert(e, true, txHash, blockTimestamp);
 		}
 	);
