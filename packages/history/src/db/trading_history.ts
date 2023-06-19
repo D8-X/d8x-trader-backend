@@ -3,7 +3,7 @@ import { BigNumberish, Numeric, Result } from "ethers";
 import { TradeEvent } from "../contracts/types";
 import { Logger } from "winston";
 import { LiquidateEvent } from "../contracts/types";
-import { ONE_64x64 } from "utils";
+import { ONE_64x64, ABK64x64ToFloat } from "utils";
 
 type TradeHistoryEvent = TradeEvent | LiquidateEvent;
 
@@ -48,6 +48,7 @@ export class TradingHistory {
 
 				if ((e as TradeEvent).order !== undefined) {
 					e = e as TradeEvent;
+					//a*2^64 * b*2^64 /2^64 = a*b*2^64 => requires >ES2017
 					let quantityCC = (e.fB2C * e.order.fAmount) / ONE_64x64;
 					data = {
 						chain_id: parseInt(this.chainId.toString()),
