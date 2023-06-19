@@ -12,27 +12,29 @@ export interface TradeEvent {
 	perpetualId: number;
 	trader: string;
 	positionId: string;
-	order: {
-		flags: bigint;
-		iPerpetualId: number;
-		brokerFeeTbps: number;
-		traderAddr: string;
-		brokerAddr: string;
-		referrerAddr: string;
-		brokerSignature: string;
-		fAmount: bigint;
-		fLimitPrice: bigint;
-		fTriggerPrice: bigint;
-		fLeverage: bigint;
-		iDeadline: bigint;
-		createdTimestamp: bigint;
-		submittedTimestamp: bigint;
-	};
+	order: Order;
 	orderDigest: string;
 	newPositionSizeBC: bigint;
 	price: bigint;
 	fFeeCC: bigint;
 	fPnlCC: bigint;
+}
+
+export interface Order {
+    flags: bigint;
+    iPerpetualId: number;
+    brokerFeeTbps: number;
+    traderAddr: string;
+    brokerAddr: string;
+    referrerAddr: string;
+    brokerSignature: string;
+    fAmount: bigint;
+    fLimitPrice: bigint;
+    fTriggerPrice: bigint;
+    fLeverage: bigint;
+    iDeadline: bigint;
+    createdTimestamp: bigint;
+    submittedTimestamp: bigint;
 }
 
 // Callback function for Trade events
