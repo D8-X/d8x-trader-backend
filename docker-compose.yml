@@ -87,6 +87,11 @@ services:
     ports:
       - "127.0.0.1:${REFERRAL_API_PORT}:${REFERRAL_API_PORT}"
     restart: on-failure
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "10"
 
   # stream oracle prices from price service (pyth 'offchain'-network)
   backend_pyth_connection:
@@ -125,3 +130,5 @@ services:
       options:
         max-size: "1k"
         max-file: "10"
+volumes:
+  pgdb:
