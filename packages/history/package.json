@@ -13,7 +13,7 @@
 		"prisma-dev": "npx prisma migrate dev",
 		"prisma-prod": "npx prisma migrate deploy",
 		"run-production-reset": "yarn prisma-reset && yarn prisma-prod && node ./dist/main.js",
-		"run-production": "yarn prisma-reset && yarn prisma-prod && node ./dist/main.js",
+		"run-production": "yarn prisma-prod && node ./dist/main.js",
 		"watch": "nodemon ./src/main.ts"
 	},
 	"dependencies": {
