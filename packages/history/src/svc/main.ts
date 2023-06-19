@@ -135,8 +135,9 @@ export const main = async () => {
 		proxyContractAddr,
 		useTimestamp: undefined,
 	};
-	// await runHistoricalDataFilterers(hdOpts);
+	runHistoricalDataFilterers(hdOpts);
 
+	eventsListener.listen(new WebSocketProvider(wsRpcUrl));
 	// re-start listeners with new WS provider periodically
 	// 2.5 hours - typically the connection should stay alive longer, so this ensures no gaps
 	setInterval(async () => {
@@ -159,9 +160,6 @@ export const main = async () => {
 		});
 		await runHistoricalDataFilterers(hdOpts);
 	}, 14_400_000); // 4 * 60 * 60 * 1000 miliseconds
-
-	await runHistoricalDataFilterers(hdOpts);
-	eventsListener.listen(new WebSocketProvider(wsRpcUrl));
 
 	// Start the pnl api
 	const api = new PNLRestAPI(
