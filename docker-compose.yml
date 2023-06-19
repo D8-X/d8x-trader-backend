@@ -42,10 +42,13 @@ services:
       options:
         max-size: "1k"
         max-file: "10"
-  backend_pnl:
+
+  # History component listens to block-chain events and stores them in postgres
+  # Exposes a REST API
+  backend_history:
     build:
       context: .
-      dockerfile: ./packages/pnl/Dockerfile
+      dockerfile: ./packages/history/Dockerfile
     depends_on:
       - postgres
     environment:
@@ -65,6 +68,32 @@ services:
         max-size: "1k"
         max-file: "10"
 
+  # Referral component that handles referral/agency/broker/trader rebates
+  # Exposes a REST API and uses the postgres DB that the history component mainly fills
+  backend_referral:
+    build:
+      context: .
+      dockerfile: ./packages/referral/Dockerfile
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      - HTTP_RPC_URL=${HTTP_RPC_URL}
+      - REFERRAL_API_PORT=${REFERRAL_API_PORT}
+      - CHAIN_ID=${CHAIN_ID}
+      - CORS_ON=${CORS_ON}
+    ports:
+      - "127.0.0.1:${REFERRAL_API_PORT}:${REFERRAL_API_PORT}"
+    restart: on-failure
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "10"
+
+  # stream oracle prices from price service (pyth 'offchain'-network)
   backend_pyth_connection:
     stdin_open: true # docker run -i
     tty: true # docker run -t
@@ -85,6 +114,7 @@ services:
         max-size: "1k"
         max-file: "10"
 
+  # Database component required by history and referral components
   postgres:
     image: postgres:15
     environment:

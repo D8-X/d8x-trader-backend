@@ -16,7 +16,7 @@ function _orderDigest() {
     limitPrice: 1,
     quantity: 5,
     leverage: 2,
-    timestamp: Math.floor(Date.now() / 1000),
+    executionTimestamp: Math.floor(Date.now() / 1000),
     deadline: Math.floor(Date.now() / 1000 + 8 * 60 * 60), // order expires 8 hours from now
   };
   let order2: Order = {
@@ -26,7 +26,7 @@ function _orderDigest() {
     limitPrice: 1,
     quantity: 5,
     leverage: 2,
-    timestamp: Math.floor(Date.now() / 1000),
+    executionTimestamp: Math.floor(Date.now() / 1000),
     deadline: Math.floor(Date.now() / 1000 + 8 * 60 * 60), // order expires 8 hours from now
   };
   let s = JSON.stringify({ orders: [order1, order2], traderAddr: wallet.address });
@@ -43,7 +43,7 @@ function _positionRiskOnTrade() {
     limitPrice: 1,
     quantity: 200,
     leverage: 1,
-    timestamp: Math.floor(Date.now() / 1000),
+    executionTimestamp: Math.floor(Date.now() / 1000),
     deadline: Math.floor(Date.now() / 1000 + 8 * 60 * 60), // order expires 8 hours from now
   };
   let s = JSON.stringify({ order: order, traderAddr: wallet.address });
