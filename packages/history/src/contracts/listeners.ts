@@ -4,10 +4,11 @@ import {
 	LiquidateEvent,
 	LiquidityAddedEvent,
 	LiquidityRemovedEvent,
-	LiquidityWithdrawalInitiated,
+	LiquidityWithdrawalInitiatedEvent,
 	TradeEvent,
 	Order,
 	UpdateMarginAccountEvent,
+	P2PTransferEvent,
 } from "./types";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
@@ -83,16 +84,16 @@ export class EventListener {
 		});
 
 		// perpertual proxy manager - main contract
-		const pmp = new ethers.Contract(
+		const proxy = new ethers.Contract(
 			this.opts.contractAddresses.perpetualManagerProxy,
 			getPerpetualManagerABI(),
 			provider
 		);
 
 		// Trade event
-		pmp.on(
+		proxy.on(
 			"Trade",
-			async (
+			(
 				perpetualId: number,
 				trader: string,
 				positionId: string,
@@ -106,29 +107,26 @@ export class EventListener {
 				event: ethers.ContractEventPayload
 			) => {
 				this.l.info("got trade event", { perpetualId, trader });
-
-				const trade: TradeEvent = {
-					perpetualId: perpetualId,
-					trader: trader,
-					positionId: positionId,
-					order: order,
-					orderDigest: orderDigest,
-					newPositionSizeBC: newPositionSizeBC,
-					price: price,
-					fFeeCC: fFeeCC,
-					fPnlCC: fPnlCC,
-					fB2C: fB2C,
-				};
-
-				this.dbTrades.insertTradeHistoryRecord(
-					trade,
+				this.onTradeEvent(
+					{
+						perpetualId: perpetualId,
+						trader: trader,
+						positionId: positionId,
+						order: order,
+						orderDigest: orderDigest,
+						newPositionSizeBC: newPositionSizeBC,
+						price: price,
+						fFeeCC: fFeeCC,
+						fPnlCC: fPnlCC,
+						fB2C: fB2C,
+					},
 					event.log.transactionHash,
-					new Date().getTime() / 1000
+					Math.round(new Date().getTime() / 1000)
 				);
 			}
 		);
 
-		pmp.on(
+		proxy.on(
 			"Liquidate",
 			(
 				perpetualId: number,
@@ -143,26 +141,25 @@ export class EventListener {
 				event: ethers.ContractEventPayload
 			) => {
 				this.l.info("got liquidate event", { perpetualId, trader, liquidator });
-				const liquidation: LiquidateEvent = {
-					perpetualId: perpetualId,
-					liquidator: liquidator,
-					trader: trader,
-					positionId: positionId,
-					amountLiquidatedBC: amountLiquidatedBC,
-					liquidationPrice: liquidationPrice,
-					newPositionSizeBC: newPositionSizeBC,
-					fFeeCC: fFeeCC,
-					fPnlCC: fPnlCC,
-				};
-				this.dbTrades.insertTradeHistoryRecord(
-					liquidation,
+				this.onLiquidate(
+					{
+						perpetualId: perpetualId,
+						liquidator: liquidator,
+						trader: trader,
+						positionId: positionId,
+						amountLiquidatedBC: amountLiquidatedBC,
+						liquidationPrice: liquidationPrice,
+						newPositionSizeBC: newPositionSizeBC,
+						fFeeCC: fFeeCC,
+						fPnlCC: fPnlCC,
+					},
 					event.log.transactionHash,
-					new Date().getTime() / 1000
+					Math.round(new Date().getTime() / 1000)
 				);
 			}
 		);
 
-		pmp.on(
+		proxy.on(
 			"UpdateMarginAccount",
 			(
 				perpetualId: number,
@@ -180,25 +177,24 @@ export class EventListener {
 					trader,
 					positionId,
 				});
-				const updateMACC: UpdateMarginAccountEvent = {
-					perpetualId: perpetualId,
-					trader: trader,
-					positionId: positionId,
-					fPositionBC: fPositionBC,
-					fCashCC: fCashCC,
-					fLockedInValueQC: fLockedInValueQC,
-					fFundingPaymentCC: fFundingPaymentCC,
-					fOpenInterestBC: fOpenInterestBC,
-				};
-				this.dbFundingRates.insertFundingRatePayment(
-					updateMACC,
+				this.onUpdateMarginAccount(
+					{
+						perpetualId: perpetualId,
+						trader: trader,
+						positionId: positionId,
+						fPositionBC: fPositionBC,
+						fCashCC: fCashCC,
+						fLockedInValueQC: fLockedInValueQC,
+						fFundingPaymentCC: fFundingPaymentCC,
+						fOpenInterestBC: fOpenInterestBC,
+					},
 					event.log.transactionHash,
-					new Date().getTime() / 1000
+					Math.round(new Date().getTime() / 1000)
 				);
 			}
 		);
 
-		pmp.on(
+		proxy.on(
 			"LiquidityAdded",
 			(
 				poolId: bigint,
@@ -207,34 +203,24 @@ export class EventListener {
 				shareAmount: bigint,
 				event: ethers.ContractEventPayload
 			) => {
-				const poolIdNum: number = Number(poolId.toString());
 				this.l.info("got liquidity added event", {
-					poolIdNum,
+					poolId,
 					user,
 				});
-				const e: LiquidityAddedEvent = {
-					poolId: poolIdNum,
-					user: user,
-					tokenAmount: tokenAmount,
-					shareAmount: shareAmount,
-				};
-				this.dbEstimatedEarnings.insertLiquidityAdded(
-					user,
-					tokenAmount,
-					poolIdNum,
+				this.onLiquidityAdded(
+					{
+						poolId: poolId,
+						user: user,
+						tokenAmount: tokenAmount,
+						shareAmount: shareAmount,
+					},
 					event.log.transactionHash,
-					new Date().getTime() / 1000
+					Math.round(new Date().getTime() / 1000)
 				);
-
-				// Insert price info. Pool tokens are decimal-18
-				const decimals = this.opts.staticInfo.getMarginTokenDecimals(poolIdNum);
-				const price =
-					decNToFloat(e.tokenAmount, decimals) / dec18ToFloat(e.shareAmount);
-				this.dbPriceInfos.insert(price, poolIdNum);
 			}
 		);
 
-		pmp.on(
+		proxy.on(
 			"LiquidityRemoved",
 			(
 				poolId: bigint,
@@ -243,37 +229,20 @@ export class EventListener {
 				shareAmount: bigint,
 				event: ethers.ContractEventPayload
 			) => {
-				const poolIdNum: number = Number(poolId.toString());
 				this.l.info("got liquidity removed event", {
-					poolIdNum,
+					poolId,
 					user,
 				});
-				const e: LiquidityRemovedEvent = {
-					poolId: poolIdNum,
-					user: user,
-					tokenAmount: tokenAmount,
-					shareAmount: shareAmount,
-				};
-				const [txHash, timestamp] = [
+				this.onLiquidityRemoved(
+					{
+						poolId: poolId,
+						user: user,
+						tokenAmount: tokenAmount,
+						shareAmount: shareAmount,
+					},
 					event.log.transactionHash,
-					new Date().getTime() / 1000,
-				];
-				this.dbEstimatedEarnings.insertLiquidityRemoved(
-					user,
-					tokenAmount,
-					poolIdNum,
-					txHash,
-					timestamp
+					Math.round(new Date().getTime() / 1000)
 				);
-
-				// Insert price info
-				const decimals = this.opts.staticInfo.getMarginTokenDecimals(poolIdNum);
-				const price =
-					decNToFloat(e.tokenAmount, decimals) / dec18ToFloat(e.shareAmount);
-				this.dbPriceInfos.insert(price, poolIdNum);
-
-				// Attempt to finalize lp withdrawal
-				this.dbLPWithdrawals.insert(e, true, txHash, timestamp);
 			}
 		);
 
@@ -296,42 +265,132 @@ export class EventListener {
 					priceD18: bigint,
 					event: ethers.ContractEventPayload
 				) => {
-					this.dbEstimatedEarnings.insertShareTokenP2PTransfer(
-						from,
-						to,
-						amountD18,
-						priceD18,
+					this.onP2PTransfer(
+						{ from: from, to: to, amountD18: amountD18, priceD18: priceD18 },
 						poolId,
 						event.log.transactionHash,
-						new Date().getTime() / 1000
+						Math.round(new Date().getTime() / 1000)
 					);
 				}
 			);
 		}
 
-		pmp.on(
+		this.l.info("starting liquidity withdrawal initiated events listener");
+		proxy.on(
 			"LiquidityWithdrawalInitiated",
-			async (
+			(
 				poolId: bigint,
 				user: string,
 				shareAmount: bigint,
 				event: ethers.ContractEventPayload
-			) => {
-				this.l.info("starting liquidity withdrawal initiated events listener");
-				const poolIdNum: number = Number(poolId.toString());
-				const e: LiquidityWithdrawalInitiated = {
-					poolId: poolIdNum,
-					user: user,
-					shareAmount: shareAmount,
-				};
-
-				this.dbLPWithdrawals.insert(
-					e,
-					false,
+			) =>
+				this.onLiquidityWithdrawalInitiated(
+					{
+						poolId: Number(poolId.toString()),
+						user: user,
+						shareAmount: shareAmount,
+					},
 					event.log.transactionHash,
-					new Date().getTime() / 1000
-				);
-			}
+					Math.round(new Date().getTime() / 1000)
+				)
 		);
+	}
+
+	public async onP2PTransfer(
+		eventData: P2PTransferEvent,
+		poolId: number,
+		txHash: string,
+		timestampSec: number
+	) {
+		this.dbEstimatedEarnings.insertShareTokenP2PTransfer(
+			eventData,
+			poolId,
+			txHash,
+			timestampSec
+		);
+	}
+
+	public async onTradeEvent(
+		eventData: TradeEvent,
+		txHash: string,
+		timestampSec: number
+	) {
+		this.dbTrades.insertTradeHistoryRecord(eventData, txHash, timestampSec);
+	}
+
+	public async onLiquidate(
+		eventData: LiquidateEvent,
+		txHash: string,
+		timestampSec: number
+	) {
+		this.dbTrades.insertTradeHistoryRecord(eventData, txHash, timestampSec);
+	}
+
+	public async onUpdateMarginAccount(
+		eventData: UpdateMarginAccountEvent,
+		txHash: string,
+		timestampSec: number
+	) {
+		this.dbFundingRates.insertFundingRatePayment(eventData, txHash, timestampSec);
+	}
+
+	/**
+	 * Listener is called either via event or from historical data.
+	 * If from historical data, timestampSec is set to the block timestamp.
+	 * If from events, timestampSec is set to this timestamp
+	 * @param eventData data from event
+	 * @param txHash    transaction hash from event
+	 * @param timestampSec timestamp in seconds for event (typically block timestamp)
+	 */
+	public async onLiquidityWithdrawalInitiated(
+		eventData: LiquidityWithdrawalInitiatedEvent,
+		txHash: string,
+		timestampSec: number
+	) {
+		this.dbLPWithdrawals.insert(eventData, false, txHash, timestampSec);
+	}
+
+	public async onLiquidityRemoved(
+		eventData: LiquidityRemovedEvent,
+		txHash: string,
+		timestampSec: number
+	) {
+		const poolIdNum: number = Number(eventData.poolId.toString());
+		this.dbEstimatedEarnings.insertLiquidityRemoved(eventData, txHash, timestampSec);
+
+		// Insert price info
+		await this._updateSharePoolTokenPriceInfo(
+			Number(eventData.poolId.toString()),
+			eventData.tokenAmount,
+			eventData.shareAmount
+		);
+
+		// Attempt to finalize lp withdrawal
+		this.dbLPWithdrawals.insert(eventData, true, txHash, timestampSec);
+	}
+
+	public async onLiquidityAdded(
+		eventData: LiquidityAddedEvent,
+		txHash: string,
+		timestampSec: number
+	) {
+		this.dbEstimatedEarnings.insertLiquidityAdded(eventData, txHash, timestampSec);
+		// Insert price info
+		await this._updateSharePoolTokenPriceInfo(
+			Number(eventData.poolId.toString()),
+			eventData.tokenAmount,
+			eventData.shareAmount
+		);
+	}
+
+	private async _updateSharePoolTokenPriceInfo(
+		poolId: number,
+		tokenAmount: bigint,
+		shareAmount: bigint
+	) {
+		// Insert price info. Pool tokens are decimal-18
+		const decimals = this.opts.staticInfo.getMarginTokenDecimals(poolId);
+		const price = decNToFloat(tokenAmount, decimals) / dec18ToFloat(shareAmount);
+		this.dbPriceInfos.insert(price, poolId);
 	}
 }

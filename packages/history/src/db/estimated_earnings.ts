@@ -1,9 +1,5 @@
 import {
 	PrismaClient,
-	Trade,
-	trade_side,
-	Prisma,
-	FundingRatePayment,
 	EstimatedEarningTokens,
 	estimated_earnings_event_type,
 } from "@prisma/client";
@@ -12,7 +8,11 @@ import * as eth from "ethers";
 import { TradeEvent } from "../contracts/types";
 import { Logger } from "winston";
 import { UpdateMarginAccountEvent } from "../contracts/types";
-import { LiquidateEvent } from "../contracts/types";
+import {
+	LiquidityAddedEvent,
+	LiquidityRemovedEvent,
+	P2PTransferEvent,
+} from "../contracts/types";
 import { dec18ToFloat, decNToFloat } from "utils";
 
 eth.toBigInt;
@@ -81,17 +81,16 @@ export class EstimatedEarnings {
 	}
 
 	public async insertLiquidityAdded(
-		wallet: string,
-		amount: bigint,
-		perpetualId: number,
+		eventData: LiquidityAddedEvent,
 		txHash: string,
 		blockTimestamp: number
 	) {
+		const poolIdNum = Number(eventData.poolId.toString());
 		return this.insert(
-			wallet,
-			// Liquidity Added  goes with - sign
-			amount * BigInt(-1),
-			perpetualId,
+			eventData.user,
+			// Liquidity Added goes with - sign
+			eventData.tokenAmount * BigInt(-1),
+			poolIdNum,
 			txHash,
 			estimated_earnings_event_type.liquidity_added,
 			blockTimestamp
@@ -99,17 +98,16 @@ export class EstimatedEarnings {
 	}
 
 	public async insertLiquidityRemoved(
-		wallet: string,
-		amount: bigint,
-		perpetualId: number,
+		eventData: LiquidityRemovedEvent,
 		txHash: string,
 		blockTimestamp: number
 	) {
+		const poolIdNum = Number(eventData.poolId.toString());
 		return this.insert(
-			wallet,
+			eventData.user,
 			// Liquidity Removed  goes with + sign so we leave it as it is
-			amount,
-			perpetualId,
+			eventData.tokenAmount,
+			poolIdNum,
 			txHash,
 			estimated_earnings_event_type.liquidity_removed,
 			blockTimestamp
@@ -118,31 +116,25 @@ export class EstimatedEarnings {
 
 	/**
 	 * Insert a peer-to-peer transfer of the token
-	 * @param wallet_from transfer from this address
-	 * @param wallet_to transfer to this address
-	 * @param amountD18 amount of the token transferred in decimal 18 convention
-	 * @param priceD18 price of the share pool token at the time of transfer
-	 * @param poolId id of poool
+	 * @param eventData P2PTransferEvent
+	 * @param poolId id of pool for which the token is an LP token
 	 * @param txHash transaction hash of the transfer transaction
 	 * @param blockTimestamp timestamp when event emited
 	 */
 	public async insertShareTokenP2PTransfer(
-		wallet_from: string,
-		wallet_to: string,
-		amountD18: bigint,
-		priceD18: bigint,
+		eventData: P2PTransferEvent,
 		poolId: number,
 		txHash: string,
 		blockTimestamp: number
 	) {
-		const amount = dec18ToFloat(amountD18);
-		const price = dec18ToFloat(priceD18);
+		const shareTokenAmount = dec18ToFloat(eventData.amountD18);
+		const price = dec18ToFloat(eventData.priceD18);
 
-		const estimatedEarningsTokensAmnt = amount * price;
+		const estimatedEarningsTokensAmnt = shareTokenAmount * price;
 
-		// For wallet_from amount sign is plus
+		// From wallet_from amount sign is plus
 		await this.insert(
-			wallet_from,
+			eventData.from,
 			BigInt(Math.floor(estimatedEarningsTokensAmnt)),
 			poolId,
 			txHash,
@@ -150,9 +142,9 @@ export class EstimatedEarnings {
 			blockTimestamp
 		);
 
-		// For wallet_from amount sign is - (minus)
+		// receiver amount sign is - (minus)
 		this.insert(
-			wallet_to,
+			eventData.to,
 			BigInt(Math.floor(estimatedEarningsTokensAmnt)) * BigInt(-1),
 			poolId,
 			txHash,

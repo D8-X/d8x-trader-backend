@@ -102,13 +102,40 @@ export class TradingHistory {
 
 	/**
 	 * Retrieve the latest timestamp of most latest trade event record or
-	 * current date on deefault
+	 * current date on default
 	 * @returns
 	 */
-	public async getLatestTimestamp(): Promise<Date | undefined> {
+	public async getLatestTradeTimestamp(): Promise<Date | undefined> {
 		const tradeDate = await this.prisma.trade.findFirst({
 			select: {
 				trade_timestamp: true,
+			},
+			where: {
+				OR: [{ side: { equals: "buy" } }, { side: { equals: "sell" } }],
+			},
+			orderBy: {
+				trade_timestamp: "desc",
+			},
+		});
+
+		return tradeDate?.trade_timestamp;
+	}
+
+	/**
+	 * Retrieve the latest timestamp of most latest trade event record or
+	 * current date on default
+	 * @returns
+	 */
+	public async getLatestLiquidateTimestamp(): Promise<Date | undefined> {
+		const tradeDate = await this.prisma.trade.findFirst({
+			select: {
+				trade_timestamp: true,
+			},
+			where: {
+				OR: [
+					{ side: { equals: "liquidate_buy" } },
+					{ side: { equals: "liquidate_sell" } },
+				],
 			},
 			orderBy: {
 				trade_timestamp: "desc",
