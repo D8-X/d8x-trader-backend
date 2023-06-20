@@ -46,8 +46,8 @@ export interface LiquidateEvent {
 	liquidator: string;
 	trader: string;
 	positionId: string;
-	amountLiquidatedBC: bigint; //amount liquidated in base crrency, ABDK
-	liquidationPrice: bigint; //liquidation price in quote crrency, ABDK
+	amountLiquidatedBC: bigint; //amount liquidated in base currency, ABDK
+	liquidationPrice: bigint; //liquidation price in quote currency, ABDK
 	newPositionSizeBC: bigint; //size after liq in base currency, ABDK
 	fFeeCC: bigint; //fee in collateral currency, ABDK format
 	fPnlCC: bigint; //P&L in collateral cu
