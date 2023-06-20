@@ -132,7 +132,6 @@ export const main = async () => {
 		dbTrades,
 		httpProvider,
 		proxyContractAddr,
-		useTimestamp: undefined,
 		staticInfo: staticInfo,
 		eventListener: eventsListener,
 	};
@@ -151,14 +150,9 @@ export const main = async () => {
 	}, 300_000);
 
 	// Re fetch  periodically for redundancy. This will ensure that any lost events will eventually be stored in db
-	// every 4 hours poll 5 hours, just under 10_000 blocks, so this call covers as many blocks as possible for a fixed RPC cost
+	// every 4 hours poll (5 hours would leave us just under 10_000 blocks, so the call typically covers as many blocks as possible for a fixed RPC cost)
 	setInterval(async () => {
-		const secondsInPast = 18_000; // 5 * 60 * 60 seconds
-		const timestampStart = Date.now() - secondsInPast * 1000;
-		hdOpts.useTimestamp = new Date(timestampStart);
-		logger.info("running historical data filterers for redundancy", {
-			from: hdOpts.useTimestamp,
-		});
+		logger.info("running historical data filterers for redundancy");
 		// non-blocking, so no await
 		runHistoricalDataFilterers(hdOpts);
 	}, 14_400_000); // 4 * 60 * 60 * 1000 miliseconds
@@ -181,9 +175,6 @@ export const main = async () => {
 };
 
 export interface hdFilterersOpt {
-	// If useTimestamp is provided, it will be used instead of latest timestamp
-	// from historical data db records
-	useTimestamp: Date | undefined;
 	httpProvider: ethers.Provider;
 	proxyContractAddr: string;
 	dbTrades: TradingHistory;
@@ -197,7 +188,6 @@ export interface hdFilterersOpt {
 
 export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	const {
-		useTimestamp,
 		httpProvider,
 		proxyContractAddr,
 		dbTrades,
@@ -218,11 +208,12 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	promises.push(
 		hd.filterLiquidityWithdrawalInitiations(
 			null,
-			useTimestamp ?? (await dbLPWithdrawals.getLatestTimestamp()),
+			await dbLPWithdrawals.getLatestTimestampInitiation(),
 			async (eventData, txHash, blockNumber, blockTimeStamp, params) => {
 				await eventListener.onLiquidityWithdrawalInitiated(
 					eventData,
 					txHash,
+					IS_COLLECTED_BY_EVENT,
 					blockTimeStamp
 				);
 			}
@@ -233,7 +224,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	promises.push(
 		hd.filterTrades(
 			null as any as string,
-			useTimestamp ?? (await dbTrades.getLatestTradeTimestamp()),
+			await dbTrades.getLatestTradeTimestamp(),
 			async (
 				eventData: TradeEvent,
 				txHash: string,
@@ -254,7 +245,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	promises.push(
 		hd.filterLiquidations(
 			null as any as string,
-			useTimestamp ?? (await dbTrades.getLatestLiquidateTimestamp()),
+			await dbTrades.getLatestLiquidateTimestamp(),
 			async (
 				eventData: LiquidateEvent,
 				txHash: string,
@@ -275,7 +266,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	promises.push(
 		hd.filterUpdateMarginAccount(
 			null as any as string,
-			useTimestamp ?? (await dbFundingRatePayments.getLatestTimestamp()),
+			await dbFundingRatePayments.getLatestTimestamp(),
 			async (
 				eventData: UpdateMarginAccountEvent,
 				txHash: string,
@@ -295,10 +286,9 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	promises.push(
 		hd.filterLiquidityAdded(
 			null,
-			useTimestamp ??
-				(await dbEstimatedEarnings.getLatestTimestamp(
-					estimated_earnings_event_type.liquidity_added
-				)),
+			await dbEstimatedEarnings.getLatestTimestamp(
+				estimated_earnings_event_type.liquidity_added
+			),
 			async (
 				eventData: LiquidityAddedEvent,
 				txHash: string,
@@ -315,13 +305,14 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		)
 	);
 
+	const latestTsLiq = await dbEstimatedEarnings.getLatestTimestamp(
+		estimated_earnings_event_type.liquidity_removed
+	);
+
 	promises.push(
 		hd.filterLiquidityRemoved(
 			null,
-			useTimestamp ??
-				(await dbEstimatedEarnings.getLatestTimestamp(
-					estimated_earnings_event_type.liquidity_removed
-				)),
+			latestTsLiq,
 			async (
 				eventData: LiquidityRemovedEvent,
 				txHash: string,
@@ -339,11 +330,9 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	);
 
 	// Share tokens p2p transfers
-	const p2pTimestamps = useTimestamp
-		? new Array(shareTokenAddresses.length).fill(useTimestamp)
-		: await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
-				shareTokenAddresses.length
-		  );
+	const p2pTimestamps = await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
+		shareTokenAddresses.length
+	);
 
 	promises.push(
 		hd.filterP2Ptransfers(

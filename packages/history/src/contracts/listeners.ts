@@ -294,11 +294,12 @@ export class EventListener {
 			) =>
 				this.onLiquidityWithdrawalInitiated(
 					{
-						poolId: Number(poolId.toString()),
+						poolId: poolId,
 						user: user,
 						shareAmount: shareAmount,
 					},
 					event.log.transactionHash,
+					IS_COLLECTED_BY_EVENT,
 					Math.round(new Date().getTime() / 1000)
 				)
 		);
@@ -377,9 +378,16 @@ export class EventListener {
 	public async onLiquidityWithdrawalInitiated(
 		eventData: LiquidityWithdrawalInitiatedEvent,
 		txHash: string,
+		isCollectedByEvent: boolean,
 		timestampSec: number
 	) {
-		this.dbLPWithdrawals.insert(eventData, false, txHash, timestampSec);
+		this.dbLPWithdrawals.insert(
+			eventData,
+			false,
+			txHash,
+			isCollectedByEvent,
+			timestampSec
+		);
 	}
 
 	public async onLiquidityRemoved(
@@ -400,11 +408,18 @@ export class EventListener {
 		await this._updateSharePoolTokenPriceInfo(
 			Number(eventData.poolId.toString()),
 			eventData.tokenAmount,
-			eventData.shareAmount
+			eventData.shareAmount,
+			timestampSec
 		);
 
 		// Attempt to finalize lp withdrawal
-		this.dbLPWithdrawals.insert(eventData, true, txHash, timestampSec);
+		this.dbLPWithdrawals.insert(
+			eventData,
+			true,
+			txHash,
+			isCollectedByEvent,
+			timestampSec
+		);
 	}
 
 	public async onLiquidityAdded(
@@ -423,18 +438,20 @@ export class EventListener {
 		await this._updateSharePoolTokenPriceInfo(
 			Number(eventData.poolId.toString()),
 			eventData.tokenAmount,
-			eventData.shareAmount
+			eventData.shareAmount,
+			timestampSec
 		);
 	}
 
 	private async _updateSharePoolTokenPriceInfo(
 		poolId: number,
 		tokenAmount: bigint,
-		shareAmount: bigint
+		shareAmount: bigint,
+		timestampSec: number
 	) {
 		// Insert price info. Pool tokens are decimal-18
 		const decimals = this.opts.staticInfo.getMarginTokenDecimals(poolId);
 		const price = decNToFloat(tokenAmount, decimals) / dec18ToFloat(shareAmount);
-		this.dbPriceInfos.insert(price, poolId);
+		await this.dbPriceInfos.insert(price, poolId, timestampSec);
 	}
 }

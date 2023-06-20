@@ -102,19 +102,18 @@ model EstimatedEarningTokens{
 
 model Price{
     @@map("price_info")
-    id BigInt @id @default(autoincrement())
     pool_token_price Float @db.DoublePrecision
     // pool id
     pool_id Int
     timestamp DateTime @db.Timestamptz @default(now())
 
+    @@id([pool_id, timestamp])
     @@index([pool_id], type: Hash)
     @@index([timestamp])
 }
 
 model LiquidityWithdrawal{
     @@map("liquidity_withdrawals")
-    id BigInt @id @default(autoincrement())
     liq_provider_addr String @db.VarChar(42)
     pool_id Int
     amount Decimal @db.Decimal(40, 0)
@@ -122,6 +121,9 @@ model LiquidityWithdrawal{
     is_removal Boolean
     timestamp DateTime @db.Timestamptz @default(now())
     
+    is_collected_by_event Boolean @default(true)
+
+    @@id([liq_provider_addr, tx_hash])
     @@index([pool_id], type:Hash)
     @@index([liq_provider_addr], type:Hash)
     @@index([timestamp])

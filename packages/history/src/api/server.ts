@@ -12,7 +12,14 @@ import { FundingRatePayments } from "../db/funding_rate";
 import { MarginTokenData } from "../db/margin_token_info";
 import StaticInfo from "../contracts/static_info";
 import { correctQueryArgs, errorResp } from "../utils/response";
-import { toJson, dec18ToFloat, decNToFloat, ABK64x64ToFloat } from "utils";
+import {
+	toJson,
+	dec18ToFloat,
+	decNToFloat,
+	ABK64x64ToFloat,
+	extractErrorMsg,
+} from "utils";
+
 import { getAddress } from "ethers";
 import { MarketData } from "@d8x/perpetuals-sdk";
 import { getSDKFromEnv } from "../utils/abi";
@@ -105,6 +112,32 @@ export class PNLRestAPI {
 		});
 	}
 
+	private extractTimestamps(fromStr: string, toStr: string): [number, number] {
+		let t_from = parseInt(fromStr);
+		let t_to = parseInt(toStr);
+		const reDigit = /^\d+$/;
+		if (
+			isNaN(t_from) ||
+			isNaN(t_to) ||
+			fromStr.match(reDigit) === null ||
+			toStr.match(reDigit) === null
+		) {
+			throw Error(
+				"invalid fromTimestamp or toTimestamp, please provide correct unix timestamps"
+			);
+		}
+
+		if (t_from < 1681402080) {
+			throw Error("timestamp to old");
+		}
+		if (t_from >= t_to) {
+			throw Error("from must be smaller than to");
+		}
+		if (t_to > 4837075680) {
+			throw Error("timestamp must be in seconds");
+		}
+		return [t_from, t_to];
+	}
 	/**
 	 * Retrieve open withdrawal information
 	 *
@@ -352,7 +385,7 @@ export class PNLRestAPI {
 	/**
 	 * In memory cache for last price fetch time for poolSymbol
 	 */
-	public lastPriceFetchCache = new Map<number, Date>();
+	public lastPriceFetchCacheTimestampSec = new Map<number, number>();
 
 	/**
 	 * Fetch the latest price of asked poolSymbol if previous fetch was over an
@@ -360,27 +393,22 @@ export class PNLRestAPI {
 	 * @param poolSymbol
 	 */
 	private async fetchAndStoreLatestPriceForPool(poolId: number) {
-		if (this.lastPriceFetchCache.has(poolId)) {
-			const moreThan1HAgo =
-				(new Date().getTime() / 1000 -
-					this.lastPriceFetchCache.get(poolId)!.getTime() / 1000) /
-					3600 >=
-				1;
-
-			if (!moreThan1HAgo) {
+		let lastTsSec = this.lastPriceFetchCacheTimestampSec.get(poolId);
+		if (lastTsSec != undefined) {
+			const secondsSinceUpdate = Date.now() / 1000 - lastTsSec;
+			if (secondsSinceUpdate < 3600) {
+				this.l.info("no price update required", secondsSinceUpdate);
 				return;
 			}
 		}
-
 		// Perform the price fetching
 		const price = await this.md!.getShareTokenPrice(poolId);
-
+		const timestampSec = Math.round(Date.now() / 1000);
 		if (!isNaN(price)) {
-			this.lastPriceFetchCache.set(poolId, new Date());
-			this.l.info("fetched price info", { poolId, price });
-
+			this.lastPriceFetchCacheTimestampSec.set(poolId, timestampSec);
+			this.l.info("fetched price info", { poolId, price, timestampSec });
 			// Push the price info to db
-			await this.db.priceInfo.insert(price, poolId);
+			await this.db.priceInfo.insert(price, poolId, timestampSec);
 		}
 	}
 
@@ -400,89 +428,63 @@ export class PNLRestAPI {
 		resp: Response
 	) {
 		const usage =
-			"required query parameters: poolSymbol, fromTimestamp, toTimestamp ";
-		if (
-			!correctQueryArgs(req.query, ["poolSymbol", "fromTimestamp", "toTimestamp"])
-		) {
-			resp.send(errorResp("please provide correct query parameters", usage));
-			return;
-		}
-		let pool_id: number;
+			"required query parameters: poolSymbol, fromTimestamp (seconds), toTimestamp (seconds) ";
 		try {
-			pool_id = this.md!.getPoolIdFromSymbol(req.query.poolSymbol)!;
-		} catch (error) {
-			resp.send(
-				errorResp(`no pool found for symbol ${req.query.poolSymbol} `, usage)
-			);
-			return;
-		}
-		const { fromTimestamp, toTimestamp } = req.query;
+			if (
+				!correctQueryArgs(req.query, [
+					"poolSymbol",
+					"fromTimestamp",
+					"toTimestamp",
+				])
+			) {
+				throw Error("please provide correct query parameters");
+			}
 
-		// Check if provided timestamps are numbers
-		let t_from = parseInt(fromTimestamp),
-			t_to = parseInt(toTimestamp);
-		const reDigit = /^\d+$/;
-		if (
-			isNaN(t_from) ||
-			isNaN(t_to) ||
-			fromTimestamp.match(reDigit) === null ||
-			toTimestamp.match(reDigit) === null
-		) {
-			resp.send(
-				errorResp(
-					"invalid fromTimestamp or toTimestamp, please provide correct unix timestamps",
-					usage
-				)
-			);
-			return;
-		}
+			let pool_id: number;
+			try {
+				pool_id = this.md!.getPoolIdFromSymbol(req.query.poolSymbol)!;
+			} catch (error) {
+				throw Error(`no pool found for symbol ${req.query.poolSymbol}`);
+			}
 
-		// Retrieve the dates
-		let from: Date, to: Date;
-		from = new Date(t_from * 1000);
-		to = new Date(t_to * 1000);
+			const { fromTimestamp, toTimestamp } = req.query;
 
-		if (isNaN(from.getTime()) || isNaN(to.getTime())) {
-			this.l.error("apy calculation: invalid dates provided", {
-				params: req.params,
-			});
+			// Check if provided timestamps in seconds are ok
+			let [t_from, t_to] = this.extractTimestamps(fromTimestamp, toTimestamp);
 
-			resp.send(errorResp("please provide valid timestamps", usage));
-			return;
-		}
+			// Retrieve the dates
+			let from: Date, to: Date;
+			from = new Date(t_from * 1000);
+			to = new Date(t_to * 1000);
+			const poolId = BigInt(pool_id!);
 
-		if (from > to) {
-			resp.send(errorResp("from date can not be later than to", usage));
-			return;
-		}
+			// Immitate the price fetched cron job. Periodically (atm every 1 hour)
+			// fetch latest price info for requested pool
+			this.fetchAndStoreLatestPriceForPool(pool_id);
 
-		const poolId = BigInt(pool_id!);
+			interface p_info {
+				pool_token_price: number;
+				pool_id: number;
+				timestamp: Date;
+			}
 
-		// Immitate the price fetched cron job. Periodically (atm every 1 hour)
-		// fetch latest price info for requested pool
-		this.fetchAndStoreLatestPriceForPool(pool_id);
+			const fromPriceInfo = await this.opts.prisma.$queryRaw<p_info[]>`
+                select * from price_info
+                where pool_id = ${poolId}
+                order by abs(extract(epoch from ("timestamp" -  ${from}::timestamp )))
+                limit 1
+            `;
+			const toPriceInfo = await this.opts.prisma.$queryRaw<p_info[]>`
+                select * from price_info
+                where pool_id = ${poolId}
+                order by abs(extract(epoch from ("timestamp" - ${to}::timestamp )))
+                limit 1
+            `;
 
-		interface p_info {
-			pool_token_price: number;
-			pool_id: bigint;
-			timestamp: Date;
-		}
-
-		const fromPriceInfo = await this.opts.prisma.$queryRaw<p_info[]>`
-		    select * from price_info
-		    where pool_id = ${poolId}
-		    order by abs(extract(epoch from ("timestamp" -  ${from}::timestamp )))
-		    limit 1
-		`;
-		const toPriceInfo = await this.opts.prisma.$queryRaw<p_info[]>`
-		    select * from price_info
-		    where pool_id = ${poolId}
-		    order by abs(extract(epoch from ("timestamp" - ${to}::timestamp )))
-		    limit 1
-		`;
-
-		// Price info was found
-		if (toPriceInfo.length === 1 && fromPriceInfo.length === 1) {
+			// Price info was found
+			if (toPriceInfo.length != 1 || fromPriceInfo.length != 1) {
+				throw Error("not enough prices found");
+			}
 			const start_timestamp = fromPriceInfo[0].timestamp.getTime() / 1000;
 			const end_timestamp = toPriceInfo[0].timestamp.getTime() / 1000;
 
@@ -500,9 +502,11 @@ export class PNLRestAPI {
 
 			// division by 0
 			if (t_diff === 0) {
-				resp.send(errorResp("not enough data to calculate APY", usage));
-				return;
+				throw Error(
+					"not enough price data for the given time range to calculate APY"
+				);
 			}
+
 			// APY = (priceCurrent/priceOld-1)/(TimestampSec.now()-TimestampSec.priceOld) * #secondsInYear
 			const apy = ((price_ratio - 1) / t_diff) * secondsInYear;
 
@@ -514,10 +518,8 @@ export class PNLRestAPI {
 				apy,
 			};
 			resp.send(toJson(response));
-			return;
+		} catch (err: any) {
+			resp.send(errorResp(extractErrorMsg(err), usage));
 		}
-
-		resp.send(errorResp("not enough data to calculate APY", usage));
-		return;
 	}
 }
