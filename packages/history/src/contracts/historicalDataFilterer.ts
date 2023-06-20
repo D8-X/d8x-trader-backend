@@ -5,11 +5,12 @@ import {
 	LiquidityAddedFilteredCb,
 	LiquidityRemovedEvent,
 	LiquidityRemovedFilteredCb,
-	LiquidityWithdrawalInitiated,
+	LiquidityWithdrawalInitiatedEvent,
 	LiquidityWithdrawalInitiatedFilteredCb,
 	P2PTransferEvent,
 	P2PTransferFilteredCb,
 	TradeEvent,
+	LiquidateEvent,
 	TradesFilteredCb,
 	UpdateMarginAccountEvent,
 	UpdateMarginAccountFilteredCb,
@@ -134,7 +135,7 @@ export class HistoricalDataFilterer {
 	public async filterLiquidations(
 		walletAddress: string | null,
 		since: Date | undefined,
-		cb: TradesFilteredCb
+		cb: LiquidationsFilteredCb
 	) {
 		this.l.info("started liquidations filtering", { date: since });
 
@@ -151,7 +152,7 @@ export class HistoricalDataFilterer {
 				blockTimestamp: number
 			) => {
 				cb(
-					decodedEvent as TradeEvent,
+					decodedEvent as LiquidateEvent,
 					e.transactionHash,
 					e.blockNumber,
 					blockTimestamp
@@ -340,7 +341,7 @@ export class HistoricalDataFilterer {
 				blockTimestamp: number
 			) => {
 				cb(
-					decodedTradeEvent as LiquidityWithdrawalInitiated,
+					decodedTradeEvent as LiquidityWithdrawalInitiatedEvent,
 					e.transactionHash,
 					e.blockNumber,
 					blockTimestamp

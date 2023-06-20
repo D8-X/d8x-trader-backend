@@ -1,6 +1,9 @@
 import { LiquidityWithdrawal, PrismaClient } from "@prisma/client";
 import { Logger } from "winston";
-import { LiquidityRemovedEvent, LiquidityWithdrawalInitiated } from "../contracts/types";
+import {
+	LiquidityRemovedEvent,
+	LiquidityWithdrawalInitiatedEvent,
+} from "../contracts/types";
 import { LiquidityProviderTool } from "@d8x/perpetuals-sdk";
 import { lastDayOfWeek } from "date-fns";
 
@@ -9,7 +12,7 @@ export class LiquidityWithdrawals {
 
 	// Cretae new lp withdrawal initation record from lp withdrawal event data
 	public async insert(
-		e: LiquidityWithdrawalInitiated | LiquidityRemovedEvent,
+		e: LiquidityWithdrawalInitiatedEvent | LiquidityRemovedEvent,
 		isRemovedEvent: boolean,
 		txHash: string,
 		blockTimestamp: number
