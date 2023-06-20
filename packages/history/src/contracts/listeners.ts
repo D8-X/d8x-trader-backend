@@ -215,6 +215,7 @@ export class EventListener {
 						shareAmount: shareAmount,
 					},
 					event.log.transactionHash,
+					true,
 					Math.round(new Date().getTime() / 1000)
 				);
 			}
@@ -241,6 +242,7 @@ export class EventListener {
 						shareAmount: shareAmount,
 					},
 					event.log.transactionHash,
+					true,
 					Math.round(new Date().getTime() / 1000)
 				);
 			}
@@ -269,6 +271,7 @@ export class EventListener {
 						{ from: from, to: to, amountD18: amountD18, priceD18: priceD18 },
 						poolId,
 						event.log.transactionHash,
+						true,
 						Math.round(new Date().getTime() / 1000)
 					);
 				}
@@ -300,12 +303,14 @@ export class EventListener {
 		eventData: P2PTransferEvent,
 		poolId: number,
 		txHash: string,
+		isCollectedByEvent: boolean,
 		timestampSec: number
 	) {
 		this.dbEstimatedEarnings.insertShareTokenP2PTransfer(
 			eventData,
 			poolId,
 			txHash,
+			isCollectedByEvent,
 			timestampSec
 		);
 	}
@@ -353,10 +358,16 @@ export class EventListener {
 	public async onLiquidityRemoved(
 		eventData: LiquidityRemovedEvent,
 		txHash: string,
+		isCollectedByEvent: boolean,
 		timestampSec: number
 	) {
 		const poolIdNum: number = Number(eventData.poolId.toString());
-		this.dbEstimatedEarnings.insertLiquidityRemoved(eventData, txHash, timestampSec);
+		this.dbEstimatedEarnings.insertLiquidityRemoved(
+			eventData,
+			txHash,
+			isCollectedByEvent,
+			timestampSec
+		);
 
 		// Insert price info
 		await this._updateSharePoolTokenPriceInfo(
@@ -372,9 +383,15 @@ export class EventListener {
 	public async onLiquidityAdded(
 		eventData: LiquidityAddedEvent,
 		txHash: string,
+		isCollectedByEvent: boolean,
 		timestampSec: number
 	) {
-		this.dbEstimatedEarnings.insertLiquidityAdded(eventData, txHash, timestampSec);
+		this.dbEstimatedEarnings.insertLiquidityAdded(
+			eventData,
+			txHash,
+			isCollectedByEvent,
+			timestampSec
+		);
 		// Insert price info
 		await this._updateSharePoolTokenPriceInfo(
 			Number(eventData.poolId.toString()),
