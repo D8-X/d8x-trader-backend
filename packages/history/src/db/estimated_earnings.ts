@@ -5,17 +5,13 @@ import {
 } from "@prisma/client";
 import { BigNumberish, ethers, Numeric, Result } from "ethers";
 import * as eth from "ethers";
-import { TradeEvent } from "../contracts/types";
 import { Logger } from "winston";
-import { UpdateMarginAccountEvent } from "../contracts/types";
 import {
 	LiquidityAddedEvent,
 	LiquidityRemovedEvent,
 	P2PTransferEvent,
 } from "../contracts/types";
 import { dec18ToFloat, decNToFloat } from "utils";
-
-eth.toBigInt;
 
 export class EstimatedEarnings {
 	constructor(
@@ -26,10 +22,12 @@ export class EstimatedEarnings {
 
 	/**
 	 * Insert new estimated earning
-	 *
-	 * @param wallet
-	 * @param amount
-	 * @param txHash
+	 * @param wallet address that performed the action
+	 * @param amount amount of collateral tokens, or in case of p2p transfer share tokens
+	 * @param pool_id pool id where action happens
+	 * @param txHash hash of the transaction
+	 * @param type estimated_earnings_event_type
+	 * @param isCollectedByEvent true if this data is collected via event (ws) and not http
 	 * @param blockTimestamp
 	 * @returns
 	 */
@@ -39,6 +37,7 @@ export class EstimatedEarnings {
 		pool_id: number,
 		txHash: string,
 		type: estimated_earnings_event_type,
+		isCollectedByEvent: boolean,
 		blockTimestamp?: number
 	): Promise<void> {
 		const exists = await this.prisma.estimatedEarningTokens.findFirst({
@@ -67,6 +66,7 @@ export class EstimatedEarnings {
 							? new Date(blockTimestamp * 1000)
 							: undefined,
 						event_type: type,
+						is_collected_by_event: isCollectedByEvent,
 					},
 				});
 			} catch (e) {
@@ -74,15 +74,34 @@ export class EstimatedEarnings {
 				return;
 			}
 			this.l.info("inserted new estimated earning record", {
-				trade_id: earning.id,
+				blockTimestamp,
+				pool_id,
 				type,
 			});
+		} else if (!isCollectedByEvent) {
+			// update record
+			let earning: EstimatedEarningTokens;
+			try {
+				earning = await this.prisma.estimatedEarningTokens.update({
+					where: {
+						pool_id_tx_hash: { pool_id: pool_id, tx_hash: txHash },
+					},
+					data: {
+						is_collected_by_event: false,
+					},
+				});
+			} catch (e) {
+				this.l.error("inserting new estimated earning record", { error: e });
+				return;
+			}
+			this.l.info("updated estimated earning record", { type });
 		}
 	}
 
 	public async insertLiquidityAdded(
 		eventData: LiquidityAddedEvent,
 		txHash: string,
+		isCollectedByEvent: boolean,
 		blockTimestamp: number
 	) {
 		const poolIdNum = Number(eventData.poolId.toString());
@@ -93,6 +112,7 @@ export class EstimatedEarnings {
 			poolIdNum,
 			txHash,
 			estimated_earnings_event_type.liquidity_added,
+			isCollectedByEvent,
 			blockTimestamp
 		);
 	}
@@ -100,6 +120,7 @@ export class EstimatedEarnings {
 	public async insertLiquidityRemoved(
 		eventData: LiquidityRemovedEvent,
 		txHash: string,
+		isCollectedByEvent: boolean,
 		blockTimestamp: number
 	) {
 		const poolIdNum = Number(eventData.poolId.toString());
@@ -110,6 +131,7 @@ export class EstimatedEarnings {
 			poolIdNum,
 			txHash,
 			estimated_earnings_event_type.liquidity_removed,
+			isCollectedByEvent,
 			blockTimestamp
 		);
 	}
@@ -125,6 +147,7 @@ export class EstimatedEarnings {
 		eventData: P2PTransferEvent,
 		poolId: number,
 		txHash: string,
+		isCollectedByEvent: boolean,
 		blockTimestamp: number
 	) {
 		const shareTokenAmount = dec18ToFloat(eventData.amountD18);
@@ -139,6 +162,7 @@ export class EstimatedEarnings {
 			poolId,
 			txHash,
 			estimated_earnings_event_type.share_token_p2p_transfer,
+			isCollectedByEvent,
 			blockTimestamp
 		);
 
@@ -149,14 +173,14 @@ export class EstimatedEarnings {
 			poolId,
 			txHash,
 			estimated_earnings_event_type.share_token_p2p_transfer,
+			isCollectedByEvent,
 			blockTimestamp
 		);
 	}
 
 	/**
-	 * Retrieve the latest timestamp of most latest event record or
-	 * current date on deefault
-	 * @returns
+	 * Retrieve the latest timestamp of most latest record via http or undefined
+	 * @returns date or undefined
 	 */
 	public async getLatestTimestamp(
 		eventType: estimated_earnings_event_type
@@ -170,6 +194,7 @@ export class EstimatedEarnings {
 			},
 			where: {
 				event_type: eventType,
+				is_collected_by_event: false,
 			},
 		});
 

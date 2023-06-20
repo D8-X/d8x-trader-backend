@@ -159,7 +159,8 @@ export const main = async () => {
 		logger.info("running historical data filterers for redundancy", {
 			from: hdOpts.useTimestamp,
 		});
-		await runHistoricalDataFilterers(hdOpts);
+		// non-blocking, so no await
+		runHistoricalDataFilterers(hdOpts);
 	}, 14_400_000); // 4 * 60 * 60 * 1000 miliseconds
 
 	// Start the pnl api
@@ -212,91 +213,116 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	// Share token contracts
 	const shareTokenAddresses = await staticInfo.retrieveShareTokenContracts();
 
-	// LP withdrawals must be first thing that we filter, because
-	// LiquidityRemoved event filterer must run after we already have withdrawal
-	// records in database
-	await hd.filterLiquidityWithdrawalInitiations(
-		null,
-		useTimestamp ?? (await dbLPWithdrawals.getLatestTimestamp()),
-		async (eventData, txHash, blockNumber, blockTimeStamp, params) => {
-			await eventListener.onLiquidityWithdrawalInitiated(
-				eventData,
-				txHash,
-				blockTimeStamp
-			);
-		}
+	let promises: Array<Promise<void>> = [];
+	const isCollectedFromEvent = false;
+	promises.push(
+		hd.filterLiquidityWithdrawalInitiations(
+			null,
+			useTimestamp ?? (await dbLPWithdrawals.getLatestTimestamp()),
+			async (eventData, txHash, blockNumber, blockTimeStamp, params) => {
+				await eventListener.onLiquidityWithdrawalInitiated(
+					eventData,
+					txHash,
+					blockTimeStamp
+				);
+			}
+		)
 	);
 
 	// Filter all trades on startup
-	hd.filterTrades(
-		null as any as string,
-		useTimestamp ?? (await dbTrades.getLatestTradeTimestamp()),
-		async (
-			eventData: TradeEvent,
-			txHash: string,
-			blockNum: BigNumberish,
-			blockTimestamp: number
-		) => {
-			await eventListener.onTradeEvent(eventData, txHash, blockTimestamp);
-		}
+	promises.push(
+		hd.filterTrades(
+			null as any as string,
+			useTimestamp ?? (await dbTrades.getLatestTradeTimestamp()),
+			async (
+				eventData: TradeEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onTradeEvent(eventData, txHash, blockTimestamp);
+			}
+		)
 	);
 
-	hd.filterLiquidations(
-		null as any as string,
-		useTimestamp ?? (await dbTrades.getLatestLiquidateTimestamp()),
-		async (
-			eventData: LiquidateEvent,
-			txHash: string,
-			blockNum: BigNumberish,
-			blockTimestamp: number
-		) => {
-			await eventListener.onLiquidate(eventData, txHash, blockTimestamp);
-		}
+	promises.push(
+		hd.filterLiquidations(
+			null as any as string,
+			useTimestamp ?? (await dbTrades.getLatestLiquidateTimestamp()),
+			async (
+				eventData: LiquidateEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onLiquidate(eventData, txHash, blockTimestamp);
+			}
+		)
 	);
 
-	hd.filterUpdateMarginAccount(
-		null as any as string,
-		useTimestamp ?? (await dbFundingRatePayments.getLatestTimestamp()),
-		async (
-			eventData: UpdateMarginAccountEvent,
-			txHash: string,
-			blockNum: BigNumberish,
-			blockTimestamp: number
-		) => {
-			await eventListener.onUpdateMarginAccount(eventData, txHash, blockTimestamp);
-		}
+	promises.push(
+		hd.filterUpdateMarginAccount(
+			null as any as string,
+			useTimestamp ?? (await dbFundingRatePayments.getLatestTimestamp()),
+			async (
+				eventData: UpdateMarginAccountEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onUpdateMarginAccount(
+					eventData,
+					txHash,
+					blockTimestamp
+				);
+			}
+		)
 	);
 
-	hd.filterLiquidityAdded(
-		null,
-		useTimestamp ??
-			(await dbEstimatedEarnings.getLatestTimestamp(
-				estimated_earnings_event_type.liquidity_added
-			)),
-		async (
-			eventData: LiquidityAddedEvent,
-			txHash: string,
-			blockNum: BigNumberish,
-			blockTimestamp: number
-		) => {
-			await eventListener.onLiquidityAdded(eventData, txHash, blockTimestamp);
-		}
+	promises.push(
+		hd.filterLiquidityAdded(
+			null,
+			useTimestamp ??
+				(await dbEstimatedEarnings.getLatestTimestamp(
+					estimated_earnings_event_type.liquidity_added
+				)),
+			async (
+				eventData: LiquidityAddedEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onLiquidityAdded(
+					eventData,
+					txHash,
+					isCollectedFromEvent,
+					blockTimestamp
+				);
+			}
+		)
 	);
 
-	hd.filterLiquidityRemoved(
-		null,
-		useTimestamp ??
-			(await dbEstimatedEarnings.getLatestTimestamp(
-				estimated_earnings_event_type.liquidity_removed
-			)),
-		async (
-			eventData: LiquidityRemovedEvent,
-			txHash: string,
-			blockNum: BigNumberish,
-			blockTimestamp: number
-		) => {
-			await eventListener.onLiquidityRemoved(eventData, txHash, blockTimestamp);
-		}
+	promises.push(
+		hd.filterLiquidityRemoved(
+			null,
+			useTimestamp ??
+				(await dbEstimatedEarnings.getLatestTimestamp(
+					estimated_earnings_event_type.liquidity_removed
+				)),
+			async (
+				eventData: LiquidityRemovedEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onLiquidityRemoved(
+					eventData,
+					txHash,
+					isCollectedFromEvent,
+					blockTimestamp
+				);
+			}
+		)
 	);
 
 	// Share tokens p2p transfers
@@ -306,16 +332,20 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 				shareTokenAddresses.length
 		  );
 
-	hd.filterP2Ptransfers(
-		shareTokenAddresses,
-		p2pTimestamps,
-		(eventData, txHash, blockNumber, blockTimeStamp, params) => {
-			dbEstimatedEarnings.insertShareTokenP2PTransfer(
-				eventData,
-				params?.poolId as unknown as number,
-				txHash,
-				blockTimeStamp
-			);
-		}
+	promises.push(
+		hd.filterP2Ptransfers(
+			shareTokenAddresses,
+			p2pTimestamps,
+			(eventData, txHash, blockNumber, blockTimeStamp, params) => {
+				dbEstimatedEarnings.insertShareTokenP2PTransfer(
+					eventData,
+					params?.poolId as unknown as number,
+					txHash,
+					isCollectedFromEvent,
+					blockTimeStamp
+				);
+			}
+		)
 	);
+	await Promise.all(promises);
 }
