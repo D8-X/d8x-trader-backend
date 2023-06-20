@@ -95,7 +95,7 @@ export interface P2PTransferEvent {
 export type P2PTransferFilteredCb = EventCallback<P2PTransferEvent, { poolId: number }>;
 
 export interface LiquidityWithdrawalInitiatedEvent {
-	poolId: number;
+	poolId: bigint;
 	user: string;
 	shareAmount: bigint;
 }
