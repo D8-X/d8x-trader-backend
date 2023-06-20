@@ -151,72 +151,75 @@ export class PNLRestAPI {
 		resp: Response
 	) {
 		const usage = "required query parameters: lpAddr, poolSymbol";
-		if (!correctQueryArgs(req.query, ["lpAddr", "poolSymbol"])) {
-			resp.send(errorResp("please provide correct query parameters", usage));
-			return;
-		}
-
-		const user_wallet = req.query.lpAddr.toLowerCase();
-		const poolIdNum = this.md?.getPoolIdFromSymbol(req.query.poolSymbol)!;
-
-		if (poolIdNum === undefined || isNaN(poolIdNum)) {
-			resp.send(errorResp("please provide a correct poolSymbol", usage));
-			return;
-		}
-
-		const withdrawals = await this.opts.prisma.liquidityWithdrawal.findMany({
-			where: {
-				AND: [
-					{
-						pool_id: {
-							equals: poolIdNum,
-						},
-						liq_provider_addr: {
-							equals: user_wallet,
-						},
-					},
-				],
-			},
-			select: {
-				amount: true,
-				is_removal: true,
-				timestamp: true,
-			},
-			orderBy: {
-				timestamp: "desc",
-			},
-			// Take the last one - if is_removal=true, that means we have no
-			// active withdrawals and last withdrawal was completed.
-			take: 1,
-		});
-
-		let withdrawalsData: {
-			share_amount: string | number;
-			time_elapsed_sec: number;
-		}[] = [];
-
-		// Here we'll check if our last withdrawal for given pool and user
-		// consists of liquidity withdrawal initiation and liquidity removal
-		if (withdrawals.length === 1) {
-			const w = withdrawals[0];
-			if (!w.is_removal) {
-				withdrawalsData.push({
-					share_amount: dec18ToFloat(BigInt(w.amount.toFixed())),
-					time_elapsed_sec: Math.floor(
-						new Date().getTime() / 1000 - w.timestamp.getTime() / 1000
-					),
-				});
+		try {
+			if (!correctQueryArgs(req.query, ["lpAddr", "poolSymbol"])) {
+				resp.status(400);
+				throw Error("please provide correct query parameters");
 			}
-		}
 
-		resp.send(
-			toJson({
-				withdrawals: withdrawalsData.map((w) => ({
-					shareAmount: w.share_amount,
-					timeElapsedSec: w.time_elapsed_sec,
-				})),
-			})
-		);
+			const user_wallet = req.query.lpAddr.toLowerCase();
+			if (!isValidAddress(user_wallet)) {
+				resp.status(400);
+				throw Error("invalid address");
+			}
+			const poolIdNum = this.md?.getPoolIdFromSymbol(req.query.poolSymbol)!;
+
+			const withdrawals = await this.opts.prisma.liquidityWithdrawal.findMany({
+				where: {
+					AND: [
+						{
+							pool_id: {
+								equals: poolIdNum,
+							},
+							liq_provider_addr: {
+								equals: user_wallet,
+							},
+						},
+					],
+				},
+				select: {
+					amount: true,
+					is_removal: true,
+					timestamp: true,
+				},
+				orderBy: {
+					timestamp: "desc",
+				},
+				// Take the last one - if is_removal=true, that means we have no
+				// active withdrawals and last withdrawal was completed.
+				take: 1,
+			});
+
+			let withdrawalsData: {
+				share_amount: string | number;
+				time_elapsed_sec: number;
+			}[] = [];
+
+			// Here we'll check if our last withdrawal for given pool and user
+			// consists of liquidity withdrawal initiation and liquidity removal
+			if (withdrawals.length === 1) {
+				const w = withdrawals[0];
+				if (!w.is_removal) {
+					withdrawalsData.push({
+						share_amount: dec18ToFloat(BigInt(w.amount.toFixed())),
+						time_elapsed_sec: Math.floor(
+							new Date().getTime() / 1000 - w.timestamp.getTime() / 1000
+						),
+					});
+				}
+			}
+
+			resp.send(
+				toJson({
+					withdrawals: withdrawalsData.map((w) => ({
+						shareAmount: w.share_amount,
+						timeElapsedSec: w.time_elapsed_sec,
+					})),
+				})
+			);
+		} catch (err: any) {
+			resp.send(errorResp(extractErrorMsg(err), usage));
+		}
 	}
 
 	private async earnings(
