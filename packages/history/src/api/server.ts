@@ -282,45 +282,48 @@ export class PNLRestAPI {
 		resp: Response
 	) {
 		const usage = "required query parameters: traderAddr";
-		if (!correctQueryArgs(req.query, ["traderAddr"])) {
-			resp.send(errorResp("please provide correct query parameters", usage));
-			return;
-		}
-
-		const user_wallet = req.query.traderAddr.toLowerCase();
-		// Parse wallet address and see if it is correct
 		try {
-			getAddress(user_wallet);
-		} catch (e) {
-			resp.status(400);
-			resp.send(errorResp("invalid wallet address", usage));
-			return;
-		}
+			if (!correctQueryArgs(req.query, ["traderAddr"])) {
+				resp.status(400);
+				throw Error("please provide correct query parameters");
+			}
 
-		const data: FundingRatePayment[] =
-			await this.opts.prisma.fundingRatePayment.findMany({
-				orderBy: {
-					payment_timestamp: "desc",
-				},
-				where: {
-					trader_addr: {
-						equals: user_wallet,
+			const user_wallet = req.query.traderAddr.toLowerCase();
+			// Parse wallet address and see if it is correct
+			try {
+				getAddress(user_wallet);
+			} catch (e) {
+				resp.status(400);
+				throw Error("invalid wallet address");
+			}
+
+			const data: FundingRatePayment[] =
+				await this.opts.prisma.fundingRatePayment.findMany({
+					orderBy: {
+						payment_timestamp: "desc",
 					},
-				},
-			});
+					where: {
+						trader_addr: {
+							equals: user_wallet,
+						},
+					},
+				});
 
-		// return response
-		resp.contentType("json");
-		resp.send(
-			toJson(
-				data.map((f: FundingRatePayment) => ({
-					perpetualId: Number(f.perpetual_id),
-					amount: ABK64x64ToFloat(BigInt(f.payment_amount.toString())),
-					timestamp: f.payment_timestamp,
-					transactionHash: f.tx_hash,
-				}))
-			)
-		);
+			// return response
+			resp.contentType("json");
+			resp.send(
+				toJson(
+					data.map((f: FundingRatePayment) => ({
+						perpetualId: Number(f.perpetual_id),
+						amount: ABK64x64ToFloat(BigInt(f.payment_amount.toString())),
+						timestamp: f.payment_timestamp,
+						transactionHash: f.tx_hash,
+					}))
+				)
+			);
+		} catch (err: any) {
+			resp.send(errorResp(extractErrorMsg(err), usage));
+		}
 	}
 
 	/**
@@ -519,7 +522,7 @@ export class PNLRestAPI {
 			};
 			resp.send(toJson(response));
 		} catch (err: any) {
-			resp.status(400).send(errorResp(extractErrorMsg(err), usage));
+			resp.send(errorResp(extractErrorMsg(err), usage));
 		}
 	}
 }
