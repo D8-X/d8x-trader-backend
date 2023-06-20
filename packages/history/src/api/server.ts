@@ -18,6 +18,7 @@ import {
 	decNToFloat,
 	ABK64x64ToFloat,
 	extractErrorMsg,
+	isValidAddress,
 } from "utils";
 
 import { getAddress } from "ethers";
@@ -223,53 +224,49 @@ export class PNLRestAPI {
 		resp: Response
 	) {
 		const usage = "required query parameters: lpAddr, poolSymbol";
-		if (!correctQueryArgs(req.query, ["lpAddr", "poolSymbol"])) {
-			resp.send(errorResp("please provide correct query parameters", usage));
-			return;
-		}
-
-		const user_wallet = req.query.lpAddr.toLowerCase();
-		let poolIdNum: number;
 		try {
+			if (!correctQueryArgs(req.query, ["lpAddr", "poolSymbol"])) {
+				throw Error("please provide correct query parameters");
+			}
+
+			const user_wallet = req.query.lpAddr.toLowerCase();
+			if (!isValidAddress(user_wallet)) {
+				resp.status(400);
+				throw Error("invalid address");
+			}
+			let poolIdNum: number;
 			poolIdNum = this.md!.getPoolIdFromSymbol(req.query.poolSymbol)!;
-		} catch (error) {
-			resp.send(
-				errorResp(`no pool found for symbol ${req.query.poolSymbol} `, usage)
+
+			interface EstEarningTokenSum {
+				tkn: string;
+			}
+			const sumTokenAmount = await this.opts.prisma.$queryRaw<EstEarningTokenSum[]>`
+                select CAST(COALESCE(sum(token_amount),0) AS VARCHAR) as tkn from estimated_earnings_tokens 
+                where LOWER(liq_provider_addr) = ${user_wallet} AND pool_id = ${poolIdNum}`;
+
+			const decimalConvention =
+				this.opts.staticInfo.getMarginTokenDecimals(poolIdNum);
+
+			let earningsTokensSum = decNToFloat(
+				BigInt(sumTokenAmount[0].tkn),
+				decimalConvention
 			);
-			return;
+			const participationValue = await this.md?.getParticipationValue(
+				user_wallet,
+				poolIdNum
+			);
+			// Value is shareTokenBalance * latest price from contract
+			earningsTokensSum += participationValue?.value ?? 0;
+
+			resp.contentType("json");
+			resp.send(
+				toJson({
+					earnings: earningsTokensSum,
+				})
+			);
+		} catch (err: any) {
+			resp.send(errorResp(extractErrorMsg(err), usage));
 		}
-
-		if (poolIdNum === undefined || isNaN(poolIdNum)) {
-			resp.send(errorResp("please provide a correct poolSymbol", usage));
-			return;
-		}
-
-		interface EstEarningTokenSum {
-			tkn: string;
-		}
-		const sumTokenAmount = await this.opts.prisma.$queryRaw<EstEarningTokenSum[]>`
-            select CAST(sum(token_amount) AS VARCHAR) as tkn from estimated_earnings_tokens 
-            where LOWER(liq_provider_addr) = ${user_wallet} AND pool_id = ${poolIdNum}`;
-
-		const decimalConvention = this.opts.staticInfo.getMarginTokenDecimals(poolIdNum);
-
-		let earningsTokensSum = decNToFloat(
-			BigInt(sumTokenAmount[0].tkn),
-			decimalConvention
-		);
-		const participationValue = await this.md?.getParticipationValue(
-			user_wallet,
-			poolIdNum
-		);
-		// Value is shareTokenBalance * latest price from contract
-		earningsTokensSum += participationValue?.value ?? 0;
-
-		resp.contentType("json");
-		resp.send(
-			toJson({
-				earnings: earningsTokensSum,
-			})
-		);
 	}
 
 	/**
@@ -519,7 +516,7 @@ export class PNLRestAPI {
 			};
 			resp.send(toJson(response));
 		} catch (err: any) {
-			resp.send(errorResp(extractErrorMsg(err), usage));
+			resp.status(400).send(errorResp(extractErrorMsg(err), usage));
 		}
 	}
 }
