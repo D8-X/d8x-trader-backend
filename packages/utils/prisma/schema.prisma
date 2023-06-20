@@ -22,7 +22,6 @@ enum trade_side{
 // have 39 digits.
 model Trade{
   @@map("trades_history")
-  id BigInt @id @default(autoincrement())
   // Wallet address of user 
   trader_addr String @db.VarChar(42)
   perpetual_id Int 
@@ -43,9 +42,16 @@ model Trade{
   broker_addr String @db.VarChar(42) @default("")
   // realized profit is stored in ABDK format
   realized_profit Decimal @db.Decimal(40,0)
-  order_digest_hash String @db.Text 
+
+  // the order digest is unique and is the key:
+  // posting two identical orders (same order_digest_hash) is not
+  // possible on chain
+  order_digest_hash String @id @db.Text
+
   tx_hash String @db.Text 
   trade_timestamp DateTime @db.Timestamptz @default(now())
+
+  is_collected_by_event Boolean @default(true)
 
   @@index([trader_addr], type: Hash)
   @@index([tx_hash], type: Hash)

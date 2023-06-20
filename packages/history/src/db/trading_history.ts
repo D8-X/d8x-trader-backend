@@ -21,15 +21,21 @@ export class TradingHistory {
 	 *
 	 * @param e
 	 * @param txHash
-	 * @returns
+	 * @param isCollectedByEvent
+	 * @param tradeBlockTimestamp
+	 * @param tradeBlockNumber
+	 * @returns void
 	 */
 	public async insertTradeHistoryRecord(
 		e: TradeHistoryEvent,
 		txHash: string,
-		tradeBlockTimestamp: number
+		isCollectedByEvent: boolean,
+		tradeBlockTimestamp: number,
+		tradeBlockNumber: number
 	) {
 		const tx_hash = txHash.toLowerCase();
 		const trader = e.trader.toLowerCase();
+		const isLiquidation = (e as TradeEvent).order == undefined;
 
 		const exists = await this.prisma.trade.findFirst({
 			where: {
@@ -46,7 +52,7 @@ export class TradingHistory {
 			try {
 				let data: Prisma.TradeCreateInput;
 
-				if ((e as TradeEvent).order !== undefined) {
+				if (!isLiquidation) {
 					e = e as TradeEvent;
 					//a*2^64 * b*2^64 /2^64 = a*b*2^64 => requires >ES2017
 					let quantityCC = (e.fB2C * e.order.fAmount) / ONE_64x64;
@@ -69,12 +75,14 @@ export class TradingHistory {
 						tx_hash,
 						trader_addr: trader,
 						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
+						is_collected_by_event: isCollectedByEvent,
 					};
 				} else {
 					e = e as LiquidateEvent;
 					data = {
 						chain_id: parseInt(this.chainId.toString()),
-						order_digest_hash: "",
+						// create id in case of liquidation event that is unique
+						order_digest_hash: this._createLiquidationId(e, tradeBlockNumber),
 						fee: e.fFeeCC.toString(),
 						broker_fee_tbps: 0,
 						perpetual_id: e.perpetualId,
@@ -87,6 +95,7 @@ export class TradingHistory {
 						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
 						tx_hash,
 						trader_addr: trader,
+						is_collected_by_event: isCollectedByEvent,
 					};
 				}
 				newTrade = await this.prisma.trade.create({
@@ -96,8 +105,29 @@ export class TradingHistory {
 				this.l.error("inserting new trade", { error: e });
 				return;
 			}
-			this.l.info("inserted new trade", { trade_id: newTrade.id });
+			this.l.info("inserted new trade", { trader_addr: newTrade.trader_addr });
+		} else if (!isCollectedByEvent) {
+			// update
+			let id = isLiquidation
+				? this._createLiquidationId(e as LiquidateEvent, tradeBlockNumber)
+				: (e as TradeEvent).orderDigest.toString();
+			await this.prisma.trade.update({
+				where: {
+					order_digest_hash: id,
+				},
+				data: {
+					is_collected_by_event: false,
+				},
+			});
 		}
+	}
+
+	private _createLiquidationId(event: LiquidateEvent, blockNumber: number): string {
+		return (
+			event.positionId +
+			blockNumber.toString() +
+			event.newPositionSizeBC.toString().slice(-2)
+		);
 	}
 
 	/**
@@ -112,6 +142,7 @@ export class TradingHistory {
 			},
 			where: {
 				OR: [{ side: { equals: "buy" } }, { side: { equals: "sell" } }],
+				AND: { is_collected_by_event: false },
 			},
 			orderBy: {
 				trade_timestamp: "desc",
@@ -136,6 +167,7 @@ export class TradingHistory {
 					{ side: { equals: "liquidate_buy" } },
 					{ side: { equals: "liquidate_sell" } },
 				],
+				AND: { is_collected_by_event: false },
 			},
 			orderBy: {
 				trade_timestamp: "desc",

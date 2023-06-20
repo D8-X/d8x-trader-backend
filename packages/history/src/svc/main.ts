@@ -240,7 +240,13 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 				blockNum: BigNumberish,
 				blockTimestamp: number
 			) => {
-				await eventListener.onTradeEvent(eventData, txHash, blockTimestamp);
+				await eventListener.onTradeEvent(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp,
+					Number(blockNum.toString())
+				);
 			}
 		)
 	);
@@ -255,7 +261,13 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 				blockNum: BigNumberish,
 				blockTimestamp: number
 			) => {
-				await eventListener.onLiquidate(eventData, txHash, blockTimestamp);
+				await eventListener.onLiquidate(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp,
+					Number(blockNum.toString())
+				);
 			}
 		)
 	);

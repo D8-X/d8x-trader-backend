@@ -121,7 +121,9 @@ export class EventListener {
 						fB2C: fB2C,
 					},
 					event.log.transactionHash,
-					Math.round(new Date().getTime() / 1000)
+					IS_COLLECTED_BY_EVENT,
+					Math.round(new Date().getTime() / 1000),
+					this.blockNumber
 				);
 			}
 		);
@@ -154,7 +156,9 @@ export class EventListener {
 						fPnlCC: fPnlCC,
 					},
 					event.log.transactionHash,
-					Math.round(new Date().getTime() / 1000)
+					IS_COLLECTED_BY_EVENT,
+					Math.round(new Date().getTime() / 1000),
+					this.blockNumber
 				);
 			}
 		);
@@ -319,17 +323,33 @@ export class EventListener {
 	public async onTradeEvent(
 		eventData: TradeEvent,
 		txHash: string,
-		timestampSec: number
+		isCollectedByEvent: boolean,
+		timestampSec: number,
+		blockNumber: number
 	) {
-		this.dbTrades.insertTradeHistoryRecord(eventData, txHash, timestampSec);
+		this.dbTrades.insertTradeHistoryRecord(
+			eventData,
+			txHash,
+			isCollectedByEvent,
+			timestampSec,
+			blockNumber
+		);
 	}
 
 	public async onLiquidate(
 		eventData: LiquidateEvent,
 		txHash: string,
-		timestampSec: number
+		isCollectedByEvent: boolean,
+		timestampSec: number,
+		blockNumber: number
 	) {
-		this.dbTrades.insertTradeHistoryRecord(eventData, txHash, timestampSec);
+		this.dbTrades.insertTradeHistoryRecord(
+			eventData,
+			txHash,
+			isCollectedByEvent,
+			blockNumber,
+			timestampSec
+		);
 	}
 
 	public async onUpdateMarginAccount(
