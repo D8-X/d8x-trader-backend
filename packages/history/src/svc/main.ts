@@ -214,7 +214,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	const shareTokenAddresses = await staticInfo.retrieveShareTokenContracts();
 
 	let promises: Array<Promise<void>> = [];
-	const isCollectedFromEvent = false;
+	const IS_COLLECTED_BY_EVENT = false;
 	promises.push(
 		hd.filterLiquidityWithdrawalInitiations(
 			null,
@@ -273,6 +273,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 				await eventListener.onUpdateMarginAccount(
 					eventData,
 					txHash,
+					IS_COLLECTED_BY_EVENT,
 					blockTimestamp
 				);
 			}
@@ -295,7 +296,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 				await eventListener.onLiquidityAdded(
 					eventData,
 					txHash,
-					isCollectedFromEvent,
+					IS_COLLECTED_BY_EVENT,
 					blockTimestamp
 				);
 			}
@@ -318,7 +319,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 				await eventListener.onLiquidityRemoved(
 					eventData,
 					txHash,
-					isCollectedFromEvent,
+					IS_COLLECTED_BY_EVENT,
 					blockTimestamp
 				);
 			}
@@ -341,7 +342,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 					eventData,
 					params?.poolId as unknown as number,
 					txHash,
-					isCollectedFromEvent,
+					IS_COLLECTED_BY_EVENT,
 					blockTimeStamp
 				);
 			}

@@ -29,7 +29,7 @@ export class EstimatedEarnings {
 	 * @param type estimated_earnings_event_type
 	 * @param isCollectedByEvent true if this data is collected via event (ws) and not http
 	 * @param blockTimestamp
-	 * @returns
+	 * @returns void
 	 */
 	public async insert(
 		wallet: string,

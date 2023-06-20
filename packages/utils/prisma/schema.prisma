@@ -54,14 +54,19 @@ model Trade{
 
 model FundingRatePayment{
   @@map("funding_rate_payments")
-  id BigInt @id @default(autoincrement())
   trader_addr String @db.VarChar(42)
   perpetual_id Int
+  tx_hash String @db.Text
   // amount can be negative - user paid
   payment_amount  Decimal @db.Decimal(40,0)
   payment_timestamp DateTime @db.Timestamptz @default(now())
-  tx_hash String @db.Text 
 
+  is_collected_by_event Boolean @default(true)
+  // in the same transaction we have 2 funding rate payments: trader and amm.
+  // we therefore use the key as tx_hash and trader_addr
+  @@id([trader_addr, tx_hash])
+  @@index([perpetual_id])
+  @@index([trader_addr], type: Hash)
   @@index([tx_hash], type: Hash)
 }
 

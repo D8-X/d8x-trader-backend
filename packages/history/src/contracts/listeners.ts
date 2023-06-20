@@ -72,7 +72,7 @@ export class EventListener {
 		if (this.provider) {
 			await this.provider.removeAllListeners();
 		}
-
+		const IS_COLLECTED_BY_EVENT = true;
 		this.provider = provider;
 
 		this.l.info("starting smart contract event listeners", {
@@ -189,6 +189,7 @@ export class EventListener {
 						fOpenInterestBC: fOpenInterestBC,
 					},
 					event.log.transactionHash,
+					IS_COLLECTED_BY_EVENT,
 					Math.round(new Date().getTime() / 1000)
 				);
 			}
@@ -215,7 +216,7 @@ export class EventListener {
 						shareAmount: shareAmount,
 					},
 					event.log.transactionHash,
-					true,
+					IS_COLLECTED_BY_EVENT,
 					Math.round(new Date().getTime() / 1000)
 				);
 			}
@@ -242,7 +243,7 @@ export class EventListener {
 						shareAmount: shareAmount,
 					},
 					event.log.transactionHash,
-					true,
+					IS_COLLECTED_BY_EVENT,
 					Math.round(new Date().getTime() / 1000)
 				);
 			}
@@ -271,7 +272,7 @@ export class EventListener {
 						{ from: from, to: to, amountD18: amountD18, priceD18: priceD18 },
 						poolId,
 						event.log.transactionHash,
-						true,
+						IS_COLLECTED_BY_EVENT,
 						Math.round(new Date().getTime() / 1000)
 					);
 				}
@@ -334,9 +335,15 @@ export class EventListener {
 	public async onUpdateMarginAccount(
 		eventData: UpdateMarginAccountEvent,
 		txHash: string,
+		isCollectedByEvent: boolean,
 		timestampSec: number
 	) {
-		this.dbFundingRates.insertFundingRatePayment(eventData, txHash, timestampSec);
+		this.dbFundingRates.insertFundingRatePayment(
+			eventData,
+			txHash,
+			isCollectedByEvent,
+			timestampSec
+		);
 	}
 
 	/**
