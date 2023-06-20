@@ -216,7 +216,7 @@ export class PNLRestAPI {
 		}
 		const sumTokenAmount = await this.opts.prisma.$queryRaw<EstEarningTokenSum[]>`
             select CAST(sum(token_amount) AS VARCHAR) as tkn from estimated_earnings_tokens 
-            where LOWER(wallet_address) = ${user_wallet} AND pool_id = ${poolIdNum}`;
+            where LOWER(liq_provider_addr) = ${user_wallet} AND pool_id = ${poolIdNum}`;
 
 		const decimalConvention = this.opts.staticInfo.getMarginTokenDecimals(poolIdNum);
 
