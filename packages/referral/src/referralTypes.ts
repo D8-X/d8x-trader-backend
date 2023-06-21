@@ -1,4 +1,5 @@
 export interface ReferralSettings {
+  referralSystemEnabled: boolean;
   agencyCutPercent: number;
   permissionedAgencies: string[];
   referrerCutPercentForTokenXHolding: Array<[number, number]>;
@@ -14,6 +15,7 @@ export interface ReferralSettings {
     agencyAddr: string;
     traderReferrerAgencyPerc: [number, number, number];
   };
+  // multiPayContractAddr: string;
 }
 
 export interface TokenAccount {
