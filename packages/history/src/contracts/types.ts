@@ -46,8 +46,8 @@ export interface LiquidateEvent {
 	liquidator: string;
 	trader: string;
 	positionId: string;
-	amountLiquidatedBC: bigint; //amount liquidated in base crrency, ABDK
-	liquidationPrice: bigint; //liquidation price in quote crrency, ABDK
+	amountLiquidatedBC: bigint; //amount liquidated in base currency, ABDK
+	liquidationPrice: bigint; //liquidation price in quote currency, ABDK
 	newPositionSizeBC: bigint; //size after liq in base currency, ABDK
 	fFeeCC: bigint; //fee in collateral currency, ABDK format
 	fPnlCC: bigint; //P&L in collateral cu
@@ -69,7 +69,7 @@ export interface UpdateMarginAccountEvent {
 export type UpdateMarginAccountFilteredCb = EventCallback<UpdateMarginAccountEvent>;
 
 export interface LiquidityAddedEvent {
-	poolId: number;
+	poolId: bigint;
 	user: string;
 	tokenAmount: bigint;
 	shareAmount: bigint;
@@ -78,7 +78,7 @@ export interface LiquidityAddedEvent {
 export type LiquidityAddedFilteredCb = EventCallback<LiquidityAddedEvent>;
 
 export interface LiquidityRemovedEvent {
-	poolId: number;
+	poolId: bigint;
 	user: string;
 	tokenAmount: bigint;
 	shareAmount: bigint;
@@ -89,15 +89,15 @@ export type LiquidityRemovedFilteredCb = EventCallback<LiquidityRemovedEvent>;
 export interface P2PTransferEvent {
 	from: string;
 	to: string;
-	amountD18: bigint;
+	amountD18: bigint; // share token amount
 	priceD18: bigint;
 }
 export type P2PTransferFilteredCb = EventCallback<P2PTransferEvent, { poolId: number }>;
 
-export interface LiquidityWithdrawalInitiated {
-	poolId: number;
+export interface LiquidityWithdrawalInitiatedEvent {
+	poolId: bigint;
 	user: string;
 	shareAmount: bigint;
 }
 export type LiquidityWithdrawalInitiatedFilteredCb =
-	EventCallback<LiquidityWithdrawalInitiated>;
+	EventCallback<LiquidityWithdrawalInitiatedEvent>;

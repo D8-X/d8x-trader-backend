@@ -9,20 +9,32 @@ export class PriceInfo {
 	 *
 	 * @param pool_token_price
 	 * @param pool_id
-	 * @param timestamp if undefined, current date will be used
+	 * @param timestampSec
 	 */
-	public async insert(pool_token_price: number, pool_id: number, timestamp?: Date) {
-		const res = await this.prisma.price.create({
-			data: {
-				pool_id: pool_id,
+	public async insert(pool_token_price: number, pool_id: number, timestampSec: number) {
+		// create or update
+		try {
+			let dt = new Date(timestampSec * 1000);
+			const res = await this.prisma.price.upsert({
+				where: {
+					pool_id_timestamp: { pool_id: pool_id, timestamp: dt },
+				},
+				update: {
+					pool_token_price: pool_token_price,
+				},
+				create: {
+					pool_id: pool_id,
+					timestamp: dt,
+					pool_token_price: pool_token_price,
+				},
+			});
+			this.l.info("upsert price info", {
+				pool_id,
 				pool_token_price,
-				timestamp,
-			},
-		});
-		this.l.info("inserted new price info", {
-			pool_id,
-			pool_token_price,
-			record_id: res.id,
-		});
+				timestampSec,
+			});
+		} catch (error) {
+			this.l.error("PriceInfo update/insert failed", error);
+		}
 	}
 }

@@ -23,15 +23,18 @@ export class FundingRatePayments {
 	 * Insert funding rate payment event into trade_history. If event data is
 	 * already present in the database - this will be a no-op.
 	 *
-	 * @param e
-	 * @param txHash
-	 * @returns
+	 * @param e event
+	 * @param txHash transaction hash from the event
+	 * @param isCollectedByEvent true if the data comes from an event, rather than http polling
+	 * @param blockTimestamp timestamp in seconds
+	 * @returns void
 	 */
 	public async insertFundingRatePayment(
 		e: UpdateMarginAccountEvent,
 		txHash: string,
+		isCollectedByEvent: boolean,
 		blockTimestamp: number
-	) {
+	): Promise<void> {
 		// Only insert those UpdateMarginAccount events which have payment
 		// amount not 0
 		if (e.fFundingPaymentCC.toString() === "0") {
@@ -60,6 +63,7 @@ export class FundingRatePayments {
 					perpetual_id: Number(e.perpetualId),
 					tx_hash: tx_hash,
 					payment_timestamp: new Date(blockTimestamp * 1000),
+					is_collected_by_event: isCollectedByEvent,
 				};
 
 				fundingRatePayment = await this.prisma.fundingRatePayment.create({
@@ -70,7 +74,26 @@ export class FundingRatePayments {
 				return;
 			}
 			this.l.info("inserted new funding rate payment", {
-				trade_id: fundingRatePayment.id,
+				trader_addr: fundingRatePayment.trader_addr,
+			});
+		} else if (!isCollectedByEvent) {
+			// update
+			let fundingRatePayment: FundingRatePayment;
+			try {
+				fundingRatePayment = await this.prisma.fundingRatePayment.update({
+					where: {
+						trader_addr_tx_hash: { trader_addr: trader, tx_hash: txHash },
+					},
+					data: {
+						is_collected_by_event: false,
+					},
+				});
+			} catch (e) {
+				this.l.error("updating funding rate payment", { error: e });
+				return;
+			}
+			this.l.info("updated funding rate payment", {
+				trader_addr: fundingRatePayment.trader_addr,
 			});
 		}
 	}
@@ -84,6 +107,9 @@ export class FundingRatePayments {
 		const fp = await this.prisma.fundingRatePayment.findFirst({
 			select: {
 				payment_timestamp: true,
+			},
+			where: {
+				is_collected_by_event: false,
 			},
 			orderBy: {
 				payment_timestamp: "desc",
