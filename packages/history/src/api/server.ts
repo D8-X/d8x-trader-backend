@@ -259,7 +259,7 @@ export class PNLRestAPI {
 				poolIdNum
 			);
 			// Value is shareTokenBalance * latest price from contract
-            if (earningsTokensSum==0) {
+            if (earningsTokensSum!=0) {
                 earningsTokensSum += participationValue?.value ?? 0;
             } else {
                 earningsTokensSum = 0;
