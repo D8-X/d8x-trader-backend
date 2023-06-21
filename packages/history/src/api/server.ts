@@ -259,8 +259,13 @@ export class PNLRestAPI {
 				poolIdNum
 			);
 			// Value is shareTokenBalance * latest price from contract
-			earningsTokensSum += participationValue?.value ?? 0;
-
+            if (earningsTokensSum==0) {
+                earningsTokensSum += participationValue?.value ?? 0;
+            } else {
+                earningsTokensSum = 0;
+            }
+			
+            
 			resp.contentType("json");
 			resp.send(
 				toJson({
