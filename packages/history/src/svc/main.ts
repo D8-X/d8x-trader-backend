@@ -1,7 +1,7 @@
 import * as winston from "winston";
 import { EventListener } from "../contracts/listeners";
 import * as dotenv from "dotenv";
-import { HistoricalDataFilterer } from "../contracts/historical";
+import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer";
 import {
 	BigNumberish,
 	JsonRpcProvider,
@@ -13,6 +13,7 @@ import {
 	LiquidityAddedEvent,
 	LiquidityRemovedEvent,
 	TradeEvent,
+	LiquidateEvent,
 	UpdateMarginAccountEvent,
 } from "../contracts/types";
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
@@ -131,8 +132,8 @@ export const main = async () => {
 		dbTrades,
 		httpProvider,
 		proxyContractAddr,
-		useTimestamp: undefined,
 		staticInfo: staticInfo,
+		eventListener: eventsListener,
 	};
 	runHistoricalDataFilterers(hdOpts);
 
@@ -149,15 +150,11 @@ export const main = async () => {
 	}, 300_000);
 
 	// Re fetch  periodically for redundancy. This will ensure that any lost events will eventually be stored in db
-	// every 4 hours poll 5 hours, just under 10_000 blocks, so this call covers as many blocks as possible for a fixed RPC cost
+	// every 4 hours poll (5 hours would leave us just under 10_000 blocks, so the call typically covers as many blocks as possible for a fixed RPC cost)
 	setInterval(async () => {
-		const secondsInPast = 18_000; // 5 * 60 * 60 seconds
-		const timestampStart = Date.now() - secondsInPast * 1000;
-		hdOpts.useTimestamp = new Date(timestampStart);
-		logger.info("running historical data filterers for redundancy", {
-			from: hdOpts.useTimestamp,
-		});
-		await runHistoricalDataFilterers(hdOpts);
+		logger.info("running historical data filterers for redundancy");
+		// non-blocking, so no await
+		runHistoricalDataFilterers(hdOpts);
 	}, 14_400_000); // 4 * 60 * 60 * 1000 miliseconds
 
 	// Start the pnl api
@@ -178,9 +175,6 @@ export const main = async () => {
 };
 
 export interface hdFilterersOpt {
-	// If useTimestamp is provided, it will be used instead of latest timestamp
-	// from historical data db records
-	useTimestamp: Date | undefined;
 	httpProvider: ethers.Provider;
 	proxyContractAddr: string;
 	dbTrades: TradingHistory;
@@ -188,12 +182,12 @@ export interface hdFilterersOpt {
 	dbEstimatedEarnings: EstimatedEarnings;
 	dbPriceInfo: PriceInfo;
 	dbLPWithdrawals: LiquidityWithdrawals;
-	staticInfo: StaticInfo;
+	staticInfo: StaticInfo; //<---- TODO: remove, available via EventListener
+	eventListener: EventListener;
 }
 
-export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
+export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	const {
-		useTimestamp,
 		httpProvider,
 		proxyContractAddr,
 		dbTrades,
@@ -202,112 +196,158 @@ export const runHistoricalDataFilterers = async (opts: hdFilterersOpt) => {
 		dbPriceInfo,
 		dbLPWithdrawals,
 		staticInfo,
+		eventListener,
 	} = opts;
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
 
 	// Share token contracts
 	const shareTokenAddresses = await staticInfo.retrieveShareTokenContracts();
 
-	// LP withdrawals must be first thing that we filter, because
-	// LiquidityRemoved event filterer must run after we already have withdrawal
-	// records in database
-	await hd.filterLiquidityWithdrawalInitiations(
-		null,
-		useTimestamp ?? (await dbLPWithdrawals.getLatestTimestamp()),
-		async (e, txHash, blockNumber, blockTimeStamp, params) => {
-			await dbLPWithdrawals.insert(e, false, txHash, blockTimeStamp);
-		}
+	let promises: Array<Promise<void>> = [];
+	const IS_COLLECTED_BY_EVENT = false;
+	promises.push(
+		hd.filterLiquidityWithdrawalInitiations(
+			null,
+			await dbLPWithdrawals.getLatestTimestampInitiation(),
+			async (eventData, txHash, blockNumber, blockTimeStamp, params) => {
+				await eventListener.onLiquidityWithdrawalInitiated(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimeStamp
+				);
+			}
+		)
 	);
 
 	// Filter all trades on startup
-	hd.filterTrades(
-		null as any as string,
-		useTimestamp ?? (await dbTrades.getLatestTimestamp()),
-		(
-			e: TradeEvent,
-			txHash: string,
-			blockNum: BigNumberish,
-			blockTimestamp: number
-		) => {
-			dbTrades.insertTradeHistoryRecord(e, txHash, blockTimestamp);
-		}
+	promises.push(
+		hd.filterTrades(
+			null as any as string,
+			await dbTrades.getLatestTradeTimestamp(),
+			async (
+				eventData: TradeEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onTradeEvent(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp,
+					Number(blockNum.toString())
+				);
+			}
+		)
 	);
 
-	hd.filterUpdateMarginAccount(
-		null as any as string,
-		useTimestamp ?? (await dbFundingRatePayments.getLatestTimestamp()),
-		(
-			e: UpdateMarginAccountEvent,
-			txHash: string,
-			blockNum: BigNumberish,
-			blockTimestamp: number
-		) => {
-			dbFundingRatePayments.insertFundingRatePayment(e, txHash, blockTimestamp);
-		}
+	promises.push(
+		hd.filterLiquidations(
+			null as any as string,
+			await dbTrades.getLatestLiquidateTimestamp(),
+			async (
+				eventData: LiquidateEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onLiquidate(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp,
+					Number(blockNum.toString())
+				);
+			}
+		)
 	);
-	hd.filterLiquidityAdded(
-		null,
-		useTimestamp ??
-			(await dbEstimatedEarnings.getLatestTimestamp(
+
+	promises.push(
+		hd.filterUpdateMarginAccount(
+			null as any as string,
+			await dbFundingRatePayments.getLatestTimestamp(),
+			async (
+				eventData: UpdateMarginAccountEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onUpdateMarginAccount(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp
+				);
+			}
+		)
+	);
+
+	promises.push(
+		hd.filterLiquidityAdded(
+			null,
+			await dbEstimatedEarnings.getLatestTimestamp(
 				estimated_earnings_event_type.liquidity_added
-			)),
-		(
-			e: LiquidityAddedEvent,
-			txHash: string,
-			blockNum: BigNumberish,
-			blockTimestamp: number
-		) => {
-			dbEstimatedEarnings.insertLiquidityAdded(
-				e.user,
-				e.tokenAmount,
-				e.poolId,
-				txHash,
-				blockTimestamp
-			);
-		}
+			),
+			async (
+				eventData: LiquidityAddedEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onLiquidityAdded(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp
+				);
+			}
+		)
 	);
-	hd.filterLiquidityRemoved(
-		null,
-		useTimestamp ??
-			(await dbEstimatedEarnings.getLatestTimestamp(
-				estimated_earnings_event_type.liquidity_removed
-			)),
-		(
-			e: LiquidityRemovedEvent,
-			txHash: string,
-			blockNum: BigNumberish,
-			blockTimestamp: number
-		) => {
-			dbEstimatedEarnings.insertLiquidityRemoved(
-				e.user,
-				e.tokenAmount,
-				e.poolId,
-				txHash,
-				blockTimestamp
-			);
-			// register the liquidity as being removed
-			dbLPWithdrawals.insert(e, true, txHash, blockTimestamp);
-		}
+
+	const latestTsLiq = await dbEstimatedEarnings.getLatestTimestamp(
+		estimated_earnings_event_type.liquidity_removed
 	);
+
+	promises.push(
+		hd.filterLiquidityRemoved(
+			null,
+			latestTsLiq,
+			async (
+				eventData: LiquidityRemovedEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onLiquidityRemoved(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp
+				);
+			}
+		)
+	);
+
 	// Share tokens p2p transfers
-	const p2pTimestamps = useTimestamp
-		? new Array(shareTokenAddresses.length).fill(useTimestamp)
-		: await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
-				shareTokenAddresses.length
-		  );
-	hd.filterP2Ptransfers(
-		shareTokenAddresses,
-		p2pTimestamps,
-		(e, txHash, blockNumber, blockTimeStamp, params) => {
-			dbEstimatedEarnings.insertShareTokenP2PTransfer(
-				e.from,
-				e.to,
-				e.amountD18,
-				e.priceD18,
-				params?.poolId as unknown as number,
-				txHash,
-				blockTimeStamp
-			);
-		}
+	const p2pTimestamps = await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
+		shareTokenAddresses.length
 	);
-};
+
+	promises.push(
+		hd.filterP2Ptransfers(
+			shareTokenAddresses,
+			p2pTimestamps,
+			(eventData, txHash, blockNumber, blockTimeStamp, params) => {
+				dbEstimatedEarnings.insertShareTokenP2PTransfer(
+					eventData,
+					params?.poolId as unknown as number,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimeStamp
+				);
+			}
+		)
+	);
+	await Promise.all(promises);
+}
