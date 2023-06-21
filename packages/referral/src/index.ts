@@ -148,6 +148,20 @@ async function setReferralCutSettings(dbReferralCuts: ReferralCut, settings: Ref
 
 async function start() {
   loadEnv();
+
+  let settings;
+  try {
+    settings = loadSettings();
+  } catch (error) {
+    logger.error("Problems in referralSettings:" + error);
+    return;
+  }
+
+  if (!settings.referralSystemEnabled) {
+    logger.info("Referral system is turned off. Use referralSettings.json to enable.");
+    return;
+  }
+
   let port: number;
   if (process.env.REFERRAL_API_PORT == undefined) {
     logger.error("Set REFERRAL_API_PORT in .env (e.g. REFERRAL_API_PORT=8889)");
@@ -165,14 +179,6 @@ async function start() {
   let rpcUrl: string = process.env.HTTP_RPC_URL || "";
   if (rpcUrl == "") {
     logger.error("Set HTTP_RPC_URL in .env");
-    return;
-  }
-
-  let settings;
-  try {
-    settings = loadSettings();
-  } catch (error) {
-    logger.error("Problems in referralSettings:" + error);
     return;
   }
 
