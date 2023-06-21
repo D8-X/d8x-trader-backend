@@ -1,17 +1,28 @@
 import { LiquidityWithdrawal, PrismaClient } from "@prisma/client";
 import { Logger } from "winston";
-import { LiquidityRemovedEvent, LiquidityWithdrawalInitiated } from "../contracts/types";
+import {
+	LiquidityRemovedEvent,
+	LiquidityWithdrawalInitiatedEvent,
+} from "../contracts/types";
 import { LiquidityProviderTool } from "@d8x/perpetuals-sdk";
 import { lastDayOfWeek } from "date-fns";
 
 export class LiquidityWithdrawals {
 	constructor(public prisma: PrismaClient, public l: Logger) {}
 
-	// Cretae new lp withdrawal initation record from lp withdrawal event data
+	/**
+	 * Create new lp withdrawal initation record from lp withdrawal event data
+	 * @param e
+	 * @param isLiquidityRemovalEvent false if this is withdrawal initiated
+	 * @param txHash
+	 * @param blockTimestamp
+	 * @returns
+	 */
 	public async insert(
-		e: LiquidityWithdrawalInitiated | LiquidityRemovedEvent,
-		isRemovedEvent: boolean,
+		e: LiquidityWithdrawalInitiatedEvent | LiquidityRemovedEvent,
+		isLiquidityRemovedEvent: boolean,
 		txHash: string,
+		isCollectedByEvent: boolean,
 		blockTimestamp: number
 	) {
 		const user_wallet = e.user.toLowerCase();
@@ -27,7 +38,7 @@ export class LiquidityWithdrawals {
 					equals: user_wallet,
 				},
 				is_removal: {
-					equals: isRemovedEvent,
+					equals: isLiquidityRemovedEvent,
 				},
 			},
 		});
@@ -41,8 +52,9 @@ export class LiquidityWithdrawals {
 						pool_id: parseInt(e.poolId.toString()),
 						liq_provider_addr: user_wallet,
 						timestamp: new Date(blockTimestamp * 1000),
-						is_removal: isRemovedEvent,
-						tx_hash,
+						is_removal: isLiquidityRemovedEvent,
+						tx_hash: tx_hash,
+						is_collected_by_event: isCollectedByEvent,
 					},
 				});
 			} catch (e) {
@@ -54,15 +66,49 @@ export class LiquidityWithdrawals {
 			this.l.info("inserted new liquidity withdrawal record", {
 				liq_provider_addr: lpw.liq_provider_addr,
 				pool_id: lpw.pool_id,
-				is_removal: isRemovedEvent,
+				is_removal: isLiquidityRemovedEvent,
+			});
+		} else if (!isCollectedByEvent) {
+			// update
+			let lpw: LiquidityWithdrawal;
+			try {
+				lpw = await this.prisma.liquidityWithdrawal.update({
+					where: {
+						liq_provider_addr_tx_hash: {
+							liq_provider_addr: e.user,
+							tx_hash: tx_hash,
+						},
+					},
+					data: {
+						is_collected_by_event: false,
+					},
+				});
+			} catch (e) {
+				this.l.error("updating liquidity withdrawal record", {
+					error: e,
+				});
+				return;
+			}
+			this.l.info("updated liquidity withdrawal record", {
+				liq_provider_addr: lpw.liq_provider_addr,
+				pool_id: lpw.pool_id,
+				is_removal: isLiquidityRemovedEvent,
 			});
 		}
 	}
 
+	public async getLatestTimestampInitiation(): Promise<Date | undefined> {
+		return this.getLatestTimestamp(false);
+	}
+
+	public async getLatestTimestampRemoval(): Promise<Date | undefined> {
+		return this.getLatestTimestamp(true);
+	}
+
 	/**
-	 * Retrieve latest timestamp of existing LiquidittyWithdrawalInitiated event
+	 * Retrieve latest timestamp of existing LiquidityWithdrawalInitiated or removal event
 	 */
-	public async getLatestTimestamp(): Promise<Date | undefined> {
+	public async getLatestTimestamp(isRemoval: boolean): Promise<Date | undefined> {
 		const res = await this.prisma.liquidityWithdrawal.findFirst({
 			select: {
 				timestamp: true,
@@ -73,6 +119,9 @@ export class LiquidityWithdrawals {
 			where: {
 				// Only retrieve the ts of liquidity withdrawal initiated events
 				is_removal: {
+					equals: isRemoval,
+				},
+				is_collected_by_event: {
 					equals: false,
 				},
 			},
