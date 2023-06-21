@@ -336,53 +336,55 @@ export class PNLRestAPI {
 		resp: Response
 	) {
 		const usage = "required query parameters: traderAddr";
-		if (!correctQueryArgs(req.query, ["traderAddr"])) {
-			resp.send(errorResp("please provide correct query parameters", usage));
-			return;
-		}
-		const user_wallet = req.query.traderAddr.toLowerCase();
-
-		// Parse wallet address and see if it is correct
 		try {
-			getAddress(user_wallet);
-		} catch (e) {
-			resp.status(400);
-			resp.send(errorResp("invalid wallet address", usage));
-			return;
-		}
+			if (!correctQueryArgs(req.query, ["traderAddr"])) {
+				throw Error("please provide correct query parameters");
+			}
+			const user_wallet = req.query.traderAddr.toLowerCase();
 
-		const data: Trade[] = await this.opts.prisma.trade.findMany({
-			orderBy: {
-				trade_timestamp: "desc",
-			},
-			where: {
-				trader_addr: {
-					equals: user_wallet,
+			// Parse wallet address and see if it is correct
+			try {
+				getAddress(user_wallet);
+			} catch (e) {
+				resp.status(400);
+				throw Error("invalid wallet address");
+			}
+
+			const data: Trade[] = await this.opts.prisma.trade.findMany({
+				orderBy: {
+					trade_timestamp: "desc",
 				},
-			},
-		});
+				where: {
+					trader_addr: {
+						equals: user_wallet,
+					},
+				},
+			});
 
-		// return response
-		resp.contentType("json");
-		resp.send(
-			toJson(
-				data.map((t: Trade) => ({
-					chainId: Number(t.chain_id),
-					perpetualId: Number(t.perpetual_id),
+			// return response
+			resp.contentType("json");
+			resp.send(
+				toJson(
+					data.map((t: Trade) => ({
+						chainId: Number(t.chain_id),
+						perpetualId: Number(t.perpetual_id),
 
-					orderId: t.order_digest_hash,
-					orderFlags: t.order_flags,
-					side: t.side.toUpperCase(),
-					price: ABK64x64ToFloat(BigInt(t.price.toFixed())),
-					quantity: ABK64x64ToFloat(BigInt(t.quantity.toFixed())),
-					fee: ABK64x64ToFloat(BigInt(t.fee.toFixed())),
-					realizedPnl: ABK64x64ToFloat(BigInt(t.realized_profit.toFixed())),
+						orderId: t.order_digest_hash,
+						orderFlags: t.order_flags,
+						side: t.side.toUpperCase(),
+						price: ABK64x64ToFloat(BigInt(t.price.toFixed())),
+						quantity: ABK64x64ToFloat(BigInt(t.quantity.toFixed())),
+						fee: ABK64x64ToFloat(BigInt(t.fee.toFixed())),
+						realizedPnl: ABK64x64ToFloat(BigInt(t.realized_profit.toFixed())),
 
-					transactionHash: t.tx_hash,
-					timestamp: t.trade_timestamp,
-				}))
-			)
-		);
+						transactionHash: t.tx_hash,
+						timestamp: t.trade_timestamp,
+					}))
+				)
+			);
+		} catch (err: any) {
+			resp.send(errorResp(extractErrorMsg(err), usage));
+		}
 	}
 
 	/**
