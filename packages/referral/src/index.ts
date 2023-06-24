@@ -10,7 +10,7 @@ import ReferralCut from "./db/db_referral_cut";
 import TokenHoldings from "./db/db_token_holdings";
 import TokenAccountant from "./svc/tokenAccountant";
 
-import DBFeeAggregator from "./db/db_fee_aggregator";
+import DBPayments from "./db/db_payments";
 import ReferralCodeValidator from "./svc/referralCodeValidator";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -56,14 +56,19 @@ function checkReferralCutPercent(cut: Array<[number, number]>) {
   }
 }
 
-function checkMinimalRebateCollateralCurrencyAmountPerPool(rebate: Array<[number, number]>) {
+/**
+ * Check whether settings for minBrokerFeeCCForRebatePerPool seem ok
+ * @param rebate rebate array from settings
+ */
+function checkSettingMinBrokerFeeCCForRebatePerPool(rebate: Array<[number, number]>) {
   for (let k = 0; k < rebate.length; k++) {
     const isPool = rebate[k][1] > 0 && rebate[k][1] < 120 && rebate[k][1] - Math.round(rebate[k][1]) == 0;
     if (!isPool) {
-      throw Error(`minimalRebateCollateralCurrencyAmountPerPool: invalid pool number ${rebate[k][1]}`);
+      throw Error(`minBrokerFeeCCForRebatePerPool: invalid pool number ${rebate[k][1]}`);
     }
   }
 }
+
 function loadSettings() {
   let file = require("../referralSettings.json") as ReferralSettings;
   // some rudimentary checks
@@ -95,7 +100,7 @@ function loadSettings() {
     throw Error(`referralSettings: invalid payment schedule ${file.paymentScheduleMinHourDayofweekDayofmonth}`);
   }
   checkReferralCutPercent(file.referrerCutPercentForTokenXHolding);
-  checkMinimalRebateCollateralCurrencyAmountPerPool(file.minimalRebateCollateralCurrencyAmountPerPool);
+  checkSettingMinBrokerFeeCCForRebatePerPool(file.minBrokerFeeCCForRebatePerPool);
   return file;
 }
 
@@ -192,7 +197,7 @@ async function start() {
   const prisma = new PrismaClient();
   const dbReferralCode = new DBReferralCode(BigInt(chainId), prisma, brokerAddr, settings, logger);
   const dbReferralCuts = new ReferralCut(BigInt(chainId), prisma, logger);
-  const dbFeeAggregator = new DBFeeAggregator(BigInt(chainId), prisma, logger);
+  const dbFeeAggregator = new DBPayments(BigInt(chainId), prisma, logger);
   const dbTokenHoldings = new TokenHoldings(BigInt(chainId), prisma, logger);
   const referralCodeValidator = new ReferralCodeValidator(settings, dbReferralCode);
   await setDefaultReferralCode(dbReferralCode, settings);
