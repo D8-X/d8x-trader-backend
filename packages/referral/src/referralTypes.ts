@@ -9,7 +9,7 @@ export interface ReferralSettings {
     address: string;
     decimals: number;
   };
-  paymentScheduleMinHourDayofweekDayofmonth: string;
+  paymentScheduleMinHourDayofweekDayofmonthMonthWeekday: string;
   paymentMaxLookBackDays: number;
   minBrokerFeeCCForRebatePerPool: Array<[number, number]>;
   brokerPayoutAddr: string;

@@ -26,20 +26,21 @@ const defaultLogger = () => {
 export const logger = defaultLogger();
 
 /**
- * Check paymentScheduleMinHourDayofweekDayofmonth, e.g., "0-14-7-*"
+ * Check paymentScheduleMinHourDayofweekDayofmonthMonthWeekday, e.g., "0-14-7-*"
  * @param sched schedule-string from settings file
  * @returns true if it passes validity checks
  */
 function isValidPaymentScheduleSyntax(sched: string): boolean {
-  if (!/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{1,2}|\*)-([0-9]{1,2}|\*)$/.test(sched)) {
+  if (!/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{1,2}|\*)-([0-9]{1,2}|\*)-([0-9]{1,2}|\*)$/.test(sched)) {
     return false;
   }
-  let [_min, _hour, _dayOfWeek, _dayOfMonth] = sched.split("-");
+  let [_min, _hour, _dayOfWeek, _dayOfMonth, _weekDay] = sched.split("-");
   const isInValid =
     (_min != "*" && (Number(_min) > 59 || Number(_min) < 0)) ||
     (_hour != "*" && (Number(_hour) > 23 || Number(_hour) < 0)) ||
     (_dayOfWeek != "*" && (Number(_dayOfWeek) > 7 || Number(_dayOfWeek) < 1)) ||
-    (_dayOfMonth != "*" && (Number(_dayOfMonth) > 31 || Number(_dayOfMonth) < 1));
+    (_dayOfMonth != "*" && (Number(_dayOfMonth) > 31 || Number(_dayOfMonth) < 1)) ||
+    (_weekDay != "*" && (Number(_weekDay) < 0 || Number(_weekDay) > 7));
   return !isInValid;
 }
 
@@ -96,8 +97,10 @@ function loadSettings() {
   if (sumP > 100) {
     throw Error(`referralSettings: traderReferrerAgencyPerc should sum to 100 but sum to ${sumP}`);
   }
-  if (!isValidPaymentScheduleSyntax(file.paymentScheduleMinHourDayofweekDayofmonth)) {
-    throw Error(`referralSettings: invalid payment schedule ${file.paymentScheduleMinHourDayofweekDayofmonth}`);
+  if (!isValidPaymentScheduleSyntax(file.paymentScheduleMinHourDayofweekDayofmonthMonthWeekday)) {
+    throw Error(
+      `referralSettings: invalid payment schedule ${file.paymentScheduleMinHourDayofweekDayofmonthMonthWeekday}`
+    );
   }
   checkReferralCutPercent(file.referrerCutPercentForTokenXHolding);
   checkSettingMinBrokerFeeCCForRebatePerPool(file.minBrokerFeeCCForRebatePerPool);
