@@ -1,4 +1,5 @@
 import { Logger } from "winston";
+import { parseCronExpression } from "cron-schedule";
 import ReferralPaymentExecutor from "./referralPaymentExecutor";
 import PaymentDataCollector from "./paymentDataCollector";
 import DBPayments from "../db/db_payments";
@@ -27,7 +28,7 @@ export class ReferralPaymentManager {
     this.paymentDataCollector = new PaymentDataCollector(settings.multiPayContractAddr, dbPayment, rpcURL, l);
   }
 
-  public async start() {
+  public async run() {
     // find out what date we should start with payment execution
     let since: Date =
       (await this.dbPayment.queryEarliestUnconfirmedTxDate()) ??
@@ -37,7 +38,34 @@ export class ReferralPaymentManager {
     this.l.info("Historical payment data collector confirmation processed");
     // TODO:
     // get last payment execution date from db
+    let dateLast = await this.dbPayment.queryLastRecordedPaymentDate();
     // check whether we need to execute now
-    // create scheduler that checks if we need to execute according to pattern
+    if (this.checkExecutionNeeded(dateLast, this.settings.paymentScheduleMinHourDayofweekDayofmonthMonthWeekday)) {
+      //TODO
+    }
+    // create scheduler that regularly checks if we need to execute according to pattern
+    // TODO
+  }
+
+  /**       ┌───────────── second (0 - 59, optional)
+   *        │ ┌───────────── minute (0 - 59)
+   *        │ │ ┌───────────── hour (0 - 23)
+   *        │ │ │ ┌───────────── day of month (1 - 31)
+   *        │ │ │ │ ┌───────────── month (1 - 12)
+   *        │ │ │ │ │ ┌───────────── weekday (0 - 7)
+   *        * * * * * *
+   * @param pattern
+   * @param startDate
+   * @returns
+   */
+  private checkExecutionNeeded(lastExecution: Date | undefined, execPattern: string): boolean {
+    //https://github.com/P4sca1/cron-schedule
+    //pattern:   "paymentScheduleMinHourDayofweekDayofmonthMonthWeekday": "0-14-*-*-0",
+    if (lastExecution == undefined) {
+      return true;
+    }
+    const cron = parseCronExpression(execPattern);
+    let lastDate = cron.getPrevDate();
+    return lastExecution.getTime() < lastDate.getTime();
   }
 }

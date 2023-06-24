@@ -202,7 +202,7 @@ export default class DBPayments {
    */
   public async queryEarliestUnconfirmedTxDate(): Promise<Date | undefined> {
     try {
-      const unconfirmedTs = await this.prisma.referralPayment.aggregate({
+      const aggrTs = await this.prisma.referralPayment.aggregate({
         _min: {
           timestamp: true,
         },
@@ -210,11 +210,26 @@ export default class DBPayments {
           OR: [{ tx_confirmed: false }, { tx_hash: TEMPORARY_TX_HASH }],
         },
       });
-      const unconfirmedTimestamp: Date | null = unconfirmedTs._min as unknown as Date;
-      if (unconfirmedTimestamp == null) {
-        return undefined;
-      }
-      return unconfirmedTimestamp;
+      const timestamp: Date | null = aggrTs._min.timestamp;
+      return timestamp == null ? undefined : timestamp;
+    } catch (error) {
+      this.l.warn(`DBPayments: failed searching for oldest unconfirmed transaction`);
+      return undefined;
+    }
+  }
+
+  public async queryLastRecordedPaymentDate(): Promise<Date | undefined> {
+    try {
+      const aggrTs = await this.prisma.referralPayment.aggregate({
+        _max: {
+          timestamp: true,
+        },
+        where: {
+          OR: [{ tx_confirmed: true }],
+        },
+      });
+      const timestamp: Date | null = aggrTs._max.timestamp;
+      return timestamp == null ? undefined : timestamp;
     } catch (error) {
       this.l.warn(`DBPayments: failed searching for oldest unconfirmed transaction`);
       return undefined;

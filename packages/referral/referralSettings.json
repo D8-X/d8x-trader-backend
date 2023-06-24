@@ -9,7 +9,7 @@
     [3.5, 10000]
   ],
   "tokenX": { "address": "0x2d10075E54356E16Ebd5C6BB5194290709B69C1e", "decimals": 18 },
-  "paymentScheduleMinHourDayofweekDayofmonth": "0-14-7-*",
+  "paymentScheduleMinHourDayofweekDayofmonthMonthWeekday": "0-14-*-*-0",
   "paymentMaxLookBackDays": 14,
   "minBrokerFeeCCForRebatePerPool": [
     [100, 1],
