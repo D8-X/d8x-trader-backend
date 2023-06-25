@@ -3,6 +3,10 @@ import { ReferralSettings, ReferralCodePayload } from "../referralTypes";
 import DBReferralCode from "../db/db_referral_code";
 const PERCENT_TOLERANCE = 0.0001;
 
+/**
+ * This class validates new referral codes to decide
+ * whether they can be stored in the database
+ */
 export default class ReferralCodeValidator {
   constructor(private settings: ReferralSettings, private dbReferralCode: DBReferralCode) {}
 

@@ -1,4 +1,5 @@
 {
+  "referralSystemEnabled": true,
   "agencyCutPercent": 80,
   "permissionedAgencies": ["0x21B864083eedF1a4279dA1a9A7B1321E6102fD39", "0x12321", "0x98232"],
   "referrerCutPercentForTokenXHolding": [
@@ -8,8 +9,9 @@
     [3.5, 10000]
   ],
   "tokenX": { "address": "0x2d10075E54356E16Ebd5C6BB5194290709B69C1e", "decimals": 18 },
-  "paymentScheduleMinHourDayofweekDayofmonth": "0-14-7-*",
-  "minimalRebateCollateralCurrencyAmountPerPool": [
+  "paymentScheduleMinHourDayofmonthWeekday": "0-14-*-0",
+  "paymentMaxLookBackDays": 14,
+  "minBrokerFeeCCForRebatePerPool": [
     [100, 1],
     [100, 2],
     [0.01, 3]
@@ -19,5 +21,6 @@
     "referrerAddr": "",
     "agencyAddr": "0x863AD9Ce46acF07fD9390147B619893461036194",
     "traderReferrerAgencyPerc": [0, 0, 45]
-  }
+  },
+  "multiPayContractAddr": "0x30b55550e02B663E15A95B50850ebD20363c2AD5"
 }

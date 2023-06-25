@@ -26,9 +26,12 @@
   },
   "dependencies": {
     "@d8x/perpetuals-sdk": "^0.7.4",
+    "cron-schedule": "^4.0.0",
     "ioredis": "^5.3.1",
     "rimraf": "^4.4.1",
     "utils": "*"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "cron-schedule": "^4.0.0"
+  }
 }
