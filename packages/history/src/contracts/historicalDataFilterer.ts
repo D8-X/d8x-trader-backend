@@ -354,7 +354,7 @@ export class HistoricalDataFilterer {
 				if (numRequests >= 25) {
 					numRequests = 0;
 					lastWaitSeconds = 2;
-					await new Promise((resolve) => setTimeout(resolve, 1_100));
+					await new Promise((resolve) => setTimeout(resolve, 10_000));
 				}
 				i += deltaBlocks;
 			} catch (error) {
