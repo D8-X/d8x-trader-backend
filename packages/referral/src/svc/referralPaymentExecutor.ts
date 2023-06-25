@@ -14,7 +14,7 @@ enum TransactionState {
  * executePayments():
  * - execute payments using the "MultiPay" smart contract
  * - it records executed payments in the database
- * confirmPayments()
+ * confirmPaymentTransactions()
  * - checks whether transactions succeded and adjusts the data in the db
  *
  * PaymentDataCollector must be run before execution is run.
@@ -50,11 +50,13 @@ export default class ReferralPaymentExecutor {
 
   /**
    * Process all open payments
+   * @returns number of payments executed
    */
-  public async executePayments() {
+  public async executePayments(): Promise<number> {
     let openPayments = await this.dbPayment.aggregateFees(this.brokerAddr);
     let multiPay = await this._connectMultiPayContractInstance();
     const msg4Chain = Math.round(Date.now() / 1000).toString();
+    let executionNum = 0;
     for (let k = 0; k < openPayments.length; k++) {
       let tokenAddr = openPayments[k].token_addr;
       let [amounts, addr] = this._extractPaymentDirections(openPayments[k]);
@@ -91,7 +93,9 @@ export default class ReferralPaymentExecutor {
       }
       // we update the database with the received transaction hash
       await this.dbPayment.writeTxHashForPayment(openPayments[k], txHash);
+      executionNum++;
     }
+    return executionNum;
   }
 
   /**
@@ -99,7 +103,7 @@ export default class ReferralPaymentExecutor {
    * - Traverse the unconfirmed transactions and check whether they succeded or not
    * - If tx succeeded record in db, if tx failed remove from db, if tx not found leave there
    */
-  public async confirmPayments() {
+  public async confirmPaymentTransactions() {
     let unRecords: UnconfirmedPaymentRecord[] = await this.dbPayment.queryUnconfirmedTransactions();
     let provider = new providers.StaticJsonRpcProvider(this.rpcURL);
     for (let k = 0; k < unRecords.length; k++) {

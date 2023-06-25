@@ -1,7 +1,7 @@
 import Redis from "ioredis";
 import * as winston from "winston";
 import { ReferralSettings } from "./referralTypes";
-import { constructRedis, sleep, isValidAddress } from "utils";
+import { constructRedis, sleep, isValidAddress, cronParserCheckExpression } from "utils";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import ReferralAPI from "./api/referral_api";
@@ -9,7 +9,7 @@ import DBReferralCode from "./db/db_referral_code";
 import ReferralCut from "./db/db_referral_cut";
 import TokenHoldings from "./db/db_token_holdings";
 import TokenAccountant from "./svc/tokenAccountant";
-
+import ReferralPaymentManager from "./svc/referralPaymentManager";
 import DBPayments from "./db/db_payments";
 import ReferralCodeValidator from "./svc/referralCodeValidator";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -26,22 +26,12 @@ const defaultLogger = () => {
 export const logger = defaultLogger();
 
 /**
- * Check paymentScheduleMinHourDayofweekDayofmonthMonthWeekday, e.g., "0-14-7-*"
+ * Check paymentScheduleMinHourDayofmonthWeekday, e.g., "0-14-7-*"
  * @param sched schedule-string from settings file
  * @returns true if it passes validity checks
  */
 function isValidPaymentScheduleSyntax(sched: string): boolean {
-  if (!/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{1,2}|\*)-([0-9]{1,2}|\*)-([0-9]{1,2}|\*)$/.test(sched)) {
-    return false;
-  }
-  let [_min, _hour, _dayOfWeek, _dayOfMonth, _weekDay] = sched.split("-");
-  const isInValid =
-    (_min != "*" && (Number(_min) > 59 || Number(_min) < 0)) ||
-    (_hour != "*" && (Number(_hour) > 23 || Number(_hour) < 0)) ||
-    (_dayOfWeek != "*" && (Number(_dayOfWeek) > 7 || Number(_dayOfWeek) < 1)) ||
-    (_dayOfMonth != "*" && (Number(_dayOfMonth) > 31 || Number(_dayOfMonth) < 1)) ||
-    (_weekDay != "*" && (Number(_weekDay) < 0 || Number(_weekDay) > 7));
-  return !isInValid;
+  return cronParserCheckExpression(sched);
 }
 
 function checkReferralCutPercent(cut: Array<[number, number]>) {
@@ -97,18 +87,12 @@ function loadSettings() {
   if (sumP > 100) {
     throw Error(`referralSettings: traderReferrerAgencyPerc should sum to 100 but sum to ${sumP}`);
   }
-  if (!isValidPaymentScheduleSyntax(file.paymentScheduleMinHourDayofweekDayofmonthMonthWeekday)) {
-    throw Error(
-      `referralSettings: invalid payment schedule ${file.paymentScheduleMinHourDayofweekDayofmonthMonthWeekday}`
-    );
+  if (!isValidPaymentScheduleSyntax(file.paymentScheduleMinHourDayofmonthWeekday)) {
+    throw Error(`referralSettings: invalid payment schedule ${file.paymentScheduleMinHourDayofmonthWeekday}`);
   }
   checkReferralCutPercent(file.referrerCutPercentForTokenXHolding);
   checkSettingMinBrokerFeeCCForRebatePerPool(file.minBrokerFeeCCForRebatePerPool);
   return file;
-}
-
-function loadEnv() {
-  dotenv.config();
 }
 
 async function getBrokerAddressViaRedis(l: winston.Logger): Promise<string> {
@@ -155,7 +139,7 @@ async function setReferralCutSettings(dbReferralCuts: ReferralCut, settings: Ref
 }
 
 async function start() {
-  loadEnv();
+  dotenv.config();
 
   let settings;
   try {
@@ -203,6 +187,8 @@ async function start() {
   const dbFeeAggregator = new DBPayments(BigInt(chainId), prisma, logger);
   const dbTokenHoldings = new TokenHoldings(BigInt(chainId), prisma, logger);
   const referralCodeValidator = new ReferralCodeValidator(settings, dbReferralCode);
+  const dbPayment = new DBPayments(BigInt(chainId), prisma, logger);
+
   await setDefaultReferralCode(dbReferralCode, settings);
   await setReferralCutSettings(dbReferralCuts, settings);
   let ta = new TokenAccountant(dbTokenHoldings, settings.tokenX.address, logger);
@@ -211,5 +197,22 @@ async function start() {
   // start REST API server
   let api = new ReferralAPI(port, dbFeeAggregator, dbReferralCode, referralCodeValidator, brokerAddr, logger);
   await api.initialize();
+  // start payment manager
+  if (!settings.referralSystemEnabled) {
+    logger.info("NO REFERRALS: Referral system disabled (settings)");
+  } else {
+    let key = "";
+    if (process.env.BROKER_KEY != undefined && process.env.BROKER_KEY != "") {
+      key = process.env.BROKER_KEY;
+    }
+    if (key != "") {
+      logger.info("Starting Referral system");
+      let paymentManager = new ReferralPaymentManager(brokerAddr, dbPayment, settings, rpcUrl, key, logger);
+      // starting (async)
+      paymentManager.run();
+    } else {
+      logger.info("NO REFERRALS: Referral system enabled (settings), but no private key set.");
+    }
+  }
 }
 start();
