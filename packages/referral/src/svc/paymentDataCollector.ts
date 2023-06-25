@@ -31,8 +31,7 @@ export default class PaymentDataCollector {
     }
     // now that all payments were collected,
     // we can delete all remaining entries with a tx hash = 'unconfirmed'
-    // TODO
-    console.log("\nTODO: delete remaining entries with unconfirmed tx hash");
+    // --> this is done after payment execution in the call of confirmPaymentTransactions
   }
 
   /**

@@ -1,5 +1,10 @@
 import { ethers, providers } from "ethers";
-import { calculateBlockFromTime2, calculateBlockFromTime, floatToDec18 } from "../packages/utils/src/utils";
+import {
+  getPreviousDate,
+  cronParserCheckExpression,
+  calculateBlockFromTime,
+  floatToDec18,
+} from "../packages/utils/src/utils";
 import { error } from "console";
 async function test() {
   const rpcURL = process.env.HTTP_RPC_URL;
@@ -26,4 +31,17 @@ async function test() {
   console.log("error sec=", ts0 - sinceDate.getTime() / 1000);
   console.log("\t", from0, to0, from0Timestamp);*/
 }
-test();
+
+function testGetPrevDate() {
+  //"paymentScheduleMinHourDayofmonthWeekday": "0-14-*-0",
+
+  let bWrong = cronParserCheckExpression("0-14-8-*-*-*");
+
+  let pattern = "0-14-*-3";
+  let aRight = cronParserCheckExpression(pattern);
+  let v = getPreviousDate(pattern);
+  console.log(v);
+}
+//test();
+
+testGetPrevDate();

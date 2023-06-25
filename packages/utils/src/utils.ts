@@ -1,6 +1,7 @@
 import Redis from "ioredis";
 import { Prisma } from "@prisma/client";
 import { WebsocketClientConfig } from "./wsTypes";
+import parser from "cron-parser";
 
 export interface RedisConfig {
   host: string;
@@ -24,6 +25,78 @@ export function sleep(ms: number) {
 
 export function isValidAddress(addr: string): boolean {
   return /^(0x){1}([a-f]|[A-F]|[0-9]){40}/.test(addr);
+}
+
+export function cronParserCheckExpression(pattern: string): boolean {
+  let splitPattern = pattern.split("-");
+  if (splitPattern.length != 4) {
+    console.log("provide 4 dash separated arguments.");
+    return false;
+  }
+  let [min, hour] = [splitPattern[0], splitPattern[1]];
+  if (min == "*") {
+    console.log("Invalid cron expression: provide minutes");
+    return false;
+  }
+  if (hour == "*") {
+    console.log("Invalid cron expression: provide hour");
+  }
+  let expr = convertSimplifiedPatternToCron(pattern);
+  try {
+    parser.parseExpression(expr, { utc: true });
+  } catch (error) {
+    let message = "";
+    if (error instanceof Error) {
+      message = error.message;
+      console.log(message);
+    }
+    return false;
+  }
+  return true;
+}
+
+/**
+ * 1-2-3-4
+ * ┬ ┬ ┬ ┬
+ * │ │ │ └── day of week
+ * │ │ └──── day of month
+ * │ └────── hour
+ * └──────── minute
+ * @param expr
+ */
+function convertSimplifiedPatternToCron(expr: string): string {
+  // convert into
+  /**  [1] 2 3 4 5 6 [7]
+   *    ┬ ┬ ┬ ┬ ┬ ┬ ┬
+   *    │ │ │ │ │ │ └── year (not supported)
+   *    │ │ │ │ │ └──── day of week
+   *    │ │ │ │ └────── month
+   *    │ │ │ └──────── day of month
+   *    │ │ └────────── hour
+   *    │ └──────────── minute
+   *    └────────────── second (not supported)
+   * */
+  let [min, hour, dayOfMth, dayOfWk] = expr.split("-");
+  let reordered = [min, hour, dayOfMth, "*", dayOfWk];
+  return reordered.join(" ");
+}
+
+/**
+ * 1 2 3 4
+ * ┬ ┬ ┬ ┬
+ * │ │ │ └── day of week
+ * │ │ └──── day of month
+ * │ └────── hour
+ * └──────── minute
+ * Uses https://github.com/harrisiirak/cron-parser
+ * @param pattern
+ * @param startDate
+ * @returns true if no payment since last pattern matching date
+ */
+export function getPreviousDate(pattern: string): Date {
+  let expr = convertSimplifiedPatternToCron(pattern);
+  let interval = parser.parseExpression(expr, { utc: true });
+  return new Date(interval.prev().toString());
 }
 
 /**
