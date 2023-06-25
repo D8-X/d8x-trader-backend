@@ -138,7 +138,7 @@ model MarginTokenInfo {
   token_decimals Int
 }
 
-// referral codes are "globally unique" (the code is a database key)
+// referral codes are unique per broker and chain (the code is a database key)
 // e.g., they apply to all pools
 model ReferralCode {
   @@map("referral_code")
