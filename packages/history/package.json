@@ -20,14 +20,17 @@
 		"@d8x/perpetuals-sdk": "^0.7.4",
 		"@prisma/client": "^4.13.0",
 		"cors": "^2.8.5",
+		"cron-schedule": "^4.0.0",
 		"date-fns": "^2.30.0",
 		"ethers": "^6.2.3",
 		"express": "^4.18.2",
 		"node-fetch": "^3.3.1",
 		"nodemon": "^2.0.22",
 		"ts-node": "^10.9.1",
-		"winston": "^3.8.2",
-		"utils": "*"
+		"utils": "*",
+		"winston": "^3.8.2"
 	},
-	"devDependencies": {}
+	"devDependencies": {
+		"cron-schedule": "^4.0.0"
+	}
 }

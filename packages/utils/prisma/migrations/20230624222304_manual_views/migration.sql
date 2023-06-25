@@ -1,11 +1,19 @@
 -- VIEWS (created manually)
 
 CREATE VIEW referral_last_payment AS
-SELECT trader_addr, broker_addr, MAX(timestamp) as last_payment_ts
+SELECT 
+	trader_addr, 
+	broker_addr, 
+	BOOL_AND(tx_confirmed) as tx_confirmed, -- false if there are payments that haven't been confirmed yet
+	MAX(timestamp) as last_payment_ts 
 FROM referral_payment GROUP BY trader_addr, broker_addr;
 
 
 --- Table that contains the aggregated fees since last payment
+--- We ensure only trades that happened after the last payment are included
+--- We ensure only trader-addresses for which the payment-record has been confirmed
+--- are included or they have no payment record 
+--- via (lp.tx_confirmed IS NULL OR lp.tx_confirmed=true)
 CREATE VIEW referral_aggr_fees_per_trader AS
 SELECT 
     th.perpetual_id/100000 as pool_id,
@@ -23,6 +31,7 @@ LEFT JOIN referral_last_payment lp
 LEFT JOIN referral_code_usage codes
     ON th.trader_addr = codes.trader_addr
 WHERE (lp.last_payment_ts IS NULL OR lp.last_payment_ts<th.trade_timestamp)
+    AND (lp.tx_confirmed IS NULL OR lp.tx_confirmed=true)
 GROUP BY pool_id, th.trader_addr, lp.last_payment_ts, th.broker_addr, codes.code
 ORDER BY th.trader_addr;
 

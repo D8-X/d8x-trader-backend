@@ -32,9 +32,11 @@ async function start() {
   sdkConfig.nodeURL = chooseRandomRPC();
   console.log(`RPC = ${sdkConfig.nodeURL}`);
   let broker;
-  if (process.env.BROKER_KEY == undefined || process.env.BROKER_KEY == "") {
+  if (process.env.BROKER_KEY == undefined || process.env.BROKER_KEY == "" || process.env.BROKER_FEE_TBPS == undefined) {
+    console.log("No broker PK or fee defined, using empty broker.");
     broker = new BrokerNone();
   } else {
+    console.log("Initializing broker");
     const feeTbps = process.env.BROKER_FEE_TBPS == undefined ? 0 : Number(process.env.BROKER_FEE_TBPS);
     broker = new BrokerRegular(process.env.BROKER_KEY, feeTbps, sdkConfig);
   }
