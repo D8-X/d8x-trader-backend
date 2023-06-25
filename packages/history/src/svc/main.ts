@@ -27,6 +27,8 @@ import StaticInfo from "../contracts/static_info";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 import { MarginTokenInfo } from "../db/margin_token_info";
 
+const MAX_HISTORY_SINCE_TS = 1681387680;
+
 const defaultLogger = () => {
 	return winston.createLogger({
 		level: "info",
@@ -198,6 +200,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		staticInfo,
 		eventListener,
 	} = opts;
+	const defaultDate = new Date(MAX_HISTORY_SINCE_TS * 1000);
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
 
 	// Share token contracts
@@ -205,10 +208,11 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 
 	let promises: Array<Promise<void>> = [];
 	const IS_COLLECTED_BY_EVENT = false;
+	let ts = (await dbLPWithdrawals.getLatestTimestampInitiation()) ?? defaultDate;
 	promises.push(
 		hd.filterLiquidityWithdrawalInitiations(
 			null,
-			await dbLPWithdrawals.getLatestTimestampInitiation(),
+			ts,
 			async (eventData, txHash, blockNumber, blockTimeStamp, params) => {
 				await eventListener.onLiquidityWithdrawalInitiated(
 					eventData,
@@ -221,10 +225,11 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	);
 
 	// Filter all trades on startup
+	ts = (await dbTrades.getLatestTradeTimestamp()) ?? defaultDate;
 	promises.push(
 		hd.filterTrades(
 			null as any as string,
-			await dbTrades.getLatestTradeTimestamp(),
+			ts,
 			async (
 				eventData: TradeEvent,
 				txHash: string,
@@ -242,10 +247,11 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		)
 	);
 
+	ts = (await dbTrades.getLatestLiquidateTimestamp()) ?? defaultDate;
 	promises.push(
 		hd.filterLiquidations(
 			null as any as string,
-			await dbTrades.getLatestLiquidateTimestamp(),
+			ts,
 			async (
 				eventData: LiquidateEvent,
 				txHash: string,
@@ -263,10 +269,11 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		)
 	);
 
+	ts = (await dbFundingRatePayments.getLatestTimestamp()) ?? defaultDate;
 	promises.push(
 		hd.filterUpdateMarginAccount(
 			null as any as string,
-			await dbFundingRatePayments.getLatestTimestamp(),
+			ts,
 			async (
 				eventData: UpdateMarginAccountEvent,
 				txHash: string,
@@ -282,13 +289,14 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 			}
 		)
 	);
-
+	ts =
+		(await dbEstimatedEarnings.getLatestTimestamp(
+			estimated_earnings_event_type.liquidity_added
+		)) ?? defaultDate;
 	promises.push(
 		hd.filterLiquidityAdded(
 			null,
-			await dbEstimatedEarnings.getLatestTimestamp(
-				estimated_earnings_event_type.liquidity_added
-			),
+			ts,
 			async (
 				eventData: LiquidityAddedEvent,
 				txHash: string,
@@ -305,9 +313,10 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		)
 	);
 
-	const latestTsLiq = await dbEstimatedEarnings.getLatestTimestamp(
-		estimated_earnings_event_type.liquidity_removed
-	);
+	const latestTsLiq =
+		(await dbEstimatedEarnings.getLatestTimestamp(
+			estimated_earnings_event_type.liquidity_removed
+		)) ?? defaultDate;
 
 	promises.push(
 		hd.filterLiquidityRemoved(
@@ -330,14 +339,21 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	);
 
 	// Share tokens p2p transfers
-	const p2pTimestamps = await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
+	let p2pTimestamps = await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
 		shareTokenAddresses.length
 	);
-
+	let p2pTs: Date[] = [];
+	for (let k = 0; k < shareTokenAddresses.length; k++) {
+		if (p2pTimestamps[k] == undefined) {
+			p2pTs.push(defaultDate);
+		} else {
+			p2pTs.push(p2pTimestamps[k]!);
+		}
+	}
 	promises.push(
 		hd.filterP2Ptransfers(
 			shareTokenAddresses,
-			p2pTimestamps,
+			p2pTs,
 			(eventData, txHash, blockNumber, blockTimeStamp, params) => {
 				dbEstimatedEarnings.insertShareTokenP2PTransfer(
 					eventData,

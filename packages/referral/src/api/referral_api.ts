@@ -2,11 +2,11 @@ import dotenv from "dotenv";
 import cors from "cors";
 import express, { Express, Request, Response, response } from "express";
 import { Logger, error } from "winston";
-import { extractErrorMsg } from "utils";
+import { extractErrorMsg, toJson } from "utils";
 import ReferralCodeSigner from "../svc/referralCodeSigner";
 import ReferralCodeValidator from "../svc/referralCodeValidator";
 import { ReferralCodePayload } from "../referralTypes";
-import DBFeeAggregator from "../db/db_fee_aggregator";
+import DBPayments from "../db/db_payments";
 import DBReferralCode from "../db/db_referral_code";
 
 // Profit and loss express REST API
@@ -23,7 +23,7 @@ export default class ReferralAPI {
    */
   constructor(
     port: number,
-    private dbFeeAggregator: DBFeeAggregator,
+    private dbFeeAggregator: DBPayments,
     private dbReferralCode: DBReferralCode,
     private referralCodeValidator: ReferralCodeValidator,
     private brokerAddr: string,
@@ -102,6 +102,6 @@ export default class ReferralAPI {
    */
   private async openFees(req: Request, res: Response) {
     let table = await this.dbFeeAggregator.aggregateFees(this.brokerAddr);
-    res.send(table);
+    res.send(toJson(table));
   }
 }

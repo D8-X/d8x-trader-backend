@@ -82,6 +82,7 @@ services:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       - HTTP_RPC_URL=${HTTP_RPC_URL}
       - REFERRAL_API_PORT=${REFERRAL_API_PORT}
+      - BROKER_KEY=${BROKER_KEY}
       - CHAIN_ID=${CHAIN_ID}
       - CORS_ON=${CORS_ON}
     ports:
