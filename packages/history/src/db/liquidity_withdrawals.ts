@@ -68,7 +68,7 @@ export class LiquidityWithdrawals {
 				pool_id: lpw.pool_id,
 				is_removal: isLiquidityRemovedEvent,
 			});
-		} else if (!isCollectedByEvent) {
+		} else if (isCollectedByEvent) {
 			// update
 			let lpw: LiquidityWithdrawal;
 			try {
