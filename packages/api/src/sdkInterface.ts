@@ -56,9 +56,12 @@ export default class SDKInterface extends Observable {
   public async exchangeInfo(): Promise<string> {
     let obj = await this.redisClient.hgetall("exchangeInfo");
     let info: string = "";
-    //console.log("obj=", obj);
+    // console.log("obj=", obj);
     if (!Object.prototype.hasOwnProperty.call(obj, "ts:query")) {
       console.log("first time query");
+      info = await this.cacheExchangeInfo();
+    } else if (!Object.prototype.hasOwnProperty.call(obj, "content")) {
+      console.log("re-query exchange info (latest: invalid)");
       info = await this.cacheExchangeInfo();
     } else {
       let timeElapsedS = (Date.now() - parseInt(obj["ts:query"])) / 1000;
@@ -68,7 +71,7 @@ export default class SDKInterface extends Observable {
         this.MUTEX_TS_EXCHANGE_INFO = Date.now();
         // reload data through API
         // no await
-        console.log("re-query exchange info");
+        console.log("re-query exchange info (latest: expired)");
         this.cacheExchangeInfo();
       }
       info = obj["content"];
@@ -298,13 +301,15 @@ export default class SDKInterface extends Observable {
     if (!orders.every((order: Order) => order.symbol == orders[0].symbol)) {
       throw Error("orders must have the same symbol");
     }
-    let SCOrders = await Promise.all(orders!.map(async (order: Order) => {
-      order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
-      order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
-      let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
-      SCOrder!.brokerSignature = await this.broker.signOrder(SCOrder!);
-      return SCOrder!;
-    }));
+    let SCOrders = await Promise.all(
+      orders!.map(async (order: Order) => {
+        order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
+        order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
+        let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
+        SCOrder!.brokerSignature = await this.broker.signOrder(SCOrder!);
+        return SCOrder!;
+      })
+    );
     // now we can create the digest that is to be signed by the trader
     let digests = await Promise.all(
       SCOrders.map((SCOrder: SmartContractOrder) => {
