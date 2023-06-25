@@ -75,7 +75,7 @@ export class LiquidityWithdrawals {
 				lpw = await this.prisma.liquidityWithdrawal.update({
 					where: {
 						liq_provider_addr_tx_hash: {
-							liq_provider_addr: e.user,
+							liq_provider_addr: user_wallet,
 							tx_hash: tx_hash,
 						},
 					},
