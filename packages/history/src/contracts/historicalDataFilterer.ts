@@ -1,4 +1,5 @@
 import { Logger } from "winston";
+import { calculateBlockFromTime } from "utils";
 import {
 	LiquidationsFilteredCb,
 	LiquidityAddedEvent,
@@ -27,7 +28,6 @@ global.Error.stackTraceLimit = Infinity;
 export class HistoricalDataFilterer {
 	// Perpetual manager proxy contract binding
 	public PerpManagerProxy: Contract;
-
 	constructor(
 		public provider: Provider,
 		public perpetualManagerProxyAddress: string,
@@ -43,53 +43,6 @@ export class HistoricalDataFilterer {
 	}
 
 	/**
-	 * Get the nearest block number for given time
-	 * @param time
-	 */
-	public async calculateBlockFromTime(time: Date | undefined): Promise<number> {
-		if (time === undefined) {
-			return 33600000;
-		}
-
-		const timestamp = time.getTime() / 1000;
-		let max = await this.provider.getBlockNumber();
-		let min = 33600000;
-		if (max <= min) {
-			return min;
-		}
-		let midpoint = Math.floor((max + min) / 2);
-
-		// allow up to 5 blocks (in past) of error when finding the block
-		// number. Threshold is in seconds (5 times ETH block time)
-		const threshold = 15 * 5;
-
-		let found = false;
-		while (!found) {
-			const blk = await this.provider.getBlock(midpoint);
-			if (blk) {
-				if (blk.timestamp > timestamp) {
-					max = blk.number;
-				} else {
-					min = blk.number;
-				}
-				// Found our block
-				if (
-					blk.timestamp - threshold <= timestamp &&
-					blk.timestamp + threshold >= timestamp
-				) {
-					return blk.number;
-				}
-
-				midpoint = Math.floor((max + min) / 2);
-			} else {
-				throw Error(`block ${midpoint} not found!`);
-			}
-		}
-
-		return 0;
-	}
-
-	/**
 	 * Retrieve trade events for given walletAddress from a provided since date.
 	 *
 	 * @param walletAddress
@@ -98,7 +51,7 @@ export class HistoricalDataFilterer {
 	 */
 	public async filterTrades(
 		walletAddress: string | null,
-		since: Date | undefined,
+		since: Date,
 		cb: TradesFilteredCb
 	) {
 		this.l.info("started trades filtering", { date: since });
@@ -106,7 +59,7 @@ export class HistoricalDataFilterer {
 		const filter = this.PerpManagerProxy.filters.Trade(null, walletAddress);
 		this.genericFilterer(
 			filter,
-			await this.calculateBlockFromTime(since),
+			(await calculateBlockFromTime(this.provider, since))[0],
 			"Trade",
 			this.PerpManagerProxy,
 			(
@@ -134,7 +87,7 @@ export class HistoricalDataFilterer {
 	 */
 	public async filterLiquidations(
 		walletAddress: string | null,
-		since: Date | undefined,
+		since: Date,
 		cb: LiquidationsFilteredCb
 	) {
 		this.l.info("started liquidations filtering", { date: since });
@@ -143,7 +96,7 @@ export class HistoricalDataFilterer {
 
 		this.genericFilterer(
 			filter,
-			await this.calculateBlockFromTime(since),
+			(await calculateBlockFromTime(this.provider, since))[0],
 			"Liquidate",
 			this.PerpManagerProxy,
 			(
@@ -170,7 +123,7 @@ export class HistoricalDataFilterer {
 	 */
 	public async filterUpdateMarginAccount(
 		walletAddress: string | null,
-		since: Date | undefined,
+		since: Date,
 		cb: UpdateMarginAccountFilteredCb
 	) {
 		this.l.info("started margin account updates filtering", { date: since });
@@ -181,7 +134,7 @@ export class HistoricalDataFilterer {
 		);
 		this.genericFilterer(
 			filter,
-			await this.calculateBlockFromTime(since),
+			(await calculateBlockFromTime(this.provider, since))[0],
 			"UpdateMarginAccount",
 			this.PerpManagerProxy,
 			(
@@ -207,7 +160,7 @@ export class HistoricalDataFilterer {
 	 */
 	public async filterLiquidityAdded(
 		walletAddress: string | null,
-		since: Date | undefined,
+		since: Date,
 		cb: LiquidityAddedFilteredCb
 	) {
 		this.l.info("started liquidity added filtering", { date: since });
@@ -215,7 +168,7 @@ export class HistoricalDataFilterer {
 		const filter = this.PerpManagerProxy.filters.LiquidityAdded(null, walletAddress);
 		this.genericFilterer(
 			filter,
-			await this.calculateBlockFromTime(since),
+			(await calculateBlockFromTime(this.provider, since))[0],
 			"LiquidityAdded",
 
 			this.PerpManagerProxy,
@@ -243,7 +196,7 @@ export class HistoricalDataFilterer {
 	 */
 	public async filterLiquidityRemoved(
 		walletAddress: string | null,
-		since: Date | undefined,
+		since: Date,
 		cb: LiquidityRemovedFilteredCb
 	) {
 		this.l.info("started liquidity removed filtering", { date: since });
@@ -254,7 +207,7 @@ export class HistoricalDataFilterer {
 		);
 		this.genericFilterer(
 			filter,
-			await this.calculateBlockFromTime(since),
+			(await calculateBlockFromTime(this.provider, since))[0],
 			"LiquidityRemoved",
 
 			this.PerpManagerProxy,
@@ -282,7 +235,7 @@ export class HistoricalDataFilterer {
 	 */
 	public async filterP2Ptransfers(
 		shareTokenContracts: string[],
-		since: Array<Date | undefined>,
+		since: Array<Date>,
 		cb: P2PTransferFilteredCb
 	) {
 		const shareTokenAbi = await getShareTokenContractABI();
@@ -298,7 +251,7 @@ export class HistoricalDataFilterer {
 			const filter = c.filters.P2PTransfer();
 			this.genericFilterer(
 				filter,
-				await this.calculateBlockFromTime(since[i]),
+				(await calculateBlockFromTime(this.provider, since[i]))[0],
 				"P2PTransfer",
 				c,
 				(
@@ -319,7 +272,7 @@ export class HistoricalDataFilterer {
 	}
 	public async filterLiquidityWithdrawalInitiations(
 		walletAddress: string | null,
-		since: Date | undefined,
+		since: Date,
 		cb: LiquidityWithdrawalInitiatedFilteredCb
 	) {
 		this.l.info("started liquidity withdrawal initiated filtering", { date: since });
@@ -332,7 +285,9 @@ export class HistoricalDataFilterer {
 		// We want to process lpwi events in a synchronous way
 		await this.genericFilterer(
 			filter,
-			await this.calculateBlockFromTime(since),
+			(
+				await calculateBlockFromTime(this.provider, since)
+			)[0],
 			"LiquidityWithdrawalInitiated",
 			this.PerpManagerProxy,
 			(
