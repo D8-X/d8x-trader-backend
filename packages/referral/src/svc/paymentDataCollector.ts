@@ -58,16 +58,16 @@ export default class PaymentDataCollector {
       const [batchTsStr, code, poolIdStr] = eventArgs[5].split(".");
       const timestamp = new Date(Number(eventArgs[1].toString()));
       let p: PaymentEvent = {
-        brokerAddr: eventArgs.args[0],
-        traderAddr: eventArgs.args[4][0], // first entry of payees
+        brokerAddr: eventArgs[0],
+        traderAddr: eventArgs[4][0], // first entry of payees
         poolId: Number(poolIdStr),
         batchTimestamp: Number(batchTsStr),
         code: code,
         timestamp: timestamp, // uint256 indexed id
-        token: eventArgs.args[2], // Access the third argument (address indexed token)
-        amounts: eventArgs.args[3].map((amount: BigNumber) => BigInt(amount.toString())),
-        payees: eventArgs.args[4], // Access the fifth argument (address[] payees)
-        message: eventArgs.args[5], // Access the sixth argument (string message)
+        token: eventArgs[2], // Access the third argument (address indexed token)
+        amounts: eventArgs[3].map((amount: BigNumber) => BigInt(amount.toString())),
+        payees: eventArgs[4], // Access the fifth argument (address[] payees)
+        message: eventArgs[5], // Access the sixth argument (string message)
         txHash: event.transactionHash,
         blockNumber: event.blockNumber,
       };
