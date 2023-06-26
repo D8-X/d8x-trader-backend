@@ -1,5 +1,5 @@
 export const TEMPORARY_TX_HASH = "unconfirmed";
-
+export const DECIMAL40_FORMAT_STRING = "FM9999999999999999999999999999999999999";
 export interface ReferralSettings {
   referralSystemEnabled: boolean;
   agencyCutPercent: number;
@@ -35,10 +35,10 @@ export interface ReferralOpenPayResponse {
   trader_rebate_perc: number;
   referrer_rebate_perc: number;
   agency_rebate_perc: number;
-  trader_cc_amtdec: string;
-  referrer_cc_amtdec: string;
-  agency_cc_amtdec: string;
-  broker_fee_cc: string;
+  trader_cc_amtdec: bigint;
+  referrer_cc_amtdec: bigint;
+  agency_cc_amtdec: bigint;
+  broker_fee_cc: bigint;
   cut_perc: number;
   token_addr: string;
   token_name: string;
@@ -54,7 +54,7 @@ export interface DBActiveReferrer {
   last_updated: Date | null;
 }
 
-export interface ReferralCodePayload {
+export interface APIReferralCodePayload {
   code: string;
   referrerAddr: string;
   agencyAddr: string;
@@ -63,6 +63,25 @@ export interface ReferralCodePayload {
   agencyRebatePerc: number;
   referrerRebatePerc: number;
   signature: string;
+}
+
+export interface APIReferralCodeSelectionPayload {
+  code: string;
+  traderAddr: string;
+  createdOn: number;
+  signature: string;
+}
+
+export interface APIReferralCodeRecord {
+  code: string;
+  referrerAddr: string;
+  agencyAddr: string;
+  brokerAddr: string;
+  traderRebatePerc: number;
+  agencyRebatePerc: number;
+  referrerRebatePerc: number;
+  createdOn: Date;
+  expiry: Date;
 }
 
 export interface UnconfirmedPaymentRecord {
@@ -85,4 +104,9 @@ export interface PaymentEvent {
   message: string;
   txHash: string;
   blockNumber: number;
+}
+
+export interface APITraderCode {
+  code: string;
+  activeSince: Date | undefined;
 }
