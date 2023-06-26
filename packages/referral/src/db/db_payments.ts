@@ -1,7 +1,19 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { Logger } from "winston";
 import { ABK64x64ToDecN, floatToDecN } from "utils";
-import { ReferralOpenPayResponse, UnconfirmedPaymentRecord, PaymentEvent, TEMPORARY_TX_HASH } from "../referralTypes";
+import {
+  ReferralOpenPayResponse,
+  UnconfirmedPaymentRecord,
+  PaymentEvent,
+  DECIMAL40_FORMAT_STRING,
+  TEMPORARY_TX_HASH,
+} from "../referralTypes";
+
+// Make sure the decimal values are always return as normal numeric strings
+// instead of scientific notation
+Prisma.Decimal.prototype.toJSON = function () {
+  return this.toFixed();
+};
 
 export default class DBPayments {
   constructor(public chainId: bigint, public prisma: PrismaClient, public l: Logger) {}
@@ -26,10 +38,10 @@ export default class DBPayments {
           code: openPayment.code,
           pool_id: Number(openPayment.pool_id.toString()),
           timestamp: openPayment.last_trade_considered_ts,
-          trader_paid_amount_cc: openPayment.trader_cc_amtdec,
+          trader_paid_amount_cc: openPayment.trader_cc_amtdec.toString(),
           broker_paid_amount_cc: brokerAmount.toString(),
-          agency_paid_amount_cc: openPayment.trader_cc_amtdec,
-          referrer_paid_amount_cc: openPayment.trader_cc_amtdec,
+          agency_paid_amount_cc: openPayment.trader_cc_amtdec.toString(),
+          referrer_paid_amount_cc: openPayment.trader_cc_amtdec.toString(),
           tx_hash: txHash,
           tx_confirmed: false,
         },
@@ -273,16 +285,28 @@ export default class DBPayments {
                 trader_rebate_perc,
                 referrer_rebate_perc,
                 agency_rebate_perc,
-                CAST(trader_cc_amtdec AS VARCHAR) AS trader_cc_amtdec,
-                CAST(referrer_cc_amtdec AS VARCHAR) AS referrer_cc_amtdec,
-                CAST(agency_cc_amtdec AS VARCHAR) AS agency_cc_amtdec,
-                CAST(broker_fee_cc AS VARCHAR) AS broker_fee_cc,
+                TO_CHAR(trader_cc_amtdec, ${DECIMAL40_FORMAT_STRING}) AS trader_cc_amtdec,
+                TO_CHAR(referrer_cc_amtdec, ${DECIMAL40_FORMAT_STRING}) AS referrer_cc_amtdec,
+                TO_CHAR(agency_cc_amtdec, ${DECIMAL40_FORMAT_STRING}) AS agency_cc_amtdec,
+                TO_CHAR(broker_fee_cc, ${DECIMAL40_FORMAT_STRING}) AS broker_fee_cc,
                 cut_perc,
                 token_addr,
                 token_name,
                 token_decimals
             FROM referral_open_pay
             where broker_addr=${brokerAddr};`;
+    // cast types
+    for (let k = 0; k < feeAggr.length; k++) {
+      feeAggr[k].pool_id = BigInt(feeAggr[k].pool_id);
+      feeAggr[k].trader_cc_amtdec = BigInt(feeAggr[k].trader_cc_amtdec);
+      feeAggr[k].referrer_cc_amtdec = BigInt(feeAggr[k].referrer_cc_amtdec);
+      feeAggr[k].agency_cc_amtdec = BigInt(feeAggr[k].agency_cc_amtdec);
+      feeAggr[k].broker_fee_cc = BigInt(feeAggr[k].broker_fee_cc);
+      if (feeAggr[k].last_payment_ts == null) {
+        feeAggr[k].last_payment_ts = feeAggr[k].first_trade_considered_ts;
+      }
+    }
+    console.log("dbPayments=", feeAggr);
     return feeAggr;
   }
 }

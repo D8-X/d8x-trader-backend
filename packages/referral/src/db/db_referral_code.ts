@@ -1,7 +1,13 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, ReferralCodeUsage } from "@prisma/client";
 import { Logger } from "winston";
 import ReferralCodeValidator from "../svc/referralCodeValidator";
-import { ReferralCodePayload, ReferralSettings } from "../referralTypes";
+import {
+  APIReferralCodePayload,
+  ReferralSettings,
+  APIReferralCodeRecord,
+  APITraderCode,
+  APIReferralCodeSelectionPayload,
+} from "../referralTypes";
 
 interface ReferralCodeData {
   brokerPayoutAddr: string;
@@ -19,7 +25,7 @@ export default class DBReferralCode {
     private l: Logger
   ) {}
 
-  public async insertFromPayload(payload: ReferralCodePayload) {
+  public async insertNewCodeFromPayload(payload: APIReferralCodePayload) {
     const dbData: ReferralCodeData = {
       brokerPayoutAddr: this.settings.brokerPayoutAddr,
       referrerAddr: payload.referrerAddr,
@@ -27,6 +33,29 @@ export default class DBReferralCode {
       traderReferrerAgencyPerc: [payload.traderRebatePerc, payload.referrerRebatePerc, payload.agencyRebatePerc],
     };
     await this.insert(payload.code, dbData);
+  }
+
+  public async insertCodeSelectionFromPayload(payload: APIReferralCodeSelectionPayload) {
+    try {
+      await this.prisma.referralCodeUsage.upsert({
+        where: {
+          trader_addr: payload.traderAddr.toLowerCase(),
+        },
+        update: {
+          code: payload.code,
+        },
+        create: {
+          trader_addr: payload.traderAddr.toLowerCase(),
+          code: payload.code,
+        },
+      });
+      this.l.info("upsert code selection info", {
+        payload,
+      });
+    } catch (error) {
+      this.l.warn("Error when inserting referralCodeUsage", error);
+      throw Error("Could not select code in database");
+    }
   }
 
   /**
@@ -71,6 +100,94 @@ export default class DBReferralCode {
       },
     });
     return exists != null;
+  }
+
+  public async queryTraderCode(addr: string): Promise<APITraderCode> {
+    const res = await this.prisma.referralCodeUsage.findFirst({
+      where: {
+        trader_addr: {
+          equals: addr,
+          mode: "insensitive",
+        },
+      },
+      select: {
+        code: true,
+        timestamp: true,
+      },
+    });
+    if (res == null) {
+      return { code: "", activeSince: undefined };
+    }
+    return { code: res.code, activeSince: res.timestamp };
+  }
+
+  public async queryAgencyCodes(addr: string): Promise<APIReferralCodeRecord[]> {
+    const res = await this.prisma.referralCode.findMany({
+      where: {
+        agency_addr: {
+          equals: addr,
+          mode: "insensitive", //ensure no uppercase/lowercase problem
+        },
+      },
+      select: {
+        code: true,
+        referrer_addr: true,
+        agency_addr: true,
+        broker_addr: true,
+        trader_rebate_perc: true,
+        agency_rebate_perc: true,
+        referrer_rebate_perc: true,
+        created_on: true,
+        expiry: true,
+      },
+    });
+    let codes: APIReferralCodeRecord[] = this._formatReferralCodes(res);
+    return codes;
+  }
+
+  public async queryReferrerCodes(addr: string): Promise<APIReferralCodeRecord[]> {
+    const res = await this.prisma.referralCode.findMany({
+      where: {
+        referrer_addr: {
+          equals: addr,
+          mode: "insensitive",
+        },
+      },
+      select: {
+        code: true,
+        referrer_addr: true,
+        agency_addr: true,
+        broker_addr: true,
+        trader_rebate_perc: true,
+        agency_rebate_perc: true,
+        referrer_rebate_perc: true,
+        created_on: true,
+        expiry: true,
+      },
+    });
+    let codes: APIReferralCodeRecord[] = this._formatReferralCodes(res);
+    return codes;
+  }
+
+  private _formatReferralCodes(res: any[]): APIReferralCodeRecord[] {
+    let codes: APIReferralCodeRecord[] = [];
+    if (res == null) {
+      return codes;
+    }
+    for (let k = 0; k < res.length; k++) {
+      codes.push({
+        code: res[k].code,
+        referrerAddr: res[k].referrer_addr,
+        agencyAddr: res[k].agency_addr ?? "",
+        brokerAddr: res[k].broker_addr,
+        traderRebatePerc: Number(res[k].trader_rebate_perc),
+        agencyRebatePerc: Number(res[k].agency_rebate_perc),
+        referrerRebatePerc: Number(res[k].referrer_rebate_perc),
+        createdOn: res[k].created_on,
+        expiry: res[k].expiry,
+      });
+    }
+    return codes;
   }
 
   /**

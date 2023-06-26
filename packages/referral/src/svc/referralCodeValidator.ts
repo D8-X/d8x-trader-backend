@@ -28,7 +28,7 @@ export default class ReferralCodeValidator {
     if (pyld.code == undefined || pyld.code == "") {
       throw Error("No code");
     }
-    if (pyld.createdOn < Date.now() / 1000 - 60 || pyld.createdOn > Date.now() + 60_000) {
+    if (pyld.createdOn < Date.now() / 1000 - 86400 * 50 || pyld.createdOn > Date.now() + 60_000) {
       // timestamp can be seconds or milliseconds -> it serves as a nonce for
       // the signature
       throw Error("Invalid createdAt timestamp");
@@ -79,7 +79,7 @@ export default class ReferralCodeValidator {
     if (!isValidAddress(pyld.referrerAddr)) {
       throw Error("Invalid referrer address");
     }
-    if (pyld.createdOn < Date.now() / 1000 - 60 || pyld.createdOn > Date.now() + 60_000) {
+    if (pyld.createdOn < Date.now() / 1000 - 86400 * 50 || pyld.createdOn > Date.now() + 60_000) {
       // timestamp can be seconds or milliseconds -> it serves as a nonce for
       // the signature
       throw Error("Invalid createdAt timestamp");

@@ -127,6 +127,7 @@ export default class ReferralPaymentExecutor {
    * @returns arrays of amounts and addresses
    */
   private _extractPaymentDirections(openPayment: ReferralOpenPayResponse): [bigint[], string[]] {
+    console.log(openPayment);
     const totalFees = BigInt(openPayment.broker_fee_cc);
     const poolId = Number(openPayment.pool_id);
     if (totalFees < this.minBrokerFeeCCForRebate.get(poolId)!) {
@@ -136,7 +137,7 @@ export default class ReferralPaymentExecutor {
       openPayment.trader_cc_amtdec,
       openPayment.referrer_cc_amtdec,
       openPayment.agency_cc_amtdec,
-    ].map((x) => BigInt(x));
+    ];
 
     let amtBroker = totalFees - amtTrader - amtReferrer - amtAgency;
     let amount: bigint[] = [amtTrader, amtReferrer, amtAgency, amtBroker];
@@ -213,10 +214,10 @@ export default class ReferralPaymentExecutor {
 
     // payment execution
     try {
-      let tx = await multiPay.pay(id, tokenAddr, amountsPayable, addrPayable, msg);
+      let tx = await multiPay.pay(id, tokenAddr, amountsPayable, addrPayable, msg, { gasLimit: 75_000 });
       return tx.hash;
     } catch (error) {
-      this.l.warn(`error when executing multipay for token ${tokenAddr}`);
+      this.l.warn(`error when executing multipay for token ${tokenAddr}`, error);
       return "fail";
     }
   }
