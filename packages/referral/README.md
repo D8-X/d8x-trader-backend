@@ -18,7 +18,7 @@ _Response_: `{"type":"referral-rebate","msg":"","data":{"percentageCut":3.5}}`
 
 ### post: `/select-referral-code`
 
-_Description_: as a trader select a referral code to trade with going forward. Will overwrite trader's existing code if any exists.
+_Description_: as a trader selects a referral code to trade with going forward. Will overwrite trader's existing code if any exists.
 
 ```
 let mycodeselection: APIReferralCodeSelectionPayload = {
