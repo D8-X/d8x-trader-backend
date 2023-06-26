@@ -209,8 +209,9 @@ model ReferralSettingCut {
 // The amount is stored in decimal-N format
 model ReferralTokenHoldings {
     @@map("referral_token_holdings")
-    referrer_addr String @id @db.VarChar(42)
+    referrer_addr String @db.VarChar(42)
     holding_amount_dec_n Decimal @db.Decimal(77, 0)
     token_addr String @db.VarChar(42)
     last_updated DateTime @db.Timestamptz @default(now())
+    @@id([referrer_addr, token_addr])
 }
