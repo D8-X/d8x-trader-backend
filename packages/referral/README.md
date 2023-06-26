@@ -2,6 +2,54 @@
 
 # API
 
+### get: `http://localhost:8889/my-referral-codes?addr=0x9d5aab428e98678d0e645ea4aebd25f744341a05`
+
+_Description_: get current referrer codes for an address. Returns all information the system can find:
+
+- If the address belongs to a trader with a registered code, it returns their code
+- If the address belongs to a referrer with a registered code, it returns their code
+- If the address belongs to an agency with a registered code, it returns their code
+
+_Response_: Example with all fields filled
+
+```
+{
+"type":"my-referral-codes",
+"msg":"",
+"data":{
+    "trader":{
+    "code":"REBATE100",
+    "activeSince":"2023-06-26T17:49:21.413Z"
+    },
+    "referrer":[
+    {
+        "code":"REBATE_REF",
+        "referrerAddr":"0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
+        "agencyAddr":"",
+        "brokerAddr":"0x5A09217F6D36E73eE5495b430e889f8c57876Ef3",
+        "traderRebatePerc":10,
+        "agencyRebatePerc":80,
+        "referrerRebatePerc":10,
+        "createdOn":"2023-06-26T17:47:25.417Z",
+        "expiry":"2042-04-24T02:42:42.000Z"
+    }
+    ],
+    "agency":[
+        {
+            "code":"REBATE100",
+            "referrerAddr":"0x863AD9Ce46acF07fD9390147B619893461036194",
+            "agencyAddr":"0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
+            "brokerAddr":"0x5A09217F6D36E73eE5495b430e889f8c57876Ef3",
+            "traderRebatePerc":10,
+            "agencyRebatePerc":80,
+            "referrerRebatePerc":10,
+            "createdOn":"2023-06-26T17:45:38.646Z",
+            "expiry":"2042-04-24T02:42:42.000Z"
+        }]
+    }
+}
+```
+
 ### get: `http://localhost:8889/agency-rebate`
 
 _Description_: get the cut that the agency gets from the broker fee income. This cut is split between agency, referrer, and trader
