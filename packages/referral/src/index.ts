@@ -8,7 +8,7 @@ import { PrismaClient } from "@prisma/client";
 import ReferralAPI from "./api/referral_api";
 import DBReferralCode from "./db/db_referral_code";
 import ReferralCut from "./db/db_referral_cut";
-import TokenHoldings from "./db/db_token_holdings";
+import DBTokenHoldings from "./db/db_token_holdings";
 import TokenAccountant from "./svc/tokenAccountant";
 import ReferralPaymentManager from "./svc/referralPaymentManager";
 import DBPayments from "./db/db_payments";
@@ -140,6 +140,23 @@ async function setDefaultReferralCode(dbReferralCodes: DBReferralCode, settings:
   );
 }
 
+/**
+ * Store referral cut settings in database, meaning:
+ *  - how much percent of the broker fee earnings are re-distributed?
+ *  - reads referralSettings.json and translates this into db
+ *    - agencyCutPercent (first entry in db)
+ *    - referrerCutPercentForTokenXHolding
+ * Example:
+ *  is_agency_cut | cut_perc |  holding_amount_dec_n   |  token_addr
+ * ---------------+----------+-------------------------+----------------------
+ *  t             |    80.00 |                       0 |
+ *  f             |     0.20 |                       0 | 0x2d10075E54356E1...
+ *  f             |     1.50 |   100000000000000000000 | 0x2d10075E54356E1...
+ *  f             |     2.50 |  1000000000000000000000 | 0x2d10075E54356E1...
+ *  f             |     3.50 | 10000000000000000000000 | 0x2d10075E54356E1...
+ * @param dbReferralCuts db handle
+ * @param settings  settings file with information for this table
+ */
 async function setReferralCutSettings(dbReferralCuts: ReferralCut, settings: ReferralSettings) {
   await dbReferralCuts.writeReferralCutsToDB(true, [[settings.agencyCutPercent, 0]], 0, "");
   await dbReferralCuts.writeReferralCutsToDB(
@@ -199,7 +216,7 @@ async function start() {
   const dbReferralCode = new DBReferralCode(BigInt(chainId), prisma, brokerAddr, settings, logger);
   const dbReferralCuts = new ReferralCut(BigInt(chainId), prisma, logger);
   const dbFeeAggregator = new DBPayments(BigInt(chainId), prisma, logger);
-  const dbTokenHoldings = new TokenHoldings(BigInt(chainId), prisma, logger);
+  const dbTokenHoldings = new DBTokenHoldings(BigInt(chainId), prisma, logger);
   const referralCodeValidator = new ReferralCodeValidator(settings, dbReferralCode);
   const dbPayment = new DBPayments(BigInt(chainId), prisma, logger);
 
@@ -209,7 +226,7 @@ async function start() {
   ta.initProvider(rpcUrl);
   await ta.fetchBalancesFromChain();
   // start REST API server
-  let api = new ReferralAPI(port, dbFeeAggregator, dbReferralCode, referralCodeValidator, brokerAddr, logger);
+  let api = new ReferralAPI(port, dbFeeAggregator, dbReferralCode, referralCodeValidator, ta, brokerAddr, logger);
   await api.initialize();
   // start payment manager
   logger.info("Starting Referral system");

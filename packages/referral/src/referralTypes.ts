@@ -54,6 +54,11 @@ export interface DBActiveReferrer {
   last_updated: Date | null;
 }
 
+export interface DBTokenAmount {
+  amount: bigint | undefined;
+  lastUpdated: Date | undefined;
+}
+
 export interface APIReferralCodePayload {
   code: string;
   referrerAddr: string;

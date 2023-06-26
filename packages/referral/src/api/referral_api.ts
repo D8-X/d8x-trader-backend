@@ -13,6 +13,7 @@ import {
 } from "../referralTypes";
 import DBPayments from "../db/db_payments";
 import DBReferralCode from "../db/db_referral_code";
+import TokenAccountant from "../svc/tokenAccountant";
 
 // Profit and loss express REST API
 export default class ReferralAPI {
@@ -31,6 +32,7 @@ export default class ReferralAPI {
     private dbFeeAggregator: DBPayments,
     private dbReferralCode: DBReferralCode,
     private referralCodeValidator: ReferralCodeValidator,
+    private tokenAccountant: TokenAccountant,
     private brokerAddr: string,
     public l: Logger
   ) {
@@ -97,12 +99,30 @@ export default class ReferralAPI {
      */
     this.express.post("/select-referral-code", async (req: Request, res: Response) => {
       try {
-        this.onSelectReferralCode(req, res);
+        await this.onSelectReferralCode(req, res);
       } catch (err: any) {
         const usg = `specify code:string, traderAddr:string, createdOn:` + `number, signature:string`;
         res.send(
           ReferralAPI.JSONResponse("error", "select-referral-code", { error: extractErrorMsg(err), usage: usg })
         );
+      }
+    });
+
+    this.express.get("/referral-rebate/", async (req: Request, res: Response) => {
+      try {
+        await this.onReferralRebate(req, res);
+      } catch (err: any) {
+        const usg = `referral-rebate?referrerAddr=0x...`;
+        res.send(ReferralAPI.JSONResponse("error", "referral-rebate", { error: extractErrorMsg(err), usage: usg }));
+      }
+    });
+
+    this.express.get("/agency-rebate/", async (req: Request, res: Response) => {
+      try {
+        await this.onAgencyRebate(req, res);
+      } catch (err: any) {
+        const usg = `agency-rebate`;
+        res.send(ReferralAPI.JSONResponse("error", "agency-rebate", { error: extractErrorMsg(err), usage: usg }));
       }
     });
 
@@ -139,6 +159,17 @@ export default class ReferralAPI {
       agency: agencyCodes,
     };
     res.send(ReferralAPI.JSONResponse("my-referral-codes", "", resultObj));
+  }
+
+  private async onReferralRebate(req: Request, res: Response) {
+    let addr = this.throwErrorIfInvalidAddr(req.query.referrerAddr);
+    let perc: number = await this.tokenAccountant.getCutPercentageForReferrer(addr);
+    res.send(ReferralAPI.JSONResponse("referral-rebate", "", { percentageCut: perc }));
+  }
+
+  private async onAgencyRebate(req: Request, res: Response) {
+    let perc: number = await this.tokenAccountant.getCutPercentageForAgency();
+    res.send(ReferralAPI.JSONResponse("agency-rebate", "", { percentageCut: perc }));
   }
 
   private async onSelectReferralCode(req: Request, res: Response) {
