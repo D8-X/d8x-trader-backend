@@ -106,11 +106,13 @@ export class TradingHistory {
 				return;
 			}
 			this.l.info("inserted new trade", { trader_addr: newTrade.trader_addr });
-		} else if (!isCollectedByEvent) {
-			// update
+		} else if (isCollectedByEvent) {
+			// record exists, and was collected by event -> update
 			let id = isLiquidation
 				? this._createLiquidationId(e as LiquidateEvent, tradeBlockNumber)
 				: (e as TradeEvent).orderDigest.toString();
+			console.log(`tradingHistory: tradevent = ${e}`);
+			console.log(`tradingHistory: id = ${id}`);
 			await this.prisma.trade.update({
 				where: {
 					order_digest_hash: id,
