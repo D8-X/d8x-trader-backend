@@ -50,6 +50,9 @@ _Response_: Example with all fields filled
 }
 ```
 
+Empty example: `{"type":"my-referral-codes","msg":"","data":{"trader":{"code":""},"referrer":[],"agency":[]}}`
+Note that referrers and agencies can have multiple codes. Traders only have one current code.
+
 ### get: `http://localhost:8889/agency-rebate`
 
 _Description_: get the cut that the agency gets from the broker fee income. This cut is split between agency, referrer, and trader
