@@ -4,15 +4,21 @@
 
 ### get: `http://localhost:8889/agency-rebate`
 
-response: `{"type":"agency-rebate","msg":"","data":{"percentageCut":80}}`
+_Description_: get the cut that the agency gets from the broker fee income. This cut is split between agency, referrer, and trader
+
+_Response_: `{"type":"agency-rebate","msg":"","data":{"percentageCut":80}}`
 
 ### get `http://localhost:8889/referral-rebate?referrerAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05`
 
-response: `{"type":"referral-rebate","msg":"","data":{"percentageCut":3.5}}`
+_Description_: get the cut that the referrer gets from the broker fee income. This cut is split between referrer and trader.
+The size of the cut can be defined based on a token holding of the referrer. Referrer has to own the token before
+querying this endpoint otherwise they have to wait a long time for the holdings to be updated.
+
+_Response_: `{"type":"referral-rebate","msg":"","data":{"percentageCut":3.5}}`
 
 ### post: `/select-referral-code`
 
-Description: as a trader select a referral code to trade with going forward. Will overwrite trader's existing code if any exists.
+_Description_: as a trader select a referral code to trade with going forward. Will overwrite trader's existing code if any exists.
 
 ```
 let mycodeselection: APIReferralCodeSelectionPayload = {
@@ -25,9 +31,11 @@ let mycodeselection: APIReferralCodeSelectionPayload = {
 
 Trader signs (see test/referral.test.ts testSelectCode)
 
+_Response_: `{"type":"select-referral-code","msg":"","data":{"code": "REFERRAL42"}}`
+
 ### post: `/create-referral-code`
 
-Description: create a new referral code as agency or as referrer without agency
+_Description_: create a new referral code as agency or as referrer without agency
 
 #### Agency:
 
@@ -69,6 +77,8 @@ signature: "",
 ```
 
 Referrer signs (see test/referral.test.ts testCreateCodeFromReferrer)
+
+_Response_: `{"type":"create-referral-code","msg":"","data":{"code": "REFERRAL42"}}`
 
 ## DEV
 
