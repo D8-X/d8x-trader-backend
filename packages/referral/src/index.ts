@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { ethers } from "ethers";
 import * as winston from "winston";
 import { ReferralSettings } from "./referralTypes";
 import { constructRedis, sleep, isValidAddress, cronParserCheckExpression } from "utils";
@@ -95,6 +96,11 @@ function loadSettings() {
   return file;
 }
 
+/**
+ * Currently not used
+ * @param l logger
+ * @returns broker address
+ */
 async function getBrokerAddressViaRedis(l: winston.Logger): Promise<string> {
   // wait for broker initialization by packages/api/sdkInterface
   let redisClient: Redis = constructRedis("referral");
@@ -116,6 +122,12 @@ async function getBrokerAddressViaRedis(l: winston.Logger): Promise<string> {
     return "";
   }
   return brokerAddr || "";
+}
+
+function getBrokerAddressFromKey(key: string): string {
+  const wallet = new ethers.Wallet(key);
+  // Get the wallet address
+  return wallet.address;
 }
 
 async function setDefaultReferralCode(dbReferralCodes: DBReferralCode, settings: ReferralSettings) {
@@ -148,9 +160,17 @@ async function start() {
     logger.error("Problems in referralSettings:" + error);
     return;
   }
-
   if (!settings.referralSystemEnabled) {
-    logger.info("Referral system is turned off. Use referralSettings.json to enable.");
+    logger.info("NO REFERRALS: Referral system disabled (settings)");
+    return;
+  }
+  let key = "";
+  if (process.env.BROKER_KEY != undefined && process.env.BROKER_KEY != "") {
+    key = process.env.BROKER_KEY;
+  }
+  let brokerAddr = getBrokerAddressFromKey(key);
+  if (brokerAddr == "" || brokerAddr == ZERO_ADDRESS) {
+    logger.info("shutting down referrer system (no broker)");
     return;
   }
 
@@ -174,12 +194,6 @@ async function start() {
     return;
   }
 
-  let brokerAddr = await getBrokerAddressViaRedis(logger);
-  if (brokerAddr == "" || brokerAddr == ZERO_ADDRESS) {
-    logger.info("shutting down referrer system (no broker)");
-    return;
-  }
-
   // Initialize db client
   const prisma = new PrismaClient();
   const dbReferralCode = new DBReferralCode(BigInt(chainId), prisma, brokerAddr, settings, logger);
@@ -198,21 +212,9 @@ async function start() {
   let api = new ReferralAPI(port, dbFeeAggregator, dbReferralCode, referralCodeValidator, brokerAddr, logger);
   await api.initialize();
   // start payment manager
-  if (!settings.referralSystemEnabled) {
-    logger.info("NO REFERRALS: Referral system disabled (settings)");
-  } else {
-    let key = "";
-    if (process.env.BROKER_KEY != undefined && process.env.BROKER_KEY != "") {
-      key = process.env.BROKER_KEY;
-    }
-    if (key != "") {
-      logger.info("Starting Referral system");
-      let paymentManager = new ReferralPaymentManager(brokerAddr, dbPayment, settings, rpcUrl, key, logger);
-      // starting (async)
-      paymentManager.run();
-    } else {
-      logger.info("NO REFERRALS: Referral system enabled (settings), but no private key set.");
-    }
-  }
+  logger.info("Starting Referral system");
+  let paymentManager = new ReferralPaymentManager(brokerAddr, dbPayment, settings, rpcUrl, key, logger);
+  // starting (async)
+  paymentManager.run();
 }
 start();
