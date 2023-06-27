@@ -10,6 +10,7 @@ import {
   APITraderCode,
   APIReferralCodeRecord,
   APIReferralCodeSelectionPayload,
+  APIReferralVolume,
 } from "../referralTypes";
 import DBPayments from "../db/db_payments";
 import DBReferralCode from "../db/db_referral_code";
@@ -31,6 +32,7 @@ export default class ReferralAPI {
     port: number,
     private dbFeeAggregator: DBPayments,
     private dbReferralCode: DBReferralCode,
+    private dbPayment: DBPayments,
     private referralCodeValidator: ReferralCodeValidator,
     private tokenAccountant: TokenAccountant,
     private brokerAddr: string,
@@ -136,6 +138,17 @@ export default class ReferralAPI {
         );
       }
     });
+
+    this.express.get("/referral-volume", async (req: Request, res: Response) => {
+      try {
+        await this.onReferralVolume(req, res);
+      } catch (err: any) {
+        const usg = `referral-volume?referrerAddr=0x...`;
+        res.send(
+          ReferralAPI.JSONResponse("error", "create-referral-code", { error: extractErrorMsg(err), usage: usg })
+        );
+      }
+    });
   }
 
   private throwErrorIfInvalidAddr(addr: any): string {
@@ -165,6 +178,12 @@ export default class ReferralAPI {
     let addr = this.throwErrorIfInvalidAddr(req.query.referrerAddr);
     let perc: number = await this.tokenAccountant.getCutPercentageForReferrer(addr);
     res.send(ReferralAPI.JSONResponse("referral-rebate", "", { percentageCut: perc }));
+  }
+
+  private async onReferralVolume(req: Request, res: Response) {
+    let addr = this.throwErrorIfInvalidAddr(req.query.referrerAddr);
+    let vol: APIReferralVolume[] = await this.dbPayment.queryReferredVolume(addr);
+    res.send(ReferralAPI.JSONResponse("referral-volume", "", vol));
   }
 
   private async onAgencyRebate(req: Request, res: Response) {

@@ -226,7 +226,16 @@ async function start() {
   ta.initProvider(rpcUrl);
   await ta.fetchBalancesFromChain();
   // start REST API server
-  let api = new ReferralAPI(port, dbFeeAggregator, dbReferralCode, referralCodeValidator, ta, brokerAddr, logger);
+  let api = new ReferralAPI(
+    port,
+    dbFeeAggregator,
+    dbReferralCode,
+    dbPayment,
+    referralCodeValidator,
+    ta,
+    brokerAddr,
+    logger
+  );
   await api.initialize();
   // start payment manager
   logger.info("Starting Referral system");
