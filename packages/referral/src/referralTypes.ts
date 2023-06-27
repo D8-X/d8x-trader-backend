@@ -70,6 +70,12 @@ export interface APIReferralCodePayload {
   signature: string;
 }
 
+export interface APIReferralVolume {
+  poolId: number;
+  quantityCC: number;
+  code: string;
+}
+
 export interface APIReferralCodeSelectionPayload {
   code: string;
   traderAddr: string;

@@ -53,6 +53,16 @@ _Response_: Example with all fields filled
 Empty example: `{"type":"my-referral-codes","msg":"","data":{"trader":{"code":""},"referrer":[],"agency":[]}}`
 Note that referrers and agencies can have multiple codes. Traders only have one current code.
 
+### get: `http://localhost:8889/referral-volume?referrerAddr=0x9d5aab428e98678d0e645ea4aebd25f744341a05`
+
+_Description_: Get the volume referred by the given referrer. Volume is reported by pool and code in terms of collateral currency.
+_Response_: `{"type":"referral-volume","msg":"","data":[{"poolId":1,"quantityCC":2464,"code":"REBATE_REF"}]}`
+
+Several codes example:
+`{"type":"referral-volume","msg":"","data":[{"poolId":10,"quantityCC": 1464,"code":"REBATE100XX"},{"poolId":10,"quantityCC":2464,"code":"REBATE_REF"}]}`
+
+Empty example: `{"type":"referral-volume","msg":"","data":[]}`
+
 ### get: `http://localhost:8889/agency-rebate`
 
 _Description_: get the cut that the agency gets from the broker fee income. This cut is split between agency, referrer, and trader

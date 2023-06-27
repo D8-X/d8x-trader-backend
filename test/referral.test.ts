@@ -15,7 +15,7 @@ async function testCreateCodeFromAgency() {
   if (PK == "") {
     throw Error("define PK");
   }
-  const ts = 1687716653;
+  const ts = Math.round(Date.now() / 1000);
   let mynewcode: APIReferralCodePayload = {
     code: "REBATE100",
     referrerAddr: "0x863AD9Ce46acF07fD9390147B619893461036194",
@@ -71,7 +71,7 @@ async function testSelectCode() {
   const wallet = new ethers.Wallet(PK);
   const address = wallet.address;
   let mycodeselection: APIReferralCodeSelectionPayload = {
-    code: "REBATE_REF",
+    code: "REBATE100XX", //"REBATE100",
     traderAddr: address,
     createdOn: ts,
     signature: "",

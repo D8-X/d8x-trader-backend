@@ -2,11 +2,12 @@
 
 CREATE VIEW referral_last_payment AS
 SELECT 
+    pool_id,
 	trader_addr, 
 	broker_addr, 
 	BOOL_AND(tx_confirmed) as tx_confirmed, -- false if there are payments that haven't been confirmed yet
 	MAX(timestamp) as last_payment_ts 
-FROM referral_payment GROUP BY trader_addr, broker_addr;
+FROM referral_payment GROUP BY trader_addr, broker_addr, pool_id;
 
 
 --- Table that contains the aggregated fees since last payment
@@ -25,7 +26,8 @@ SELECT
     ROUND(SUM((th.broker_fee_tbps * ABS(th.quantity_cc))/100000)) as broker_fee_cc,
     min(th.trade_timestamp) as first_trade_considered_ts,
     max(th.trade_timestamp) as last_trade_considered_ts,
-    lp.last_payment_ts from trades_history th
+    lp.last_payment_ts 
+FROM trades_history th
 LEFT JOIN referral_last_payment lp
     ON lp.trader_addr=th.trader_addr
     AND lp.broker_addr=th.broker_addr
@@ -33,8 +35,9 @@ LEFT JOIN referral_code_usage codeusg
     ON th.trader_addr = codeusg.trader_addr
     AND codeusg.valid_to > NOW()
 WHERE (lp.last_payment_ts IS NULL OR lp.last_payment_ts<th.trade_timestamp)
+    AND (lp.pool_id IS NULL OR lp.pool_id = th.perpetual_id/100000)
     AND (lp.tx_confirmed IS NULL OR lp.tx_confirmed=true)
-GROUP BY pool_id, th.trader_addr, lp.last_payment_ts, th.broker_addr, codeusg.code
+GROUP BY pool_id, th.trader_addr, lp.last_payment_ts, th.broker_addr, codeusg.code, th.perpetual_id/100000
 ORDER BY th.trader_addr;
 
 --- Table with current cut per referrer that does not use an agency
@@ -51,7 +54,8 @@ GROUP BY current_holdings.referrer_addr;
 --- Table with code for each trader and
 --- broker fee cut attributable to other participants
 CREATE VIEW referral_current_rebate AS
-SELECT usg.trader_addr, usg.code, 
+SELECT usg.trader_addr, 
+    usg.code, 
     code.referrer_addr,
     code.agency_addr,
     code.broker_addr,
@@ -129,3 +133,18 @@ LEFT JOIN margin_token_info minfo
     ON opf.pool_id=minfo.pool_id;
 
 
+-- Trading volume per referral code
+CREATE VIEW referral_vol AS
+SELECT 
+  perpetual_id/100000 as pool_id,
+  SUM(ABS(th.quantity_cc)) as quantity_cc_abdk,
+  cusg.code as code,
+  cd.referrer_addr
+FROM trades_history th
+JOIN referral_code_usage cusg
+ON cusg.trader_addr = th.trader_addr
+ AND th.trade_timestamp >= cusg.valid_from
+ AND th.trade_timestamp < cusg.valid_to
+JOIN referral_code cd
+ON cd.code = cusg.code
+GROUP BY cusg.code, pool_id, cd.referrer_addr;

@@ -1,12 +1,13 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { Logger } from "winston";
-import { ABK64x64ToDecN, floatToDecN } from "utils";
+import { ABK64x64ToDecN, ABK64x64ToFloat } from "utils";
 import {
   ReferralOpenPayResponse,
   UnconfirmedPaymentRecord,
   PaymentEvent,
   DECIMAL40_FORMAT_STRING,
   TEMPORARY_TX_HASH,
+  APIReferralVolume,
 } from "../referralTypes";
 
 // Make sure the decimal values are always return as normal numeric strings
@@ -124,6 +125,38 @@ export default class DBPayments {
       this.l.warn(
         `dbPayments: failed to write confirmation for trader ${traderAddr} and pool ${poolId} at ${timestamp}`
       );
+    }
+  }
+
+  public async queryReferredVolume(referrerAddr: string): Promise<APIReferralVolume[]> {
+    let addr = referrerAddr.toLowerCase();
+    interface VolResponse {
+      pool_id: number;
+      quantity_cc_abdk: string;
+      code: string;
+    }
+    try {
+      let record = await this.prisma.$queryRaw<VolResponse[]>`
+        SELECT 
+            pool_id, 
+            TO_CHAR(quantity_cc_abdk, ${DECIMAL40_FORMAT_STRING}) AS quantity_cc_abdk,
+            code
+        FROM referral_vol
+        WHERE LOWER(referrer_addr) = ${addr}
+        `;
+      let volArr: APIReferralVolume[] = [];
+      for (let k = 0; k < record.length; k++) {
+        const vol: APIReferralVolume = {
+          poolId: record[k].pool_id,
+          quantityCC: ABK64x64ToFloat(BigInt(record[k].quantity_cc_abdk)),
+          code: record[k].code,
+        };
+        volArr.push(vol);
+      }
+      return volArr;
+    } catch {
+      this.l.warn(`dbPayments: failed to query referral volume for referrer ${addr}`);
+      return [];
     }
   }
 
