@@ -13,13 +13,14 @@ FROM referral_payment GROUP BY trader_addr, broker_addr;
 --- We ensure only trades that happened after the last payment are included
 --- We ensure only trader-addresses for which the payment-record has been confirmed
 --- are included or they have no payment record 
+--- if trader switch codes between payments only the latest code is reflected
 --- via (lp.tx_confirmed IS NULL OR lp.tx_confirmed=true)
 CREATE VIEW referral_aggr_fees_per_trader AS
 SELECT 
     th.perpetual_id/100000 as pool_id,
     th.trader_addr,
     th.broker_addr,
-    COALESCE(codes.code,'DEFAULT') as code,
+    COALESCE(codeusg.code,'DEFAULT') as code,
     sum(th.fee) as fee_sum_cc,
     ROUND(SUM((th.broker_fee_tbps * ABS(th.quantity_cc))/100000)) as broker_fee_cc,
     min(th.trade_timestamp) as first_trade_considered_ts,
@@ -28,11 +29,12 @@ SELECT
 LEFT JOIN referral_last_payment lp
     ON lp.trader_addr=th.trader_addr
     AND lp.broker_addr=th.broker_addr
-LEFT JOIN referral_code_usage codes
-    ON th.trader_addr = codes.trader_addr
+LEFT JOIN referral_code_usage codeusg
+    ON th.trader_addr = codeusg.trader_addr
+    AND codeusg.valid_to > NOW()
 WHERE (lp.last_payment_ts IS NULL OR lp.last_payment_ts<th.trade_timestamp)
     AND (lp.tx_confirmed IS NULL OR lp.tx_confirmed=true)
-GROUP BY pool_id, th.trader_addr, lp.last_payment_ts, th.broker_addr, codes.code
+GROUP BY pool_id, th.trader_addr, lp.last_payment_ts, th.broker_addr, codeusg.code
 ORDER BY th.trader_addr;
 
 --- Table with current cut per referrer that does not use an agency
@@ -58,7 +60,7 @@ SELECT usg.trader_addr, usg.code,
     code.referrer_rebate_perc,
     code.agency_rebate_perc,
     CASE 
-        WHEN code.agency_addr = '' THEN (
+        WHEN code.agency_addr != '' THEN (
         SELECT cut_perc
         FROM referral_setting_cut
         WHERE is_agency_cut = true
@@ -68,13 +70,17 @@ SELECT usg.trader_addr, usg.code,
   END AS cut_perc
 FROM referral_code_usage usg
 JOIN referral_code code 
-    ON usg.code = code.code
+    ON usg.code = code.code 
+    AND usg.valid_to>NOW()
 LEFT JOIN referral_current_cut curr_cut
     ON curr_cut.referrer_addr = code.referrer_addr
 WHERE code.expiry>now();
 
 -- broker fee, cut attributable to the different stakeholders and 
 -- their relative share
+-- [1] default to 100% in case of no referral code, in which the setting
+--     in referralSettings.json defaultReferralCode kicks in with 100% 
+--     of fees earned
 CREATE VIEW referral_open_pay_relative AS
 SELECT af.pool_id,
     af.trader_addr,
@@ -88,7 +94,7 @@ SELECT af.pool_id,
     COALESCE(curr.trader_rebate_perc, def.trader_rebate_perc) as trader_rebate_perc,
     COALESCE(curr.agency_rebate_perc, def.agency_rebate_perc) as agency_rebate_perc,
     COALESCE(curr.referrer_rebate_perc, def.referrer_rebate_perc) as referrer_rebate_perc,
-    COALESCE(curr.cut_perc, 100) as cut_perc,
+    COALESCE(curr.cut_perc, 100) as cut_perc,-- see [1]
     af.broker_fee_cc
 FROM referral_aggr_fees_per_trader af
 LEFT JOIN referral_current_rebate curr

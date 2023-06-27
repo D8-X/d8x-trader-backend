@@ -8,6 +8,7 @@ import {
   APITraderCode,
   APIReferralCodeSelectionPayload,
 } from "../referralTypes";
+import { sleep } from "utils";
 
 interface ReferralCodeData {
   brokerPayoutAddr: string;
@@ -17,6 +18,7 @@ interface ReferralCodeData {
 }
 
 export default class DBReferralCode {
+  private codeUsgMUTEX = new Map<string, boolean>(); //mutex per trader address
   constructor(
     private chainId: bigint,
     private prisma: PrismaClient,
@@ -35,26 +37,67 @@ export default class DBReferralCode {
     await this.insert(payload.code, dbData);
   }
 
+  /**
+   * Select a new code as a trader
+   *
+   * Uses a mutex per trader to avoid dirty read/writes when first updating the valid until
+   * code and then inserting a new code
+   * @param payload see APIReferralCodeSelectionPayload
+   * @returns void
+   */
   public async insertCodeSelectionFromPayload(payload: APIReferralCodeSelectionPayload) {
+    const traderAddr = payload.traderAddr.toLowerCase();
     try {
-      await this.prisma.referralCodeUsage.upsert({
+      while (this.codeUsgMUTEX.has(traderAddr)) {
+        await sleep(1000);
+      }
+      this.codeUsgMUTEX.set(traderAddr, true);
+      // first reset valid until for code
+      let latestCode = await this.prisma.referralCodeUsage.findMany({
         where: {
-          trader_addr: payload.traderAddr.toLowerCase(),
+          trader_addr: traderAddr,
         },
-        update: {
-          code: payload.code,
+        orderBy: {
+          valid_to: "desc",
         },
-        create: {
-          trader_addr: payload.traderAddr.toLowerCase(),
+        take: 1,
+      });
+
+      // if we found a code usage and it's not the same code we update the existing code's valid until
+      if (latestCode.length > 0) {
+        if (latestCode[0].code == payload.code) {
+          this.l.info(`Tried to select same code ${payload.code} again`);
+          return;
+        }
+        await this.prisma.referralCodeUsage.update({
+          where: {
+            trader_addr_valid_from: {
+              trader_addr: latestCode[0].trader_addr,
+              valid_from: latestCode[0].valid_from.toISOString(),
+            },
+          },
+          data: {
+            valid_to: new Date(Date.now()).toISOString(),
+          },
+        });
+        this.l.info(`invalidated old code ${latestCode[0].code} selection for ${traderAddr}`);
+      }
+
+      // now insert new code
+      await this.prisma.referralCodeUsage.create({
+        data: {
+          trader_addr: traderAddr,
           code: payload.code,
         },
       });
-      this.l.info("upsert code selection info", {
+      this.l.info(`inserted new code selection for ${traderAddr} info`, {
         payload,
       });
     } catch (error) {
       this.l.warn("Error when inserting referralCodeUsage", error);
       throw Error("Could not select code in database");
+    } finally {
+      this.codeUsgMUTEX.delete(traderAddr);
     }
   }
 
@@ -109,16 +152,19 @@ export default class DBReferralCode {
           equals: addr,
           mode: "insensitive",
         },
+        valid_from: {
+          gte: new Date().toISOString(),
+        },
       },
       select: {
         code: true,
-        timestamp: true,
+        valid_from: true,
       },
     });
     if (res == null) {
       return { code: "", activeSince: undefined };
     }
-    return { code: res.code, activeSince: res.timestamp };
+    return { code: res.code, activeSince: res.valid_from };
   }
 
   public async queryAgencyCodes(addr: string): Promise<APIReferralCodeRecord[]> {

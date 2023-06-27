@@ -16,7 +16,7 @@ export default class DBTokenHoldings {
       data: {
         referrer_addr: referrerAddr.toLowerCase(),
         holding_amount_dec_n: holdingAmountDecN.toString(),
-        token_addr: tokenAddr,
+        token_addr: tokenAddr.toLowerCase(),
       },
     });
     const inf = `inserted new referralTokenHoldings for ${referrerAddr} ${holdingAmountDecN.toString()}`;
@@ -26,21 +26,28 @@ export default class DBTokenHoldings {
   private async _update(referrerAddr: string, holdingAmountDecN: bigint, tokenAddr: string) {
     await this.prisma.referralTokenHoldings.update({
       where: {
-        referrer_addr: referrerAddr.toLowerCase(),
+        referrer_addr_token_addr: {
+          referrer_addr: referrerAddr.toLowerCase(),
+          token_addr: tokenAddr.toLowerCase(),
+        },
       },
       data: {
         holding_amount_dec_n: holdingAmountDecN.toString(),
-        token_addr: tokenAddr,
         last_updated: new Date().toISOString(),
       },
     });
   }
 
-  private async _exists(referrerAddr: string): Promise<boolean> {
+  private async _exists(referrerAddr: string, tokenAddr: string): Promise<boolean> {
     const exists = await this.prisma.referralTokenHoldings.findFirst({
       where: {
         referrer_addr: {
-          equals: referrerAddr.toLowerCase(),
+          equals: referrerAddr,
+          mode: "insensitive",
+        },
+        token_addr: {
+          equals: tokenAddr,
+          mode: "insensitive",
         },
       },
     });
@@ -72,7 +79,7 @@ export default class DBTokenHoldings {
 
   public async writeTokenHoldingsToDB(hld: Array<TokenAccount>, tokenAddr: string) {
     for (let k = 0; k < hld.length; k++) {
-      if (await this._exists(hld[k].referrerAddr)) {
+      if (await this._exists(hld[k].referrerAddr, tokenAddr)) {
         await this._update(hld[k].referrerAddr, hld[k].tokenHoldings, tokenAddr);
       } else {
         await this._insert(hld[k].referrerAddr, hld[k].tokenHoldings, tokenAddr);
