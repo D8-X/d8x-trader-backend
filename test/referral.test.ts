@@ -67,11 +67,11 @@ async function testSelectCode() {
   if (PK == "") {
     throw Error("define PK");
   }
-  const ts = 1687716653;
+  const ts = Math.round(Date.now() / 1000);
   const wallet = new ethers.Wallet(PK);
   const address = wallet.address;
   let mycodeselection: APIReferralCodeSelectionPayload = {
-    code: "REBATE100",
+    code: "REBATE_REF",
     traderAddr: address,
     createdOn: ts,
     signature: "",
