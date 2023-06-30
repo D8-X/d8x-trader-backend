@@ -2,9 +2,8 @@ import { Logger } from "winston";
 import ReferralPaymentExecutor from "./referralPaymentExecutor";
 import PaymentDataCollector from "./paymentDataCollector";
 import DBPayments from "../db/db_payments";
-import { getPreviousDate } from "utils";
+import { getPreviousCronDate, getNextCronDate } from "utils";
 import { ReferralSettings } from "../referralTypes";
-import { exec } from "child_process";
 
 /**
  * This class has a mutex for payment execution
@@ -14,6 +13,7 @@ export default class ReferralPaymentManager {
   private paymentExecutor: ReferralPaymentExecutor;
   private paymentDataCollector: PaymentDataCollector;
   private lastPaymentExecution: undefined | Date;
+  private intervalId: NodeJS.Timeout | undefined;
 
   constructor(
     private brokerAddr: string,
@@ -47,8 +47,12 @@ export default class ReferralPaymentManager {
     // check whether we need to execute now
     await this.checkAndExecutePayments();
     // launch scheduler that checks every minute if we need to execute according to pattern
-    setInterval(async () => {
-      this.checkAndExecutePayments();
+    this.startPaymentScheduler();
+  }
+
+  startPaymentScheduler(): void {
+    this.intervalId = setInterval(async () => {
+      await this.checkAndExecutePayments();
     }, 60_000);
   }
 
@@ -60,7 +64,7 @@ export default class ReferralPaymentManager {
       this.mutex = true;
     }
     try {
-      if (this.checkExecutionNeeded(this.settings.paymentScheduleMinHourDayofmonthWeekday)) {
+      if (this.checkExecutionNeeded()) {
         this.l.info("ReferralPaymentManager: payment execution start");
         let numExecuted = await this.executePayments();
         if (numExecuted > 0) {
@@ -74,6 +78,7 @@ export default class ReferralPaymentManager {
         this.l.info("ReferralPaymentManager: NO payment execution needed");
       }
     } finally {
+      await this.scheduleNextPaymentCheck();
       this.mutex = false;
     }
   }
@@ -89,13 +94,26 @@ export default class ReferralPaymentManager {
    * @param pattern  cron-type pattern dash separated 0-14-*-*
    * @returns true if no payment since last pattern matching date
    */
-  private checkExecutionNeeded(execPattern: string): boolean {
+  private checkExecutionNeeded(): boolean {
     //https://github.com/P4sca1/cron-schedule
     //pattern:   "paymentScheduleMinHourDayofmonthWeekday": "0-14-*-*-0",
     if (this.lastPaymentExecution == undefined) {
       return true;
     }
-    let lastDate = getPreviousDate(execPattern);
+    let execPattern = this.settings.paymentScheduleMinHourDayofmonthWeekday;
+    let lastDate = getPreviousCronDate(execPattern);
     return this.lastPaymentExecution.getTime() < lastDate.getTime();
+  }
+
+  private scheduleNextPaymentCheck() {
+    let execPattern = this.settings.paymentScheduleMinHourDayofmonthWeekday;
+    let nextDate = getNextCronDate(execPattern);
+    let timeToExec = Date.now() - nextDate.getTime();
+    let timeToWait = timeToExec < 0 ? 0 : Math.max(60_000, Math.round(timeToExec / 2));
+    this.l.info(`Waiting for ${Math.round(timeToWait / 1000)}s to check payment execution`);
+    // Set a new interval with the updated delay
+    this.intervalId = setInterval(async () => {
+      await this.checkAndExecutePayments();
+    }, timeToWait);
   }
 }
