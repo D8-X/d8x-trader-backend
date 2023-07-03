@@ -95,6 +95,12 @@ export interface APIReferralCodeRecord {
   expiry: Date;
 }
 
+export interface APIRebateEarned {
+  poolId: number;
+  code: string;
+  amountCC: number;
+}
+
 export interface UnconfirmedPaymentRecord {
   trader_addr: string;
   pool_id: number;

@@ -11,6 +11,7 @@ import {
   APIReferralCodeRecord,
   APIReferralCodeSelectionPayload,
   APIReferralVolume,
+  APIRebateEarned,
 } from "../referralTypes";
 import DBPayments from "../db/db_payments";
 import DBReferralCode from "../db/db_referral_code";
@@ -149,6 +150,15 @@ export default class ReferralAPI {
         );
       }
     });
+
+    this.express.get("/earned-rebate", async (req: Request, res: Response) => {
+      try {
+        await this.onEarnedRebate(req, res);
+      } catch (err: any) {
+        const usg = `earned-rebate?referrerAddr=0x...|traderAddr=0x...|agencyAddr=0x...`;
+        res.send(ReferralAPI.JSONResponse("error", "earned-rebate", { error: extractErrorMsg(err), usage: usg }));
+      }
+    });
   }
 
   private throwErrorIfInvalidAddr(addr: any): string {
@@ -184,6 +194,26 @@ export default class ReferralAPI {
     let addr = this.throwErrorIfInvalidAddr(req.query.referrerAddr);
     let vol: APIReferralVolume[] = await this.dbPayment.queryReferredVolume(addr);
     res.send(ReferralAPI.JSONResponse("referral-volume", "", vol));
+  }
+
+  private async onEarnedRebate(req: Request, res: Response) {
+    let addr;
+    let type;
+    if (req.query.traderAddr != undefined) {
+      addr = this.throwErrorIfInvalidAddr(req.query.traderAddr);
+      type = "trader";
+    } else if (req.query.agencyAddr != undefined) {
+      addr = this.throwErrorIfInvalidAddr(req.query.agencyAddr);
+      type = "agency";
+    } else if (req.query.referrerAddr != undefined) {
+      addr = this.throwErrorIfInvalidAddr(req.query.referrerAddr);
+      type = "referrer";
+    } else {
+      throw Error("no trader, agency, or referrer address defined");
+    }
+
+    let rebates: APIRebateEarned[] = await this.dbPayment.queryReferralPaymentsFor(addr, type);
+    res.send(ReferralAPI.JSONResponse("earned-rebates", "", rebates));
   }
 
   private async onAgencyRebate(req: Request, res: Response) {
