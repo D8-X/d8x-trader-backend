@@ -248,6 +248,59 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 					Number(blockNum.toString())
 				);
 			},
+			UpdateMarginAccount: async (
+				eventData: UpdateMarginAccountEvent,
+				txHash: string,
+				_blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onUpdateMarginAccount(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp
+				);
+			},
+			LiquidityAdded: async (
+				eventData: LiquidityAddedEvent,
+				txHash: string,
+				_blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onLiquidityAdded(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp
+				);
+			},
+			LiquidityRemoved: async (
+				eventData: LiquidityRemovedEvent,
+				txHash: string,
+				_blockNum: BigNumberish,
+				blockTimestamp: number
+			) => {
+				await eventListener.onLiquidityRemoved(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp
+				);
+			},
+			LiquidityWithdrawalInitiated: async (
+				eventData,
+				txHash,
+				_blockNumber,
+				blockTimeStamp,
+				_params
+			) => {
+				await eventListener.onLiquidityWithdrawalInitiated(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimeStamp
+				);
+			},
 			// TODO: add the rest
 		})
 	);
