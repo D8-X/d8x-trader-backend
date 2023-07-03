@@ -14,6 +14,7 @@ export default class ReferralPaymentManager {
   private paymentDataCollector: PaymentDataCollector;
   private lastPaymentExecution: undefined | Date;
   private intervalId: NodeJS.Timeout | undefined;
+  private intervalTime: number = 60_000;
 
   constructor(
     private brokerAddr: string,
@@ -53,7 +54,7 @@ export default class ReferralPaymentManager {
   startPaymentScheduler(): void {
     this.intervalId = setInterval(async () => {
       await this.checkAndExecutePayments();
-    }, 60_000);
+    }, this.intervalTime);
   }
 
   private async checkAndExecutePayments() {
@@ -112,8 +113,6 @@ export default class ReferralPaymentManager {
     let timeToWait = timeToExec < 0 ? 0 : Math.max(60_000, Math.round(timeToExec / 2));
     this.l.info(`Waiting for ${Math.round(timeToWait / 60_000)}min to check payment execution`);
     // Set a new interval with the updated delay
-    this.intervalId = setInterval(async () => {
-      await this.checkAndExecutePayments();
-    }, timeToWait);
+    this.intervalTime = timeToWait;
   }
 }
