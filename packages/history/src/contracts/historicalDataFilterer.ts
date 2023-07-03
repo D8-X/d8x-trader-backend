@@ -25,6 +25,7 @@ import {
 	BigNumberish,
 	TopicFilter,
 	ContractEventName,
+	EventFragment,
 } from "ethers";
 import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
 
@@ -48,190 +49,6 @@ export class HistoricalDataFilterer {
 			perpetualManagerProxyAddress,
 			pmpAbi,
 			provider
-		);
-	}
-
-	/**
-	 * Retrieve trade events for given traderAddress from a provided since date.
-	 *
-	 * @param traderAddress
-	 * @param since
-	 * @param cb
-	 */
-	public async filterTrades(
-		traderAddress: string | null,
-		since: Date,
-		cb: TradesFilteredCb
-	) {
-		this.l.info("started trades filtering", { date: since });
-
-		const filter = this.PerpManagerProxy.filters.Trade(null, traderAddress);
-		this.genericFilterer(
-			filter,
-			(await calculateBlockFromTime(this.provider, since))[0],
-			"Trade",
-			this.PerpManagerProxy,
-			(
-				decodedTradeEvent: Record<string, any>,
-				e: ethers.EventLog,
-				blockTimestamp: number
-			) => {
-				decodedTradeEvent.order = decodedTradeEvent.order.toObject();
-				cb(
-					decodedTradeEvent as TradeEvent,
-					e.transactionHash,
-					e.blockNumber,
-					blockTimestamp
-				);
-			}
-		);
-	}
-
-	/**
-	 * Retrieve Liquidate events for given walletAddress from a provided since date.
-	 *
-	 * @param walletAddress
-	 * @param since
-	 * @param cb
-	 */
-	public async filterLiquidations(
-		walletAddress: string | null,
-		since: Date,
-		cb: LiquidationsFilteredCb
-	) {
-		this.l.info("started liquidations filtering", { date: since });
-
-		const filter = this.PerpManagerProxy.filters.Liquidate(null, walletAddress);
-
-		this.genericFilterer(
-			filter,
-			(await calculateBlockFromTime(this.provider, since))[0],
-			"Liquidate",
-			this.PerpManagerProxy,
-			(
-				decodedEvent: Record<string, any>,
-				e: ethers.EventLog,
-				blockTimestamp: number
-			) => {
-				cb(
-					decodedEvent as LiquidateEvent,
-					e.transactionHash,
-					e.blockNumber,
-					blockTimestamp
-				);
-			}
-		);
-	}
-
-	/**
-	 * Retrieve UpdateMarginAccount events for given walletAddress from a provided since date.
-	 *
-	 * @param walletAddress - trader field
-	 * @param since
-	 * @param cb
-	 */
-	public async filterUpdateMarginAccount(
-		walletAddress: string | null,
-		since: Date,
-		cb: UpdateMarginAccountFilteredCb
-	) {
-		this.l.info("started margin account updates filtering", { date: since });
-
-		const filter = this.PerpManagerProxy.filters.UpdateMarginAccount(
-			null,
-			walletAddress
-		);
-		this.genericFilterer(
-			filter,
-			(await calculateBlockFromTime(this.provider, since))[0],
-			"UpdateMarginAccount",
-			this.PerpManagerProxy,
-			(
-				decodedEvent: Record<string, any>,
-				e: ethers.EventLog,
-				blockTimestamp: number
-			) => {
-				cb(
-					decodedEvent as UpdateMarginAccountEvent,
-					e.transactionHash,
-					e.blockNumber,
-					blockTimestamp
-				);
-			}
-		);
-	}
-	/**
-	 * Retrieve LiquidityAdded events for given walletAddress from a provided since date.
-	 *
-	 * @param walletAddress - trader field
-	 * @param since
-	 * @param cb
-	 */
-	public async filterLiquidityAdded(
-		walletAddress: string | null,
-		since: Date,
-		cb: LiquidityAddedFilteredCb
-	) {
-		this.l.info("started liquidity added filtering", { date: since });
-
-		const filter = this.PerpManagerProxy.filters.LiquidityAdded(null, walletAddress);
-		this.genericFilterer(
-			filter,
-			(await calculateBlockFromTime(this.provider, since))[0],
-			"LiquidityAdded",
-
-			this.PerpManagerProxy,
-			(
-				decodedEvent: Record<string, any>,
-				e: ethers.EventLog,
-				blockTimestamp: number
-			) => {
-				cb(
-					decodedEvent as LiquidityAddedEvent,
-					e.transactionHash,
-					e.blockNumber,
-					blockTimestamp
-				);
-			}
-		);
-	}
-
-	/**
-	 * Retrieve UpdateMarginAccount events for given walletAddress from a provided since date.
-	 *
-	 * @param walletAddress - trader field
-	 * @param since
-	 * @param cb
-	 */
-	public async filterLiquidityRemoved(
-		walletAddress: string | null,
-		since: Date,
-		cb: LiquidityRemovedFilteredCb
-	) {
-		this.l.info("started liquidity removed filtering", { date: since });
-
-		const filter = this.PerpManagerProxy.filters.LiquidityRemoved(
-			null,
-			walletAddress
-		);
-		this.genericFilterer(
-			filter,
-			(await calculateBlockFromTime(this.provider, since))[0],
-			"LiquidityRemoved",
-
-			this.PerpManagerProxy,
-			(
-				decodedEvent: Record<string, any>,
-				e: ethers.EventLog,
-				blockTimestamp: number
-			) => {
-				cb(
-					decodedEvent as LiquidityRemovedEvent,
-					e.transactionHash,
-					e.blockNumber,
-					blockTimestamp
-				);
-			}
 		);
 	}
 
@@ -261,7 +78,7 @@ export class HistoricalDataFilterer {
 			this.genericFilterer(
 				filter,
 				(await calculateBlockFromTime(this.provider, since[i]))[0],
-				"P2PTransfer",
+				[filter.fragment.topicHash],
 				c,
 				(
 					decodedTradeEvent: Record<string, any>,
@@ -279,74 +96,120 @@ export class HistoricalDataFilterer {
 			);
 		}
 	}
-	public async filterLiquidityWithdrawalInitiations(
-		walletAddress: string | null,
+
+	/**
+	 *
+	 * @param fromBlock Block number to start recording from
+	 * @param callbacks Event name => EventCallback to invoke for each such event
+	 */
+	public async filterProxyEvents(
 		since: Date,
-		cb: LiquidityWithdrawalInitiatedFilteredCb
+		callbacks: Record<string, EventCallback<any>>
 	) {
-		this.l.info("started liquidity withdrawal initiated filtering", { date: since });
-
-		const filter = this.PerpManagerProxy.filters.LiquidityWithdrawalInitiated(
-			null,
-			walletAddress
-		);
-
-		// We want to process lpwi events in a synchronous way
-		await this.genericFilterer(
-			filter,
-			(
-				await calculateBlockFromTime(this.provider, since)
-			)[0],
+		// events in scope
+		const eventNames = [
+			"Trade",
+			"Liquidate",
+			"UpdateMarginAccount",
+			"LiquidityAdded",
+			"LiquidityRemoved",
 			"LiquidityWithdrawalInitiated",
-			this.PerpManagerProxy,
-			(
-				decodedTradeEvent: Record<string, any>,
-				e: ethers.EventLog,
-				blockTimestamp: number
-			) => {
-				cb(
-					decodedTradeEvent as LiquidityWithdrawalInitiatedEvent,
-					e.transactionHash,
-					e.blockNumber,
-					blockTimestamp
-				);
-			}
-		);
-	}
-
-	public async filterProxyEvents(fromBlock: BigNumberish) {
-		//
-
-		const filter = [
-			await this.PerpManagerProxy.filters.Trade().getTopicFilter(),
-			await this.PerpManagerProxy.filters.Liquidate().getTopicFilter(),
-			await this.PerpManagerProxy.filters.UpdateMarginAccount().getTopicFilter(),
-			await this.PerpManagerProxy.filters.LiquidityAdded().getTopicFilter(),
-			await this.PerpManagerProxy.filters.LiquidityRemoved().getTopicFilter(),
-			await this.PerpManagerProxy.filters
-				.LiquidityWithdrawalInitiated()
-				.getTopicFilter(),
 		];
 
+		// topic filters
+		let topicFilters: TopicFilter | undefined = undefined;
+		for (const eventName of eventNames) {
+			if (topicFilters == undefined) {
+				topicFilters = await this.PerpManagerProxy.filters[
+					eventName
+				]().getTopicFilter();
+			} else {
+				const newFilter = await this.PerpManagerProxy.filters[
+					eventName
+				]().getTopicFilter();
+				topicFilters = topicFilters.concat(newFilter) as TopicFilter;
+			}
+		}
+		// topic signature hashes
+		const topicHashes = eventNames.map(
+			(eventName) => this.PerpManagerProxy.filters[eventName]().fragment.topicHash
+		);
+
+		// callbacks
 		const cb = async (
 			decodedEvent: Record<string, any>,
 			e: ethers.EventLog,
 			blockTimestamp: number
 		) => {
-			switch (key) {
-				case value:
+			const eventName = this.PerpManagerProxy.interface.getEventName(e.topics[0]);
+			// TODO: can't do this because of the casting... not necessarily better, but shorter code
+			// callbacks[eventName](
+			// 	decodedEvent as TradeEvent,
+			// 	e.transactionHash,
+			// 	e.blockNumber,
+			// 	blockTimestamp
+			// );
+			switch (eventName) {
+				case "Trade":
+					callbacks["Trade"](
+						decodedEvent as TradeEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp
+					);
 					break;
-
+				case "Liquidate":
+					callbacks["Liquidate"](
+						decodedEvent as LiquidateEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp
+					);
+					break;
+				case "UpdateMarginAccount":
+					callbacks["UpdateMarginAccount"](
+						decodedEvent as UpdateMarginAccountEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp
+					);
+					break;
+				case "LiquidityAdded":
+					callbacks["LiquidityAdded"](
+						decodedEvent as LiquidityAddedEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp
+					);
+					break;
+				case "LiquidityWithdrawalInitiated":
+					callbacks["LiquidityWithdrawalInitiated"](
+						decodedEvent as LiquidityWithdrawalInitiatedEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp
+					);
+					break;
+				case "LiquidityRemoved":
+					callbacks["LiquidityRemoved"](
+						decodedEvent as LiquidityRemovedEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp
+					);
+					break;
 				default:
 					break;
 			}
-			cb(
-				decodedEvent as LiquidityRemovedEvent,
-				e.transactionHash,
-				e.blockNumber,
-				blockTimestamp
-			);
 		};
+
+		await this.genericFilterer(
+			topicFilters!,
+			await calculateBlockFromTime(this.provider, since),
+			topicHashes,
+			this.PerpManagerProxy,
+			cb
+		);
 	}
 
 	/**
@@ -360,7 +223,7 @@ export class HistoricalDataFilterer {
 	private async genericFilterer(
 		filter: ContractEventName,
 		fromBlock: BigNumberish,
-		eventSignatures: string[],
+		topicHashes: string[],
 		c: Contract,
 		cb: (
 			decodedEvent: Record<string, any>,
@@ -420,51 +283,43 @@ export class HistoricalDataFilterer {
 			}
 		}
 
-		const eventFragment = c.interface.getEvent(eventSignatures); // as ethers.EventFragment;
-
-		const iface = new Interface(c.interface.events);
-
-		// Check if we can get events one by one (via generator or smth)
-
+		const eventNames = topicHashes.map((topic0) => c.interface.getEventName(topic0));
+		const eventFragments = topicHashes.map(
+			(topic0) => c.interface.getEvent(topic0) as EventFragment
+		);
+		let blockTimestamp = new Map<Number, number>();
 		for (let i = 0; i < events.length; i++) {
 			const event = events[i];
-			for (let j = 0; j < eventSignatures.length; j++) {
-				if (eventSignatures[j] == event.topics[0]) {
+			for (let j = 0; j < topicHashes.length; j++) {
+				if (topicHashes[j] == event.topics[0]) {
+					// found event
+					let eventName = eventNames[j];
 					let log = c.interface.decodeEventLog(
-						event.topics[0],
+						eventFragments[j],
 						event.data,
 						event.topics
 					);
-					// this log has the event name
-					// TODO
-					// switch (log.) {
-					//     case value:
+					// one call per block with event
+					if (blockTimestamp.get(event.blockNumber) == undefined) {
+						blockTimestamp.set(
+							event.blockNumber,
+							(await event.getBlock()).timestamp
+						);
+					}
+					let ts = blockTimestamp.get(event.blockNumber)!;
+					// do work
+					cb(log, event, ts);
 
-					//         break;
+					// TODO: how to get rid of this?
+					// limit: 25 requests per second
+					numRequests++;
+					if (numRequests >= 25) {
+						numRequests = 0;
+						await new Promise((resolve) => setTimeout(resolve, 1_100));
+					}
 
-					//     default:
-					//         break;
-					// }
+					break;
 				}
-			}
-
-			// obsolete:
-			// let log = iface
-			// 	.decodeEventLog(eventFragment, event.data, event.topics)
-			// 	.toObject();
-
-			// TODO: get rid of
-			const b = await event.getBlock();
-
-			// obsolete
-			cb(log, event, b.timestamp);
-
-			// TODO: not like this but speeds
-			// limit: 25 requests per second
-			numRequests++;
-			if (numRequests >= 25) {
-				numRequests = 0;
-				await new Promise((resolve) => setTimeout(resolve, 1_100));
 			}
 		}
 	}
