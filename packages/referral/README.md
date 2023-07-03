@@ -97,6 +97,7 @@ interface APIRebateEarned {
 ### post: `/select-referral-code`
 
 _Description_: as a trader selects a referral code to trade with going forward. Will overwrite trader's existing code if any exists.
+Use the class `ReferralCodeSigner` available in SDK >=0.7.12 to construct the signature. See `tests/referral.test.ts`.
 
 ```
 let mycodeselection: APIReferralCodeSelectionPayload = {
@@ -114,6 +115,7 @@ _Response_: `{"type":"select-referral-code","msg":"","data":{"code": "REFERRAL42
 ### post: `/create-referral-code`
 
 _Description_: create a new referral code as agency or as referrer without agency
+Use the class `ReferralCodeSigner` available in SDK >=0.7.12 to construct the signature. See `tests/referral.test.ts`.
 
 #### Agency:
 
