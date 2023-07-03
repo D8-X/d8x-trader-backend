@@ -1,5 +1,5 @@
-import ReferralCodeSigner from "../src/svc/referralCodeSigner";
-import { ReferralCodePayload } from "../src/referralTypes";
+import { ReferralCodeSigner } from "@d8x/perpetuals-sdk";
+import { APIReferralCodePayload } from "@d8x/perpetuals-sdk";
 import { ethers } from "ethers";
 
 const pk = <string>process.env.PK;
@@ -8,10 +8,9 @@ async function main() {
   const rpcURL = "https://matic-mumbai.chainstacklabs.com";
   const codeSigner = new ReferralCodeSigner(pk, rpcURL);
 
-  await codeSigner.createSignerInstance();
   let myAddr = await codeSigner.getAddress();
 
-  let pyld: ReferralCodePayload = {
+  let pyld: APIReferralCodePayload = {
     code: "MY_CODE11",
     referrerAddr: myAddr,
     agencyAddr: "",
@@ -32,10 +31,10 @@ async function main() {
     signature: "",
   };
 
-  let sg = await codeSigner.getReferralCodeDataSignature(pyld);
+  let sg = await codeSigner.getSignatureForNewCode(pyld);
   pyld.signature = sg;
   console.log("Payload = ", pyld);
-  let b = ReferralCodeSigner.checkSignature(pyld);
+  let b = ReferralCodeSigner.checkNewCodeSignature(pyld);
   if (!b) {
     Error("signature check failed");
   }
