@@ -108,9 +108,9 @@ export default class ReferralPaymentManager {
   private scheduleNextPaymentCheck() {
     let execPattern = this.settings.paymentScheduleMinHourDayofmonthWeekday;
     let nextDate = getNextCronDate(execPattern);
-    let timeToExec = Date.now() - nextDate.getTime();
+    let timeToExec = nextDate.getTime() - Date.now();
     let timeToWait = timeToExec < 0 ? 0 : Math.max(60_000, Math.round(timeToExec / 2));
-    this.l.info(`Waiting for ${Math.round(timeToWait / 1000)}s to check payment execution`);
+    this.l.info(`Waiting for ${Math.round(timeToWait / 60_000)}min to check payment execution`);
     // Set a new interval with the updated delay
     this.intervalId = setInterval(async () => {
       await this.checkAndExecutePayments();
