@@ -205,7 +205,9 @@ export class HistoricalDataFilterer {
 
 		await this.genericFilterer(
 			topicFilters!,
-			await calculateBlockFromTime(this.provider, since)[0],
+			(
+				await calculateBlockFromTime(this.provider, since)
+			)[0],
 			topicHashes,
 			this.PerpManagerProxy,
 			cb
