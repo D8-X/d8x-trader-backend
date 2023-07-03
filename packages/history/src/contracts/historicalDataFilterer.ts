@@ -15,8 +15,17 @@ import {
 	TradesFilteredCb,
 	UpdateMarginAccountEvent,
 	UpdateMarginAccountFilteredCb,
+	EventCallback,
 } from "./types";
-import { Contract, Provider, ethers, Interface, BigNumberish } from "ethers";
+import {
+	Contract,
+	Provider,
+	ethers,
+	Interface,
+	BigNumberish,
+	TopicFilter,
+	ContractEventName,
+} from "ethers";
 import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
 
 global.Error.stackTraceLimit = Infinity;
@@ -43,20 +52,20 @@ export class HistoricalDataFilterer {
 	}
 
 	/**
-	 * Retrieve trade events for given walletAddress from a provided since date.
+	 * Retrieve trade events for given traderAddress from a provided since date.
 	 *
-	 * @param walletAddress
+	 * @param traderAddress
 	 * @param since
 	 * @param cb
 	 */
 	public async filterTrades(
-		walletAddress: string | null,
+		traderAddress: string | null,
 		since: Date,
 		cb: TradesFilteredCb
 	) {
 		this.l.info("started trades filtering", { date: since });
 
-		const filter = this.PerpManagerProxy.filters.Trade(null, walletAddress);
+		const filter = this.PerpManagerProxy.filters.Trade(null, traderAddress);
 		this.genericFilterer(
 			filter,
 			(await calculateBlockFromTime(this.provider, since))[0],
@@ -305,6 +314,41 @@ export class HistoricalDataFilterer {
 		);
 	}
 
+	public async filterProxyEvents(fromBlock: BigNumberish) {
+		//
+
+		const filter = [
+			await this.PerpManagerProxy.filters.Trade().getTopicFilter(),
+			await this.PerpManagerProxy.filters.Liquidate().getTopicFilter(),
+			await this.PerpManagerProxy.filters.UpdateMarginAccount().getTopicFilter(),
+			await this.PerpManagerProxy.filters.LiquidityAdded().getTopicFilter(),
+			await this.PerpManagerProxy.filters.LiquidityRemoved().getTopicFilter(),
+			await this.PerpManagerProxy.filters
+				.LiquidityWithdrawalInitiated()
+				.getTopicFilter(),
+		];
+
+		const cb = async (
+			decodedEvent: Record<string, any>,
+			e: ethers.EventLog,
+			blockTimestamp: number
+		) => {
+			switch (key) {
+				case value:
+					break;
+
+				default:
+					break;
+			}
+			cb(
+				decodedEvent as LiquidityRemovedEvent,
+				e.transactionHash,
+				e.blockNumber,
+				blockTimestamp
+			);
+		};
+	}
+
 	/**
 	 * Filter event logs based on provided parameters.
 	 *
@@ -314,9 +358,9 @@ export class HistoricalDataFilterer {
 	 * @param cb
 	 */
 	private async genericFilterer(
-		filter: ethers.DeferredTopicFilter,
+		filter: ContractEventName,
 		fromBlock: BigNumberish,
-		eventName: string,
+		eventSignatures: string[],
 		c: Contract,
 		cb: (
 			decodedEvent: Record<string, any>,
@@ -376,21 +420,46 @@ export class HistoricalDataFilterer {
 			}
 		}
 
-		const eventFragment = c.interface.getEvent(eventName) as ethers.EventFragment;
+		const eventFragment = c.interface.getEvent(eventSignatures); // as ethers.EventFragment;
 
-		const iface = new Interface([eventFragment]);
+		const iface = new Interface(c.interface.events);
 
 		// Check if we can get events one by one (via generator or smth)
 
 		for (let i = 0; i < events.length; i++) {
 			const event = events[i];
-			let log = iface
-				.decodeEventLog(eventFragment, event.data, event.topics)
-				.toObject();
+			for (let j = 0; j < eventSignatures.length; j++) {
+				if (eventSignatures[j] == event.topics[0]) {
+					let log = c.interface.decodeEventLog(
+						event.topics[0],
+						event.data,
+						event.topics
+					);
+					// this log has the event name
+					// TODO
+					// switch (log.) {
+					//     case value:
+
+					//         break;
+
+					//     default:
+					//         break;
+					// }
+				}
+			}
+
+			// obsolete:
+			// let log = iface
+			// 	.decodeEventLog(eventFragment, event.data, event.topics)
+			// 	.toObject();
+
+			// TODO: get rid of
 			const b = await event.getBlock();
 
+			// obsolete
 			cb(log, event, b.timestamp);
 
+			// TODO: not like this but speeds
 			// limit: 25 requests per second
 			numRequests++;
 			if (numRequests >= 25) {
