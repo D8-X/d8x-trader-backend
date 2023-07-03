@@ -304,8 +304,10 @@ export async function calculateBlockFromTime(
   mustBeBefore = true
 ): Promise<[number, number]> {
   // rpc #1 & #2
-  let max = await provider.getBlockNumber();
-  const blk1 = await provider.getBlock(max);
+  //   let max = await provider.getBlockNumber();
+  //   const blk1 = await provider.getBlock(max);
+  let blk1 = await provider.getBlock("latest");
+  let max = blk1.number;
   const targetTimestamp = since.getTime() / 1000;
   const secElapsed = blk1.timestamp - targetTimestamp;
 
