@@ -16,15 +16,28 @@ export default class PayExecutorLocal extends AbstractPayExecutor {
     this.brokerAddr = new Wallet(privateKey).address;
   }
 
+  /**
+   * Interface method
+   * @returns address of broker
+   */
   public async getBrokerAddress(): Promise<string> {
     return this.brokerAddr;
   }
 
+  /**
+   * Interface method to execute payment
+   * @param tokenAddr address of payment token
+   * @param amounts array with decimal-N amounts to be paid
+   * @param paymentToAddr array with addresses to pay in corresponding order to amounts
+   * @param id id to be used for submission
+   * @param msg message to be used for submission
+   * @returns transaction hash or fail
+   */
   public async transactPayment(
     tokenAddr: string,
     amounts: bigint[],
     paymentToAddr: string[],
-    id: bigint,
+    id: number,
     msg: string
   ): Promise<string> {
     let multiPay: ethers.Contract = this.connectMultiPayContractInstance();
@@ -32,19 +45,12 @@ export default class PayExecutorLocal extends AbstractPayExecutor {
       this.l.warn("PayExecutorLocal: could not approve token", tokenAddr);
       return "fail";
     }
-    // filter out zero payments
-    let amountsPayable: BigNumber[] = [];
-    let addrPayable: string[] = [];
-    for (let k = 0; k < amounts.length; k++) {
-      // also push zero amounts
-      amountsPayable.push(BigNumber.from(amounts[k].toString()));
-      let addr = paymentToAddr[k] == "" ? ethers.constants.AddressZero : paymentToAddr[k];
-      addrPayable.push(addr);
-    }
+
+    let d = this.dataReshapeForContract(amounts, paymentToAddr);
 
     // payment execution
     try {
-      let tx = await multiPay.pay(id, tokenAddr, amountsPayable, addrPayable, msg, { gasLimit: 75_000 });
+      let tx = await multiPay.pay(id, tokenAddr, d.amountsPayable, d.addrPayable, msg, { gasLimit: 75_000 });
       return tx.hash;
     } catch (error) {
       this.l.warn(`error when executing multipay for token ${tokenAddr}`, error);
