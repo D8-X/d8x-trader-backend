@@ -1,13 +1,8 @@
 import { PrismaClient, ReferralCodeUsage } from "@prisma/client";
 import { Logger } from "winston";
 import ReferralCodeValidator from "../svc/referralCodeValidator";
-import {
-  APIReferralCodePayload,
-  ReferralSettings,
-  APIReferralCodeRecord,
-  APITraderCode,
-  APIReferralCodeSelectionPayload,
-} from "../referralTypes";
+import { ReferralSettings, APIReferralCodeRecord, APITraderCode } from "../referralTypes";
+import { APIReferralCodePayload, APIReferralCodeSelectionPayload } from "@d8x/perpetuals-sdk";
 import { sleep } from "utils";
 
 interface ReferralCodeData {

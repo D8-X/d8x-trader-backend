@@ -53,7 +53,7 @@ export default class BrokerRemote extends BrokerIntegration {
   }
 
   public async signOrder(SCOrder: SmartContractOrder): Promise<string> {
-    let reqData = {
+    const reqData = {
       order: {
         iDeadline: SCOrder.iDeadline,
         traderAddr: SCOrder.traderAddr,
@@ -61,8 +61,6 @@ export default class BrokerRemote extends BrokerIntegration {
       },
       chainId: this.chainId,
     };
-    let r = toJson(reqData);
-    let endpoint = this.apiURL + this.endpointSignOrder;
     // send post request to endpoint with r as data
     try {
       const response = await axios.post(this.apiURL + this.endpointSignOrder, reqData);
