@@ -13,6 +13,7 @@ import TokenAccountant from "./svc/tokenAccountant";
 import ReferralPaymentManager from "./svc/referralPaymentManager";
 import DBPayments from "./db/db_payments";
 import ReferralCodeValidator from "./svc/referralCodeValidator";
+import PayExecutorLocal from "./svc/payExecutorLocal";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const defaultLogger = () => {
@@ -185,6 +186,7 @@ async function start() {
   if (process.env.BROKER_KEY != undefined && process.env.BROKER_KEY != "") {
     key = process.env.BROKER_KEY;
   }
+
   let brokerAddr = getBrokerAddressFromKey(key);
   if (brokerAddr == "" || brokerAddr == ZERO_ADDRESS) {
     logger.info("shutting down referrer system (no broker)");
@@ -239,7 +241,8 @@ async function start() {
   await api.initialize();
   // start payment manager
   logger.info("Starting Referral system");
-  let paymentManager = new ReferralPaymentManager(brokerAddr, dbPayment, settings, rpcUrl, key, logger);
+  let payExecutor = new PayExecutorLocal(key, settings.multiPayContractAddr, rpcUrl, logger);
+  let paymentManager = new ReferralPaymentManager(brokerAddr, dbPayment, settings, rpcUrl, payExecutor, logger);
   // starting (async)
   paymentManager.run();
 }

@@ -4,7 +4,7 @@ import PaymentDataCollector from "./paymentDataCollector";
 import DBPayments from "../db/db_payments";
 import { getPreviousCronDate, getNextCronDate } from "utils";
 import { ReferralSettings } from "../referralTypes";
-
+import AbstractPayExecutor from "./abstractPayExecutor";
 /**
  * This class has a mutex for payment execution
  */
@@ -21,15 +21,14 @@ export default class ReferralPaymentManager {
     private dbPayment: DBPayments,
     private settings: ReferralSettings,
     rpcURL: string,
-    privateKey: string,
+    payExecutor: AbstractPayExecutor,
     private l: Logger
   ) {
     this.paymentExecutor = new ReferralPaymentExecutor(
       dbPayment,
-      settings.multiPayContractAddr,
       rpcURL,
-      privateKey,
       settings.minBrokerFeeCCForRebatePerPool,
+      payExecutor,
       l
     );
     this.paymentDataCollector = new PaymentDataCollector(settings.multiPayContractAddr, dbPayment, rpcURL, l);
