@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { Logger } from "winston";
-import { ABK64x64ToDecN, ABK64x64ToFloat } from "utils";
+import { ABK64x64ToDecN, ABK64x64ToFloat, decNToFloat } from "utils";
 import {
   ReferralOpenPayResponse,
   UnconfirmedPaymentRecord,
@@ -8,6 +8,7 @@ import {
   DECIMAL40_FORMAT_STRING,
   TEMPORARY_TX_HASH,
   APIReferralVolume,
+  APIRebateEarned,
 } from "../referralTypes";
 
 // Make sure the decimal values are always return as normal numeric strings
@@ -236,6 +237,74 @@ export default class DBPayments {
       }
     } catch (error) {
       this.l.warn(`confirmPayment: error`, error);
+    }
+  }
+
+  public async queryReferralPaymentsFor(agentAddr: string, type: string): Promise<APIRebateEarned[]> {
+    let addr = agentAddr.toLowerCase();
+    interface Response {
+      code: string;
+      pool_id: number;
+      amount_cc: string;
+      token_decimals: number;
+    }
+    try {
+      let records: Response[];
+      if (type == "trader") {
+        records = await this.prisma.$queryRaw<Response[]>`
+            SELECT 
+                code,
+                pool_id,
+                TO_CHAR(sum(trader_paid_amount_cc), ${DECIMAL40_FORMAT_STRING}) as amount_cc,
+                token_decimals
+            FROM referral_payment_X_code
+            WHERE LOWER(trader_addr) = ${addr}
+            GROUP BY code, pool_id, token_decimals
+            `;
+      } else if (type == "referrer") {
+        records = await this.prisma.$queryRaw<Response[]>`
+            SELECT 
+                code,
+                pool_id,
+                TO_CHAR(sum(referrer_paid_amount_cc), ${DECIMAL40_FORMAT_STRING}) as amount_cc,
+                token_decimals
+            FROM referral_payment_X_code
+            WHERE LOWER(referrer_addr) = ${addr}
+            GROUP BY code, pool_id, token_decimals
+            `;
+      } else if (type == "agency") {
+        records = await this.prisma.$queryRaw<Response[]>`
+            SELECT 
+                code,
+                pool_id,
+                TO_CHAR(sum(agency_paid_amount_cc), ${DECIMAL40_FORMAT_STRING}) as amount_cc,
+                token_decimals
+            FROM referral_payment_X_code
+            WHERE LOWER(agency_addr) = ${addr}
+            GROUP BY code, pool_id, token_decimals
+            `;
+      } else {
+        this.l.warn(`queryReferralPaymentsFor: error unknown type ${type}`);
+        records = [];
+      }
+      let rebates: APIRebateEarned[] = [];
+      for (let k = 0; k < records.length; k++) {
+        let amt = records[k].amount_cc;
+        let amount = BigInt(0);
+        if (amt != null) {
+          amount = BigInt(amt);
+        }
+        let r: APIRebateEarned = {
+          poolId: records[k].pool_id,
+          code: records[k].code,
+          amountCC: decNToFloat(amount, records[k].token_decimals),
+        };
+        rebates.push(r);
+      }
+      return rebates;
+    } catch (error) {
+      this.l.warn(`queryReferralPaymentsFor: error`, error);
+      return [];
     }
   }
 

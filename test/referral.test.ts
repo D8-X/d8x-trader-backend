@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
-import "../packages/referral/src/svc/referralCodeSigner";
-import { APIReferralCodePayload, APIReferralCodeSelectionPayload } from "../packages/referral/src/referralTypes";
-import ReferralCodeSigner from "../packages/referral/src/svc/referralCodeSigner";
+
+import { APIReferralCodePayload, APIReferralCodeSelectionPayload } from "@d8x/perpetuals-sdk";
+import { ReferralCodeSigner } from "@d8x/perpetuals-sdk";
 let PK = process.env.PK ?? "";
 let RPC = process.env.RPC ?? "https://matic-mumbai.chainstacklabs.com";
 
@@ -27,7 +27,7 @@ async function testCreateCodeFromAgency() {
     signature: "",
   };
   let rc = new ReferralCodeSigner(PK, RPC);
-  await rc.createSignerInstance();
+
   mynewcode.signature = await rc.getSignatureForNewCode(mynewcode);
   console.log(mynewcode);
   if (!(await ReferralCodeSigner.checkNewCodeSignature(mynewcode))) {
@@ -53,7 +53,7 @@ async function testCreateCodeFromReferrer() {
     signature: "",
   };
   let rc = new ReferralCodeSigner(PK, RPC);
-  await rc.createSignerInstance();
+
   mynewcode.signature = await rc.getSignatureForNewCode(mynewcode);
   console.log(mynewcode);
   if (!(await ReferralCodeSigner.checkNewCodeSignature(mynewcode))) {
@@ -77,7 +77,7 @@ async function testSelectCode() {
     signature: "",
   };
   let rc = new ReferralCodeSigner(PK, RPC);
-  await rc.createSignerInstance();
+
   mycodeselection.signature = await rc.getSignatureForCodeSelection(mycodeselection);
   console.log(mycodeselection);
   if (!(await ReferralCodeSigner.checkCodeSelectionSignature(mycodeselection))) {
