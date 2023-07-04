@@ -72,12 +72,12 @@ export class HistoricalDataFilterer {
 			});
 			// Pools start at 1
 			const poolId = i + 1;
-
 			const c = new Contract(currentAddress, shareTokenAbi, this.provider);
 			const filter = c.filters.P2PTransfer();
+			const sinceBlock = (await calculateBlockFromTime(this.provider, since[i]))[0];
 			this.genericFilterer(
 				filter,
-				(await calculateBlockFromTime(this.provider, since[i]))[0],
+				sinceBlock,
 				[filter.fragment.topicHash],
 				c,
 				(
@@ -99,7 +99,7 @@ export class HistoricalDataFilterer {
 
 	/**
 	 *
-	 * @param fromBlock Block number to start recording from
+	 * @param since Date to start recording from
 	 * @param callbacks Event name => EventCallback to invoke for each such event
 	 */
 	public async filterProxyEvents(
@@ -115,6 +115,17 @@ export class HistoricalDataFilterer {
 			"LiquidityRemoved",
 			"LiquidityWithdrawalInitiated",
 		];
+		const cbKeys = Object.keys(callbacks);
+		for (const eventName of cbKeys) {
+			if (!eventNames.some((x) => x == eventName)) {
+				throw new Error(`Unknown event ${eventName}`);
+			}
+		}
+		for (const eventName of eventNames) {
+			if (!cbKeys.some((x) => x == eventName)) {
+				throw new Error(`Missing event ${eventName}`);
+			}
+		}
 
 		// topic filters
 		let topicFilters: TopicFilter | undefined = undefined;
@@ -134,6 +145,7 @@ export class HistoricalDataFilterer {
 		const topicHashes = eventNames.map(
 			(eventName) => this.PerpManagerProxy.filters[eventName]().fragment.topicHash
 		);
+		console.log("proxy topic0s", topicHashes);
 
 		// callbacks
 		const cb = async (
@@ -142,9 +154,9 @@ export class HistoricalDataFilterer {
 			blockTimestamp: number
 		) => {
 			const eventName = this.PerpManagerProxy.interface.getEventName(e.topics[0]);
-			// TODO: can't do this because of the casting... not necessarily better, but shorter code
+			// TODO: can't do this because of the casting below ... not necessarily better, but would be shorter code
 			// callbacks[eventName](
-			// 	decodedEvent as TradeEvent,
+			// 	decodedEvent as TradeEvent, // <--
 			// 	e.transactionHash,
 			// 	e.blockNumber,
 			// 	blockTimestamp
@@ -202,12 +214,10 @@ export class HistoricalDataFilterer {
 					break;
 			}
 		};
-
+		const sinceBlock = (await calculateBlockFromTime(this.provider, since))[0];
 		await this.genericFilterer(
 			topicFilters!,
-			(
-				await calculateBlockFromTime(this.provider, since)
-			)[0],
+			sinceBlock,
 			topicHashes,
 			this.PerpManagerProxy,
 			cb
@@ -236,8 +246,10 @@ export class HistoricalDataFilterer {
 		// limit: 10_000 blocks in one eth_getLogs call
 		const deltaBlocks = 9_999;
 		const endBlock = await this.provider.getBlockNumber();
+		const eventNames = topicHashes.map((topic0) => c.interface.getEventName(topic0));
 
 		this.l.info("querying historical logs", {
+			events: eventNames,
 			fromBlock: fromBlock,
 			numBlocks: endBlock - Number(fromBlock),
 		});
@@ -285,7 +297,15 @@ export class HistoricalDataFilterer {
 			}
 		}
 
-		const eventNames = topicHashes.map((topic0) => c.interface.getEventName(topic0));
+		this.l.info("finished querying historical logs", {
+			events: eventNames,
+			eventsFound: events.length,
+		});
+
+		if (events.length < 1) {
+			return;
+		}
+
 		const eventFragments = topicHashes.map(
 			(topic0) => c.interface.getEvent(topic0) as EventFragment
 		);
@@ -295,7 +315,6 @@ export class HistoricalDataFilterer {
 			for (let j = 0; j < topicHashes.length; j++) {
 				if (topicHashes[j] == event.topics[0]) {
 					// found event
-					let eventName = eventNames[j];
 					let log = c.interface.decodeEventLog(
 						eventFragments[j],
 						event.data,
@@ -319,10 +338,14 @@ export class HistoricalDataFilterer {
 						numRequests = 0;
 						await new Promise((resolve) => setTimeout(resolve, 1_100));
 					}
-
 					break;
 				}
 			}
 		}
+		this.l.info("finished saving historical logs", {
+			events: eventNames,
+			fromBlock: fromBlock,
+			numBlocks: endBlock - Number(fromBlock),
+		});
 	}
 }
