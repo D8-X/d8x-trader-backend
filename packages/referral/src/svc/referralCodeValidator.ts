@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
-import { ReferralSettings, APIReferralCodePayload, APIReferralCodeSelectionPayload } from "../referralTypes";
+import { ReferralSettings } from "../referralTypes";
+import { APIReferralCodePayload, APIReferralCodeSelectionPayload } from "@d8x/perpetuals-sdk";
 import { isValidAddress } from "utils";
 import DBReferralCode from "../db/db_referral_code";
 const PERCENT_TOLERANCE = 0.0001;

@@ -90,13 +90,29 @@ function convertSimplifiedPatternToCron(expr: string): string {
  * └──────── minute
  * Uses https://github.com/harrisiirak/cron-parser
  * @param pattern
- * @param startDate
  * @returns true if no payment since last pattern matching date
  */
-export function getPreviousDate(pattern: string): Date {
+export function getPreviousCronDate(pattern: string): Date {
   let expr = convertSimplifiedPatternToCron(pattern);
   let interval = parser.parseExpression(expr, { utc: true });
   return new Date(interval.prev().toString());
+}
+
+/**
+ * 1 2 3 4
+ * ┬ ┬ ┬ ┬
+ * │ │ │ └── day of week
+ * │ │ └──── day of month
+ * │ └────── hour
+ * └──────── minute
+ * Uses https://github.com/harrisiirak/cron-parser
+ * @param pattern
+ * @returns true if no payment since last pattern matching date
+ */
+export function getNextCronDate(pattern: string): Date {
+  let expr = convertSimplifiedPatternToCron(pattern);
+  let interval = parser.parseExpression(expr, { utc: true });
+  return new Date(interval.next().toString());
 }
 
 /**

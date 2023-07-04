@@ -59,28 +59,10 @@ export interface DBTokenAmount {
   lastUpdated: Date | undefined;
 }
 
-export interface APIReferralCodePayload {
-  code: string;
-  referrerAddr: string;
-  agencyAddr: string;
-  createdOn: number;
-  traderRebatePerc: number;
-  agencyRebatePerc: number;
-  referrerRebatePerc: number;
-  signature: string;
-}
-
 export interface APIReferralVolume {
   poolId: number;
   quantityCC: number;
   code: string;
-}
-
-export interface APIReferralCodeSelectionPayload {
-  code: string;
-  traderAddr: string;
-  createdOn: number;
-  signature: string;
 }
 
 export interface APIReferralCodeRecord {
@@ -93,6 +75,12 @@ export interface APIReferralCodeRecord {
   referrerRebatePerc: number;
   createdOn: Date;
   expiry: Date;
+}
+
+export interface APIRebateEarned {
+  poolId: number;
+  code: string;
+  amountCC: number;
 }
 
 export interface UnconfirmedPaymentRecord {
@@ -120,4 +108,13 @@ export interface PaymentEvent {
 export interface APITraderCode {
   code: string;
   activeSince: Date | undefined;
+}
+
+export interface PaySummary {
+  payer: string; //addr
+  executor: string; //addr
+  token: string; //addr
+  timestamp: number; //uint32
+  id: number; //uint32
+  totalAmount: bigint; //uint256
 }

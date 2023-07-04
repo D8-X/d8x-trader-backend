@@ -77,9 +77,27 @@ querying this endpoint otherwise they have to wait a long time for the holdings 
 
 _Response_: `{"type":"referral-rebate","msg":"","data":{"percentageCut":3.5}}`
 
+### get: earned-rebate for referrer, agency, or trader
+
+`http://localhost:8889/earned-rebate?agencyAddr=0x863AD9Ce46acF07fD9390147B619893461036194`
+`http://localhost:8889/earned-rebate?referrerAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05`
+`http://localhost:8889/earned-rebate?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05`
+
+_Response_: `{"type":"earned-rebates","msg":"","data":[{"poolId":1,"code":"DEFAULT","amountCC":15.808428909011253}]}`
+Which is an array of the following type:
+
+```
+interface APIRebateEarned {
+  poolId: number;
+  code: string;
+  amountCC: number;
+}
+```
+
 ### post: `/select-referral-code`
 
 _Description_: as a trader selects a referral code to trade with going forward. Will overwrite trader's existing code if any exists.
+Use the class `ReferralCodeSigner` available in SDK >=0.7.12 to construct the signature. See `tests/referral.test.ts`.
 
 ```
 let mycodeselection: APIReferralCodeSelectionPayload = {
@@ -97,6 +115,7 @@ _Response_: `{"type":"select-referral-code","msg":"","data":{"code": "REFERRAL42
 ### post: `/create-referral-code`
 
 _Description_: create a new referral code as agency or as referrer without agency
+Use the class `ReferralCodeSigner` available in SDK >=0.7.12 to construct the signature. See `tests/referral.test.ts`.
 
 #### Agency:
 
@@ -141,7 +160,7 @@ Referrer signs (see test/referral.test.ts testCreateCodeFromReferrer)
 
 _Response_: `{"type":"create-referral-code","msg":"","data":{"code": "REFERRAL42"}}`
 
-## DEV
+# DEV
 
 ### Testing Codes
 
