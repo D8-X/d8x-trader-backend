@@ -312,6 +312,11 @@ export async function calculateBlockFromTime(
   const secElapsed = blk1.timestamp - targetTimestamp;
 
   let blockSampleNum = Math.floor(secElapsed / 2);
+  if (blockSampleNum >= max) {
+    // 2 second blocks would mean more than current number of blocks
+    // --> too many, it was a bad estimate, default to a simpler estimate
+    blockSampleNum = Math.floor(max / 10);
+  }
   // rpc #3
   let blk0 = await provider.getBlock(max - blockSampleNum);
   let secPerBlockInSample = (blk1.timestamp - blk0.timestamp) / blockSampleNum;
