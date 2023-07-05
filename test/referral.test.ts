@@ -17,13 +17,13 @@ async function testCreateCodeFromAgency() {
   }
   const ts = Math.round(Date.now() / 1000);
   let mynewcode: APIReferralCodePayload = {
-    code: "REBATE100",
+    code: "REBATE100XX",
     referrerAddr: "0x863AD9Ce46acF07fD9390147B619893461036194",
     agencyAddr: "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
     createdOn: ts,
-    traderRebatePerc: 10,
-    agencyRebatePerc: 45,
-    referrerRebatePerc: 45,
+    traderRebatePerc: 15,
+    agencyRebatePerc: 50,
+    referrerRebatePerc: 35,
     signature: "",
   };
   let rc = new ReferralCodeSigner(PK, RPC);
@@ -43,7 +43,7 @@ async function testCreateCodeFromReferrer() {
   }
   const ts = 1687716653;
   let mynewcode: APIReferralCodePayload = {
-    code: "REBATE_REF",
+    code: "REBATE100XX",
     referrerAddr: "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
     agencyAddr: "",
     createdOn: ts,

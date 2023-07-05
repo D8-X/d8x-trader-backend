@@ -121,10 +121,11 @@ Trader signs (see test/referral.test.ts testSelectCode)
 
 _Response_: `{"type":"select-referral-code","msg":"","data":{"code": "REFERRAL42"}}`
 
-### post: `/create-referral-code`
+### post: `/upsert-referral-code`
 
-_Description_: create a new referral code as agency or as referrer without agency
+_Description_: _update_ an existing referral code or _insert_ a new referral code as agency or as referrer without agency
 Use the class `ReferralCodeSigner` available in SDK >=0.7.12 to construct the signature. See `tests/referral.test.ts`.
+Note that the codes must be uppercase and only letters, numbers, dash (-) and underscore (\_) are valid characters.
 
 #### Agency:
 
@@ -167,7 +168,7 @@ signature: "",
 
 Referrer signs (see test/referral.test.ts testCreateCodeFromReferrer)
 
-_Response_: `{"type":"create-referral-code","msg":"","data":{"code": "REFERRAL42"}}`
+_Response_: `{"type":"upsert-referral-code","msg":"","data":{"code": "REFERRAL42", "isNewCode": false}}`
 
 # DEV
 

@@ -34,7 +34,7 @@ export default class ReferralCodeValidator {
       // the signature
       throw Error("Invalid createdAt timestamp");
     }
-    if (!(await this.dbReferralCode.codeExists(pyld.code))) {
+    if (!(await this.dbReferralCode.codeExistsReferrerAndAgency(pyld.code))) {
       const msg = `Code ${ReferralCodeValidator.washCode(pyld.code)} unknown`;
       throw Error(msg);
     }
@@ -47,8 +47,9 @@ export default class ReferralCodeValidator {
    * - code already exists?
    * Throws errors
    * @param pyld payload
+   * @returns true if exists already
    */
-  public async checkNewCodePayload(pyld: APIReferralCodePayload) {
+  public async checkCode(pyld: APIReferralCodePayload): Promise<boolean> {
     // throws:
     if (pyld.agencyRebatePerc != 0 && !this.isPermissionedAgency(pyld.agencyAddr)) {
       throw Error(`Agency address ${pyld.agencyAddr} not permissioned by broker`);
@@ -57,10 +58,19 @@ export default class ReferralCodeValidator {
     if (pyld.code == undefined || pyld.code == "") {
       throw Error("No code");
     }
-    if (await this.dbReferralCode.codeExists(pyld.code)) {
-      const msg = `Code ${ReferralCodeValidator.washCode(pyld.code)} already exists`;
-      throw Error(msg);
+    let r = await this.dbReferralCode.codeExistsReferrerAndAgency(pyld.code);
+    if (r.referrer == "") {
+      // code does not exist yet
+      return false;
     }
+    // code exists, now we need to check whether the issuer of the code is the same
+    if (pyld.agencyAddr != "" && pyld.agencyAddr.toLowerCase() != r.agency) {
+      // the agency must sign the code in this case, so agency must be the same
+      throw Error(`Agency address ${r.agency} has reserved this code OR signature incorrect.`);
+    } else if (pyld.referrerAddr.toLowerCase() != r.referrer) {
+      throw Error(`A referrer has already reserved this code OR signature incorrect`);
+    }
+    return true;
   }
 
   public isPermissionedAgency(addr: string): boolean {
