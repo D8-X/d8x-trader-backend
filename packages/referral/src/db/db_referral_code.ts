@@ -32,6 +32,16 @@ export default class DBReferralCode {
     await this.insert(payload.code, dbData);
   }
 
+  public async updateCodeFromPayload(payload: APIReferralCodePayload) {
+    const dbData: ReferralCodeData = {
+      brokerPayoutAddr: this.settings.brokerPayoutAddr,
+      referrerAddr: payload.referrerAddr,
+      agencyAddr: payload.agencyAddr,
+      traderReferrerAgencyPerc: [payload.traderRebatePerc, payload.referrerRebatePerc, payload.agencyRebatePerc],
+    };
+    await this.update(payload.code, dbData);
+  }
+
   /**
    * Select a new code as a trader
    *
@@ -101,9 +111,40 @@ export default class DBReferralCode {
    * @param codeName
    * @param rd
    */
+  public async update(codeName: string, rd: ReferralCodeData): Promise<void> {
+    const cleanCodeName = ReferralCodeValidator.washCode(codeName);
+    // ensure percentages add up to 100%
+    let feeDistribution = this.adjustPercentages(rd.traderReferrerAgencyPerc);
+    //INSERT INTO referral_code (code, referrer_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc)
+    await this.prisma.referralCode.update({
+      where: {
+        code: cleanCodeName,
+      },
+      data: {
+        referrer_addr: rd.referrerAddr.toLowerCase(),
+        agency_addr: rd.agencyAddr.toLowerCase(),
+        broker_addr: this.brokerAddr.toLowerCase(),
+        broker_payout_addr: rd.brokerPayoutAddr.toLowerCase(),
+        trader_rebate_perc: feeDistribution.trader,
+        referrer_rebate_perc: feeDistribution.referrer,
+        agency_rebate_perc: feeDistribution.agency,
+      },
+    });
+    this.l.info("updated referral code info", {
+      codeName,
+      rd,
+    });
+  }
+
+  /**
+   * No checks on percentages correctness or other consistencies
+   * @param codeName
+   * @param rd
+   */
   public async insert(codeName: string, rd: ReferralCodeData): Promise<void> {
     const cleanCodeName = ReferralCodeValidator.washCode(codeName);
-    if (await this.codeExists(codeName)) {
+    let r = await this.codeExistsReferrerAndAgency(codeName);
+    if (r.exists) {
       throw Error("cannot insert code, already exists" + cleanCodeName);
     }
 
@@ -113,10 +154,10 @@ export default class DBReferralCode {
     await this.prisma.referralCode.create({
       data: {
         code: cleanCodeName,
-        referrer_addr: rd.referrerAddr,
-        agency_addr: rd.agencyAddr,
-        broker_addr: this.brokerAddr,
-        broker_payout_addr: rd.brokerPayoutAddr,
+        referrer_addr: rd.referrerAddr.toLowerCase(),
+        agency_addr: rd.agencyAddr.toLowerCase(),
+        broker_addr: this.brokerAddr.toLowerCase(),
+        broker_payout_addr: rd.brokerPayoutAddr.toLowerCase(),
         trader_rebate_perc: feeDistribution.trader,
         referrer_rebate_perc: feeDistribution.referrer,
         agency_rebate_perc: feeDistribution.agency,
@@ -128,7 +169,9 @@ export default class DBReferralCode {
     });
   }
 
-  public async codeExists(code: string): Promise<boolean> {
+  public async codeExistsReferrerAndAgency(
+    code: string
+  ): Promise<{ exists: boolean; referrer: string; agency: string }> {
     let cleanCode = ReferralCodeValidator.washCode(code);
     const exists = await this.prisma.referralCode.findFirst({
       where: {
@@ -137,7 +180,11 @@ export default class DBReferralCode {
         },
       },
     });
-    return exists != null;
+    if (exists != null) {
+      return { exists: true, referrer: exists.referrer_addr, agency: exists.agency_addr || "" };
+    } else {
+      return { exists: false, referrer: "", agency: "" };
+    }
   }
 
   public async queryTraderCode(addr: string): Promise<APITraderCode> {
@@ -270,7 +317,8 @@ export default class DBReferralCode {
     traderReferrerAgencyPerc: [number, number, number]
   ) {
     const defaultCodeName = "DEFAULT";
-    if (await this.codeExists(defaultCodeName)) {
+    let exists = (await this.codeExistsReferrerAndAgency(defaultCodeName)).exists;
+    if (exists) {
       await this.prisma.referralCode.delete({
         where: {
           code: defaultCodeName,

@@ -77,16 +77,16 @@ export default class ReferralAPI {
     /**
      * tested
      */
-    this.express.post("/create-referral-code", async (req: Request, res: Response) => {
+    this.express.post("/upsert-referral-code", async (req: Request, res: Response) => {
       try {
-        await this.onCreateReferralCode(req, res);
+        await this.onCreateOrUpdateReferralCode(req, res);
       } catch (err: any) {
         const usg =
           `specify code:string, referrerAddr:string, agencyAddr:string, createdOn:` +
           `number, traderRebatePerc:number, agencyRebatePerc:number, referrerRebatePerc:` +
           `number, signature:string`;
         res.send(
-          ReferralAPI.JSONResponse("error", "create-referral-code", { error: extractErrorMsg(err), usage: usg })
+          ReferralAPI.JSONResponse("error", "upsert-referral-code", { error: extractErrorMsg(err), usage: usg })
         );
       }
     });
@@ -247,9 +247,9 @@ export default class ReferralAPI {
     res.send(ReferralAPI.JSONResponse("select-referral-code", "", { code: code }));
   }
 
-  private async onCreateReferralCode(req: Request, res: Response) {
+  private async onCreateOrUpdateReferralCode(req: Request, res: Response) {
     let payload: APIReferralCodePayload = <APIReferralCodePayload>req.body;
-    await this.referralCodeValidator.checkNewCodePayload(payload);
+    let existsCode = await this.referralCodeValidator.checkCode(payload);
     if (!(await ReferralCodeSigner.checkNewCodeSignature(payload))) {
       throw Error("signature invalid");
     }
@@ -258,9 +258,14 @@ export default class ReferralAPI {
     // all checks passed, we can insert the code into the db
     const code = ReferralCodeValidator.washCode(payload.code);
     const rsp = "yourcode:" + code;
-    await this.dbReferralCode.insertNewCodeFromPayload(payload);
+    if (!existsCode) {
+      await this.dbReferralCode.insertNewCodeFromPayload(payload);
+    } else {
+      // update code
+      await this.dbReferralCode.updateCodeFromPayload(payload);
+    }
     console.log(rsp);
-    res.send(ReferralAPI.JSONResponse("create-referral-code", "", { code: code }));
+    res.send(ReferralAPI.JSONResponse("upsert-referral-code", "", { code: code, isNewCode: !existsCode }));
   }
 
   /**
