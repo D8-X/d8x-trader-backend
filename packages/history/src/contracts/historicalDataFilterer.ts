@@ -128,30 +128,20 @@ export class HistoricalDataFilterer {
 		}
 
 		// topic filters
-		let topicFilters: TopicFilter | undefined = undefined;
+		let topicFilterList: TopicFilter[] = [];
 		for (const eventName of eventNames) {
-			if (topicFilters == undefined) {
-				topicFilters = await this.PerpManagerProxy.filters[eventName](
-					null,
-					null
-				).getTopicFilter();
-			} else {
-				const newFilter = await this.PerpManagerProxy.filters[
-					eventName
-				]().getTopicFilter();
-				topicFilters = topicFilters.concat(newFilter) as TopicFilter;
-			}
+			const newFilter = await this.PerpManagerProxy.filters[
+				eventName
+			]().getTopicFilter();
+			topicFilterList.push(newFilter);
 		}
+		const topicFilters = [
+			topicFilterList.reduce((prev, cur, _i) => prev.concat(cur)),
+		] as TopicFilter;
 		// topic signature hashes
 		const topicHashes = eventNames.map(
 			(eventName) => this.PerpManagerProxy.filters[eventName]().fragment.topicHash
 		);
-		console.log("proxy topic0s", topicHashes);
-		const oneFilter = (await this.PerpManagerProxy.filters
-			.Trade()
-			.getTopicFilter()) as TopicFilter;
-		console.log("trade    filter", oneFilter);
-		console.log("combined filters", topicFilters);
 
 		// callbacks
 		const cb = async (
