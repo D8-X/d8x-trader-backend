@@ -53,6 +53,15 @@ _Response_: Example with all fields filled
 Empty example: `{"type":"my-referral-codes","msg":"","data":{"trader":{"code":""},"referrer":[],"agency":[]}}`
 Note that referrers and agencies can have multiple codes. Traders only have one current code.
 
+### get: `http://localhost:8889/is-agency?addr=0x9d5aaB428e98678d0E645ea3AeBd25f744341a05`
+
+_Description_: Find out whether the provided address is a 'whitelisted' agency with this broker (true/false)
+_Response_:
+
+```
+{"type":"is-agency","msg":"","data":{"isAgency":false}}
+```
+
 ### get: `http://localhost:8889/referral-volume?referrerAddr=0x9d5aab428e98678d0e645ea4aebd25f744341a05`
 
 _Description_: Get the volume referred by the given referrer. Volume is reported by pool and code in terms of collateral currency.

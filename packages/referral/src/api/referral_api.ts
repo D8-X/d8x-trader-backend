@@ -145,6 +145,15 @@ export default class ReferralAPI {
       }
     });
 
+    this.express.get("/is-agency", async (req: Request, res: Response) => {
+      try {
+        await this.onIsAgency(req, res);
+      } catch (err: any) {
+        const usg = `is-agency?addr=0x...`;
+        res.send(ReferralAPI.JSONResponse("error", "is-agency", { error: extractErrorMsg(err), usage: usg }));
+      }
+    });
+
     this.express.get("/earned-rebate", async (req: Request, res: Response) => {
       try {
         await this.onEarnedRebate(req, res);
@@ -182,6 +191,13 @@ export default class ReferralAPI {
     let addr = this.throwErrorIfInvalidAddr(req.query.referrerAddr);
     let perc: number = await this.tokenAccountant.getCutPercentageForReferrer(addr);
     res.send(ReferralAPI.JSONResponse("referral-rebate", "", { percentageCut: perc }));
+  }
+
+  private async onIsAgency(req: Request, res: Response) {
+    let addr = this.throwErrorIfInvalidAddr(req.query.addr);
+    let isPermissioned = this.referralCodeValidator.isPermissionedAgency(addr);
+
+    res.send(ReferralAPI.JSONResponse("is-agency", "", { isAgency: isPermissioned }));
   }
 
   private async onReferralVolume(req: Request, res: Response) {
