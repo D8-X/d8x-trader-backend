@@ -72,7 +72,7 @@ export default class ReferralPaymentExecutor {
         continue;
       }
       // we must use the timestamp of the latest payment as id
-      const id = BigInt(openPayments[k].last_payment_ts.getTime());
+      const id: number = openPayments[k].last_payment_ts.getTime();
       // we must encode the code and pool-id into the message
       const msg = msg4Chain + "." + openPayments[k].code + "." + openPayments[k].pool_id.toString();
       let txHash = await this.payExecutor.transactPayment(tokenAddr, amounts, addr, id, msg);
