@@ -25,7 +25,7 @@ interface PaySummary {
 export default class PayExecutorRemote extends AbstractPayExecutor {
   private brokerAddr: string = "";
   private endpointGetBrokerAddress = "/broker-address";
-  private endpointSignPaymentExecution = "/payment-signature";
+  private endpointSignPaymentExecution = "/sign-payment";
   private signer: Signer;
   constructor(
     privateKey: string,
@@ -123,7 +123,7 @@ export default class PayExecutorRemote extends AbstractPayExecutor {
   }
 
   /**
-   * Retrieve signature from broker which enables us to execute the
+   * Retrieve signature of payment request from broker which enables us to execute the
    * payment in lieu of the broker
    * @param signature
    * @param ps
