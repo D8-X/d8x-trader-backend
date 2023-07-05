@@ -99,6 +99,26 @@
     process "^0.11.10"
     typechain "^8.2.0"
 
+"@d8x/perpetuals-sdk@^0.7.14":
+  version "0.7.14"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.7.14.tgz#c97de0eb7bf511a8e6de5a7d973b8e1791ea1c84"
+  integrity sha512-gwo37NE3QNlRN7S/RKK65Io+rkRo7I3bqtJg7YNJuhWJLPe0pSn5q3rPVxCHaBjpvK9pL8en0zVwT1DEfAIdAQ==
+  dependencies:
+    "@ethersproject/abi" "^5.7.0"
+    "@ethersproject/abstract-signer" "^5.7.0"
+    "@ethersproject/bignumber" "^5.7.0"
+    "@ethersproject/bytes" "^5.7.0"
+    "@ethersproject/contracts" "^5.7.0"
+    "@ethersproject/keccak256" "^5.7.0"
+    "@ethersproject/providers" "^5.7.2"
+    "@ethersproject/strings" "^5.7.0"
+    "@ethersproject/units" "^5.7.0"
+    "@ethersproject/wallet" "^5.7.0"
+    "@typechain/ethers-v5" "^11.0.0"
+    buffer "^6.0.3"
+    process "^0.11.10"
+    typechain "^8.2.0"
+
 "@d8x/perpetuals-sdk@^0.7.7":
   version "0.7.7"
   resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.7.7.tgz#33c988664d67bf32bef9529341ba29a739cb5582"
