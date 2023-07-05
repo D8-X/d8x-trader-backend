@@ -72,6 +72,7 @@ function loadSettings() {
       }
     });
   }
+  file.permissionedAgencies = file.permissionedAgencies.map((x) => x.toLocaleLowerCase());
   if (file.tokenX.address != "" && !isValidAddress(file.tokenX.address)) {
     throw Error(`referralSettings: Invalid tokenX address: ${file.tokenX.address}`);
   }

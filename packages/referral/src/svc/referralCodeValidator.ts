@@ -50,7 +50,7 @@ export default class ReferralCodeValidator {
    */
   public async checkNewCodePayload(pyld: APIReferralCodePayload) {
     // throws:
-    if (pyld.agencyRebatePerc != 0 && !this.settings.permissionedAgencies.includes(pyld.agencyAddr)) {
+    if (pyld.agencyRebatePerc != 0 && !this.isPermissionedAgency(pyld.agencyAddr)) {
       throw Error(`Agency address ${pyld.agencyAddr} not permissioned by broker`);
     }
     ReferralCodeValidator.checkNewCodePayloadLogic(pyld);
@@ -61,6 +61,11 @@ export default class ReferralCodeValidator {
       const msg = `Code ${ReferralCodeValidator.washCode(pyld.code)} already exists`;
       throw Error(msg);
     }
+  }
+
+  public isPermissionedAgency(addr: string): boolean {
+    // pre-condition: load settings transforms all permissionedAgencies-addresses to lowercase
+    return this.settings.permissionedAgencies.includes(addr.toLowerCase());
   }
 
   public static checkNewCodePayloadLogic(pyld: APIReferralCodePayload) {
