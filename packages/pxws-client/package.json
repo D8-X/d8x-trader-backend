@@ -30,5 +30,7 @@
     "rimraf": "^4.4.1",
     "utils": "*"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "cron-schedule": "^4.0.0"
+  }
 }

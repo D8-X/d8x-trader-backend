@@ -25,14 +25,17 @@
     "url": "https://github.com/D8-X/d8x-trader-backend/issues"
   },
   "dependencies": {
-    "@d8x/perpetuals-sdk": "^0.7.7",
+    "@d8x/perpetuals-sdk": "^0.7.13",
     "@prisma/client": "^4.13.0",
+    "cron-schedule": "^4.0.0",
     "ethers": "^5.7.2",
     "express": "^4.18.2",
-    "winston": "^3.8.2",
     "ioredis": "^5.3.1",
     "rimraf": "^4.4.1",
-    "utils": "*"
+    "utils": "*",
+    "winston": "^3.8.2"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "cron-schedule": "^4.0.0"
+  }
 }
