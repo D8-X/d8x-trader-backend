@@ -1,6 +1,7 @@
 import Redis from "ioredis";
 import { Prisma } from "@prisma/client";
 import { WebsocketClientConfig } from "./wsTypes";
+import dotenv from "dotenv";
 import parser from "cron-parser";
 
 export interface RedisConfig {
@@ -161,7 +162,7 @@ export function getNextCronDate(pattern: string): Date {
  * @returns configuration of type WebsocketClientConfig
  */
 export function loadConfigJSON(chainId: number): WebsocketClientConfig[] {
-  let file = <WebsocketClientConfig[]>require("./wsConfig.json");
+  let file = <WebsocketClientConfig[]>require("../../../config/wsConfig.json");
   let relevantConfigs: WebsocketClientConfig[] = [];
   for (let k = 0; k < file.length; k++) {
     if (file[k].chainId == chainId) {
@@ -451,4 +452,34 @@ export async function calculateBlockFromTimeOld(
     }
   }
   return [0, nowblock];
+}
+
+export function chooseRandomRPC(ws = false): string {
+  dotenv.config();
+  let chainId: number = Number(<string>process.env.CHAIN_ID || -1);
+  if (chainId == -1) {
+    throw new Error("Set CHAIN_ID in .env (e.g. CHAIN_ID=80001)");
+  }
+  const rpc = require("../../../config/rpc.json");
+
+  let urls: string[] = [];
+  let otherRPC: string | undefined;
+  for (let k = 0; k < rpc.length; k++) {
+    if (rpc[k].chainId == chainId) {
+      if (ws) {
+        urls = rpc[k].WS;
+        otherRPC = process.env.WS_RPC_URL as string;
+      } else {
+        urls = rpc[k].HTTP;
+        otherRPC = process.env.HTTP_RPC_URL as string;
+      }
+      if (otherRPC != undefined) {
+        urls.push(otherRPC);
+      }
+    }
+  }
+  if (urls.length < 1) {
+    throw new Error(`No ${ws ? "Websocket" : "HTTP"} RPC defined for chain ID ${chainId}`);
+  }
+  return urls[Math.floor(Math.random() * urls.length)];
 }
