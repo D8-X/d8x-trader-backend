@@ -2,7 +2,7 @@
 
 The entire backend for the D8X Perpetuals trading frontend package consists of
 
-- this backend code - lerna monorepo consisting of a few services(history; api;
+- this backend code - lerna monorepo consisting of a few services (history; api;
   pxws-client) read [here](#services) to find out more about the services.
 - candle stick chart server: https://github.com/D8-X/candleD8
 - a price server that provides off-chain oracle prices: [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server)
@@ -12,12 +12,25 @@ the servers so the traffic can flow via https/wss.
 
 There must be one backend per chain-id.
 
+# Configuration
+
+Parameters for these services that can be optionally re-configured are found in the `./config` subdirectory at the root level.
+
+- rpc.json: A list of RPC URLs used for interacting with the different chains.
+  - You are not required to make changes to this file, but you may add or remove as many RPCs as you need
+  - It is encouraged to keep multiple HTTP options for best user experience/robustness
+  - At least one Websocket RPC must be defined, either in this file, or directly in the main .env file using the key WS_RPC_URL
+- wsConfig.json: A list of price IDs and price streaming endpoints
+  - You are encouraged to modify this configuration, but the services should be able to start with the default values provided
+  - See the main API [readme](./packages/api/README.md) for details
+- referralSettings.json: Configuration of the referral service
+  - See the referral API [readme](./packages/referral/README.md) for details
+
 # Docker compose setup
 
 You can spin up all services from this repo + Postgres database via `docker
-compose`. Copy the `.envExample` contents to `.env` file and set the values of
-`HTTP_RPC_URL` and `WS_RPC_URL` variables to your node http and websockets urls
-respectively. Then to start all services simply run:
+compose`. Copy the `.envExample` contents to `.env` file.
+You must set a value for `WS_RPC_URL` here (or in `./config/rpc.json` if you are using multiple RPCs). Then to start all services simply run:
 
 ```bash
 docker compose up --build
