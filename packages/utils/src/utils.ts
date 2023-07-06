@@ -1,7 +1,6 @@
 import Redis from "ioredis";
 import { Prisma } from "@prisma/client";
 import { WebsocketClientConfig } from "./wsTypes";
-import parser from "cron-parser";
 import dotenv from "dotenv";
 
 export interface RedisConfig {
