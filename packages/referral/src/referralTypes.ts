@@ -38,7 +38,7 @@ export interface ReferralOpenPayResponse {
   trader_cc_amtdec: bigint;
   referrer_cc_amtdec: bigint;
   agency_cc_amtdec: bigint;
-  broker_fee_cc: bigint;
+  broker_fee_cc_amtdec: bigint;
   cut_perc: number;
   token_addr: string;
   token_name: string;
