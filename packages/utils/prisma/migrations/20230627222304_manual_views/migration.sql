@@ -14,7 +14,7 @@ FROM referral_payment GROUP BY trader_addr, broker_addr, pool_id;
 --- We ensure only trades that happened after the last payment are included
 --- We ensure only trader-addresses for which the payment-record has been confirmed
 --- are included or they have no payment record 
---- if trader switch codes between payments only the latest code is reflected
+--- if trader switch codes between payments only the latest code is reflected from when it was switched
 --- via (lp.tx_confirmed IS NULL OR lp.tx_confirmed=true)
 CREATE VIEW referral_aggr_fees_per_trader AS
 SELECT 
@@ -33,6 +33,7 @@ LEFT JOIN referral_last_payment lp
     AND lp.broker_addr=th.broker_addr
 LEFT JOIN referral_code_usage codeusg
     ON th.trader_addr = codeusg.trader_addr
+    AND th.trade_timestamp > codeusg.valid_from
     AND codeusg.valid_to > NOW()
 WHERE (lp.last_payment_ts IS NULL OR lp.last_payment_ts<th.trade_timestamp)
     AND (lp.pool_id IS NULL OR lp.pool_id = th.perpetual_id/100000)
