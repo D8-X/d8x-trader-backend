@@ -122,12 +122,12 @@ export default class ReferralAPI {
       }
     });
 
-    this.express.get("/open-trader-rebates/", async (req: Request, res: Response) => {
+    this.express.get("/open-trader-rebate/", async (req: Request, res: Response) => {
       try {
-        await this.openTraderRebates(req, res);
+        await this.openTraderRebate(req, res);
       } catch (err: any) {
-        const usg = `open-trader-rebates?addr=0x...`;
-        res.send(ReferralAPI.JSONResponse("error", "open-trader-rebates", { error: extractErrorMsg(err), usage: usg }));
+        const usg = `open-trader-rebate?addr=0x...`;
+        res.send(ReferralAPI.JSONResponse("error", "open-trader-rebate", { error: extractErrorMsg(err), usage: usg }));
       }
     });
 
@@ -310,7 +310,7 @@ export default class ReferralAPI {
     res.send(ReferralAPI.JSONResponse("upsert-referral-code", "", { code: code, isNewCode: !existsCode }));
   }
 
-  private async openTraderRebates(req: Request, res: Response) {
+  private async openTraderRebate(req: Request, res: Response) {
     let addr = this.throwErrorIfInvalidAddr(req.query.addr);
     let table = await this.dbPayment.queryOpenPaymentsForTrader(addr, this.brokerAddr);
     interface APIOpenPayResponse {
