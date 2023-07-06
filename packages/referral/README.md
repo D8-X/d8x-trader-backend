@@ -53,6 +53,37 @@ _Response_: Example with all fields filled
 Empty example: `{"type":"my-referral-codes","msg":"","data":{"trader":{"code":""},"referrer":[],"agency":[]}}`
 Note that referrers and agencies can have multiple codes. Traders only have one current code.
 
+
+### get: `http://localhost:8889/code-info?code=REBATE100`
+
+_Description_: get code information for a given code
+
+- for privacy, referrer address, agency address, and broker address are only partially revealed
+- data is provided in an "array" with one element if the code was found, zero elements otherwise
+_Response_: 
+```
+{
+   "type":"code-info",
+   "msg":"",
+   "data":[
+      {
+         "code":"REBATE100XX",
+         "referrerAddr":"0x863ad9ce46acf...",
+         "agencyAddr":"0x9d5aab428e986...",
+         "brokerAddr":"0x5a09217f6d36e...",
+         "traderRebatePerc":15,
+         "agencyRebatePerc":70,
+         "referrerRebatePerc":15,
+         "createdOn":"2023-07-06T13:34:58.518Z",
+         "expiry":"2042-04-24T02:42:42.000Z"
+      }
+   ]
+}
+```
+
+empty response:
+`{"type":"code-info","msg":"code not found","data":[]}`
+
 ### get: `http://localhost:8889/is-agency?addr=0x9d5aaB428e98678d0E645ea3AeBd25f744341a05`
 
 _Description_: Find out whether the provided address is a 'whitelisted' agency with this broker (true/false)
