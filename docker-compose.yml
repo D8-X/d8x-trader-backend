@@ -33,6 +33,8 @@ services:
       - CORS_ON=${CORS_ON}
       - BROKER_KEY=${BROKER_KEY}
       - BROKER_FEE_TBPS=${BROKER_FEE_TBPS}
+      - HTTP_RPC_URL=${HTTP_RPC_URL}
+      - WS_RPC_URL=${WS_RPC_URL}
     ports:
       - "127.0.0.1:${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
       - "127.0.0.1:${PORT_REST}:${PORT_REST}"

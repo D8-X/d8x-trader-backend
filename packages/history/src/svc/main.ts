@@ -1,6 +1,7 @@
 import * as winston from "winston";
 import { EventListener } from "../contracts/listeners";
 import * as dotenv from "dotenv";
+import { chooseRandomRPC } from "utils";
 import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer";
 import {
 	BigNumberish,
@@ -49,8 +50,8 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 
 	// Check if required env variables were provided
 	const required = wantEnvs ?? [
-		"HTTP_RPC_URL",
-		"WS_RPC_URL",
+		// "HTTP_RPC_URL",
+		// "WS_RPC_URL",
 		"DATABASE_URL",
 		"SDK_CONFIG_NAME",
 		"CHAIN_ID",
@@ -76,8 +77,8 @@ export const main = async () => {
 	const prisma = new PrismaClient();
 
 	// Init blockchain provider
-	let wsRpcUrl = process.env.WS_RPC_URL as string;
-	let httpRpcUrl = process.env.HTTP_RPC_URL as string;
+	let wsRpcUrl = process.env.WS_RPC_URL ?? chooseRandomRPC(true);
+	let httpRpcUrl = process.env.HTTP_RPC_URL ?? chooseRandomRPC(false);
 	let chainId = Number(<string>process.env.CHAIN_ID || -1);
 	if (httpRpcUrl == "") {
 		httpRpcUrl = getDefaultRPC();

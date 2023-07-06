@@ -65,7 +65,7 @@ function checkMinimalRebateCollateralCurrencyAmountPerPool(rebate: Array<[number
   }
 }
 function loadSettings() {
-  let file = require("../referralSettings.json") as ReferralSettings;
+  let file = require("../../../config/referralSettings.json") as ReferralSettings;
   // some rudimentary checks
   if (file.permissionedAgencies.length > 0) {
     file.permissionedAgencies.map((a) => {
