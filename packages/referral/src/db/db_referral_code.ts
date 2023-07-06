@@ -209,6 +209,30 @@ export default class DBReferralCode {
     return { code: res.code, activeSince: res.valid_from };
   }
 
+  public async queryCode(code: string): Promise<APIReferralCodeRecord> {
+    const res = await this.prisma.referralCode.findFirst({
+      where: {
+        code: {
+          equals: code,
+          mode: "insensitive", //ensure no uppercase/lowercase problem
+        },
+      },
+      select: {
+        code: true,
+        referrer_addr: true,
+        agency_addr: true,
+        broker_addr: true,
+        trader_rebate_perc: true,
+        agency_rebate_perc: true,
+        referrer_rebate_perc: true,
+        created_on: true,
+        expiry: true,
+      },
+    });
+    let codes: APIReferralCodeRecord[] = this._formatReferralCodes([res]);
+    return codes[0];
+  }
+
   public async queryAgencyCodes(addr: string): Promise<APIReferralCodeRecord[]> {
     const res = await this.prisma.referralCode.findMany({
       where: {

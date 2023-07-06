@@ -162,6 +162,15 @@ export default class ReferralAPI {
         res.send(ReferralAPI.JSONResponse("error", "earned-rebate", { error: extractErrorMsg(err), usage: usg }));
       }
     });
+    
+    this.express.get("/code-info", async (req: Request, res: Response) => {
+        try {
+          await this.onCodeInfo(req, res);
+        } catch (err: any) {
+          const usg = `code-info?code=HAMZA1`;
+          res.send(ReferralAPI.JSONResponse("error", "earned-rebate", { error: extractErrorMsg(err), usage: usg }));
+        }
+      });
   }
 
   private throwErrorIfInvalidAddr(addr: any): string {
@@ -174,9 +183,35 @@ export default class ReferralAPI {
     return addr.toLowerCase();
   }
 
+  private throwErrorIfNoCode(rawCode: any) : string {
+    if (typeof rawCode != "string") {
+        throw Error("invalid code");
+      }
+    let codeAdj = ReferralCodeValidator.washCode(rawCode);
+    return codeAdj;
+  }
+
+  private async onCodeInfo(req: Request, res: Response) {
+    let addr: string = this.throwErrorIfNoCode(req.query.code);
+    let codeData: APIReferralCodeRecord;
+    try {
+        codeData = await this.dbReferralCode.queryCode(addr);
+        // anonymize address
+        codeData.referrerAddr = codeData.referrerAddr.substring(0,15)+"..."
+        codeData.brokerAddr = codeData.brokerAddr.substring(0,15)+"..."
+        codeData.agencyAddr = codeData.agencyAddr == "" ? "" : codeData.agencyAddr.substring(0,15)+"..."
+        
+        res.send(ReferralAPI.JSONResponse("code-info", "", [codeData]));
+    } catch(error) {
+        res.send(ReferralAPI.JSONResponse("code-info", "code not found", []));
+    }
+    
+  }
+
   private async onMyReferralCodes(req: Request, res: Response) {
     let addr: string = this.throwErrorIfInvalidAddr(req.query.addr);
     let traderCode: APITraderCode = await this.dbReferralCode.queryTraderCode(addr);
+    
     let referrerCodes: APIReferralCodeRecord[] = await this.dbReferralCode.queryReferrerCodes(addr);
     let agencyCodes: APIReferralCodeRecord[] = await this.dbReferralCode.queryAgencyCodes(addr);
     let resultObj = {
@@ -186,6 +221,8 @@ export default class ReferralAPI {
     };
     res.send(ReferralAPI.JSONResponse("my-referral-codes", "", resultObj));
   }
+
+
 
   private async onReferralRebate(req: Request, res: Response) {
     let addr = this.throwErrorIfInvalidAddr(req.query.referrerAddr);
