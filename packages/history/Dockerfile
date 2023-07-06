@@ -12,6 +12,6 @@ WORKDIR packages/history
 # Expose the provided API_PORT
 EXPOSE ${API_PORT}
 
-#CMD ["yarn", "run-production-reset"]
-CMD ["yarn", "run-production"]
+CMD ["yarn", "run-production-reset"]
+# CMD ["yarn", "run-production"]
 

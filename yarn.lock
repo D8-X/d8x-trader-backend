@@ -79,50 +79,10 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@d8x/perpetuals-sdk@^0.7.13":
-  version "0.7.13"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.7.13.tgz#27a8516cdc7e75532ce514feb60263ce863342cf"
-  integrity sha512-qlOH0X9YAj/FcRlvTJI566QC3mLR7bPpSIzpZNTwtlpcdLqqEZvhj93vfkBK12rzdCwlnadbLO1ClGVSHiuzhg==
-  dependencies:
-    "@ethersproject/abi" "^5.7.0"
-    "@ethersproject/abstract-signer" "^5.7.0"
-    "@ethersproject/bignumber" "^5.7.0"
-    "@ethersproject/bytes" "^5.7.0"
-    "@ethersproject/contracts" "^5.7.0"
-    "@ethersproject/keccak256" "^5.7.0"
-    "@ethersproject/providers" "^5.7.2"
-    "@ethersproject/strings" "^5.7.0"
-    "@ethersproject/units" "^5.7.0"
-    "@ethersproject/wallet" "^5.7.0"
-    "@typechain/ethers-v5" "^11.0.0"
-    buffer "^6.0.3"
-    process "^0.11.10"
-    typechain "^8.2.0"
-
-"@d8x/perpetuals-sdk@^0.7.14":
-  version "0.7.14"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.7.14.tgz#c97de0eb7bf511a8e6de5a7d973b8e1791ea1c84"
-  integrity sha512-gwo37NE3QNlRN7S/RKK65Io+rkRo7I3bqtJg7YNJuhWJLPe0pSn5q3rPVxCHaBjpvK9pL8en0zVwT1DEfAIdAQ==
-  dependencies:
-    "@ethersproject/abi" "^5.7.0"
-    "@ethersproject/abstract-signer" "^5.7.0"
-    "@ethersproject/bignumber" "^5.7.0"
-    "@ethersproject/bytes" "^5.7.0"
-    "@ethersproject/contracts" "^5.7.0"
-    "@ethersproject/keccak256" "^5.7.0"
-    "@ethersproject/providers" "^5.7.2"
-    "@ethersproject/strings" "^5.7.0"
-    "@ethersproject/units" "^5.7.0"
-    "@ethersproject/wallet" "^5.7.0"
-    "@typechain/ethers-v5" "^11.0.0"
-    buffer "^6.0.3"
-    process "^0.11.10"
-    typechain "^8.2.0"
-
-"@d8x/perpetuals-sdk@^0.7.7":
-  version "0.7.7"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.7.7.tgz#33c988664d67bf32bef9529341ba29a739cb5582"
-  integrity sha512-WvB092V6IYoJlCR+HJf7j9odnoncAdb4cyFBl8LGY4UCFrtAF931L4LqnBCrAvtgwMJeKel6Ir0I5UQWaAi2fw==
+"@d8x/perpetuals-sdk@^0.7.13", "@d8x/perpetuals-sdk@^0.7.16":
+  version "0.7.16"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.7.16.tgz#a8e3229c294689e0f4ab36e5fa8efa87633760c3"
+  integrity sha512-aA87UcujRXGzPUpCCV92PehzZ3Rc3TFDwYKtRsd+qUQ+wuQ6PvkfQYMr5o3ZiIVCkTlixc2pnsCyKy9gwoqpCA==
   dependencies:
     "@ethersproject/abi" "^5.7.0"
     "@ethersproject/abstract-signer" "^5.7.0"
