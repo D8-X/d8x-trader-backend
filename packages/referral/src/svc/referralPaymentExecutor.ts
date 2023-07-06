@@ -57,7 +57,7 @@ export default class ReferralPaymentExecutor {
       let [amounts, addr] = this._extractPaymentDirections(openPayments[k]);
       if (addr.length == 0) {
         this.l.info(
-          `Pay amount (total fee=${openPayments[k].broker_fee_cc}) too small for trader ${openPayments[k].trader_addr}`
+          `Pay amount (total fee=${openPayments[k].broker_fee_cc_amtdec}) too small for trader ${openPayments[k].trader_addr}`
         );
         continue;
       }
@@ -120,7 +120,7 @@ export default class ReferralPaymentExecutor {
    */
   private _extractPaymentDirections(openPayment: ReferralOpenPayResponse): [bigint[], string[]] {
     console.log(openPayment);
-    const totalFees = BigInt(openPayment.broker_fee_cc);
+    const totalFees = BigInt(openPayment.broker_fee_cc_amtdec);
     const poolId = Number(openPayment.pool_id);
     if (totalFees < this.minBrokerFeeCCForRebate.get(poolId)!) {
       return [[], []];

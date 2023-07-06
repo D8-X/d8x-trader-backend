@@ -391,7 +391,7 @@ export default class DBPayments {
                 TO_CHAR(trader_cc_amtdec, ${DECIMAL40_FORMAT_STRING}) AS trader_cc_amtdec,
                 TO_CHAR(referrer_cc_amtdec, ${DECIMAL40_FORMAT_STRING}) AS referrer_cc_amtdec,
                 TO_CHAR(agency_cc_amtdec, ${DECIMAL40_FORMAT_STRING}) AS agency_cc_amtdec,
-                TO_CHAR(broker_fee_cc, ${DECIMAL40_FORMAT_STRING}) AS broker_fee_cc,
+                TO_CHAR(broker_fee_cc_amtdec, ${DECIMAL40_FORMAT_STRING}) AS broker_fee_cc_amtdec,
                 cut_perc,
                 token_addr,
                 token_name,
@@ -404,7 +404,7 @@ export default class DBPayments {
       feeAggr[k].trader_cc_amtdec = BigInt(feeAggr[k].trader_cc_amtdec);
       feeAggr[k].referrer_cc_amtdec = BigInt(feeAggr[k].referrer_cc_amtdec);
       feeAggr[k].agency_cc_amtdec = BigInt(feeAggr[k].agency_cc_amtdec);
-      feeAggr[k].broker_fee_cc = BigInt(feeAggr[k].broker_fee_cc);
+      feeAggr[k].broker_fee_cc_amtdec = BigInt(feeAggr[k].broker_fee_cc_amtdec);
       if (feeAggr[k].last_payment_ts == null) {
         feeAggr[k].last_payment_ts = feeAggr[k].first_trade_considered_ts;
       }

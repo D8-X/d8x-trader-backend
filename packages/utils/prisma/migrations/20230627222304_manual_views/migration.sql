@@ -10,12 +10,19 @@ SELECT
 FROM referral_payment GROUP BY trader_addr, broker_addr, pool_id;
 
 
+--- UNITS
+---  1) Token amounts from perpetuals are in ABDK 64x64 format in which a decimal x is represented as x * 2^64,
+---  that is, if we can divide accurately with decimal numbers, if v is in ABDK format, v/2^64 is the corresponding decimal number
+---  2) ERC-20 tokens are represented in "decimal N"-format in which a decimal x is represented as x * 10^N
+---  3) some number denoted by TBPS from perpetuals are 'tenth of a basis point'-format in a number v is converted by v/1e5,
+---     for example 60 TBPS = 0.0006 = 6 bps
+
 --- Table that contains the aggregated fees since last payment
 --- We ensure only trades that happened after the last payment are included
 --- We ensure only trader-addresses for which the payment-record has been confirmed
 --- are included or they have no payment record 
---- if trader switch codes between payments only the latest code is reflected from when it was switched
---- via (lp.tx_confirmed IS NULL OR lp.tx_confirmed=true)
+--- if trader switch codes between payments only the latest code is reflected 
+--- starting at the last payment 
 CREATE VIEW referral_aggr_fees_per_trader AS
 SELECT 
     th.perpetual_id/100000 as pool_id,
@@ -23,7 +30,7 @@ SELECT
     th.broker_addr,
     COALESCE(codeusg.code,'DEFAULT') as code,
     sum(th.fee) as fee_sum_cc,
-    ROUND(SUM((th.broker_fee_tbps * ABS(th.quantity_cc))/100000)) as broker_fee_cc,
+    ROUND(SUM((th.broker_fee_tbps * ABS(th.quantity_cc))/100000)) as broker_fee_cc, -- ABDK 64x64 format
     min(th.trade_timestamp) as first_trade_considered_ts,
     max(th.trade_timestamp) as last_trade_considered_ts,
     lp.last_payment_ts 
@@ -33,7 +40,6 @@ LEFT JOIN referral_last_payment lp
     AND lp.broker_addr=th.broker_addr
 LEFT JOIN referral_code_usage codeusg
     ON th.trader_addr = codeusg.trader_addr
-    AND th.trade_timestamp > codeusg.valid_from
     AND codeusg.valid_to > NOW()
 WHERE (lp.last_payment_ts IS NULL OR lp.last_payment_ts<th.trade_timestamp)
     AND (lp.pool_id IS NULL OR lp.pool_id = th.perpetual_id/100000)
@@ -100,7 +106,7 @@ SELECT af.pool_id,
     COALESCE(curr.agency_rebate_perc, def.agency_rebate_perc) as agency_rebate_perc,
     COALESCE(curr.referrer_rebate_perc, def.referrer_rebate_perc) as referrer_rebate_perc,
     COALESCE(curr.cut_perc, 100) as cut_perc,-- see [1]
-    af.broker_fee_cc
+    af.broker_fee_cc -- ABDK 64x64 format
 FROM referral_aggr_fees_per_trader af
 LEFT JOIN referral_current_rebate curr
     ON curr.trader_addr = af.trader_addr
@@ -124,7 +130,7 @@ SELECT opf.pool_id,
     (opf.broker_fee_cc * opf.cut_perc * opf.trader_rebate_perc * POWER(10, minfo.token_decimals))/100/100/18446744073709551616 as trader_cc_amtdec,
     (opf.broker_fee_cc * opf.cut_perc * opf.referrer_rebate_perc * POWER(10, minfo.token_decimals))/100/100/18446744073709551616 as referrer_cc_amtdec,
     (opf.broker_fee_cc * opf.cut_perc * opf.agency_rebate_perc * POWER(10, minfo.token_decimals))/100/100/18446744073709551616 as agency_cc_amtdec,
-    opf.broker_fee_cc,
+    (opf.broker_fee_cc * POWER(10, minfo.token_decimals))/18446744073709551616 as broker_fee_cc_amtdec, -- convert ABDK to decN format
     opf.cut_perc,
     minfo.token_addr,
     minfo.token_name,
