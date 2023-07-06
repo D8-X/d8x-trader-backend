@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import express, { Express, Request, Response, response } from "express";
 import { Logger, error } from "winston";
-import { extractErrorMsg, toJson, isValidAddress } from "utils";
+import { extractErrorMsg, toJson, isValidAddress, decNToFloat } from "utils";
 import { ReferralCodeSigner } from "@d8x/perpetuals-sdk";
 import ReferralCodeValidator from "../svc/referralCodeValidator";
 import { APITraderCode, APIReferralCodeRecord, APIReferralVolume, APIRebateEarned } from "../referralTypes";
@@ -25,7 +25,6 @@ export default class ReferralAPI {
    */
   constructor(
     port: number,
-    private dbFeeAggregator: DBPayments,
     private dbReferralCode: DBReferralCode,
     private dbPayment: DBPayments,
     private referralCodeValidator: ReferralCodeValidator,
@@ -123,6 +122,15 @@ export default class ReferralAPI {
       }
     });
 
+    this.express.get("/open-trader-rebates/", async (req: Request, res: Response) => {
+      try {
+        await this.openTraderRebates(req, res);
+      } catch (err: any) {
+        const usg = `open-trader-rebates?addr=0x...`;
+        res.send(ReferralAPI.JSONResponse("error", "open-trader-rebates", { error: extractErrorMsg(err), usage: usg }));
+      }
+    });
+
     this.express.get("/my-referral-codes", async (req: Request, res: Response) => {
       try {
         await this.onMyReferralCodes(req, res);
@@ -162,15 +170,15 @@ export default class ReferralAPI {
         res.send(ReferralAPI.JSONResponse("error", "earned-rebate", { error: extractErrorMsg(err), usage: usg }));
       }
     });
-    
+
     this.express.get("/code-info", async (req: Request, res: Response) => {
-        try {
-          await this.onCodeInfo(req, res);
-        } catch (err: any) {
-          const usg = `code-info?code=HAMZA1`;
-          res.send(ReferralAPI.JSONResponse("error", "earned-rebate", { error: extractErrorMsg(err), usage: usg }));
-        }
-      });
+      try {
+        await this.onCodeInfo(req, res);
+      } catch (err: any) {
+        const usg = `code-info?code=HAMZA1`;
+        res.send(ReferralAPI.JSONResponse("error", "earned-rebate", { error: extractErrorMsg(err), usage: usg }));
+      }
+    });
   }
 
   private throwErrorIfInvalidAddr(addr: any): string {
@@ -183,10 +191,10 @@ export default class ReferralAPI {
     return addr.toLowerCase();
   }
 
-  private throwErrorIfNoCode(rawCode: any) : string {
+  private throwErrorIfNoCode(rawCode: any): string {
     if (typeof rawCode != "string") {
-        throw Error("invalid code");
-      }
+      throw Error("invalid code");
+    }
     let codeAdj = ReferralCodeValidator.washCode(rawCode);
     return codeAdj;
   }
@@ -195,23 +203,22 @@ export default class ReferralAPI {
     let addr: string = this.throwErrorIfNoCode(req.query.code);
     let codeData: APIReferralCodeRecord;
     try {
-        codeData = await this.dbReferralCode.queryCode(addr);
-        // anonymize address
-        codeData.referrerAddr = codeData.referrerAddr.substring(0,15)+"..."
-        codeData.brokerAddr = codeData.brokerAddr.substring(0,15)+"..."
-        codeData.agencyAddr = codeData.agencyAddr == "" ? "" : codeData.agencyAddr.substring(0,15)+"..."
-        
-        res.send(ReferralAPI.JSONResponse("code-info", "", [codeData]));
-    } catch(error) {
-        res.send(ReferralAPI.JSONResponse("code-info", "code not found", []));
+      codeData = await this.dbReferralCode.queryCode(addr);
+      // anonymize address
+      codeData.referrerAddr = codeData.referrerAddr.substring(0, 15) + "...";
+      codeData.brokerAddr = codeData.brokerAddr.substring(0, 15) + "...";
+      codeData.agencyAddr = codeData.agencyAddr == "" ? "" : codeData.agencyAddr.substring(0, 15) + "...";
+
+      res.send(ReferralAPI.JSONResponse("code-info", "", [codeData]));
+    } catch (error) {
+      res.send(ReferralAPI.JSONResponse("code-info", "code not found", []));
     }
-    
   }
 
   private async onMyReferralCodes(req: Request, res: Response) {
     let addr: string = this.throwErrorIfInvalidAddr(req.query.addr);
     let traderCode: APITraderCode = await this.dbReferralCode.queryTraderCode(addr);
-    
+
     let referrerCodes: APIReferralCodeRecord[] = await this.dbReferralCode.queryReferrerCodes(addr);
     let agencyCodes: APIReferralCodeRecord[] = await this.dbReferralCode.queryAgencyCodes(addr);
     let resultObj = {
@@ -221,8 +228,6 @@ export default class ReferralAPI {
     };
     res.send(ReferralAPI.JSONResponse("my-referral-codes", "", resultObj));
   }
-
-
 
   private async onReferralRebate(req: Request, res: Response) {
     let addr = this.throwErrorIfInvalidAddr(req.query.referrerAddr);
@@ -305,13 +310,36 @@ export default class ReferralAPI {
     res.send(ReferralAPI.JSONResponse("upsert-referral-code", "", { code: code, isNewCode: !existsCode }));
   }
 
+  private async openTraderRebates(req: Request, res: Response) {
+    let addr = this.throwErrorIfInvalidAddr(req.query.addr);
+    let table = await this.dbPayment.queryOpenPaymentsForTrader(addr, this.brokerAddr);
+    interface APIOpenPayResponse {
+      poolId: number;
+      lastPayment: Date;
+      code: string;
+      amountCC: number;
+      tokenName: string;
+    }
+    let result: APIOpenPayResponse[] = [];
+    for (let k = 0; k < table.length; k++) {
+      result.push({
+        poolId: Number(table[k].pool_id.toString()),
+        lastPayment: table[k].last_payment_ts,
+        code: table[k].code,
+        amountCC: decNToFloat(table[k].trader_cc_amtdec, table[k].token_decimals),
+        tokenName: table[k].token_name,
+      });
+    }
+    res.send(ReferralAPI.JSONResponse("open-trader-rebate", "", result));
+  }
+
   /**
    * test
    * @param req  request
    * @param resp response
    */
   private async openFees(req: Request, res: Response) {
-    let table = await this.dbFeeAggregator.aggregateFees(this.brokerAddr);
+    let table = await this.dbPayment.aggregateFees(this.brokerAddr);
     res.send(toJson(table));
   }
 }

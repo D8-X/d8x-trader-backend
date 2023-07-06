@@ -53,14 +53,14 @@ _Response_: Example with all fields filled
 Empty example: `{"type":"my-referral-codes","msg":"","data":{"trader":{"code":""},"referrer":[],"agency":[]}}`
 Note that referrers and agencies can have multiple codes. Traders only have one current code.
 
-
 ### get: `http://localhost:8889/code-info?code=REBATE100`
 
 _Description_: get code information for a given code
 
 - for privacy, referrer address, agency address, and broker address are only partially revealed
 - data is provided in an "array" with one element if the code was found, zero elements otherwise
-_Response_: 
+  _Response_:
+
 ```
 {
    "type":"code-info",
@@ -123,7 +123,9 @@ _Response_: `{"type":"referral-rebate","msg":"","data":{"percentageCut":3.5}}`
 `http://localhost:8889/earned-rebate?referrerAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05`
 `http://localhost:8889/earned-rebate?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05`
 
-_Response_: `{"type":"earned-rebates","msg":"","data":[{"poolId":1,"code":"DEFAULT","amountCC":15.808428909011253}]}`
+_Response_:
+
+`{"type":"earned-rebates","msg":"","data":[{"poolId":1,"code":"DEFAULT","amountCC":15.808428909011253}]}`
 Which is an array of the following type:
 
 ```
@@ -133,6 +135,15 @@ interface APIRebateEarned {
   amountCC: number;
 }
 ```
+
+### get: open-trader-rebates
+
+`http://localhost:8889/open-trader-rebates?addr=0x6fe871703eb23771c4016eb62140367944e8edfc`
+
+_Description_: Get the open payments to a trader in collateral currency per pool.
+
+_Response_:
+`{"type":"open-trader-rebate","msg":"","data":[{"poolId":1,"lastPayment":"2023-06-21T02:47:36.000Z","code":"DEFAULT","amountCC":0,"tokenName":"MATIC"}]}`
 
 ### post: `/select-referral-code`
 
@@ -151,6 +162,9 @@ let mycodeselection: APIReferralCodeSelectionPayload = {
 Trader signs (see test/referral.test.ts testSelectCode)
 
 _Response_: `{"type":"select-referral-code","msg":"","data":{"code": "REFERRAL42"}}`
+
+The amount can be zero (trader has trades). If the trader has no recorded trades we get
+an empty response: `{"type":"open-trader-rebate","msg":"","data":[]}`
 
 ### post: `/upsert-referral-code`
 
