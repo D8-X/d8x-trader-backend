@@ -138,7 +138,7 @@ model MarginTokenInfo {
   token_decimals Int
 }
 
-// referral codes are "globally unique" (the code is a database key)
+// referral codes are unique per broker and chain (the code is a database key)
 // e.g., they apply to all pools
 model ReferralCode {
   @@map("referral_code")
@@ -157,38 +157,43 @@ model ReferralCode {
   @@index([broker_addr], type: Hash)
   // 0 to many relationships
   referral_code_usage ReferralCodeUsage[]
-  referral_payments ReferralPayment[]
 }
 
 // current code registered for trader
 model ReferralCodeUsage {
   @@map("referral_code_usage")
-  trader_addr String @id @db.VarChar(200)
+  trader_addr String @db.VarChar(42)
   referral_code ReferralCode @relation(fields: [code], references: [code]) 
   code String @db.VarChar(200)
-  timestamp DateTime @db.Timestamptz @default(now())
+  valid_from DateTime @db.Timestamptz @default(now())
+  valid_to DateTime @db.Timestamptz @default("2042-01-01T00:42:42+00:00")
+  @@id([trader_addr, valid_from])
+  @@index([code])
+  @@index([valid_to])
 }
 
 model ReferralPayment {
   @@map("referral_payment")
   trader_addr String @db.VarChar(42)
   broker_addr String @db.VarChar(42)
-  referral_code ReferralCode @relation(fields: [code], references: [code])
+  // no constraint for referral code because we could collect the data from onchain
+  // and we could encounter an unknown referral code in this case
   code String @db.VarChar(200)
   pool_id Int
   timestamp DateTime @db.Timestamptz @default(now())
   // payment in token's number format, single transaction
   trader_paid_amount_cc Decimal @db.Decimal(40, 0)
-  broker_paid_amount_cc Decimal @db.Decimal(40, 0)
-  agency_paid_amount_cc Decimal @db.Decimal(40, 0)
   referrer_paid_amount_cc Decimal @db.Decimal(40, 0)
+  agency_paid_amount_cc Decimal @db.Decimal(40, 0)
+  broker_paid_amount_cc Decimal @db.Decimal(40, 0)
+    
   tx_hash String @db.Text
+  tx_confirmed Boolean @default(false)
   @@id([trader_addr, pool_id, timestamp])
   @@index([timestamp])
   @@index([pool_id])
   @@index([trader_addr])
 }
-
 
 // Referral cut as specified in referralSettings.json
 // The amount is stored in decimal-N format
@@ -208,8 +213,9 @@ model ReferralSettingCut {
 // The amount is stored in decimal-N format
 model ReferralTokenHoldings {
     @@map("referral_token_holdings")
-    referrer_addr String @id @db.VarChar(42)
+    referrer_addr String @db.VarChar(42)
     holding_amount_dec_n Decimal @db.Decimal(77, 0)
     token_addr String @db.VarChar(42)
     last_updated DateTime @db.Timestamptz @default(now())
+    @@id([referrer_addr, token_addr])
 }

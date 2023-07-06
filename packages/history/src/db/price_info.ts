@@ -15,7 +15,7 @@ export class PriceInfo {
 		// create or update
 		try {
 			let dt = new Date(timestampSec * 1000);
-			const res = await this.prisma.price.upsert({
+			await this.prisma.price.upsert({
 				where: {
 					pool_id_timestamp: { pool_id: pool_id, timestamp: dt },
 				},

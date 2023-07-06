@@ -1,4 +1,5 @@
 import { Logger } from "winston";
+import { calculateBlockFromTime } from "utils";
 import {
 	LiquidationsFilteredCb,
 	LiquidityAddedEvent,
@@ -14,8 +15,18 @@ import {
 	TradesFilteredCb,
 	UpdateMarginAccountEvent,
 	UpdateMarginAccountFilteredCb,
+	EventCallback,
 } from "./types";
-import { Contract, Provider, ethers, Interface, BigNumberish } from "ethers";
+import {
+	Contract,
+	Provider,
+	ethers,
+	Interface,
+	BigNumberish,
+	TopicFilter,
+	ContractEventName,
+	EventFragment,
+} from "ethers";
 import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
 
 global.Error.stackTraceLimit = Infinity;
@@ -27,7 +38,6 @@ global.Error.stackTraceLimit = Infinity;
 export class HistoricalDataFilterer {
 	// Perpetual manager proxy contract binding
 	public PerpManagerProxy: Contract;
-
 	constructor(
 		public provider: Provider,
 		public perpetualManagerProxyAddress: string,
@@ -43,237 +53,6 @@ export class HistoricalDataFilterer {
 	}
 
 	/**
-	 * Get the nearest block number for given time
-	 * @param time
-	 */
-	public async calculateBlockFromTime(time: Date | undefined): Promise<number> {
-		if (time === undefined) {
-			return 33600000;
-		}
-
-		const timestamp = time.getTime() / 1000;
-		let max = await this.provider.getBlockNumber();
-		let min = 33600000;
-		if (max <= min) {
-			return min;
-		}
-		let midpoint = Math.floor((max + min) / 2);
-
-		// allow up to 5 blocks (in past) of error when finding the block
-		// number. Threshold is in seconds (5 times ETH block time)
-		const threshold = 15 * 5;
-
-		let found = false;
-		while (!found) {
-			const blk = await this.provider.getBlock(midpoint);
-			if (blk) {
-				if (blk.timestamp > timestamp) {
-					max = blk.number;
-				} else {
-					min = blk.number;
-				}
-				// Found our block
-				if (
-					blk.timestamp - threshold <= timestamp &&
-					blk.timestamp + threshold >= timestamp
-				) {
-					return blk.number;
-				}
-
-				midpoint = Math.floor((max + min) / 2);
-			} else {
-				throw Error(`block ${midpoint} not found!`);
-			}
-		}
-
-		return 0;
-	}
-
-	/**
-	 * Retrieve trade events for given walletAddress from a provided since date.
-	 *
-	 * @param walletAddress
-	 * @param since
-	 * @param cb
-	 */
-	public async filterTrades(
-		walletAddress: string | null,
-		since: Date | undefined,
-		cb: TradesFilteredCb
-	) {
-		this.l.info("started trades filtering", { date: since });
-
-		const filter = this.PerpManagerProxy.filters.Trade(null, walletAddress);
-		this.genericFilterer(
-			filter,
-			await this.calculateBlockFromTime(since),
-			"Trade",
-			this.PerpManagerProxy,
-			(
-				decodedTradeEvent: Record<string, any>,
-				e: ethers.EventLog,
-				blockTimestamp: number
-			) => {
-				decodedTradeEvent.order = decodedTradeEvent.order.toObject();
-				cb(
-					decodedTradeEvent as TradeEvent,
-					e.transactionHash,
-					e.blockNumber,
-					blockTimestamp
-				);
-			}
-		);
-	}
-
-	/**
-	 * Retrieve Liquidate events for given walletAddress from a provided since date.
-	 *
-	 * @param walletAddress
-	 * @param since
-	 * @param cb
-	 */
-	public async filterLiquidations(
-		walletAddress: string | null,
-		since: Date | undefined,
-		cb: LiquidationsFilteredCb
-	) {
-		this.l.info("started liquidations filtering", { date: since });
-
-		const filter = this.PerpManagerProxy.filters.Liquidate(null, walletAddress);
-
-		this.genericFilterer(
-			filter,
-			await this.calculateBlockFromTime(since),
-			"Liquidate",
-			this.PerpManagerProxy,
-			(
-				decodedEvent: Record<string, any>,
-				e: ethers.EventLog,
-				blockTimestamp: number
-			) => {
-				cb(
-					decodedEvent as LiquidateEvent,
-					e.transactionHash,
-					e.blockNumber,
-					blockTimestamp
-				);
-			}
-		);
-	}
-
-	/**
-	 * Retrieve UpdateMarginAccount events for given walletAddress from a provided since date.
-	 *
-	 * @param walletAddress - trader field
-	 * @param since
-	 * @param cb
-	 */
-	public async filterUpdateMarginAccount(
-		walletAddress: string | null,
-		since: Date | undefined,
-		cb: UpdateMarginAccountFilteredCb
-	) {
-		this.l.info("started margin account updates filtering", { date: since });
-
-		const filter = this.PerpManagerProxy.filters.UpdateMarginAccount(
-			null,
-			walletAddress
-		);
-		this.genericFilterer(
-			filter,
-			await this.calculateBlockFromTime(since),
-			"UpdateMarginAccount",
-			this.PerpManagerProxy,
-			(
-				decodedEvent: Record<string, any>,
-				e: ethers.EventLog,
-				blockTimestamp: number
-			) => {
-				cb(
-					decodedEvent as UpdateMarginAccountEvent,
-					e.transactionHash,
-					e.blockNumber,
-					blockTimestamp
-				);
-			}
-		);
-	}
-	/**
-	 * Retrieve LiquidityAdded events for given walletAddress from a provided since date.
-	 *
-	 * @param walletAddress - trader field
-	 * @param since
-	 * @param cb
-	 */
-	public async filterLiquidityAdded(
-		walletAddress: string | null,
-		since: Date | undefined,
-		cb: LiquidityAddedFilteredCb
-	) {
-		this.l.info("started liquidity added filtering", { date: since });
-
-		const filter = this.PerpManagerProxy.filters.LiquidityAdded(null, walletAddress);
-		this.genericFilterer(
-			filter,
-			await this.calculateBlockFromTime(since),
-			"LiquidityAdded",
-
-			this.PerpManagerProxy,
-			(
-				decodedEvent: Record<string, any>,
-				e: ethers.EventLog,
-				blockTimestamp: number
-			) => {
-				cb(
-					decodedEvent as LiquidityAddedEvent,
-					e.transactionHash,
-					e.blockNumber,
-					blockTimestamp
-				);
-			}
-		);
-	}
-
-	/**
-	 * Retrieve UpdateMarginAccount events for given walletAddress from a provided since date.
-	 *
-	 * @param walletAddress - trader field
-	 * @param since
-	 * @param cb
-	 */
-	public async filterLiquidityRemoved(
-		walletAddress: string | null,
-		since: Date | undefined,
-		cb: LiquidityRemovedFilteredCb
-	) {
-		this.l.info("started liquidity removed filtering", { date: since });
-
-		const filter = this.PerpManagerProxy.filters.LiquidityRemoved(
-			null,
-			walletAddress
-		);
-		this.genericFilterer(
-			filter,
-			await this.calculateBlockFromTime(since),
-			"LiquidityRemoved",
-
-			this.PerpManagerProxy,
-			(
-				decodedEvent: Record<string, any>,
-				e: ethers.EventLog,
-				blockTimestamp: number
-			) => {
-				cb(
-					decodedEvent as LiquidityRemovedEvent,
-					e.transactionHash,
-					e.blockNumber,
-					blockTimestamp
-				);
-			}
-		);
-	}
-
-	/**
 	 *
 	 * Retrieve P2PTransfers from all given sharetTokenContracts
 	 * @param shareTokenContracts - share token contract addresses
@@ -282,7 +61,7 @@ export class HistoricalDataFilterer {
 	 */
 	public async filterP2Ptransfers(
 		shareTokenContracts: string[],
-		since: Array<Date | undefined>,
+		since: Array<Date>,
 		cb: P2PTransferFilteredCb
 	) {
 		const shareTokenAbi = await getShareTokenContractABI();
@@ -293,13 +72,13 @@ export class HistoricalDataFilterer {
 			});
 			// Pools start at 1
 			const poolId = i + 1;
-
 			const c = new Contract(currentAddress, shareTokenAbi, this.provider);
 			const filter = c.filters.P2PTransfer();
+			const sinceBlock = (await calculateBlockFromTime(this.provider, since[i]))[0];
 			this.genericFilterer(
 				filter,
-				await this.calculateBlockFromTime(since[i]),
-				"P2PTransfer",
+				sinceBlock,
+				[filter.fragment.topicHash],
 				c,
 				(
 					decodedTradeEvent: Record<string, any>,
@@ -317,36 +96,127 @@ export class HistoricalDataFilterer {
 			);
 		}
 	}
-	public async filterLiquidityWithdrawalInitiations(
-		walletAddress: string | null,
-		since: Date | undefined,
-		cb: LiquidityWithdrawalInitiatedFilteredCb
-	) {
-		this.l.info("started liquidity withdrawal initiated filtering", { date: since });
 
-		const filter = this.PerpManagerProxy.filters.LiquidityWithdrawalInitiated(
-			null,
-			walletAddress
+	/**
+	 *
+	 * @param since Date to start recording from
+	 * @param callbacks Event name => EventCallback to invoke for each such event
+	 */
+	public async filterProxyEvents(
+		since: Date,
+		callbacks: Record<string, EventCallback<any>>
+	) {
+		// events in scope
+		const eventNames = [
+			"Trade",
+			"Liquidate",
+			"UpdateMarginAccount",
+			"LiquidityAdded",
+			"LiquidityRemoved",
+			"LiquidityWithdrawalInitiated",
+		];
+		const cbKeys = Object.keys(callbacks);
+		for (const eventName of cbKeys) {
+			if (!eventNames.some((x) => x == eventName)) {
+				throw new Error(`Unknown event ${eventName}`);
+			}
+		}
+		for (const eventName of eventNames) {
+			if (!cbKeys.some((x) => x == eventName)) {
+				throw new Error(`Missing event ${eventName}`);
+			}
+		}
+
+		// topic filters
+		let topicFilterList: TopicFilter[] = [];
+		for (const eventName of eventNames) {
+			const newFilter = await this.PerpManagerProxy.filters[
+				eventName
+			]().getTopicFilter();
+			topicFilterList.push(newFilter);
+		}
+		const topicFilters = [
+			topicFilterList.reduce((prev, cur, _i) => prev.concat(cur)),
+		] as TopicFilter;
+		// topic signature hashes
+		const topicHashes = eventNames.map(
+			(eventName) => this.PerpManagerProxy.filters[eventName]().fragment.topicHash
 		);
 
-		// We want to process lpwi events in a synchronous way
-		await this.genericFilterer(
-			filter,
-			await this.calculateBlockFromTime(since),
-			"LiquidityWithdrawalInitiated",
-			this.PerpManagerProxy,
-			(
-				decodedTradeEvent: Record<string, any>,
-				e: ethers.EventLog,
-				blockTimestamp: number
-			) => {
-				cb(
-					decodedTradeEvent as LiquidityWithdrawalInitiatedEvent,
-					e.transactionHash,
-					e.blockNumber,
-					blockTimestamp
-				);
+		// callbacks
+		const cb = async (
+			decodedEvent: Record<string, any>,
+			e: ethers.EventLog,
+			blockTimestamp: number
+		) => {
+			const eventName = this.PerpManagerProxy.interface.getEventName(e.topics[0]);
+			// TODO: can't do this because of the casting below ... not necessarily better, but would be shorter code
+			// callbacks[eventName](
+			// 	decodedEvent as TradeEvent, // <--
+			// 	e.transactionHash,
+			// 	e.blockNumber,
+			// 	blockTimestamp
+			// );
+			switch (eventName) {
+				case "Trade":
+					callbacks["Trade"](
+						decodedEvent as TradeEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp
+					);
+					break;
+				case "Liquidate":
+					callbacks["Liquidate"](
+						decodedEvent as LiquidateEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp
+					);
+					break;
+				case "UpdateMarginAccount":
+					callbacks["UpdateMarginAccount"](
+						decodedEvent as UpdateMarginAccountEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp
+					);
+					break;
+				case "LiquidityAdded":
+					callbacks["LiquidityAdded"](
+						decodedEvent as LiquidityAddedEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp
+					);
+					break;
+				case "LiquidityWithdrawalInitiated":
+					callbacks["LiquidityWithdrawalInitiated"](
+						decodedEvent as LiquidityWithdrawalInitiatedEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp
+					);
+					break;
+				case "LiquidityRemoved":
+					callbacks["LiquidityRemoved"](
+						decodedEvent as LiquidityRemovedEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp
+					);
+					break;
+				default:
+					break;
 			}
+		};
+		const sinceBlock = (await calculateBlockFromTime(this.provider, since))[0];
+		await this.genericFilterer(
+			topicFilters!,
+			sinceBlock,
+			topicHashes,
+			this.PerpManagerProxy,
+			cb
 		);
 	}
 
@@ -359,9 +229,9 @@ export class HistoricalDataFilterer {
 	 * @param cb
 	 */
 	private async genericFilterer(
-		filter: ethers.DeferredTopicFilter,
+		filter: ContractEventName,
 		fromBlock: BigNumberish,
-		eventName: string,
+		topicHashes: string[],
 		c: Contract,
 		cb: (
 			decodedEvent: Record<string, any>,
@@ -372,8 +242,10 @@ export class HistoricalDataFilterer {
 		// limit: 10_000 blocks in one eth_getLogs call
 		const deltaBlocks = 9_999;
 		const endBlock = await this.provider.getBlockNumber();
+		const eventNames = topicHashes.map((topic0) => c.interface.getEventName(topic0));
 
 		this.l.info("querying historical logs", {
+			events: eventNames,
 			fromBlock: fromBlock,
 			numBlocks: endBlock - Number(fromBlock),
 		});
@@ -421,27 +293,55 @@ export class HistoricalDataFilterer {
 			}
 		}
 
-		const eventFragment = c.interface.getEvent(eventName) as ethers.EventFragment;
+		this.l.info("finished querying historical logs", {
+			events: eventNames,
+			eventsFound: events.length,
+		});
 
-		const iface = new Interface([eventFragment]);
+		if (events.length < 1) {
+			return;
+		}
 
-		// Check if we can get events one by one (via generator or smth)
-
+		const eventFragments = topicHashes.map(
+			(topic0) => c.interface.getEvent(topic0) as EventFragment
+		);
+		let blockTimestamp = new Map<Number, number>();
 		for (let i = 0; i < events.length; i++) {
 			const event = events[i];
-			let log = iface
-				.decodeEventLog(eventFragment, event.data, event.topics)
-				.toObject();
-			const b = await event.getBlock();
+			for (let j = 0; j < topicHashes.length; j++) {
+				if (topicHashes[j] == event.topics[0]) {
+					// found event
+					let log = c.interface.decodeEventLog(
+						eventFragments[j],
+						event.data,
+						event.topics
+					);
+					// one call per block with event
+					if (blockTimestamp.get(event.blockNumber) == undefined) {
+						blockTimestamp.set(
+							event.blockNumber,
+							(await event.getBlock()).timestamp
+						);
+					}
+					let ts = blockTimestamp.get(event.blockNumber)!;
+					// do work
+					cb(log, event, ts);
 
-			cb(log, event, b.timestamp);
-
-			// limit: 25 requests per second
-			numRequests++;
-			if (numRequests >= 25) {
-				numRequests = 0;
-				await new Promise((resolve) => setTimeout(resolve, 1_100));
+					// TODO: how to get rid of this?
+					// limit: 25 requests per second
+					numRequests++;
+					if (numRequests >= 25) {
+						numRequests = 0;
+						await new Promise((resolve) => setTimeout(resolve, 1_100));
+					}
+					break;
+				}
 			}
 		}
+		this.l.info("finished saving historical logs", {
+			events: eventNames,
+			fromBlock: fromBlock,
+			numBlocks: endBlock - Number(fromBlock),
+		});
 	}
 }

@@ -27,6 +27,7 @@ import { getSDKFromEnv } from "../utils/abi";
 import dotenv from "dotenv";
 import cors from "cors";
 import { PriceInfo } from "../db/price_info";
+export const DECIMAL40_FORMAT_STRING = "FM9999999999999999999999999999999999999";
 
 // Make sure the decimal values are always return as normal numeric strings
 // instead of scientific notation
@@ -244,7 +245,7 @@ export class PNLRestAPI {
 				tkn: string;
 			}
 			const sumTokenAmount = await this.opts.prisma.$queryRaw<EstEarningTokenSum[]>`
-                select CAST(COALESCE(sum(token_amount),0) AS VARCHAR) as tkn from estimated_earnings_tokens 
+                select TO_CHAR(COALESCE(sum(token_amount),0), ${DECIMAL40_FORMAT_STRING}) as tkn from estimated_earnings_tokens 
                 where LOWER(liq_provider_addr) = ${user_wallet} AND pool_id = ${poolIdNum}`;
 
 			const decimalConvention =
@@ -259,13 +260,12 @@ export class PNLRestAPI {
 				poolIdNum
 			);
 			// Value is shareTokenBalance * latest price from contract
-            if (earningsTokensSum!=0) {
-                earningsTokensSum += participationValue?.value ?? 0;
-            } else {
-                earningsTokensSum = 0;
-            }
-			
-            
+			if (earningsTokensSum != 0) {
+				earningsTokensSum += participationValue?.value ?? 0;
+			} else {
+				earningsTokensSum = 0;
+			}
+
 			resp.contentType("json");
 			resp.send(
 				toJson({
