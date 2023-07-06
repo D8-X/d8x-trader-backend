@@ -1,9 +1,10 @@
 import { ethers, providers } from "ethers";
 import {
-  getPreviousDate,
+  getPreviousCronDate,
   cronParserCheckExpression,
   calculateBlockFromTime,
   floatToDec18,
+  adjustNDigitPercentagesTo100,
 } from "../packages/utils/src/utils";
 import { error } from "console";
 async function test() {
@@ -39,9 +40,19 @@ function testGetPrevDate() {
 
   let pattern = "0-14-*-3";
   let aRight = cronParserCheckExpression(pattern);
-  let v = getPreviousDate(pattern);
+  let v = getPreviousCronDate(pattern);
   console.log(v);
+}
+
+function testadjustNDigitPercentagesTo100() {
+  //let v = adjustNDigitPercentagesTo100([98.1212, 2, 0, 1], 2);
+  let v = adjustNDigitPercentagesTo100([98.1, 0.1, 0, 0.5], 2);
+  console.log(v);
+  let s = 0;
+  v.forEach((x) => (s += x));
+  console.log("sum=", s);
 }
 //test();
 
-testGetPrevDate();
+//testGetPrevDate();
+testadjustNDigitPercentagesTo100();

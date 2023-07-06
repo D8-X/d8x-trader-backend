@@ -3,7 +3,7 @@ import { Logger } from "winston";
 import ReferralCodeValidator from "../svc/referralCodeValidator";
 import { ReferralSettings, APIReferralCodeRecord, APITraderCode } from "../referralTypes";
 import { APIReferralCodePayload, APIReferralCodeSelectionPayload } from "@d8x/perpetuals-sdk";
-import { sleep } from "utils";
+import { sleep, adjustNDigitPercentagesTo100 } from "utils";
 
 interface ReferralCodeData {
   brokerPayoutAddr: string;
@@ -23,21 +23,29 @@ export default class DBReferralCode {
   ) {}
 
   public async insertNewCodeFromPayload(payload: APIReferralCodePayload) {
+    let perc: number[] = adjustNDigitPercentagesTo100(
+      [payload.traderRebatePerc, payload.referrerRebatePerc, payload.agencyRebatePerc],
+      2
+    );
     const dbData: ReferralCodeData = {
       brokerPayoutAddr: this.settings.brokerPayoutAddr,
       referrerAddr: payload.referrerAddr,
       agencyAddr: payload.agencyAddr,
-      traderReferrerAgencyPerc: [payload.traderRebatePerc, payload.referrerRebatePerc, payload.agencyRebatePerc],
+      traderReferrerAgencyPerc: [perc[0], perc[1], perc[2]],
     };
     await this.insert(payload.code, dbData);
   }
 
   public async updateCodeFromPayload(payload: APIReferralCodePayload) {
+    let perc: number[] = adjustNDigitPercentagesTo100(
+      [payload.traderRebatePerc, payload.referrerRebatePerc, payload.agencyRebatePerc],
+      2
+    );
     const dbData: ReferralCodeData = {
       brokerPayoutAddr: this.settings.brokerPayoutAddr,
       referrerAddr: payload.referrerAddr,
       agencyAddr: payload.agencyAddr,
-      traderReferrerAgencyPerc: [payload.traderRebatePerc, payload.referrerRebatePerc, payload.agencyRebatePerc],
+      traderReferrerAgencyPerc: [perc[0], perc[1], perc[2]],
     };
     await this.update(payload.code, dbData);
   }
@@ -113,8 +121,6 @@ export default class DBReferralCode {
    */
   public async update(codeName: string, rd: ReferralCodeData): Promise<void> {
     const cleanCodeName = ReferralCodeValidator.washCode(codeName);
-    // ensure percentages add up to 100%
-    let feeDistribution = this.adjustPercentages(rd.traderReferrerAgencyPerc);
     //INSERT INTO referral_code (code, referrer_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc)
     await this.prisma.referralCode.update({
       where: {
@@ -125,9 +131,9 @@ export default class DBReferralCode {
         agency_addr: rd.agencyAddr.toLowerCase(),
         broker_addr: this.brokerAddr.toLowerCase(),
         broker_payout_addr: rd.brokerPayoutAddr.toLowerCase(),
-        trader_rebate_perc: feeDistribution.trader,
-        referrer_rebate_perc: feeDistribution.referrer,
-        agency_rebate_perc: feeDistribution.agency,
+        trader_rebate_perc: rd.traderReferrerAgencyPerc[0],
+        referrer_rebate_perc: rd.traderReferrerAgencyPerc[1],
+        agency_rebate_perc: rd.traderReferrerAgencyPerc[2],
       },
     });
     this.l.info("updated referral code info", {
@@ -148,8 +154,6 @@ export default class DBReferralCode {
       throw Error("cannot insert code, already exists" + cleanCodeName);
     }
 
-    // ensure percentages add up to 100%
-    let feeDistribution = this.adjustPercentages(rd.traderReferrerAgencyPerc);
     //INSERT INTO referral_code (code, referrer_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc)
     await this.prisma.referralCode.create({
       data: {
@@ -158,9 +162,9 @@ export default class DBReferralCode {
         agency_addr: rd.agencyAddr.toLowerCase(),
         broker_addr: this.brokerAddr.toLowerCase(),
         broker_payout_addr: rd.brokerPayoutAddr.toLowerCase(),
-        trader_rebate_perc: feeDistribution.trader,
-        referrer_rebate_perc: feeDistribution.referrer,
-        agency_rebate_perc: feeDistribution.agency,
+        trader_rebate_perc: rd.traderReferrerAgencyPerc[0],
+        referrer_rebate_perc: rd.traderReferrerAgencyPerc[1],
+        agency_rebate_perc: rd.traderReferrerAgencyPerc[2],
       },
     });
     this.l.info("inserted new referral code info", {
@@ -313,7 +317,7 @@ export default class DBReferralCode {
     agency: number;
   } {
     function twoDig(x: number): number {
-      return Math.round(traPerc[0] * 100) / 100;
+      return Math.round(x * 100) / 100;
     }
     let v0 = twoDig(traPerc[0]);
     let v1 = twoDig(traPerc[1]);
