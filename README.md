@@ -16,7 +16,7 @@ There must be one backend per chain-id.
 
 Parameters for these services that can be optionally re-configured are found in the `./config` subdirectory at the root level.
 
-- rpc.json: Alist of RPC URLs used for interacting with the different chains.
+- rpc.json: A list of RPC URLs used for interacting with the different chains.
   - You are not required to make changes to this file, but you may add or remove as many RPCs as you need
   - It is encouraged to keep multiple HTTP options for best user experience/robustness
   - At least one Websocket RPC must be defined, either in this file, or directly in the main .env file using the key WS_RPC_URL
