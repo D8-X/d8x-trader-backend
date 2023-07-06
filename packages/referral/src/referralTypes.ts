@@ -45,6 +45,16 @@ export interface ReferralOpenPayResponse {
   token_decimals: number;
 }
 
+export interface TraderOpenPayResponse {
+  pool_id: bigint;
+  last_payment_ts: Date;
+  first_trade_considered_ts: Date;
+  code: string;
+  trader_cc_amtdec: bigint;
+  token_name: string;
+  token_decimals: number;
+}
+
 export interface TokenAccount {
   referrerAddr: string;
   tokenHoldings: bigint;

@@ -9,6 +9,7 @@ import {
   TEMPORARY_TX_HASH,
   APIReferralVolume,
   APIRebateEarned,
+  TraderOpenPayResponse,
 } from "../referralTypes";
 
 // Make sure the decimal values are always return as normal numeric strings
@@ -408,7 +409,27 @@ export default class DBPayments {
         feeAggr[k].last_payment_ts = feeAggr[k].first_trade_considered_ts;
       }
     }
-    console.log("dbPayments=", feeAggr);
+    //console.log("dbPayments=", feeAggr);
     return feeAggr;
+  }
+
+  public async queryOpenPaymentsForTrader(traderAddr: string, brokerAddr: string) {
+    const addr = traderAddr.toLowerCase();
+    const res = await this.prisma.$queryRaw<TraderOpenPayResponse[]>`
+        SELECT pool_id, first_trade_considered_ts, last_payment_ts, code, token_name, token_decimals, TO_CHAR(sum(trader_cc_amtdec), ${DECIMAL40_FORMAT_STRING}) AS trader_cc_amtdec
+        FROM referral_open_pay
+        WHERE LOWER(trader_addr)=${addr} AND broker_addr=${brokerAddr}
+        GROUP BY pool_id, last_payment_ts, code, first_trade_considered_ts, token_name, token_decimals;`;
+    // cast types
+    for (let k = 0; k < res.length; k++) {
+      res[k].pool_id = BigInt(res[k].pool_id);
+      res[k].trader_cc_amtdec = BigInt(res[k].trader_cc_amtdec);
+      if (res[k].last_payment_ts == null) {
+        res[k].last_payment_ts = res[k].first_trade_considered_ts;
+      }
+      res;
+    }
+    console.log("dbPayments=", res);
+    return res;
   }
 }

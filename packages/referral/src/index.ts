@@ -218,7 +218,6 @@ async function start() {
   const prisma = new PrismaClient();
   const dbReferralCode = new DBReferralCode(BigInt(chainId), prisma, brokerAddr, settings, logger);
   const dbReferralCuts = new ReferralCut(BigInt(chainId), prisma, logger);
-  const dbFeeAggregator = new DBPayments(BigInt(chainId), prisma, logger);
   const dbTokenHoldings = new DBTokenHoldings(BigInt(chainId), prisma, logger);
   const referralCodeValidator = new ReferralCodeValidator(settings, dbReferralCode);
   const dbPayment = new DBPayments(BigInt(chainId), prisma, logger);
@@ -229,16 +228,7 @@ async function start() {
   ta.initProvider(rpcUrl);
   await ta.fetchBalancesFromChain();
   // start REST API server
-  let api = new ReferralAPI(
-    port,
-    dbFeeAggregator,
-    dbReferralCode,
-    dbPayment,
-    referralCodeValidator,
-    ta,
-    brokerAddr,
-    logger
-  );
+  let api = new ReferralAPI(port, dbReferralCode, dbPayment, referralCodeValidator, ta, brokerAddr, logger);
   await api.initialize();
   // start payment manager
   logger.info("Starting Referral system");
