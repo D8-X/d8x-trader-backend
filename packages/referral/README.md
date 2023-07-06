@@ -136,9 +136,9 @@ interface APIRebateEarned {
 }
 ```
 
-### get: open-trader-rebates
+### get: open-trader-rebate
 
-`http://localhost:8889/open-trader-rebates?addr=0x6fe871703eb23771c4016eb62140367944e8edfc`
+`http://localhost:8889/open-trader-rebate?addr=0x6fe871703eb23771c4016eb62140367944e8edfc`
 
 _Description_: Get the open payments to a trader in collateral currency per pool.
 
