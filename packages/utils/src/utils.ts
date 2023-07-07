@@ -162,7 +162,7 @@ export function getNextCronDate(pattern: string): Date {
  * @returns configuration of type WebsocketClientConfig
  */
 export function loadConfigJSON(chainId: number): WebsocketClientConfig[] {
-  let file = <WebsocketClientConfig[]>require("../../../config/wsConfig.json");
+  let file = <WebsocketClientConfig[]>require("../../../config/live.wsConfig.json");
   let relevantConfigs: WebsocketClientConfig[] = [];
   for (let k = 0; k < file.length; k++) {
     if (file[k].chainId == chainId) {
@@ -454,21 +454,20 @@ export async function calculateBlockFromTimeOld(
   return [0, nowblock];
 }
 
-export function chooseRandomRPC(ws = false): string {
+export function chooseRandomRPC(ws = false, rpcConfig: any): string {
   dotenv.config();
   let chainId: number = Number(<string>process.env.CHAIN_ID || -1);
   if (chainId == -1) {
     throw new Error("Set CHAIN_ID in .env (e.g. CHAIN_ID=80001)");
   }
-  const rpc = require("../../../config/rpc.json");
 
   let urls: string[] = [];
-  for (let k = 0; k < rpc.length; k++) {
-    if (rpc[k].chainId == chainId) {
+  for (let k = 0; k < rpcConfig.length; k++) {
+    if (rpcConfig[k].chainId == chainId) {
       if (ws) {
-        urls = rpc[k].WS;
+        urls = rpcConfig[k].WS;
       } else {
-        urls = rpc[k].HTTP;
+        urls = rpcConfig[k].HTTP;
       }
     }
   }

@@ -18,14 +18,15 @@ There must be one backend per chain-id.
 
 Parameters for the backend services are found in the `./config` subdirectory at the root level.
 
-- rpc.json: A list of RPC URLs used for interacting with the different chains.
+- Copy the files in ./config/example.<name>.json into ./config/live.<name>.json (i.e., copy and replace prefix "example." with prefix "live.")
+- live.rpc.json: A list of RPC URLs used for interacting with the different chains.
   - You are not required to make changes to this file, but you may add or remove as many RPCs as you need
   - It is encouraged to keep multiple HTTP options for best user experience/robustness
   - At least one Websocket RPC must be defined
-- wsConfig.json: A list of price IDs and price streaming endpoints
+- live.wsConfig.json: A list of price IDs and price streaming endpoints
   - You are encouraged to modify this configuration, but the services should be able to start with the default values provided
   - See the main API [readme](./packages/api/README.md) for details
-- referralSettings.json: Configuration of the referral service
+- live.referralSettings.json: Configuration of the referral service
   - See the referral API [readme](./packages/referral/README.md) for details
 
 ## Frontend
