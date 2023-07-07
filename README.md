@@ -19,7 +19,7 @@ Parameters for these services that can be optionally re-configured are found in 
 - rpc.json: A list of RPC URLs used for interacting with the different chains.
   - You are not required to make changes to this file, but you may add or remove as many RPCs as you need
   - It is encouraged to keep multiple HTTP options for best user experience/robustness
-  - At least one Websocket RPC must be defined, either in this file, or directly in the main .env file using the key WS_RPC_URL
+  - At least one Websocket RPC must be defined
 - wsConfig.json: A list of price IDs and price streaming endpoints
   - You are encouraged to modify this configuration, but the services should be able to start with the default values provided
   - See the main API [readme](./packages/api/README.md) for details
@@ -30,7 +30,7 @@ Parameters for these services that can be optionally re-configured are found in 
 
 You can spin up all services from this repo + Postgres database via `docker
 compose`. Copy the `.envExample` contents to `.env` file.
-You must set a value for `WS_RPC_URL` here (or in `./config/rpc.json` if you are using multiple RPCs). Then to start all services simply run:
+You must set a value for in `./config/rpc.json` if you are using multiple RPCs. Then to start all services simply run:
 
 ```bash
 docker compose up --build

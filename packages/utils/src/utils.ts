@@ -463,18 +463,12 @@ export function chooseRandomRPC(ws = false): string {
   const rpc = require("../../../config/rpc.json");
 
   let urls: string[] = [];
-  let otherRPC: string | undefined;
   for (let k = 0; k < rpc.length; k++) {
     if (rpc[k].chainId == chainId) {
       if (ws) {
         urls = rpc[k].WS;
-        otherRPC = process.env.WS_RPC_URL as string;
       } else {
         urls = rpc[k].HTTP;
-        otherRPC = process.env.HTTP_RPC_URL as string;
-      }
-      if (otherRPC != undefined) {
-        urls.push(otherRPC);
       }
     }
   }
