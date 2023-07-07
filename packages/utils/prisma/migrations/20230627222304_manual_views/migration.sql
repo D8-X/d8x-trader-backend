@@ -49,7 +49,7 @@ ORDER BY th.trader_addr;
 
 --- Table with current cut per referrer that does not use an agency
 --- Current in the sense that we take the most recent tokenX holdings into account
---- to determine the referrer's cut-tier as specified in referralSettings.json 
+--- to determine the referrer's cut-tier as specified in live.referralSettings.json 
 CREATE VIEW referral_current_cut AS
 SELECT current_holdings.referrer_addr, MIN(ref_cut.cut_perc) as cut_perc
 FROM referral_token_holdings current_holdings
@@ -90,7 +90,7 @@ WHERE code.expiry>now();
 -- broker fee, cut attributable to the different stakeholders and 
 -- their relative share
 -- [1] default to 100% in case of no referral code, in which the setting
---     in referralSettings.json defaultReferralCode kicks in with 100% 
+--     in live.referralSettings.json defaultReferralCode kicks in with 100% 
 --     of fees earned
 CREATE VIEW referral_open_pay_relative AS
 SELECT af.pool_id,

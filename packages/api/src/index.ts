@@ -13,8 +13,9 @@ async function start() {
   }
   console.log(`loading configuration ${configName}`);
   const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig(configName);
-  sdkConfig.nodeURL = chooseRandomRPC(false);
-  const wsRPC = chooseRandomRPC(true);
+  const rpcConfig = require("../../../config/live.rpc.json");
+  sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
+  const wsRPC = chooseRandomRPC(true, rpcConfig);
   console.log(`RPC (HTTP) = ${sdkConfig.nodeURL}`);
   console.log(`RPC (WS)   = ${wsRPC}`);
   let broker;

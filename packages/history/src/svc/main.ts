@@ -77,8 +77,9 @@ export const main = async () => {
 	const prisma = new PrismaClient();
 
 	// Init blockchain provider
-	let wsRpcUrl = chooseRandomRPC(true);
-	let httpRpcUrl = chooseRandomRPC(false);
+	const rpcConfig = require("../../../../config/live.rpc.json");
+	let wsRpcUrl = chooseRandomRPC(true, rpcConfig);
+	let httpRpcUrl = chooseRandomRPC(false, rpcConfig);
 	let chainId = Number(<string>process.env.CHAIN_ID || -1);
 	if (httpRpcUrl == "") {
 		httpRpcUrl = getDefaultRPC();
