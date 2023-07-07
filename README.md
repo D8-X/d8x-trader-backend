@@ -30,7 +30,7 @@ Parameters for these services that can be optionally re-configured are found in 
 
 You can spin up all services from this repo + Postgres database via `docker
 compose`. Copy the `.envExample` contents to `.env` file.
-You must set a value for in `./config/rpc.json` if you are using multiple RPCs. Then to start all services simply run:
+Then to start all services simply run:
 
 ```bash
 docker compose up --build
