@@ -1,6 +1,11 @@
 import { BigNumber, ethers, providers, Wallet } from "ethers";
 import { Logger } from "winston";
 
+/**
+ * Abstract class for payment execution.
+ * The class ReferralPaymentExecutor requires a concrete implementation
+ * of this class
+ */
 export default abstract class AbstractPayExecutor {
   protected ctrMultiPayAbi = require("../abi/MultiPay.json");
   constructor(
@@ -17,6 +22,12 @@ export default abstract class AbstractPayExecutor {
     return new ethers.Contract(this.multiPayContractAddr, this.ctrMultiPayAbi, signer);
   }
 
+  /**
+   * Convert bigint to bignumber, replace "" with zero-address
+   * @param amounts amount in decimal-n format
+   * @param paymentToAddr payment address or ""
+   * @returns adjusted data
+   */
   protected dataReshapeForContract(
     amounts: bigint[],
     paymentToAddr: string[]

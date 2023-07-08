@@ -21,6 +21,7 @@ interface PaySummary {
  * This class uses a remote server that
  * executes payments. We also have a private key here because
  * we sign our request for the payment execution.
+ * There are other payment execution options that implement AbstractPayExecutor
  */
 export default class PayExecutorRemote extends AbstractPayExecutor {
   private brokerAddr: string = "";

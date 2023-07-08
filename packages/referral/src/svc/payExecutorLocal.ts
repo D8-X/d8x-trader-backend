@@ -6,6 +6,7 @@ import { Logger } from "winston";
  * This class uses a local private key to
  * execute payments from the broker address
  * (hence the private key belongs to the broker address)
+ * There are other payment execution options that implement AbstractPayExecutor
  */
 export default class PayExecutorLocal extends AbstractPayExecutor {
   private brokerAddr: string;
@@ -27,16 +28,17 @@ export default class PayExecutorLocal extends AbstractPayExecutor {
   /**
    * Interface method to execute payment
    * @param tokenAddr address of payment token
-   * @param amounts array with decimal-N amounts to be paid
-   * @param paymentToAddr array with addresses to pay in corresponding order to amounts
+   * @param amountsTRAB array with decimal-N amounts to be paid
+   * @param paymentToAddrTRAB array with addresses to pay in corresponding order to amounts
+   *    order must be trader, referrer, agency, broker
    * @param id id to be used for submission
    * @param msg message to be used for submission
    * @returns transaction hash or fail
    */
   public async transactPayment(
     tokenAddr: string,
-    amounts: bigint[],
-    paymentToAddr: string[],
+    amountsTRAB: bigint[],
+    paymentToAddrTRAB: string[],
     id: number,
     msg: string
   ): Promise<string> {
@@ -46,7 +48,8 @@ export default class PayExecutorLocal extends AbstractPayExecutor {
       return "fail";
     }
 
-    let d = this.dataReshapeForContract(amounts, paymentToAddr);
+    // convert to BigNumber and replace ""-address with zero address
+    let d = this.dataReshapeForContract(amountsTRAB, paymentToAddrTRAB);
 
     // payment execution
     try {
