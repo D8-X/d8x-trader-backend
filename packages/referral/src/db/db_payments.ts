@@ -180,6 +180,7 @@ export default class DBPayments {
       });
       if (record != null) {
         if (record.tx_hash != pay.txHash) {
+          //payment record with dummy transaction hash in db
           this.l.info(`confirmPayment: set tx hash ${record.tx_hash} to ${pay.txHash}`);
           try {
             await this.prisma.referralPayment.update({
@@ -199,6 +200,7 @@ export default class DBPayments {
           }
         }
         if (!record.tx_confirmed) {
+          //payment record exists with tx hash -> ensure ReferralPayment.tx_confirmed=true
           this.l.info(`confirmPayment: confirming payment for hash ${record.tx_hash}`);
           try {
             await this.prisma.referralPayment.update({
@@ -218,6 +220,7 @@ export default class DBPayments {
           }
         }
       } else {
+        // no payment record at all in database -> enter all the data into db
         // insert record into DB
         this.l.info(`confirmPayment: could not find pay record in DB, inserting tx=${pay.txHash}.`);
         await this.prisma.referralPayment.create({
