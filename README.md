@@ -27,6 +27,7 @@ Parameters for the backend services are found in the `./config` subdirectory at 
   - You are encouraged to modify this configuration, but the services should be able to start with the default values provided
   - See the main API [readme](./packages/api/README.md) for details
 - live.referralSettings.json: Configuration of the referral service
+
   - See the referral API [readme](./packages/referral/README.md) for details
 
 ## Frontend
@@ -81,6 +82,17 @@ first `docker compose up` run.
 ```
 psql "dbname=db host=localhost user=user password=password port=5432"
 ```
+
+# Development
+
+# Reset database
+
+During the development phase the layout of the database can change. Here is how to reset the database. All data will be lost but
+is reconstructed from on-chain events, except for the tables `referral_code` and 'referral_code_usage`.
+
+- run docker compose as detailed above
+- `npx prisma migrate reset --schema packages/utils/prisma/schema.prisma`
+- restart docker compose
 
 # Updating packages with lerna
 
