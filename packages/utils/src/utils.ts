@@ -362,9 +362,14 @@ export async function calculateBlockFromTime(
   // rpc #1 & #2
   //   let max = await provider.getBlockNumber();
   //   const blk1 = await provider.getBlock(max);
+  const tsSinceMs = since.getTime();
+  if (tsSinceMs < 1640995232000 || tsSinceMs > Date.now()) {
+    const msg = `calculateBlockFromTime: invalid date since ${since}`;
+    throw Error(msg);
+  }
   let blk1 = await provider.getBlock("latest");
   let max = blk1.number;
-  const targetTimestamp = since.getTime() / 1000;
+  const targetTimestamp = tsSinceMs / 1000;
   const secElapsed = blk1.timestamp - targetTimestamp;
 
   let blockSampleNum = Math.floor(secElapsed / 2);

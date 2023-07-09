@@ -189,6 +189,8 @@ async function start() {
   if (!settings.referralSystemEnabled) {
     logger.info("NO REFERRALS: Referral system disabled (settings)");
     return;
+  } else {
+    logger.info("Starting referral system");
   }
   let key = "";
   if (process.env.BROKER_KEY != undefined && process.env.BROKER_KEY != "") {
@@ -197,7 +199,7 @@ async function start() {
 
   let brokerAddr = getBrokerAddressFromKey(key);
   if (brokerAddr == "" || brokerAddr == ZERO_ADDRESS) {
-    logger.info("shutting down referrer system (no broker)");
+    logger.info("shutting down referral system (no broker)");
     return;
   }
 
