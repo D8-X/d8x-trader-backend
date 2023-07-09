@@ -92,6 +92,7 @@ is reconstructed from on-chain events, except for the tables `referral_code` and
 
 - run docker compose as detailed above
 - `npx prisma migrate reset --schema packages/utils/prisma/schema.prisma`
+- `npx prisma migrate dev --schema packages/utils/prisma/schema.prisma`
 - restart docker compose
 
 # Updating packages with lerna
