@@ -36,7 +36,6 @@ export class TradingHistory {
 		const tx_hash = txHash.toLowerCase();
 		const trader = e.trader.toLowerCase();
 		const isLiquidation = (e as TradeEvent).order == undefined;
-		e.trader = e.trader.toLowerCase();
 		const exists = await this.prisma.trade.findFirst({
 			where: {
 				tx_hash: {
