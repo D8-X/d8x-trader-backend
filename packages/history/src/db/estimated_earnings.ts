@@ -61,7 +61,7 @@ export class EstimatedEarnings {
 						pool_id: Number(pool_id),
 						token_amount: amount.toString(),
 						tx_hash: txHash,
-						liq_provider_addr: wallet,
+						liq_provider_addr: wallet.toLowerCase(),
 						created_at: blockTimestamp
 							? new Date(blockTimestamp * 1000)
 							: undefined,
