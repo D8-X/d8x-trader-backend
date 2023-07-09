@@ -2,7 +2,7 @@ import Redis from "ioredis";
 import { ethers } from "ethers";
 import * as winston from "winston";
 import { ReferralSettings } from "./referralTypes";
-import { constructRedis, sleep, isValidAddress, cronParserCheckExpression } from "utils";
+import { constructRedis, sleep, isValidAddress, cronParserCheckExpression, chooseRandomRPC } from "utils";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import ReferralAPI from "./api/referral_api";
@@ -20,7 +20,7 @@ const defaultLogger = () => {
   return winston.createLogger({
     level: "info",
     format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-    defaultMeta: { service: "pnl-service" },
+    defaultMeta: { service: "referral-service" },
     transports: [new winston.transports.Console(), new winston.transports.File({ filename: "pnl.log" })],
   });
 };
@@ -208,9 +208,10 @@ async function start() {
     return;
   }
 
-  let rpcUrl: string = process.env.HTTP_RPC_URL || "";
+  const rpcConfig = require("../../../config/live.rpc.json");
+  let rpcUrl = chooseRandomRPC(false, rpcConfig);
   if (rpcUrl == "") {
-    logger.error("Set HTTP_RPC_URL in .env");
+    logger.error("Set HTTP RPC in config/live.rpc.json");
     return;
   }
 
