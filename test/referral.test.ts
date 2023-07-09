@@ -47,7 +47,7 @@ async function testCreateCodeFromReferrer() {
   const wallet = new Wallet(PK);
 
   let mynewcode: APIReferralCodePayload = {
-    code: "REBATE100XX",
+    code: "REBATE5",
     referrerAddr: wallet.address,
     agencyAddr: "",
     createdOn: ts,
@@ -75,7 +75,7 @@ async function testSelectCode() {
   const wallet = new ethers.Wallet(PK);
   const address = wallet.address;
   let mycodeselection: APIReferralCodeSelectionPayload = {
-    code: "REBATE100XX", //"REBATE100",
+    code: "REBATE5",
     traderAddr: address,
     createdOn: ts,
     signature: "",
