@@ -54,7 +54,7 @@ export class HistoricalDataFilterer {
 
 	/**
 	 *
-	 * Retrieve P2PTransfers from all given sharetTokenContracts
+	 * Retrieve P2PTransfers from all given shareTokenContracts
 	 * @param shareTokenContracts - share token contract addresses
 	 * @param since - array of since dates for each ith sharetTokenContracts address
 	 * @param cb
