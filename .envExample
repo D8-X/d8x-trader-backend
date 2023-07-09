@@ -20,6 +20,7 @@ REFERRAL_API_PORT=8889
 POSTGRES_USER=user
 POSTGRES_PASSWORD=password
 POSTGRES_DB=db
+DATABASE_URL="postgresql://username:password@localhost:5432/db?schema=public"
 
 #--- BROKER SETTINGS (optional) ----
 # Broker key
