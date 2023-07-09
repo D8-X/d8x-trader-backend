@@ -15,6 +15,7 @@ export default class PayExecutorLocal extends AbstractPayExecutor {
   constructor(privateKey: string, multiPayContractAddr: string, rpcUrl: string, l: Logger) {
     super(privateKey, multiPayContractAddr, rpcUrl, l);
     this.brokerAddr = new Wallet(privateKey).address;
+    this.brokerAddr = this.brokerAddr.toLowerCase();
   }
 
   /**

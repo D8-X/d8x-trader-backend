@@ -60,7 +60,7 @@ export default class PayExecutorRemote extends AbstractPayExecutor {
       try {
         const response = await fetch(endpoint);
         const data = await response.json();
-        this.brokerAddr = data.brokerAddr;
+        this.brokerAddr = data.brokerAddr.toLowerCase();
       } catch (error) {
         console.log("brokerRemote: failed to fetch broker address");
       }
