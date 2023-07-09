@@ -8,9 +8,6 @@ export const getSDKFromEnv = () => {
 		throw Error("SDK_CONFIG_NAME missing in .env");
 	}
 	let config = PerpetualDataHandler.readSDKConfig(configName);
-	if (process.env.HTTP_RPC_URL != "") {
-		config.nodeURL = process.env.HTTP_RPC_URL;
-	}
 	return config;
 };
 
