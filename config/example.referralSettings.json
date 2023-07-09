@@ -1,5 +1,5 @@
 {
-  "referralSystemEnabled": true,
+  "referralSystemEnabled": false,
   "agencyCutPercent": 80,
   "permissionedAgencies": [
     "0x21B864083eedF1a4279dA1a9A7B1321E6102fD39",
@@ -26,5 +26,5 @@
     "agencyAddr": "0x863AD9Ce46acF07fD9390147B619893461036194",
     "traderReferrerAgencyPerc": [0, 0, 45]
   },
-  "multiPayContractAddr": "0x30b55550e02B663E15A95B50850ebD20363c2AD5"
+  "multiPayContractAddr": "0xfCBE2f332b1249cDE226DFFE8b2435162426AfE5"
 }
