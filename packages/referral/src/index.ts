@@ -127,9 +127,16 @@ async function getBrokerAddressViaRedis(l: winston.Logger): Promise<string> {
 }
 
 function getBrokerAddressFromKey(key: string): string {
-  const wallet = new ethers.Wallet(key);
-  // Get the wallet address
-  return wallet.address;
+  let addr = "";
+  if (key == "") return addr;
+  try {
+    const wallet = new ethers.Wallet(key);
+    // Get the wallet address
+    addr = wallet.address;
+  } catch (err) {
+    logger.error("Invalid broker key:" + err);
+  }
+  return addr;
 }
 
 async function setDefaultReferralCode(dbReferralCodes: DBReferralCode, settings: ReferralSettings) {
