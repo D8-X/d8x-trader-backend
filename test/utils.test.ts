@@ -5,13 +5,12 @@ import {
   calculateBlockFromTime,
   floatToDec18,
   adjustNDigitPercentagesTo100,
+  chooseRandomRPC,
 } from "../packages/utils/src/utils";
 import { error } from "console";
 async function test() {
-  const rpcURL = process.env.HTTP_RPC_URL;
-  if (rpcURL == "") {
-    throw Error("define HTTP_RPC_URL in env");
-  }
+  const rpcConfig = require("../config/example.rpc.json");
+  const rpcURL = chooseRandomRPC(false, rpcConfig);
   const provider = new providers.StaticJsonRpcProvider(rpcURL);
   let R = (Math.random() - 0.5) / 0.5;
   let sinceTs = new Date("2023-06-01T01:01:00.000Z").getTime() + Math.round(1000 * R * 20 * 86400);

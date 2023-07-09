@@ -255,11 +255,13 @@ export class HistoricalDataFilterer {
 		let events: ethers.EventLog[] = [];
 		let lastWaitSeconds = 2;
 		let maxWaitSeconds = 32;
+		let blockTimestamp = new Map<Number, number>();
 
 		for (let i = Number(fromBlock); i < endBlock; ) {
 			const _startBlock = i;
 			const _endBlock = Math.min(endBlock, i + deltaBlocks - 1);
 			try {
+				// fetch from blockchain
 				const _events = (await c.queryFilter(
 					filter,
 					_startBlock,
@@ -274,6 +276,15 @@ export class HistoricalDataFilterer {
 					await new Promise((resolve) => setTimeout(resolve, 10_000));
 				}
 				i += deltaBlocks;
+				// save to db
+				await this.saveEvents(
+					topicHashes,
+					_events,
+					c,
+					blockTimestamp,
+					numRequests,
+					cb
+				);
 			} catch (error) {
 				this.l.info("seconds", { maxWaitSeconds, lastWaitSeconds });
 				if (maxWaitSeconds > lastWaitSeconds) {
@@ -292,12 +303,24 @@ export class HistoricalDataFilterer {
 				}
 			}
 		}
-
 		this.l.info("finished querying historical logs", {
 			events: eventNames,
 			eventsFound: events.length,
 		});
+	}
 
+	private async saveEvents(
+		topicHashes: string[],
+		events: ethers.EventLog[],
+		c: Contract,
+		blockTimestamp: Map<Number, number>,
+		numRequests: number,
+		cb: (
+			decodedEvent: Record<string, any>,
+			event: ethers.EventLog,
+			blockTimestamp: number
+		) => void
+	) {
 		if (events.length < 1) {
 			return;
 		}
@@ -305,7 +328,7 @@ export class HistoricalDataFilterer {
 		const eventFragments = topicHashes.map(
 			(topic0) => c.interface.getEvent(topic0) as EventFragment
 		);
-		let blockTimestamp = new Map<Number, number>();
+		// let blockTimestamp = new Map<Number, number>();
 		for (let i = 0; i < events.length; i++) {
 			const event = events[i];
 			for (let j = 0; j < topicHashes.length; j++) {
@@ -338,10 +361,5 @@ export class HistoricalDataFilterer {
 				}
 			}
 		}
-		this.l.info("finished saving historical logs", {
-			events: eventNames,
-			fromBlock: fromBlock,
-			numBlocks: endBlock - Number(fromBlock),
-		});
 	}
 }
