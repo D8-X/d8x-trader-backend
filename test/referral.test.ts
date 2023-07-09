@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { ethers, Wallet } from "ethers";
 
 import { APIReferralCodePayload, APIReferralCodeSelectionPayload } from "@d8x/perpetuals-sdk";
 import { ReferralCodeSigner } from "@d8x/perpetuals-sdk";
@@ -16,10 +16,12 @@ async function testCreateCodeFromAgency() {
     throw Error("define PK");
   }
   const ts = Math.round(Date.now() / 1000);
+  const wallet = new Wallet(PK);
+
   let mynewcode: APIReferralCodePayload = {
     code: "REBATE100XX",
     referrerAddr: "0x863AD9Ce46acF07fD9390147B619893461036194",
-    agencyAddr: "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
+    agencyAddr: wallet.address,
     createdOn: ts,
     traderRebatePerc: 15,
     agencyRebatePerc: 50,
@@ -42,9 +44,11 @@ async function testCreateCodeFromReferrer() {
     throw Error("define PK");
   }
   const ts = 1687716653;
+  const wallet = new Wallet(PK);
+
   let mynewcode: APIReferralCodePayload = {
     code: "REBATE100XX",
-    referrerAddr: "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
+    referrerAddr: wallet.address,
     agencyAddr: "",
     createdOn: ts,
     traderRebatePerc: 10,
