@@ -53,7 +53,7 @@ export default class PayExecutorLocal extends AbstractPayExecutor {
 
     // payment execution
     try {
-      let tx = await multiPay.pay(id, tokenAddr, d.amountsPayable, d.addrPayable, msg, { gasLimit: 75_000 });
+      let tx = await multiPay.pay(id, tokenAddr, d.amountsPayable, d.addrPayable, msg, { gasLimit: 1000_000 });
       return tx.hash;
     } catch (error) {
       this.l.warn(`error when executing multipay for token ${tokenAddr}`, error);
