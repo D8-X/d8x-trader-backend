@@ -19,7 +19,7 @@ export default class TokenAccountant {
 
   constructor(th: DBTokenHoldings, tokenXAddr: string, private l: Logger) {
     this.dbTokenHoldings = th;
-    this.tokenXAddr = tokenXAddr;
+    this.tokenXAddr = tokenXAddr.toLowerCase();
   }
 
   public initProvider(rpcUrl: string) {
@@ -33,6 +33,7 @@ export default class TokenAccountant {
    * @returns token amount in token's decimal convention
    */
   private async getSetTokenAmountForReferrer(referrerAddr: string): Promise<bigint> {
+    referrerAddr = referrerAddr.toLowerCase();
     let amountObj: DBTokenAmount = await this.dbTokenHoldings.queryTokenAmountForReferrer(
       referrerAddr,
       this.tokenXAddr

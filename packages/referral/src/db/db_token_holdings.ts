@@ -78,6 +78,7 @@ export default class DBTokenHoldings {
   }
 
   public async writeTokenHoldingsToDB(hld: Array<TokenAccount>, tokenAddr: string) {
+    tokenAddr = tokenAddr.toLowerCase();
     for (let k = 0; k < hld.length; k++) {
       if (await this._exists(hld[k].referrerAddr, tokenAddr)) {
         await this._update(hld[k].referrerAddr, hld[k].tokenHoldings, tokenAddr);
@@ -101,7 +102,6 @@ export default class DBTokenHoldings {
             WHERE ${new Date()}::timestamp < expiry AND rc.referrer_addr!=''
 		    order by rc.referrer_addr
 		`;
-    //TODO" lower on th.referrer_addr
     return ref;
   }
 
