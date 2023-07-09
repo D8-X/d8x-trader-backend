@@ -36,8 +36,8 @@ export default class DBPayments {
     try {
       await this.prisma.referralPayment.create({
         data: {
-          trader_addr: openPayment.trader_addr,
-          broker_addr: openPayment.broker_addr,
+          trader_addr: openPayment.trader_addr.toLowerCase(),
+          broker_addr: openPayment.broker_addr.toLowerCase(),
           code: openPayment.code,
           pool_id: Number(openPayment.pool_id.toString()),
           timestamp: openPayment.last_trade_considered_ts,
@@ -65,7 +65,7 @@ export default class DBPayments {
       await this.prisma.referralPayment.delete({
         where: {
           trader_addr_pool_id_timestamp: {
-            trader_addr: traderAddr,
+            trader_addr: traderAddr.toLowerCase(),
             pool_id: poolId,
             timestamp: timestampDate,
           },
@@ -87,7 +87,7 @@ export default class DBPayments {
       await this.prisma.referralPayment.update({
         where: {
           trader_addr_pool_id_timestamp: {
-            trader_addr: openPayment.trader_addr,
+            trader_addr: openPayment.trader_addr.toLowerCase(),
             pool_id: Number(openPayment.pool_id.toString()),
             timestamp: keyTs,
           },
@@ -113,7 +113,7 @@ export default class DBPayments {
       await this.prisma.referralPayment.update({
         where: {
           trader_addr_pool_id_timestamp: {
-            trader_addr: traderAddr,
+            trader_addr: traderAddr.toLowerCase(),
             pool_id: poolId,
             timestamp: timestamp,
           },
@@ -172,7 +172,7 @@ export default class DBPayments {
       let record = await this.prisma.referralPayment.findUnique({
         where: {
           trader_addr_pool_id_timestamp: {
-            trader_addr: pay.payees[0],
+            trader_addr: pay.payees[0].toLowerCase(),
             pool_id: pay.poolId,
             timestamp: pay.timestamp,
           },
@@ -186,7 +186,7 @@ export default class DBPayments {
             await this.prisma.referralPayment.update({
               where: {
                 trader_addr_pool_id_timestamp: {
-                  trader_addr: pay.payees[0],
+                  trader_addr: pay.payees[0].toLowerCase(),
                   pool_id: pay.poolId,
                   timestamp: pay.timestamp,
                 },
@@ -206,7 +206,7 @@ export default class DBPayments {
             await this.prisma.referralPayment.update({
               where: {
                 trader_addr_pool_id_timestamp: {
-                  trader_addr: pay.payees[0],
+                  trader_addr: pay.payees[0].toLowerCase(),
                   pool_id: pay.poolId,
                   timestamp: pay.timestamp,
                 },
@@ -225,8 +225,8 @@ export default class DBPayments {
         this.l.info(`confirmPayment: could not find pay record in DB, inserting tx=${pay.txHash}.`);
         await this.prisma.referralPayment.create({
           data: {
-            trader_addr: pay.traderAddr,
-            broker_addr: pay.brokerAddr,
+            trader_addr: pay.traderAddr.toLowerCase(),
+            broker_addr: pay.brokerAddr.toLowerCase(),
             code: pay.code,
             pool_id: pay.poolId,
             timestamp: pay.timestamp,
