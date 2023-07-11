@@ -61,7 +61,7 @@ export default class PaymentDataCollector {
       /*
         event Payment(
         0: address indexed from, // broker
-        1: uint32 indexed id,
+        1: uint32 indexed id, // <- timestamp of last trade considered in payment
         2: address indexed token,
         3: uint256[] amounts,
         4: address[] payees,//Trader, Referrer, Agency, BrokerPaymentAddr
@@ -73,7 +73,7 @@ export default class PaymentDataCollector {
         poolId: Number(poolIdStr),
         batchTimestamp: Number(batchTsStr),
         code: code,
-        timestamp: timestamp, // uint32 indexed id
+        timestamp: timestamp, // uint32 indexed id, last trade considered
         token: eventArgs[2], // Access the third argument (address indexed token)
         amounts: eventArgs[3].map((amount: BigNumber) => BigInt(amount.toString())),
         payees: eventArgs[4].map((x: string) => x.toLowerCase()), // Access the fifth argument (address[] payees)
