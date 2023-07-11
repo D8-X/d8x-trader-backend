@@ -106,7 +106,7 @@ export interface PaymentEvent {
   poolId: number;
   batchTimestamp: number;
   code: string;
-  timestamp: Date;
+  timestamp: Date; // last trade considered
   token: string;
   amounts: bigint[];
   payees: string[];
