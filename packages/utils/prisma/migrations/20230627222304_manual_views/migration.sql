@@ -30,7 +30,7 @@ SELECT
     th.broker_addr,
     COALESCE(codeusg.code,'DEFAULT') as code,
     sum(th.fee) as fee_sum_cc,
-    ROUND(SUM((th.broker_fee_tbps * ABS(th.quantity_cc))/100000)) as broker_fee_cc, -- ABDK 64x64 format
+    FLOOR(SUM((th.broker_fee_tbps * ABS(th.quantity_cc))/100000)) as broker_fee_cc, -- ABDK 64x64 format
     min(th.trade_timestamp) as first_trade_considered_ts,
     max(th.trade_timestamp) as last_trade_considered_ts,
     lp.last_payment_ts 
