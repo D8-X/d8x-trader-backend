@@ -15,7 +15,10 @@ WORKDIR /app
 # COPY yarn.lock ./
 
 COPY . .
-RUN yarn install 
+
+RUN apk add --update python3 make g++ && rm -rf /var/cache/apk/*
+
+RUN yarn install
 
 
 #Appended arguments need the below structure of the command to be work
