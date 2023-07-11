@@ -58,6 +58,9 @@ export default class ReferralCodeValidator {
     if (pyld.code == undefined || pyld.code == "") {
       throw Error("No code");
     }
+    if (ReferralCodeValidator.washCode(pyld.code) == "DEFAULT") {
+      return true;
+    }
     let r = await this.dbReferralCode.codeExistsReferrerAndAgency(pyld.code);
     if (r.referrer == "") {
       // code does not exist yet
