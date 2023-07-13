@@ -383,7 +383,7 @@ export default class DBPayments {
                 broker_addr,
                 first_trade_considered_ts,
                 last_trade_considered_ts,
-                last_payment_ts,
+                pay_period_start_ts,
                 code,
                 referrer_addr,
                 agency_addr,
@@ -408,9 +408,6 @@ export default class DBPayments {
       feeAggr[k].referrer_cc_amtdec = BigInt(feeAggr[k].referrer_cc_amtdec);
       feeAggr[k].agency_cc_amtdec = BigInt(feeAggr[k].agency_cc_amtdec);
       feeAggr[k].broker_fee_cc_amtdec = BigInt(feeAggr[k].broker_fee_cc_amtdec);
-      if (feeAggr[k].last_payment_ts == null) {
-        feeAggr[k].last_payment_ts = feeAggr[k].first_trade_considered_ts;
-      }
     }
     //console.log("dbPayments=", feeAggr);
     return feeAggr;
@@ -419,18 +416,14 @@ export default class DBPayments {
   public async queryOpenPaymentsForTrader(traderAddr: string, brokerAddr: string) {
     const addr = traderAddr.toLowerCase();
     const res = await this.prisma.$queryRaw<TraderOpenPayResponse[]>`
-        SELECT pool_id, first_trade_considered_ts, last_payment_ts, code, token_name, token_decimals, TO_CHAR(sum(trader_cc_amtdec), ${DECIMAL40_FORMAT_STRING}) AS trader_cc_amtdec
+        SELECT pool_id, first_trade_considered_ts, last_payment_ts, pay_period_start_ts, code, token_name, token_decimals, TO_CHAR(sum(trader_cc_amtdec), ${DECIMAL40_FORMAT_STRING}) AS trader_cc_amtdec
         FROM referral_open_pay
         WHERE LOWER(trader_addr)=${addr} AND broker_addr=${brokerAddr}
-        GROUP BY pool_id, last_payment_ts, code, first_trade_considered_ts, token_name, token_decimals;`;
+        GROUP BY pool_id, pay_period_start_ts,last_payment_ts, code, first_trade_considered_ts, token_name, token_decimals;`;
     // cast types
     for (let k = 0; k < res.length; k++) {
       res[k].pool_id = BigInt(res[k].pool_id);
       res[k].trader_cc_amtdec = BigInt(res[k].trader_cc_amtdec);
-      if (res[k].last_payment_ts == null) {
-        res[k].last_payment_ts = res[k].first_trade_considered_ts;
-      }
-      res;
     }
     console.log("dbPayments=", res);
     return res;

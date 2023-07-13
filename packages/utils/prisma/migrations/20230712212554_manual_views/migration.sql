@@ -22,7 +22,7 @@ FROM referral_payment GROUP BY trader_addr, broker_addr, pool_id;
 --- We ensure only trader-addresses for which the payment-record has been confirmed
 --- are included or they have no payment record 
 --- if trader switch codes between payments only the latest code is reflected 
---- starting at the last payment 
+--- starting at the last payment or, if there was no payment, at the day defined by now()-paymentMaxLookBackDays
 CREATE VIEW referral_aggr_fees_per_trader AS
 SELECT 
     th.perpetual_id/100000 as pool_id,
@@ -33,18 +33,20 @@ SELECT
     FLOOR(SUM((th.broker_fee_tbps * ABS(th.quantity_cc))/100000)) as broker_fee_cc, -- ABDK 64x64 format
     min(th.trade_timestamp) as first_trade_considered_ts,
     max(th.trade_timestamp) as last_trade_considered_ts,
-    lp.last_payment_ts 
+    lp.last_payment_ts,
+    coalesce(lp.last_payment_ts, current_date::timestamp - (rs.value || ' days')::interval) as pay_period_start_ts
 FROM trades_history th
+join referral_settings rs on rs.property = 'paymentMaxLookBackDays'
 LEFT JOIN referral_last_payment lp
     ON lp.trader_addr=th.trader_addr
     AND lp.broker_addr=th.broker_addr
 LEFT JOIN referral_code_usage codeusg
     ON th.trader_addr = codeusg.trader_addr
     AND codeusg.valid_to > NOW()
-WHERE (lp.last_payment_ts IS NULL OR lp.last_payment_ts<th.trade_timestamp)
+WHERE ((lp.last_payment_ts IS null and current_date::timestamp - (rs.value || ' days')::interval < th.trade_timestamp) OR lp.last_payment_ts<th.trade_timestamp)
     AND (lp.pool_id IS NULL OR lp.pool_id = th.perpetual_id/100000)
     AND (lp.tx_confirmed IS NULL OR lp.tx_confirmed=true)
-GROUP BY pool_id, th.trader_addr, lp.last_payment_ts, th.broker_addr, codeusg.code, th.perpetual_id/100000
+GROUP BY pool_id, th.trader_addr, lp.last_payment_ts, th.broker_addr, codeusg.code, th.perpetual_id/100000, rs.value
 ORDER BY th.trader_addr;
 
 --- Table with current cut per referrer that does not use an agency
@@ -98,6 +100,7 @@ SELECT af.pool_id,
     af.broker_addr,-- broker addr from trades -> ensure we only pay from this brkr
     af.first_trade_considered_ts, af.last_trade_considered_ts,
     af.last_payment_ts,
+    af.pay_period_start_ts,
     COALESCE(curr.code,'DEFAULT') as code,
     COALESCE(curr.referrer_addr, def.referrer_addr) as referrer_addr,
     COALESCE(curr.agency_addr, def.agency_addr) as agency_addr,
@@ -118,8 +121,10 @@ CREATE VIEW referral_open_pay AS
 SELECT opf.pool_id,
     opf.trader_addr,
     opf.broker_addr,
-    opf.first_trade_considered_ts, opf.last_trade_considered_ts,
+    opf.first_trade_considered_ts, 
+    opf.last_trade_considered_ts,
     opf.last_payment_ts,
+    opf.pay_period_start_ts,
     opf.code,
     opf.referrer_addr,
     opf.agency_addr,
