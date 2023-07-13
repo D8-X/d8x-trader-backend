@@ -114,4 +114,4 @@ dist
 live.*
 
 # db backups:
-.dmp
+*.dmp
