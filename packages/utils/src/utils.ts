@@ -379,7 +379,22 @@ export async function calculateBlockFromTime(
     blockSampleNum = Math.floor(max / 10);
   }
   // rpc #3
-  let blk0 = await provider.getBlock(max - blockSampleNum);
+  let blk0;
+  let iterNum = 0;
+  let rpcErr = true;
+  while (rpcErr) {
+    try {
+      blk0 = await provider.getBlock(max - blockSampleNum);
+      rpcErr = false;
+    } catch (err) {
+      // likely Blockheight too far in the past
+      blockSampleNum = Math.ceil(blockSampleNum * 0.75);
+      iterNum++;
+      if (iterNum > 10) {
+        throw err;
+      }
+    }
+  }
   let secPerBlockInSample = (blk1.timestamp - blk0.timestamp) / blockSampleNum;
   // sample again
   blockSampleNum = Math.floor(secElapsed / secPerBlockInSample);
