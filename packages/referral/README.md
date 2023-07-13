@@ -143,7 +143,8 @@ interface APIRebateEarned {
 _Description_: Get the open payments to a trader in collateral currency per pool.
 
 _Response_:
-`{"type":"open-trader-rebate","msg":"","data":[{"poolId":1,"lastPayment":"2023-06-21T02:47:36.000Z","code":"DEFAULT","amountCC":0,"tokenName":"MATIC"}]}`
+`{"type":"open-trader-rebate","msg":"","data":[{"poolId":1,"lastPayment":"2023-06-21T02:47:36.000Z",
+"payPeriodStart": "2023-06-21T02:47:36.000Z", "code":"DEFAULT","amountCC":0,"tokenName":"MATIC"}]}`
 
 ### post: `/select-referral-code`
 
