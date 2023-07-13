@@ -316,6 +316,7 @@ export default class ReferralAPI {
     interface APIOpenPayResponse {
       poolId: number;
       lastPayment: Date;
+      payPeriodStart: Date;
       code: string;
       amountCC: number;
       tokenName: string;
@@ -325,6 +326,7 @@ export default class ReferralAPI {
       result.push({
         poolId: Number(table[k].pool_id.toString()),
         lastPayment: table[k].last_payment_ts,
+        payPeriodStart: table[k].pay_period_start_ts,
         code: table[k].code,
         amountCC: decNToFloat(table[k].trader_cc_amtdec, table[k].token_decimals),
         tokenName: table[k].token_name,

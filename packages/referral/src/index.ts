@@ -7,13 +7,15 @@ import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import ReferralAPI from "./api/referral_api";
 import DBReferralCode from "./db/db_referral_code";
-import ReferralCut from "./db/db_referral_cut";
+import DBPayments from "./db/db_payments";
+import DBSettings from "./db/db_settings";
 import DBTokenHoldings from "./db/db_token_holdings";
+import ReferralCut from "./db/db_referral_cut";
 import TokenAccountant from "./svc/tokenAccountant";
 import ReferralPaymentManager from "./svc/referralPaymentManager";
-import DBPayments from "./db/db_payments";
 import ReferralCodeValidator from "./svc/referralCodeValidator";
 import PayExecutorLocal from "./svc/payExecutorLocal";
+
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const defaultLogger = () => {
@@ -149,6 +151,15 @@ async function setDefaultReferralCode(dbReferralCodes: DBReferralCode, settings:
   );
 }
 
+async function setDBSettings(
+  settings: ReferralSettings,
+  prisma: PrismaClient,
+  logger: winston.Logger
+): Promise<boolean> {
+  const dbSettings = new DBSettings(settings, prisma, logger);
+  return await dbSettings.writeSettings();
+}
+
 /**
  * Store referral cut settings in database, meaning:
  *  - how much percent of the broker fee earnings are re-distributed?
@@ -226,6 +237,11 @@ async function start() {
 
   // Initialize db client
   const prisma = new PrismaClient();
+  const setOk = await setDBSettings(settings, prisma, logger);
+  if (!setOk) {
+    logger.error("setDBSettings failed");
+    return;
+  }
   const dbReferralCode = new DBReferralCode(BigInt(chainId), prisma, brokerAddr, settings, logger);
   const dbReferralCuts = new ReferralCut(BigInt(chainId), prisma, logger);
   const dbTokenHoldings = new DBTokenHoldings(BigInt(chainId), prisma, logger);

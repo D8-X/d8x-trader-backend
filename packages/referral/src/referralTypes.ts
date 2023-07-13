@@ -27,7 +27,7 @@ export interface ReferralOpenPayResponse {
   broker_addr: string;
   first_trade_considered_ts: Date;
   last_trade_considered_ts: Date;
-  last_payment_ts: Date;
+  pay_period_start_ts: Date;
   code: string;
   referrer_addr: string;
   agency_addr: string;
@@ -47,12 +47,13 @@ export interface ReferralOpenPayResponse {
 
 export interface TraderOpenPayResponse {
   pool_id: bigint;
-  last_payment_ts: Date;
   first_trade_considered_ts: Date;
+  last_payment_ts: Date;
+  pay_period_start_ts: Date;
   code: string;
-  trader_cc_amtdec: bigint;
   token_name: string;
   token_decimals: number;
+  trader_cc_amtdec: bigint;
 }
 
 export interface TokenAccount {
