@@ -215,6 +215,29 @@ Referrer signs (see test/referral.test.ts testCreateCodeFromReferrer)
 
 _Response_: `{"type":"upsert-referral-code","msg":"","data":{"code": "REFERRAL42", "isNewCode": false}}`
 
+# Manual Backups for Referral Codes and Usages
+
+The tables `referral_code` and `referral_code_usage` cannot be restored if the database is reset.
+Here is how to **export** the data:
+
+```
+export DATABASE_URL_E="postgresql://user:password@localhost:5432/db"
+pg_dump $DATABASE_URL_E -t referral_code -t referral_code_usage -Fc -f export_referral_code.dmp
+```
+
+The first line defines an environment variable. Replace user with your PostgreSQL username, password with your password,
+db with the database name as configured in `.env`. The second line exports the two tables.
+
+To **import** the two tables, where, again, you enter the credentials used in the `.env` file and you will be asked
+for the password:
+
+```
+ pg_restore --username=user --dbname=db --host=localhost --password --data-only export_referral_code.dmp
+
+```
+
+The option --data-only ensure that only the data is restored (the schema is there on start). See `pg_restore` for more options.
+
 # DEV
 
 ### Testing Codes
