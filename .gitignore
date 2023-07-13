@@ -112,3 +112,6 @@ dist
 
 # live config files:
 live.*
+
+# db backups:
+.dmp
