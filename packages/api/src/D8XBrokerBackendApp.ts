@@ -26,8 +26,9 @@ export default class D8XBrokerBackendApp {
   private wss: WebSocketServer;
   private eventListener: EventListener;
   private CORS_ON: boolean;
+  private wsRPC: string;
 
-  constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig) {
+  constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig, wsRPC: string) {
     dotenv.config();
     this.express = express();
 
@@ -44,8 +45,9 @@ export default class D8XBrokerBackendApp {
     this.portWS = Number(process.env.PORT_WEBSOCKET);
     this.wss = new WebSocketServer({ port: this.portWS });
     this.swaggerDocument.servers[0].url += ":" + process.env.PORT_REST;
+    this.wsRPC = wsRPC;
     this.sdkConfig = sdkConfig;
-    this.eventListener = new EventListener(sdkConfig);
+    this.eventListener = new EventListener(sdkConfig, wsRPC);
     console.log("url=", this.swaggerDocument.servers[0].url);
     this.sdk = new SDKInterface(broker);
 
@@ -63,10 +65,11 @@ export default class D8XBrokerBackendApp {
     if (this.eventListener.timeMsSinceLastBlockchainEvent() / 1000 > timeSeconds) {
       // no event since timeSeconds, restart listener
       console.log("Restarting event listener");
+      this.eventListener.stopListening();
       if (sdkConfig == undefined) {
         sdkConfig = this.sdkConfig;
       }
-      this.eventListener = new EventListener(sdkConfig);
+      this.eventListener = new EventListener(sdkConfig, this.wsRPC);
       await this.eventListener.initialize(this.sdk);
     }
   }
