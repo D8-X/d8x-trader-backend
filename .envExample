@@ -11,8 +11,6 @@ CORS_ON=FALSE
 
 # The port of PNL service API and RPC URLs for historical data (packages/history)
 PNL_API_PORT=8888
-HTTP_RPC_URL=
-WS_RPC_URL=
 
 # The port for the referral service API (packages/referral)
 REFERRAL_API_PORT=8889
@@ -22,6 +20,7 @@ REFERRAL_API_PORT=8889
 POSTGRES_USER=user
 POSTGRES_PASSWORD=password
 POSTGRES_DB=db
+DATABASE_URL="postgresql://user:password@localhost:5432/db?schema=public"
 
 #--- BROKER SETTINGS (optional) ----
 # Broker key

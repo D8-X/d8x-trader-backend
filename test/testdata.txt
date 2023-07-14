@@ -1,0 +1,26 @@
+http://localhost:8889/upsert-referral-code
+
+Agency:
+{
+  "code": "REBATE100XX",
+  "referrerAddr": "0x863AD9Ce46acF07fD9390147B619893461036194",
+  "agencyAddr": "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
+  "createdOn": 1688670678,
+  "traderRebatePerc": 15,
+  "agencyRebatePerc": 50,
+  "referrerRebatePerc": 35,
+  "signature": "0xa45dd44033982fa6a09939ee05cd04577627dc65ae3f0657a9df31d9d8aea6e66915cbee07e4441c541181ce847926790b20f56af2a57b6f6563740540c965b61b"
+}
+
+Referrer:
+{
+  "code": "REBATE100",
+  "referrerAddr": "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
+  "agencyAddr": "",
+  "createdOn": 1687716653,
+  "traderRebatePerc": 10,
+  "agencyRebatePerc": 0,
+  "referrerRebatePerc": 90,
+  "signature": "0x05153d22a93f9aabdb45d84252d4c05f310f696b7a39d299a35cd04bf451e9c560e83a113ea80c474d171e2b622c2e2e2bbb8a563d016cc147f44242da8610c41b"
+}
+

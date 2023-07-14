@@ -37,7 +37,7 @@ export default class SDKInterface extends Observable {
     this.apiInterface = new TraderInterface(sdkConfig);
     await this.apiInterface.createProxyInstance();
     await this.broker.initialize();
-    const brokerAddress = this.broker.getBrokerAddress("");
+    const brokerAddress = await this.broker.getBrokerAddress();
     await this.redisClient.set("BrokerAddress", brokerAddress);
     console.log(`Main API initialized broker address=`, brokerAddress);
     console.log(`SDK v${D8X_SDK_VERSION} API initialized`);
@@ -86,7 +86,7 @@ export default class SDKInterface extends Observable {
    * @returns loyality score
    */
   public async traderLoyalty(traderAddr: string): Promise<string> {
-    let brokerAddr = this.broker.getBrokerAddress(traderAddr);
+    let brokerAddr = await this.broker.getBrokerAddress();
     if (brokerAddr == ZERO_ADDRESS) {
       brokerAddr = "";
     }
@@ -286,7 +286,7 @@ export default class SDKInterface extends Observable {
 
   public async queryFee(traderAddr: string, poolSymbol: string): Promise<string> {
     this.checkAPIInitialized();
-    let brokerAddr = this.broker.getBrokerAddress(traderAddr);
+    let brokerAddr = await this.broker.getBrokerAddress();
     let fee = await this.apiInterface?.queryExchangeFee(poolSymbol, traderAddr, brokerAddr);
     if (fee == undefined) {
       throw new Error("could not retreive fee");
@@ -303,8 +303,8 @@ export default class SDKInterface extends Observable {
     }
     let SCOrders = await Promise.all(
       orders!.map(async (order: Order) => {
-        order.brokerFeeTbps = this.broker.getBrokerFeeTBps(traderAddr, order);
-        order.brokerAddr = this.broker.getBrokerAddress(traderAddr, order);
+        order.brokerFeeTbps = await this.broker.getBrokerFeeTBps(traderAddr, order);
+        order.brokerAddr = await this.broker.getBrokerAddress();
         let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
         SCOrder!.brokerSignature = await this.broker.signOrder(SCOrder!);
         return SCOrder!;
