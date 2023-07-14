@@ -115,3 +115,5 @@ live.*
 
 # db backups:
 *.dmp
+
+shared.*.json
