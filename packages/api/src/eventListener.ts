@@ -52,6 +52,13 @@ import { ExecutionFailed, LimitOrderCreated, PriceUpdate, Trade, UpdateMarginAcc
 //      onUpdateMarginAccount
 //      onPerpetualLimitOrderCancelled
 //      onTrade
+
+interface ClientSubscription {
+  perpetualId: number;
+  symbol: string;
+  traderAddr: string;
+}
+
 export default class EventListener extends IndexPriceInterface {
   traderInterface: TraderInterface;
 
@@ -62,7 +69,7 @@ export default class EventListener extends IndexPriceInterface {
   // subscription for perpetualId and trader address. Multiple websocket-clients can subscribe
   // (hence array of websockets)
   subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>; // perpetualId -> traderAddr -> ws[]
-  clients: Map<WebSocket.WebSocket, Array<{ perpetualId: number; symbol: string; traderAddr: string }>>;
+  clients: Map<WebSocket.WebSocket, Array<ClientSubscription>>;
 
   constructor(sdkConfig: NodeSDKConfig) {
     super();
@@ -71,7 +78,7 @@ export default class EventListener extends IndexPriceInterface {
     this.openInterest = new Map<number, number>();
     this.traderInterface = new TraderInterface(sdkConfig);
     this.subscriptions = new Map<number, Map<string, WebSocket.WebSocket[]>>();
-    this.clients = new Map<WebSocket.WebSocket, Array<{ perpetualId: number; symbol: string; traderAddr: string }>>();
+    this.clients = new Map<WebSocket.WebSocket, Array<ClientSubscription>>();
   }
 
   public async initialize(sdkInterface: SDKInterface) {
@@ -97,7 +104,8 @@ export default class EventListener extends IndexPriceInterface {
   }
 
   /**
-   *
+   * Subscribe to perpetual
+   * Unsubscribes from all other perpetuals.
    * @param ws websocket client
    * @param perpetualsSymbol symbol of the form BTC-USD-MATIC
    * @param traderAddr address of the trader
@@ -106,18 +114,21 @@ export default class EventListener extends IndexPriceInterface {
   public subscribe(ws: WebSocket.WebSocket, perpetualsSymbol: string, traderAddr: string): boolean {
     let id = this.traderInterface.getPerpIdFromSymbol(perpetualsSymbol);
     if (this.clients.get(ws) == undefined) {
-      this.clients.set(ws, new Array<{ perpetualId: number; symbol: string; traderAddr: string }>());
+      this.clients.set(ws, new Array<ClientSubscription>());
     }
-    let perpArray: Array<{ perpetualId: number; symbol: string; traderAddr: string }> = this.clients.get(ws) || [];
+    let clientSubscriptions = this.clients.get(ws);
+    this._unsubscribe(clientSubscriptions!, [id], ws);
+
     // check that not already subscribed
-    for (let k = 0; k < perpArray?.length; k++) {
-      if (perpArray[k].perpetualId == id && perpArray[k].traderAddr == traderAddr) {
+    for (let k = 0; k < clientSubscriptions!.length; k++) {
+      if (clientSubscriptions![k].perpetualId == id && clientSubscriptions![k].traderAddr == traderAddr) {
         // already subscribed
         console.log(`client tried to subscribe again for perpetual ${id} and trader ${traderAddr}`);
         return false;
       }
     }
-    this.clients.get(ws)?.push({ perpetualId: id, symbol: perpetualsSymbol, traderAddr: traderAddr });
+    clientSubscriptions!.push({ perpetualId: id, symbol: perpetualsSymbol, traderAddr: traderAddr });
+
     console.log(`${new Date(Date.now())}: #ws=${this.clients.size}, new client ${traderAddr}`);
     let perpSubscribers = this.subscriptions.get(id);
     if (perpSubscribers == undefined) {
@@ -151,13 +162,22 @@ export default class EventListener extends IndexPriceInterface {
   public unsubscribe(ws: WebSocket.WebSocket, req: IncomingMessage) {
     console.log(`${new Date(Date.now())}: #ws=${this.clients.size}, client unsubscribed`);
     //subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>;
+    //clients: Map<WebSocket.WebSocket, Array<ClientSubscription>>;
     let clientSubscriptions = this.clients.get(ws);
     if (clientSubscriptions == undefined) {
       console.log("unknown client unsubscribed, ip=", this._getIP(req));
       return;
     }
+    this._unsubscribe(clientSubscriptions, [], ws);
+    this.clients.delete(ws);
+  }
+
+  private _unsubscribe(clientSubscriptions: ClientSubscription[], exceptionPerpId: number[], ws: WebSocket.WebSocket) {
     for (let k = 0; k < clientSubscriptions?.length; k++) {
       let id = clientSubscriptions[k].perpetualId;
+      if (exceptionPerpId.includes(id)) {
+        continue;
+      }
       let traderMap = this.subscriptions.get(id);
       if (traderMap == undefined) {
         continue;
@@ -178,7 +198,6 @@ export default class EventListener extends IndexPriceInterface {
         this.removeOrderBookEventHandlers(clientSubscriptions[k].symbol);
       }
     }
-    this.clients.delete(ws);
   }
 
   /**
