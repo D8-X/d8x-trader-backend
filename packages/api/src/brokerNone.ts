@@ -3,15 +3,17 @@ import BrokerIntegration from "./brokerIntegration";
 import { Order, SmartContractOrder, ZERO_ADDRESS } from "@d8x/perpetuals-sdk";
 
 export default class BrokerNone extends BrokerIntegration {
-  public getBrokerAddress(traderAddr: string, order?: Order): string {
+  public async getBrokerAddress(): Promise<string> {
     return ZERO_ADDRESS;
   }
-  public getBrokerFeeTBps(traderAddr: string, order?: Order): number {
+  public async getBrokerFeeTBps(traderAddr: string, order?: Order): Promise<number> {
     return 0;
   }
+
   public async signOrder(SCOrder: SmartContractOrder): Promise<string> {
     return await "";
   }
+
   public async initialize(): Promise<string> {
     return Promise.resolve("");
   }
