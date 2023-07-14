@@ -18,12 +18,12 @@ export class TradingHistory {
 	/**
 	 * Insert Trade or Liquidation event into trade_history. Only if event from
 	 * given txHash is not already present in db.
-	 *
-	 * @param e
-	 * @param txHash
-	 * @param isCollectedByEvent
-	 * @param tradeBlockTimestamp
-	 * @param tradeBlockNumber
+	 * Addresses will be converted to lowercase
+	 * @param e                     TradeHistoryEvent
+	 * @param txHash                Tx hash that triggered the event
+	 * @param isCollectedByEvent    True if data comes from live-listening, false if via http
+	 * @param tradeBlockTimestamp   Block-timestamp from event
+	 * @param tradeBlockNumber      Block-number from event
 	 * @returns void
 	 */
 	public async insertTradeHistoryRecord(
@@ -36,7 +36,6 @@ export class TradingHistory {
 		const tx_hash = txHash.toLowerCase();
 		const trader = e.trader.toLowerCase();
 		const isLiquidation = (e as TradeEvent).order == undefined;
-
 		const exists = await this.prisma.trade.findFirst({
 			where: {
 				tx_hash: {
@@ -61,7 +60,7 @@ export class TradingHistory {
 						order_digest_hash: e.orderDigest.toString(),
 						fee: e.fFeeCC.toString(),
 						broker_fee_tbps: Number(e.order.brokerFeeTbps),
-						broker_addr: e.order.brokerAddr,
+						broker_addr: e.order.brokerAddr.toLowerCase(),
 						perpetual_id: Number(e.perpetualId),
 						price: e.price.toString(),
 						quantity: e.order.fAmount.toString(),
@@ -106,11 +105,13 @@ export class TradingHistory {
 				return;
 			}
 			this.l.info("inserted new trade", { trader_addr: newTrade.trader_addr });
-		} else if (!isCollectedByEvent) {
-			// update
+		} else if (isCollectedByEvent) {
+			// record exists, and was collected by event -> update
 			let id = isLiquidation
 				? this._createLiquidationId(e as LiquidateEvent, tradeBlockNumber)
 				: (e as TradeEvent).orderDigest.toString();
+			console.log(`tradingHistory: tradevent = ${e}`);
+			console.log(`tradingHistory: id = ${id}`);
 			await this.prisma.trade.update({
 				where: {
 					order_digest_hash: id,

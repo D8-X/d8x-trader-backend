@@ -64,8 +64,6 @@ yarn watch
 
 ```
 DATABASE_URL - postgres DSN string
-HTTP_RPC_URL - node http url
-WS_RPC_URL - node wss url (for event listeners)
 API_PORT - port on which the REST API will be exposed on
 CHAIN_ID - corresponding to the apprropriate network
 SDK_CONFIG_NAME=testnet
@@ -78,12 +76,6 @@ DATABASE_URL:
 -   What port? By default, PostgreSQL runs on port number 5432. If the server is running on a different port,
     you need to find out the port number from the PostgreSQL configuration file postgresql.conf.
     You can also check the port number by running `sudo netstat -nlp | grep postgres`. This will display the active listening ports of the PostgreSQL server.
-
-HTTP_RPC_URL, WS_RPC_URL:
-
--   specifify the URL of the RPC for the same network as SDK_CONFIG_NAME
--   no default for the websocket-url (application fails if not provided)
--   if left empty (HTTP_RPC_URL=""), the application will choose the default RPC provider specified in the d8x node SDK
 
 ## History and profit and loss service structure
 
