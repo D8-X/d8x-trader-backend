@@ -265,6 +265,19 @@ export default class EventListener extends IndexPriceInterface {
     proxyContract.on("UpdateFundingRate", (perpetualId: number, fFundingRate: BigNumber) => {
       this.onUpdateFundingRate(perpetualId, fFundingRate);
     });
+
+    /*
+        event UpdateMarginAccount(
+            uint24 indexed perpetualId,
+            address indexed trader,
+            bytes16 indexed positionId,
+            int128 fPositionBC,
+            int128 fCashCC,
+            int128 fLockedInValueQC,
+            int128 fFundingPaymentCC,
+            int128 fOpenInterestBC
+        );
+    */
     proxyContract.on(
       "UpdateMarginAccount",
       (
@@ -592,7 +605,9 @@ export default class EventListener extends IndexPriceInterface {
     let wsMsg: WSMsg = { name: "PriceUpdate", obj: obj };
     let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onUpdateMarkPrice", "", wsMsg);
     // send to all subscribers
-    this.sendToSubscribers(perpetualId, jsonMsg);
+    if (Math.random() < 0.2) {
+      this.sendToSubscribers(perpetualId, jsonMsg);
+    }
   }
 
   /**
