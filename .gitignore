@@ -109,3 +109,11 @@ dist
 .idea
 ./vscode
 !./vscode/settings.json
+
+# live config files:
+live.*
+
+# db backups:
+*.dmp
+
+shared.*.json
