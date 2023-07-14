@@ -605,9 +605,7 @@ export default class EventListener extends IndexPriceInterface {
     let wsMsg: WSMsg = { name: "PriceUpdate", obj: obj };
     let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onUpdateMarkPrice", "", wsMsg);
     // send to all subscribers
-    if (Math.random() < 0.2) {
-      this.sendToSubscribers(perpetualId, jsonMsg);
-    }
+    this.sendToSubscribers(perpetualId, jsonMsg);
   }
 
   /**
