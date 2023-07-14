@@ -307,7 +307,8 @@ export default class EventListener extends IndexPriceInterface {
         newPositionSizeBC: BigNumber,
         price: BigNumber,
         fFeeCC: BigNumber,
-        fPnlCC: BigNumber
+        fPnlCC: BigNumber,
+        fB2C: BigNumber
       ) => {
         /**
      *  event Trade(
@@ -319,7 +320,9 @@ export default class EventListener extends IndexPriceInterface {
         int128 newPositionSizeBC,
         int128 price,
         int128 fFeeCC,
-        int128 fPnlCC
+        int128 fPnlCC,
+        int128 fB2C
+    );
     );
      */
         this.onTrade(perpetualId, trader, positionId, order, orderDigest, newPositionSizeBC, price, fFeeCC, fPnlCC);
@@ -341,19 +344,13 @@ export default class EventListener extends IndexPriceInterface {
       this.traderInterface.getABI("lob")!,
       new providers.WebSocketProvider(this.wsRPC)
     );
+
     const contract = this.orderBookContracts[symbol];
 
     contract.on(
       "PerpetualLimitOrderCreated",
-      (
-        perpetualId: number,
-        trader: string,
-        referrerAddr: string,
-        brokerAddr: string,
-        Order: SmartContractOrder,
-        digest: string
-      ) => {
-        this.onPerpetualLimitOrderCreated(perpetualId, trader, referrerAddr, brokerAddr, Order, digest);
+      (perpetualId: number, trader: string, brokerAddr: string, Order: SmartContractOrder, digest: string) => {
+        this.onPerpetualLimitOrderCreated(perpetualId, trader, brokerAddr, Order, digest);
       }
     );
     contract.on("ExecutionFailed", (perpetualId: number, trader: string, digest: string, reason: string) => {
@@ -647,7 +644,6 @@ export default class EventListener extends IndexPriceInterface {
    *)
    * @param perpetualId id of the perpetual
    * @param trader address of the trader
-   * @param referrerAddr address of the referrer
    * @param brokerAddr address of the broker
    * @param Order order struct
    * @param digest order id
@@ -655,7 +651,6 @@ export default class EventListener extends IndexPriceInterface {
   private onPerpetualLimitOrderCreated(
     perpetualId: number,
     trader: string,
-    referrerAddr: string,
     brokerAddr: string,
     Order: SmartContractOrder,
     digest: string
