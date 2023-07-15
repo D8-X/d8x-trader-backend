@@ -26,7 +26,6 @@ export default class D8XBrokerBackendApp {
   private wss: WebSocketServer;
   private eventListener: EventListener;
   private CORS_ON: boolean;
-  private wsRPC: string;
 
   constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig, wsRPC: string) {
     dotenv.config();
@@ -45,7 +44,6 @@ export default class D8XBrokerBackendApp {
     this.portWS = Number(process.env.PORT_WEBSOCKET);
     this.wss = new WebSocketServer({ port: this.portWS });
     this.swaggerDocument.servers[0].url += ":" + process.env.PORT_REST;
-    this.wsRPC = wsRPC;
     this.sdkConfig = sdkConfig;
     this.eventListener = new EventListener(sdkConfig, wsRPC);
     console.log("url=", this.swaggerDocument.servers[0].url);
@@ -61,16 +59,23 @@ export default class D8XBrokerBackendApp {
     this.routes();
   }
 
-  public async checkEventListenerHeartbeat(timeSeconds: number, sdkConfig: NodeSDKConfig) {
-    if (this.eventListener.timeMsSinceLastBlockchainEvent() / 1000 > timeSeconds) {
+  public async checkTradeEventListenerHeartbeat(sdkConfig: NodeSDKConfig, newWsRPC: string) {
+    const lastEventTs = this.eventListener.timeMsSinceLastBlockchainEvent();
+    const lastTradeEventTs = this.eventListener.timeMsSinceLastTradeBlockchainEvent();
+    const msg = `Last trade event ${Math.floor(lastTradeEventTs / 1000 / 6) / 10}mins, last event ${
+      Math.floor(lastEventTs / 1000 / 6) / 10
+    }mins.`;
+
+    const doRestart = lastEventTs > 5 * 60_000 || (lastEventTs < 2 * 60_000 && lastTradeEventTs > 3 * 60_000);
+    if (doRestart) {
       // no event since timeSeconds, restart listener
-      console.log("Restarting event listener");
-      this.eventListener.stopListening();
+      console.log(msg + ` - restarting event listener`);
+      this.eventListener.resetRPCWebsocket(newWsRPC);
       if (sdkConfig == undefined) {
         sdkConfig = this.sdkConfig;
       }
-      this.eventListener = new EventListener(sdkConfig, this.wsRPC);
-      await this.eventListener.initialize(this.sdk);
+    } else {
+      console.log(msg + ` - no restart`);
     }
   }
 
