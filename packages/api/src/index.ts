@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { chooseRandomRPC } from "utils";
+import { chooseRandomRPC, sleep } from "utils";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
 import BrokerNone from "./brokerNone";
 import BrokerRegular from "./brokerRegular";
@@ -29,5 +29,10 @@ async function start() {
   }
   let d8XBackend = new D8XBrokerBackendApp(broker, sdkConfig, wsRPC);
   await d8XBackend.initialize();
+  while (true) {
+    await sleep(60_000);
+    const wsRPC = chooseRandomRPC(true, rpcConfig);
+    await d8XBackend.checkTradeEventListenerHeartbeat(sdkConfig, wsRPC);
+  }
 }
 start();

@@ -59,6 +59,15 @@ interface ClientSubscription {
   traderAddr: string;
 }
 
+// Events that are crucial for
+// trade interactions
+enum TradeInteractionEvent {
+  TradeEvt,
+  LimitOrderCreatedEvt,
+  UpdateMarginAccountEvt,
+  UpdateMarkPriceEvt,
+}
+
 export default class EventListener extends IndexPriceInterface {
   traderInterface: TraderInterface;
   proxyContract: Contract | undefined;
@@ -68,6 +77,9 @@ export default class EventListener extends IndexPriceInterface {
   fundingRate: Map<number, number>; // perpetualId -> funding rate
   openInterest: Map<number, number>; // perpetualId -> openInterest
   lastBlockChainEventTs: number; //here we log the event occurence time to guess whether the connection is alive
+
+  // track cross-section of event occurrences
+  eventOccurrenceTs: Map<TradeInteractionEvent, number>; //eventName -> number
 
   // subscription for perpetualId and trader address. Multiple websocket-clients can subscribe
   // (hence array of websockets)
@@ -83,19 +95,75 @@ export default class EventListener extends IndexPriceInterface {
     this.traderInterface = new TraderInterface(sdkConfig);
     this.subscriptions = new Map<number, Map<string, WebSocket.WebSocket[]>>();
     this.clients = new Map<WebSocket.WebSocket, Array<ClientSubscription>>();
+    this.eventOccurrenceTs = new Map<TradeInteractionEvent, number>();
+  }
+
+  private initEventOccurrenceTs() {
+    const ts = Date.now(); //ms
+    Object.keys(TradeInteractionEvent).forEach((key, index) => {
+      this.eventOccurrenceTs.set(index, ts);
+    });
   }
 
   public async initialize(sdkInterface: SDKInterface) {
     await super.initialize(sdkInterface);
     await this.traderInterface.createProxyInstance();
+    this.resetRPCWebsocket(this.wsRPC);
+    sdkInterface.registerObserver(this);
+    this.lastBlockChainEventTs = Date.now();
+  }
+
+  public async resetRPCWebsocket(newWsRPC: string) {
+    this.stopListening();
+    this.wsRPC = newWsRPC;
     this.proxyContract = new Contract(
       this.traderInterface.getProxyAddress(),
       this.traderInterface.getABI("proxy")!,
       new providers.WebSocketProvider(this.wsRPC)
     );
-    sdkInterface.registerObserver(this);
     this.addProxyEventHandlers();
-    this.lastBlockChainEventTs = Date.now();
+    for (const symbol of Object.keys(this.orderBookContracts)) {
+      this.addOrderBookEventHandlers(symbol);
+    }
+    this.initEventOccurrenceTs();
+  }
+
+  /**
+   * Unlisten/Remove event handlers for an order-book
+   * @param symbol symbol for order-book
+   */
+  private removeOrderBookEventHandlers(symbol: string) {
+    let contract = this.orderBookContracts[symbol];
+    if (contract != undefined) {
+      contract.removeAllListeners();
+    }
+  }
+
+  /**
+   * Unlisten/Remove all event handlers
+   */
+  private stopListening() {
+    if (this.proxyContract != undefined) {
+      this.proxyContract.removeAllListeners();
+    }
+    for (const symbol of Object.keys(this.orderBookContracts)) {
+      this.removeOrderBookEventHandlers(symbol);
+    }
+  }
+
+  /**
+   * Time elapsed since last trade-related event was received.
+   * Can be used to check "alive" status
+   * @returns milliseconds since last event
+   */
+  public timeMsSinceLastTradeBlockchainEvent(): number {
+    let minTs = Date.now() + 100;
+    for (let [key, ts] of this.eventOccurrenceTs) {
+      if (minTs > ts) {
+        minTs = ts;
+      }
+    }
+    return Date.now() - minTs;
   }
 
   /**
@@ -400,30 +468,6 @@ export default class EventListener extends IndexPriceInterface {
   }
 
   /**
-   * Unlisten/Remove event handlers for an order-book
-   * @param symbol symbol for order-book
-   */
-  private removeOrderBookEventHandlers(symbolOrId: string) {
-    // let contract = this.traderInterface.getOrderBookContract(symbolOrId);
-    let contract = this.orderBookContracts[symbolOrId];
-    // contract.removeAllListeners("PerpetualLimitOrderCancelled");
-    contract.removeAllListeners("PerpetualLimitOrderCreated");
-    contract.removeAllListeners("ExecutionFailed");
-  }
-
-  /**
-   * Unlisten/Remove all event handlers
-   */
-  public stopListening() {
-    // let contract = this.traderInterface.getOrderBookContract(symbolOrId);
-    this.proxyContract?.removeAllListeners();
-    for (const symbol of Object.keys(this.orderBookContracts)) {
-      const contract = this.orderBookContracts[symbol];
-      contract.removeAllListeners();
-    }
-  }
-
-  /**
    * emit UpdateFundingRate(_perpetual.id, fFundingRate)
    * We store the funding rate locally and send it with other events to the price subscriber
    * @param perpetualId
@@ -458,6 +502,7 @@ export default class EventListener extends IndexPriceInterface {
     fOpenInterestBC: BigNumber
   ): Promise<void> {
     this.lastBlockChainEventTs = Date.now();
+    this.eventOccurrenceTs.set(TradeInteractionEvent.UpdateMarginAccountEvt, this.lastBlockChainEventTs);
     this.openInterest.set(perpetualId, ABK64x64ToFloat(fOpenInterestBC));
 
     let symbol = this.symbolFromPerpetualId(perpetualId);
@@ -572,6 +617,7 @@ export default class EventListener extends IndexPriceInterface {
     fSpotIndexPrice: BigNumber
   ): void {
     this.lastBlockChainEventTs = Date.now();
+    this.eventOccurrenceTs.set(TradeInteractionEvent.UpdateMarkPriceEvt, Date.now());
     let [newMidPrice, newMarkPrice, newIndexPrice] = EventListener.ConvertUpdateMarkPrice(
       fMidPricePremium,
       fMarkPricePremium,
@@ -656,6 +702,8 @@ export default class EventListener extends IndexPriceInterface {
     fFeeCC: BigNumber,
     fPnlCC: BigNumber
   ) {
+    console.log(`onTrade ${trader}`);
+    this.eventOccurrenceTs.set(TradeInteractionEvent.TradeEvt, this.lastBlockChainEventTs);
     this.lastBlockChainEventTs = Date.now();
     let symbol = this.symbolFromPerpetualId(perpetualId);
     // return transformed trade info
@@ -696,6 +744,7 @@ export default class EventListener extends IndexPriceInterface {
     Order: SmartContractOrder,
     digest: string
   ): void {
+    this.eventOccurrenceTs.set(TradeInteractionEvent.LimitOrderCreatedEvt, Date.now());
     this.lastBlockChainEventTs = Date.now();
     console.log("onPerpetualLimitOrderCreated");
     // send to subscriber who sent the order
@@ -720,6 +769,7 @@ export default class EventListener extends IndexPriceInterface {
    */
   public onPerpetualLimitOrderCancelled(perpetualId: number, orderId: string) {
     this.lastBlockChainEventTs = Date.now();
+
     console.log("onPerpetualLimitOrderCancelled");
     let wsMsg: WSMsg = { name: "PerpetualLimitOrderCancelled", obj: { orderId: orderId } };
     let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onPerpetualLimitOrderCancelled", "", wsMsg);
@@ -741,6 +791,7 @@ export default class EventListener extends IndexPriceInterface {
    */
   private onExecutionFailed(perpetualId: number, trader: string, digest: string, reason: string) {
     this.lastBlockChainEventTs = Date.now();
+
     console.log("onExecutionFailed:", reason);
     let symbol = this.symbolFromPerpetualId(perpetualId);
     let obj: ExecutionFailed = {
