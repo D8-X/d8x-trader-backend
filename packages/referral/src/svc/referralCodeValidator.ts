@@ -1,5 +1,7 @@
 import { ethers } from "ethers";
-import { ReferralSettings, ReferralCodePayload } from "../referralTypes";
+import { ReferralSettings } from "../referralTypes";
+import { APIReferralCodePayload, APIReferralCodeSelectionPayload } from "@d8x/perpetuals-sdk";
+import { isValidAddress } from "utils";
 import DBReferralCode from "../db/db_referral_code";
 const PERCENT_TOLERANCE = 0.0001;
 
@@ -20,6 +22,24 @@ export default class ReferralCodeValidator {
     return rawCode.replace(/[^a-z0-9\_-]/gi, "").toUpperCase();
   }
 
+  public async checkSelectCodePayload(pyld: APIReferralCodeSelectionPayload) {
+    if (!isValidAddress(pyld.traderAddr)) {
+      throw Error(`TraderAddr ${pyld.traderAddr} not valid`);
+    }
+    if (pyld.code == undefined || pyld.code == "") {
+      throw Error("No code");
+    }
+    if (pyld.createdOn < Date.now() / 1000 - 86400 * 50 || pyld.createdOn > Date.now() + 60_000) {
+      // timestamp can be seconds or milliseconds -> it serves as a nonce for
+      // the signature
+      throw Error("Invalid createdAt timestamp");
+    }
+    if (!(await this.dbReferralCode.codeExistsReferrerAndAgency(pyld.code))) {
+      const msg = `Code ${ReferralCodeValidator.washCode(pyld.code)} unknown`;
+      throw Error(msg);
+    }
+  }
+
   /**
    * Check payload:
    * - agency permissioned?
@@ -27,23 +47,41 @@ export default class ReferralCodeValidator {
    * - code already exists?
    * Throws errors
    * @param pyld payload
+   * @returns true if exists already
    */
-  public async checkPayload(pyld: ReferralCodePayload) {
-    if (pyld.agencyRebatePerc != 0 && !this.settings.permissionedAgencies.includes(pyld.agencyAddr)) {
+  public async checkCode(pyld: APIReferralCodePayload): Promise<boolean> {
+    // throws:
+    if (pyld.agencyRebatePerc != 0 && !this.isPermissionedAgency(pyld.agencyAddr)) {
       throw Error(`Agency address ${pyld.agencyAddr} not permissioned by broker`);
     }
-    // throws:
-    ReferralCodeValidator.checkPayloadLogic(pyld);
+    ReferralCodeValidator.checkNewCodePayloadLogic(pyld);
     if (pyld.code == undefined || pyld.code == "") {
       throw Error("No code");
     }
-    if (await this.dbReferralCode.codeExists(pyld.code)) {
-      const msg = `Code ${ReferralCodeValidator.washCode(pyld.code)} already exists`;
-      throw Error(msg);
+    if (ReferralCodeValidator.washCode(pyld.code) == "DEFAULT") {
+      return true;
     }
+    let r = await this.dbReferralCode.codeExistsReferrerAndAgency(pyld.code);
+    if (r.referrer == "") {
+      // code does not exist yet
+      return false;
+    }
+    // code exists, now we need to check whether the issuer of the code is the same
+    if (pyld.agencyAddr != "" && pyld.agencyAddr.toLowerCase() != r.agency) {
+      // the agency must sign the code in this case, so agency must be the same
+      throw Error(`Agency address ${r.agency} has reserved this code OR signature incorrect.`);
+    } else if (pyld.referrerAddr.toLowerCase() != r.referrer) {
+      throw Error(`A referrer has already reserved this code OR signature incorrect`);
+    }
+    return true;
   }
 
-  public static checkPayloadLogic(pyld: ReferralCodePayload) {
+  public isPermissionedAgency(addr: string): boolean {
+    // pre-condition: load settings transforms all permissionedAgencies-addresses to lowercase
+    return this.settings.permissionedAgencies.includes(addr.toLowerCase());
+  }
+
+  public static checkNewCodePayloadLogic(pyld: APIReferralCodePayload) {
     if (Math.min(pyld.referrerRebatePerc, pyld.referrerRebatePerc, pyld.traderRebatePerc) < 0) {
       throw Error("Percentages must be positive");
     }
@@ -54,20 +92,16 @@ export default class ReferralCodeValidator {
     if (pyld.agencyAddr == "" && pyld.agencyRebatePerc != 0) {
       throw Error("No agency address set but agency rebate");
     }
-    if (pyld.agencyAddr != "" && !ReferralCodeValidator.isValidAddress(pyld.agencyAddr)) {
+    if (pyld.agencyAddr != "" && !isValidAddress(pyld.agencyAddr)) {
       throw Error("Invalid agency address");
     }
-    if (!ReferralCodeValidator.isValidAddress(pyld.referrerAddr)) {
+    if (!isValidAddress(pyld.referrerAddr)) {
       throw Error("Invalid referrer address");
     }
-    if (pyld.createdOn < Date.now() / 1000 - 60 || pyld.createdOn > Date.now() + 60_000) {
+    if (pyld.createdOn < Date.now() / 1000 - 86400 * 50 || pyld.createdOn > Date.now() + 60_000) {
       // timestamp can be seconds or milliseconds -> it serves as a nonce for
       // the signature
       throw Error("Invalid createdAt timestamp");
     }
-  }
-
-  private static isValidAddress(addr: string): boolean {
-    return addr != "" && addr != ethers.constants.AddressZero && addr.length == 42 && addr.substring(0, 2) == "0x";
   }
 }

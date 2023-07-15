@@ -1,16 +1,16 @@
 import { ethers, providers } from "ethers";
 import {
-  getPreviousDate,
+  getPreviousCronDate,
   cronParserCheckExpression,
   calculateBlockFromTime,
   floatToDec18,
+  adjustNDigitPercentagesTo100,
+  chooseRandomRPC,
 } from "../packages/utils/src/utils";
 import { error } from "console";
 async function test() {
-  const rpcURL = process.env.HTTP_RPC_URL;
-  if (rpcURL == "") {
-    throw Error("define HTTP_RPC_URL in env");
-  }
+  const rpcConfig = require("../config/example.rpc.json");
+  const rpcURL = chooseRandomRPC(false, rpcConfig);
   const provider = new providers.StaticJsonRpcProvider(rpcURL);
   let R = (Math.random() - 0.5) / 0.5;
   let sinceTs = new Date("2023-06-01T01:01:00.000Z").getTime() + Math.round(1000 * R * 20 * 86400);
@@ -39,9 +39,19 @@ function testGetPrevDate() {
 
   let pattern = "0-14-*-3";
   let aRight = cronParserCheckExpression(pattern);
-  let v = getPreviousDate(pattern);
+  let v = getPreviousCronDate(pattern);
   console.log(v);
+}
+
+function testadjustNDigitPercentagesTo100() {
+  //let v = adjustNDigitPercentagesTo100([98.1212, 2, 0, 1], 2);
+  let v = adjustNDigitPercentagesTo100([98.1, 0.1, 0, 0.5], 2);
+  console.log(v);
+  let s = 0;
+  v.forEach((x) => (s += x));
+  console.log("sum=", s);
 }
 //test();
 
-testGetPrevDate();
+//testGetPrevDate();
+testadjustNDigitPercentagesTo100();

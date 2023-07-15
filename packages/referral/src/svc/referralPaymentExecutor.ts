@@ -1,9 +1,8 @@
-import { BigNumber, ethers, providers, Wallet } from "ethers";
 import { Logger } from "winston";
+import { providers } from "ethers";
 import DBPayments from "../db/db_payments";
 import { ReferralOpenPayResponse, UnconfirmedPaymentRecord, TEMPORARY_TX_HASH } from "../referralTypes";
-const ctrMultiPayAbi = require("../abi/MultiPay.json");
-
+import AbstractPayExecutor from "./abstractPayExecutor";
 enum TransactionState {
   Failed = 1,
   Succeeded = 2,
@@ -21,26 +20,22 @@ enum TransactionState {
  * This is handled by PaymentManager
  */
 export default class ReferralPaymentExecutor {
-  private multiPayContractAddr: string;
-  private rpcURL: string;
-  private privateKey: string; // private key of the broker
-  private brokerAddr: string; // broker address derived from private key
-  private approvedTokens = new Map<string, boolean>();
+  private rpcUrl: string;
+
   private dbPayment: DBPayments;
   private minBrokerFeeCCForRebate = new Map<number, number>(); //pool-id -> fee in coll.currency
+  private payExecutor: AbstractPayExecutor;
+  private brokerAddr = "";
 
   constructor(
     dbPayment: DBPayments,
-    multiPayContractAddr: string,
     rpcURL: string,
-    privateKey: string,
     minBrokerFeeCCForRebatePerPool: Array<[number, number]>,
+    payExecutor: AbstractPayExecutor,
     private l: Logger
   ) {
-    this.multiPayContractAddr = multiPayContractAddr;
-    this.rpcURL = rpcURL;
-    this.privateKey = privateKey;
-    this.brokerAddr = new Wallet(privateKey).address;
+    this.payExecutor = payExecutor;
+    this.rpcUrl = rpcURL;
     this.dbPayment = dbPayment;
     for (let k = 0; k < minBrokerFeeCCForRebatePerPool.length; k++) {
       // pool id --> minimal fee
@@ -53,8 +48,8 @@ export default class ReferralPaymentExecutor {
    * @returns number of payments executed
    */
   public async executePayments(): Promise<number> {
+    this.brokerAddr = await this.payExecutor.getBrokerAddress();
     let openPayments = await this.dbPayment.aggregateFees(this.brokerAddr);
-    let multiPay = await this._connectMultiPayContractInstance();
     const msg4Chain = Math.round(Date.now() / 1000).toString();
     let executionNum = 0;
     for (let k = 0; k < openPayments.length; k++) {
@@ -62,14 +57,11 @@ export default class ReferralPaymentExecutor {
       let [amounts, addr] = this._extractPaymentDirections(openPayments[k]);
       if (addr.length == 0) {
         this.l.info(
-          `Pay amount (total fee=${openPayments[k].broker_fee_cc}) too small for trader ${openPayments[k].trader_addr}`
+          `Pay amount (total fee=${openPayments[k].broker_fee_cc_amtdec}) too small for trader ${openPayments[k].trader_addr}`
         );
         continue;
       }
-      if (!(await this._approveTokenToBeSpent(tokenAddr))) {
-        this.l.warn("ReferralPayments: could not approve token", tokenAddr);
-        continue;
-      }
+
       const brokerAmount = amounts[3];
       // first call 'registerPayment' to store the event with a tx_hash
       // that indicates the non-execution
@@ -79,11 +71,12 @@ export default class ReferralPaymentExecutor {
       if (!(await this.dbPayment.registerPayment(openPayments[k], brokerAmount, TEMPORARY_TX_HASH))) {
         continue;
       }
-      // we must use the timestamp of the latest payment as id
-      const id = BigInt(openPayments[k].last_payment_ts.getTime());
+      // we must use the timestamp in seconds of the last considered trade,
+      // so future payments will start after that date.
+      const id: number = Math.round(openPayments[k].last_trade_considered_ts.getTime() / 1000);
       // we must encode the code and pool-id into the message
       const msg = msg4Chain + "." + openPayments[k].code + "." + openPayments[k].pool_id.toString();
-      let txHash = await this._transactPayment(multiPay, tokenAddr, amounts, addr, id, msg);
+      let txHash = await this.payExecutor.transactPayment(tokenAddr, amounts, addr, id, msg);
       if (txHash == "fail") {
         // wipe payment entry
         let keyTs = openPayments[k].last_trade_considered_ts;
@@ -105,7 +98,7 @@ export default class ReferralPaymentExecutor {
    */
   public async confirmPaymentTransactions() {
     let unRecords: UnconfirmedPaymentRecord[] = await this.dbPayment.queryUnconfirmedTransactions();
-    let provider = new providers.StaticJsonRpcProvider(this.rpcURL);
+    let provider = new providers.StaticJsonRpcProvider(this.rpcUrl);
     for (let k = 0; k < unRecords.length; k++) {
       let u = unRecords[k];
       let state: TransactionState = await this.getTransactionState(u.tx_hash, provider);
@@ -127,7 +120,8 @@ export default class ReferralPaymentExecutor {
    * @returns arrays of amounts and addresses
    */
   private _extractPaymentDirections(openPayment: ReferralOpenPayResponse): [bigint[], string[]] {
-    const totalFees = BigInt(openPayment.broker_fee_cc);
+    console.log(openPayment);
+    const totalFees = BigInt(openPayment.broker_fee_cc_amtdec);
     const poolId = Number(openPayment.pool_id);
     if (totalFees < this.minBrokerFeeCCForRebate.get(poolId)!) {
       return [[], []];
@@ -136,7 +130,7 @@ export default class ReferralPaymentExecutor {
       openPayment.trader_cc_amtdec,
       openPayment.referrer_cc_amtdec,
       openPayment.agency_cc_amtdec,
-    ].map((x) => BigInt(x));
+    ];
 
     let amtBroker = totalFees - amtTrader - amtReferrer - amtAgency;
     let amount: bigint[] = [amtTrader, amtReferrer, amtAgency, amtBroker];
@@ -160,64 +154,6 @@ export default class ReferralPaymentExecutor {
     } catch (error) {
       this.l.warn(`getTransactionState hash=${txHash}`, error);
       return TransactionState.Failed;
-    }
-  }
-
-  private async _connectMultiPayContractInstance(): Promise<ethers.Contract> {
-    let provider = new providers.StaticJsonRpcProvider(this.rpcURL);
-    const wallet = new Wallet(this.privateKey!);
-    const signer = wallet.connect(provider);
-    return new ethers.Contract(this.multiPayContractAddr, ctrMultiPayAbi, signer);
-  }
-
-  private async _approveTokenToBeSpent(tokenAddr: string): Promise<boolean> {
-    if (this.approvedTokens.get(tokenAddr) != undefined) {
-      return true;
-    }
-    try {
-      let provider = new providers.StaticJsonRpcProvider(this.rpcURL);
-      const wallet = new Wallet(this.privateKey!);
-      const signer = wallet.connect(provider);
-      const tokenAbi = ["function approve(address spender, uint256 amount) external returns (bool)"];
-      const tokenContract = new ethers.Contract(tokenAddr, tokenAbi, signer);
-      const approvalTx = await tokenContract
-        .connect(signer)
-        .approve(this.multiPayContractAddr, ethers.constants.MaxUint256);
-      await approvalTx.wait();
-      console.log(`Successfully approved spender ${this.multiPayContractAddr} for token ${tokenAddr}`);
-      this.approvedTokens.set(tokenAddr, true);
-      return true;
-    } catch (error) {
-      console.log(`error approving token ${tokenAddr}:`, error);
-      return false;
-    }
-  }
-
-  private async _transactPayment(
-    multiPay: ethers.Contract,
-    tokenAddr: string,
-    amounts: bigint[],
-    paymentToAddr: string[],
-    id: bigint,
-    msg: string
-  ): Promise<string> {
-    // filter out zero payments
-    let amountsPayable: BigNumber[] = [];
-    let addrPayable: string[] = [];
-    for (let k = 0; k < amounts.length; k++) {
-      // also push zero amounts
-      amountsPayable.push(BigNumber.from(amounts[k].toString()));
-      let addr = paymentToAddr[k] == "" ? ethers.constants.AddressZero : paymentToAddr[k];
-      addrPayable.push(addr);
-    }
-
-    // payment execution
-    try {
-      let tx = await multiPay.pay(id, tokenAddr, amountsPayable, addrPayable, msg);
-      return tx.hash;
-    } catch (error) {
-      this.l.warn(`error when executing multipay for token ${tokenAddr}`);
-      return "fail";
     }
   }
 }

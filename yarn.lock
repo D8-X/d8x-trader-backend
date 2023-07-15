@@ -79,10 +79,30 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@d8x/perpetuals-sdk@^0.7.4":
-  version "0.7.5"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.7.5.tgz#2a5a4383662ad32b96bc3077641cb1ab9218d13e"
-  integrity sha512-30VOL8v3ba7WN547wDgMcS4ErQMlw5U7N3cJyOO+oyVziMdMC8UQXMNdIECy861fwjo7lA2FvUQtJ6cURVQqNw==
+"@d8x/perpetuals-sdk@^0.7.13":
+  version "0.7.16"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.7.16.tgz#a8e3229c294689e0f4ab36e5fa8efa87633760c3"
+  integrity sha512-aA87UcujRXGzPUpCCV92PehzZ3Rc3TFDwYKtRsd+qUQ+wuQ6PvkfQYMr5o3ZiIVCkTlixc2pnsCyKy9gwoqpCA==
+  dependencies:
+    "@ethersproject/abi" "^5.7.0"
+    "@ethersproject/abstract-signer" "^5.7.0"
+    "@ethersproject/bignumber" "^5.7.0"
+    "@ethersproject/bytes" "^5.7.0"
+    "@ethersproject/contracts" "^5.7.0"
+    "@ethersproject/keccak256" "^5.7.0"
+    "@ethersproject/providers" "^5.7.2"
+    "@ethersproject/strings" "^5.7.0"
+    "@ethersproject/units" "^5.7.0"
+    "@ethersproject/wallet" "^5.7.0"
+    "@typechain/ethers-v5" "^11.0.0"
+    buffer "^6.0.3"
+    process "^0.11.10"
+    typechain "^8.2.0"
+
+"@d8x/perpetuals-sdk@^0.8.0":
+  version "0.8.0"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.8.0.tgz#8b1095d76b557e245ea45e68e314b0399b042166"
+  integrity sha512-uI4Exn+wbmsGx/GRzjFozmTjo6An1hSpoxOQ67jKA+bBGmhHKZSxe08CZcp4qkRvqYHskfajY8IruyUSyipZkg==
   dependencies:
     "@ethersproject/abi" "^5.7.0"
     "@ethersproject/abstract-signer" "^5.7.0"
@@ -107,19 +127,6 @@
     colorspace "1.1.x"
     enabled "2.0.x"
     kuler "^2.0.0"
-
-"@datasert/cronjs-matcher@^1.2.0":
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/@datasert/cronjs-matcher/-/cronjs-matcher-1.2.0.tgz#c7468c8c984c562ceec553e6a698a131e1659e4a"
-  integrity sha512-ht6Vwwa3qssMn/9bphypjG/U8w0DV3GtTS2C6kbAy39rerQFTRzmml9xZNlot1K13gm9K/EEq3DLPEOsH++ICw==
-  dependencies:
-    "@datasert/cronjs-parser" "^1.2.0"
-    luxon "^2.1.1"
-
-"@datasert/cronjs-parser@^1.2.0":
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/@datasert/cronjs-parser/-/cronjs-parser-1.2.0.tgz#1a399e1a015db5d09a533d7a23fe8abfa03631ea"
-  integrity sha512-7kzYh7F5V3ElX+k3W9w6SKS6WdjqJQ2gIY1y0evldnjAwZxnFzR/Yu9Mv9OeDaCQX+mGAq2MvEnJbwu9oj3CXQ==
 
 "@ethersproject/abi@5.7.0", "@ethersproject/abi@^5.7.0":
   version "5.7.0"
@@ -3809,11 +3816,6 @@ lru-cache@^7.14.1, lru-cache@^7.4.4, lru-cache@^7.5.1, lru-cache@^7.7.1:
   version "7.18.3"
   resolved "https://registry.npmjs.org/lru-cache/-/lru-cache-7.18.3.tgz"
   integrity sha512-jumlc0BIUrS3qJGgIkWZsyfAM7NCWiBcCDhnd+3NNM5KbBmLTgHVfWBcg6W+rLUsIpzpERPsvwUP7CckAQSOoA==
-
-luxon@^2.1.1:
-  version "2.5.2"
-  resolved "https://registry.yarnpkg.com/luxon/-/luxon-2.5.2.tgz#17ed497f0277e72d58a4756d6a9abee4681457b6"
-  integrity sha512-Yg7/RDp4nedqmLgyH0LwgGRvMEKVzKbUdkBYyCosbHgJ+kaOUx0qzSiSatVc3DFygnirTPYnMM2P5dg2uH1WvA==
 
 luxon@^3.2.1:
   version "3.3.0"

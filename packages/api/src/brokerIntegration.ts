@@ -5,8 +5,8 @@ import { SmartContractOrder, Order } from "@d8x/perpetuals-sdk";
  * fee, address, and key management
  */
 export default abstract class BrokerIntegration {
-  abstract getBrokerAddress(traderAddr: string, order?: Order): string;
-  abstract getBrokerFeeTBps(traderAddr: string, order?: Order): number;
+  abstract getBrokerAddress(): Promise<string>;
+  abstract getBrokerFeeTBps(traderAddr: string, order?: Order): Promise<number>;
   abstract signOrder(SCOrder: SmartContractOrder): Promise<string>;
-  abstract initialize(): Promise<string>;
+  abstract initialize(): Promise<string>; // returns the broker address
 }

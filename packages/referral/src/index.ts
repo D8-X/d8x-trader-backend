@@ -1,24 +1,28 @@
 import Redis from "ioredis";
+import { ethers } from "ethers";
 import * as winston from "winston";
 import { ReferralSettings } from "./referralTypes";
-import { constructRedis, sleep, isValidAddress, cronParserCheckExpression } from "utils";
+import { constructRedis, sleep, isValidAddress, cronParserCheckExpression, chooseRandomRPC } from "utils";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import ReferralAPI from "./api/referral_api";
 import DBReferralCode from "./db/db_referral_code";
+import DBPayments from "./db/db_payments";
+import DBSettings from "./db/db_settings";
+import DBTokenHoldings from "./db/db_token_holdings";
 import ReferralCut from "./db/db_referral_cut";
-import TokenHoldings from "./db/db_token_holdings";
 import TokenAccountant from "./svc/tokenAccountant";
 import ReferralPaymentManager from "./svc/referralPaymentManager";
-import DBPayments from "./db/db_payments";
 import ReferralCodeValidator from "./svc/referralCodeValidator";
+import PayExecutorLocal from "./svc/payExecutorLocal";
+
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const defaultLogger = () => {
   return winston.createLogger({
     level: "info",
     format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-    defaultMeta: { service: "pnl-service" },
+    defaultMeta: { service: "referral-service" },
     transports: [new winston.transports.Console(), new winston.transports.File({ filename: "pnl.log" })],
   });
 };
@@ -61,7 +65,7 @@ function checkSettingMinBrokerFeeCCForRebatePerPool(rebate: Array<[number, numbe
 }
 
 function loadSettings() {
-  let file = require("../referralSettings.json") as ReferralSettings;
+  let file = require("../../../config/live.referralSettings.json") as ReferralSettings;
   // some rudimentary checks
   if (file.permissionedAgencies.length > 0) {
     file.permissionedAgencies.map((a) => {
@@ -70,6 +74,7 @@ function loadSettings() {
       }
     });
   }
+  file.permissionedAgencies = file.permissionedAgencies.map((x) => x.toLocaleLowerCase());
   if (file.tokenX.address != "" && !isValidAddress(file.tokenX.address)) {
     throw Error(`referralSettings: Invalid tokenX address: ${file.tokenX.address}`);
   }
@@ -95,6 +100,11 @@ function loadSettings() {
   return file;
 }
 
+/**
+ * Currently not used
+ * @param l logger
+ * @returns broker address
+ */
 async function getBrokerAddressViaRedis(l: winston.Logger): Promise<string> {
   // wait for broker initialization by packages/api/sdkInterface
   let redisClient: Redis = constructRedis("referral");
@@ -118,6 +128,19 @@ async function getBrokerAddressViaRedis(l: winston.Logger): Promise<string> {
   return brokerAddr || "";
 }
 
+function getBrokerAddressFromKey(key: string): string {
+  let addr = "";
+  if (key == "") return addr;
+  try {
+    const wallet = new ethers.Wallet(key);
+    // Get the wallet address
+    addr = wallet.address;
+  } catch (err) {
+    logger.error("Invalid broker key:" + err);
+  }
+  return addr;
+}
+
 async function setDefaultReferralCode(dbReferralCodes: DBReferralCode, settings: ReferralSettings) {
   let s = settings.defaultReferralCode;
   await dbReferralCodes.writeDefaultReferralCodeToDB(
@@ -128,6 +151,32 @@ async function setDefaultReferralCode(dbReferralCodes: DBReferralCode, settings:
   );
 }
 
+async function setDBSettings(
+  settings: ReferralSettings,
+  prisma: PrismaClient,
+  logger: winston.Logger
+): Promise<boolean> {
+  const dbSettings = new DBSettings(settings, prisma, logger);
+  return await dbSettings.writeSettings();
+}
+
+/**
+ * Store referral cut settings in database, meaning:
+ *  - how much percent of the broker fee earnings are re-distributed?
+ *  - reads referralSettings.json and translates this into db
+ *    - agencyCutPercent (first entry in db)
+ *    - referrerCutPercentForTokenXHolding
+ * Example:
+ *  is_agency_cut | cut_perc |  holding_amount_dec_n   |  token_addr
+ * ---------------+----------+-------------------------+----------------------
+ *  t             |    80.00 |                       0 |
+ *  f             |     0.20 |                       0 | 0x2d10075E54356E1...
+ *  f             |     1.50 |   100000000000000000000 | 0x2d10075E54356E1...
+ *  f             |     2.50 |  1000000000000000000000 | 0x2d10075E54356E1...
+ *  f             |     3.50 | 10000000000000000000000 | 0x2d10075E54356E1...
+ * @param dbReferralCuts db handle
+ * @param settings  settings file with information for this table
+ */
 async function setReferralCutSettings(dbReferralCuts: ReferralCut, settings: ReferralSettings) {
   await dbReferralCuts.writeReferralCutsToDB(true, [[settings.agencyCutPercent, 0]], 0, "");
   await dbReferralCuts.writeReferralCutsToDB(
@@ -148,9 +197,20 @@ async function start() {
     logger.error("Problems in referralSettings:" + error);
     return;
   }
-
   if (!settings.referralSystemEnabled) {
-    logger.info("Referral system is turned off. Use referralSettings.json to enable.");
+    logger.info("NO REFERRALS: Referral system disabled (settings)");
+    return;
+  } else {
+    logger.info("Starting referral system");
+  }
+  let key = "";
+  if (process.env.BROKER_KEY != undefined && process.env.BROKER_KEY != "") {
+    key = process.env.BROKER_KEY;
+  }
+
+  let brokerAddr = getBrokerAddressFromKey(key);
+  if (brokerAddr == "" || brokerAddr == ZERO_ADDRESS) {
+    logger.info("shutting down referral system (no broker)");
     return;
   }
 
@@ -168,24 +228,23 @@ async function start() {
     return;
   }
 
-  let rpcUrl: string = process.env.HTTP_RPC_URL || "";
+  const rpcConfig = require("../../../config/live.rpc.json");
+  let rpcUrl = chooseRandomRPC(false, rpcConfig);
   if (rpcUrl == "") {
-    logger.error("Set HTTP_RPC_URL in .env");
-    return;
-  }
-
-  let brokerAddr = await getBrokerAddressViaRedis(logger);
-  if (brokerAddr == "" || brokerAddr == ZERO_ADDRESS) {
-    logger.info("shutting down referrer system (no broker)");
+    logger.error("Set HTTP RPC in config/live.rpc.json");
     return;
   }
 
   // Initialize db client
   const prisma = new PrismaClient();
+  const setOk = await setDBSettings(settings, prisma, logger);
+  if (!setOk) {
+    logger.error("setDBSettings failed");
+    return;
+  }
   const dbReferralCode = new DBReferralCode(BigInt(chainId), prisma, brokerAddr, settings, logger);
   const dbReferralCuts = new ReferralCut(BigInt(chainId), prisma, logger);
-  const dbFeeAggregator = new DBPayments(BigInt(chainId), prisma, logger);
-  const dbTokenHoldings = new TokenHoldings(BigInt(chainId), prisma, logger);
+  const dbTokenHoldings = new DBTokenHoldings(BigInt(chainId), prisma, logger);
   const referralCodeValidator = new ReferralCodeValidator(settings, dbReferralCode);
   const dbPayment = new DBPayments(BigInt(chainId), prisma, logger);
 
@@ -195,24 +254,13 @@ async function start() {
   ta.initProvider(rpcUrl);
   await ta.fetchBalancesFromChain();
   // start REST API server
-  let api = new ReferralAPI(port, dbFeeAggregator, dbReferralCode, referralCodeValidator, brokerAddr, logger);
+  let api = new ReferralAPI(port, dbReferralCode, dbPayment, referralCodeValidator, ta, brokerAddr, logger);
   await api.initialize();
   // start payment manager
-  if (!settings.referralSystemEnabled) {
-    logger.info("NO REFERRALS: Referral system disabled (settings)");
-  } else {
-    let key = "";
-    if (process.env.BROKER_KEY != undefined && process.env.BROKER_KEY != "") {
-      key = process.env.BROKER_KEY;
-    }
-    if (key != "") {
-      logger.info("Starting Referral system");
-      let paymentManager = new ReferralPaymentManager(brokerAddr, dbPayment, settings, rpcUrl, key, logger);
-      // starting (async)
-      paymentManager.run();
-    } else {
-      logger.info("NO REFERRALS: Referral system enabled (settings), but no private key set.");
-    }
-  }
+  logger.info("Starting Referral system");
+  let payExecutor = new PayExecutorLocal(key, settings.multiPayContractAddr, rpcUrl, logger);
+  let paymentManager = new ReferralPaymentManager(brokerAddr, dbPayment, settings, rpcUrl, payExecutor, logger);
+  // starting (async)
+  paymentManager.run();
 }
 start();

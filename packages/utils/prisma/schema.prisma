@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["views"]
 }
 
 datasource db {
@@ -138,7 +139,7 @@ model MarginTokenInfo {
   token_decimals Int
 }
 
-// referral codes are "globally unique" (the code is a database key)
+// referral codes are unique per broker and chain (the code is a database key)
 // e.g., they apply to all pools
 model ReferralCode {
   @@map("referral_code")
@@ -162,10 +163,14 @@ model ReferralCode {
 // current code registered for trader
 model ReferralCodeUsage {
   @@map("referral_code_usage")
-  trader_addr String @id @db.VarChar(42)
+  trader_addr String @db.VarChar(42)
   referral_code ReferralCode @relation(fields: [code], references: [code]) 
   code String @db.VarChar(200)
-  timestamp DateTime @db.Timestamptz @default(now())
+  valid_from DateTime @db.Timestamptz @default(now())
+  valid_to DateTime @db.Timestamptz @default("2042-01-01T00:42:42+00:00")
+  @@id([trader_addr, valid_from])
+  @@index([code])
+  @@index([valid_to])
 }
 
 model ReferralPayment {
@@ -209,8 +214,15 @@ model ReferralSettingCut {
 // The amount is stored in decimal-N format
 model ReferralTokenHoldings {
     @@map("referral_token_holdings")
-    referrer_addr String @id @db.VarChar(42)
+    referrer_addr String @db.VarChar(42)
     holding_amount_dec_n Decimal @db.Decimal(77, 0)
     token_addr String @db.VarChar(42)
     last_updated DateTime @db.Timestamptz @default(now())
+    @@id([referrer_addr, token_addr])
+}
+
+model ReferralSettings {
+    @@map("referral_settings")
+    property String @id @db.VarChar(50)
+    value String @db.VarChar(50)
 }

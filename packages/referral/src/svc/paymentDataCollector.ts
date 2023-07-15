@@ -8,9 +8,9 @@ const ctrMultiPayAbi = require("../abi/MultiPay.json");
 /**
  * Collect historical onchain payment data to ensure we do not carry out multiple
  * payments in case the database was flushed.
- * Cases:
- *  1) no payment record at all -> enter all the data
- *  2) payment record with dummy transaction hash, which means that either
+ * Cases when an on-chain event is found:
+ *  1) no payment record at all in database -> enter all the data into db
+ *  2) payment record with dummy transaction hash in db, which means that either
  *    the payment was not executed or the payment was executed but the database
  *    did not write the transaction
  *
@@ -25,7 +25,7 @@ export default class PaymentDataCollector {
   ) {}
 
   public async confirmPayments(payerAddr: string, since: Date): Promise<void> {
-    let payments = await this.filterPayments(payerAddr, since);
+    let payments = await this.filterPayments(payerAddr.toLowerCase(), since);
     for (let k = 0; k < payments.length; k++) {
       await this.dbPayments.confirmPayment(payments[k]);
     }
@@ -36,15 +36,15 @@ export default class PaymentDataCollector {
 
   /**
    * Query historical events from 'since' up to the current block
-   * @param payerAddr address of the broker that executes the payments to referrer, agency, trader, brokerPayoutAddr
+   * @param payerAddr address of the broker that executes or permissions the payments to referrer, agency, trader, brokerPayoutAddr
    * @param since Date from when we execute
    * @returns Collected payment events
    */
   private async filterPayments(payerAddr: string, since: Date): Promise<PaymentEvent[]> {
-    this.l.info("started payment filtering", { date: since });
+    this.l.info("started payment filtering starting at", { date: since });
     const provider = new providers.StaticJsonRpcProvider(this.rpcURL);
     const contract = new ethers.Contract(this.multiPayContractAddr, ctrMultiPayAbi, provider);
-    // filter all payments from payerAddr
+    // filter all payments from payerAddr (recall we have one broker, so these are all the relevant events)
     const filter = contract.filters.Payment(payerAddr);
     const [blockStart, blockEnd] = await calculateBlockFromTime(provider, since);
     let paymentEvents = await this.filterEvents(blockStart, blockEnd, contract, filter);
@@ -56,21 +56,32 @@ export default class PaymentDataCollector {
       const eventArgs = event.args as ethers.utils.Result;
       // decode pool Id from message, and timestamp from event id
       const [batchTsStr, code, poolIdStr] = eventArgs[5].split(".");
-      const timestamp = new Date(Number(eventArgs[1].toString()));
+      // timestamp emitted is in seconds
+      const timestamp = new Date(Number(eventArgs[1].toString()) * 1000);
+      /*
+        event Payment(
+        0: address indexed from, // broker
+        1: uint32 indexed id, // <- timestamp of last trade considered in payment
+        2: address indexed token,
+        3: uint256[] amounts,
+        4: address[] payees,//Trader, Referrer, Agency, BrokerPaymentAddr
+        5: string message);
+      */
       let p: PaymentEvent = {
-        brokerAddr: eventArgs.args[0],
-        traderAddr: eventArgs.args[4][0], // first entry of payees
+        brokerAddr: eventArgs[0].toLowerCase(),
+        traderAddr: eventArgs[4][0].toLowerCase(), // first entry of payees
         poolId: Number(poolIdStr),
         batchTimestamp: Number(batchTsStr),
         code: code,
-        timestamp: timestamp, // uint256 indexed id
-        token: eventArgs.args[2], // Access the third argument (address indexed token)
-        amounts: eventArgs.args[3].map((amount: BigNumber) => BigInt(amount.toString())),
-        payees: eventArgs.args[4], // Access the fifth argument (address[] payees)
-        message: eventArgs.args[5], // Access the sixth argument (string message)
+        timestamp: timestamp, // uint32 indexed id, last trade considered
+        token: eventArgs[2], // Access the third argument (address indexed token)
+        amounts: eventArgs[3].map((amount: BigNumber) => BigInt(amount.toString())),
+        payees: eventArgs[4].map((x: string) => x.toLowerCase()), // Access the fifth argument (address[] payees)
+        message: eventArgs[5], // Access the sixth argument (string message)
         txHash: event.transactionHash,
         blockNumber: event.blockNumber,
       };
+      console.log(`tx=${event.transactionHash}, trader=${eventArgs[4][0]}, timestamp=${eventArgs[1]}, ${timestamp}`);
       payments.push(p);
     }
     this.l.info(`found ${payments.length} payment events since ${since}`);
