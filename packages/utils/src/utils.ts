@@ -1,6 +1,6 @@
 import Redis from "ioredis";
 import { Prisma } from "@prisma/client";
-import { WebsocketClientConfig } from "./wsTypes";
+import { WebsocketClientConfig, RPCConfig } from "./wsTypes";
 import dotenv from "dotenv";
 import parser from "cron-parser";
 
@@ -474,7 +474,7 @@ export async function calculateBlockFromTimeOld(
   return [0, nowblock];
 }
 
-export function chooseRandomRPC(ws = false, rpcConfig: any): string {
+export function chooseRandomRPC(ws = false, rpcConfig: RPCConfig[]): string {
   dotenv.config();
   let chainId: number = Number(<string>process.env.CHAIN_ID || -1);
   if (chainId == -1) {
