@@ -90,7 +90,9 @@ export default class D8XBrokerBackendApp {
         try {
           let obj = JSON.parse(data.toString());
           if (obj.type == "ping") {
-            ws.send(D8XBrokerBackendApp.JSONResponse("ping", "pong", {}));
+            if (eventListener.isWsKnown(ws)) {
+              ws.send(D8XBrokerBackendApp.JSONResponse("ping", "pong", {}));
+            }
           } else if (obj.type == "unsubscribe") {
             eventListener.unsubscribe(ws, req);
           } else {
