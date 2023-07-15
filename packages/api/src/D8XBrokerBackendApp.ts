@@ -62,7 +62,7 @@ export default class D8XBrokerBackendApp {
   public async checkTradeEventListenerHeartbeat(sdkConfig: NodeSDKConfig, newWsRPC: string) {
     const lastEventTs = this.eventListener.timeMsSinceLastBlockchainEvent();
     const lastTradeEventTs = this.eventListener.timeMsSinceLastTradeBlockchainEvent();
-    const msg = `Last trade event ${Math.floor(lastTradeEventTs / 1000 / 6) / 10}mins, last event ${
+    const msg = `Last trade event/RPC reset ${Math.floor(lastTradeEventTs / 1000 / 6) / 10}mins, last event ${
       Math.floor(lastEventTs / 1000 / 6) / 10
     }mins.`;
 

@@ -127,6 +127,7 @@ export default class EventListener extends IndexPriceInterface {
       this.addOrderBookEventHandlers(symbol);
     }
     this.initEventOccurrenceTs();
+    this.lastBlockChainEventTs = Date.now();
   }
 
   /**
@@ -703,7 +704,7 @@ export default class EventListener extends IndexPriceInterface {
     fFeeCC: BigNumber,
     fPnlCC: BigNumber
   ) {
-    console.log(`onTrade ${trader}`);
+    console.log(`onTrade ${trader} ${positionId}`);
     this.eventOccurrenceTs.set(TradeInteractionEvent.TradeEvt, this.lastBlockChainEventTs);
     this.lastBlockChainEventTs = Date.now();
     let symbol = this.symbolFromPerpetualId(perpetualId);
