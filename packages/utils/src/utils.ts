@@ -1,6 +1,7 @@
 import Redis from "ioredis";
 import { Prisma } from "@prisma/client";
 import { WebsocketClientConfig } from "./wsTypes";
+import dotenv from "dotenv";
 import parser from "cron-parser";
 
 export interface RedisConfig {
@@ -21,6 +22,45 @@ export function extractErrorMsg(error: any): string {
 
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * 1) 0 stays zero
+ * 2) only positive numbers
+ * 3) n-digits after the comma (e.g. 2 as in 32.12, 121331.21)
+ * 4) numbers add up to exactly 100
+ * 5) numbers very close to original array
+ * @param perc
+ * @param digits
+ */
+export function adjustNDigitPercentagesTo100(perc: number[], digits: number): number[] {
+  // transform to integer, e.g., 55.323 -> 5532 if digits=2
+  let percDigits = perc.map((x) => Math.round(x * 10 ** digits));
+  // normalize
+  let s = 0;
+  percDigits.forEach((x) => (s += x));
+  const hundredPercent = 100 * 10 ** digits;
+  let err = s - hundredPercent;
+  let numNonZero = 0;
+  percDigits.forEach((x) => (numNonZero += x == 0 ? 0 : 1));
+  let distr = Math.round(err / numNonZero);
+  s = 0;
+  let max = 0;
+  let maxidx = 0;
+  for (let k = 0; k < percDigits.length; k++) {
+    if (percDigits[k] != 0) {
+      percDigits[k] -= distr;
+    }
+    s += percDigits[k];
+    if (percDigits[k] > max) {
+      max = percDigits[k];
+      maxidx = k;
+    }
+  }
+  let residual = s - hundredPercent;
+  percDigits[maxidx] -= residual;
+  let ndigits = percDigits.map((x) => Number((x / 10 ** digits).toFixed(digits)));
+  return ndigits;
 }
 
 export function isValidAddress(addr: string): boolean {
@@ -90,13 +130,29 @@ function convertSimplifiedPatternToCron(expr: string): string {
  * └──────── minute
  * Uses https://github.com/harrisiirak/cron-parser
  * @param pattern
- * @param startDate
  * @returns true if no payment since last pattern matching date
  */
-export function getPreviousDate(pattern: string): Date {
+export function getPreviousCronDate(pattern: string): Date {
   let expr = convertSimplifiedPatternToCron(pattern);
   let interval = parser.parseExpression(expr, { utc: true });
   return new Date(interval.prev().toString());
+}
+
+/**
+ * 1 2 3 4
+ * ┬ ┬ ┬ ┬
+ * │ │ │ └── day of week
+ * │ │ └──── day of month
+ * │ └────── hour
+ * └──────── minute
+ * Uses https://github.com/harrisiirak/cron-parser
+ * @param pattern
+ * @returns true if no payment since last pattern matching date
+ */
+export function getNextCronDate(pattern: string): Date {
+  let expr = convertSimplifiedPatternToCron(pattern);
+  let interval = parser.parseExpression(expr, { utc: true });
+  return new Date(interval.next().toString());
 }
 
 /**
@@ -106,7 +162,7 @@ export function getPreviousDate(pattern: string): Date {
  * @returns configuration of type WebsocketClientConfig
  */
 export function loadConfigJSON(chainId: number): WebsocketClientConfig[] {
-  let file = <WebsocketClientConfig[]>require("./wsConfig.json");
+  let file = <WebsocketClientConfig[]>require("../../../config/live.wsConfig.json");
   let relevantConfigs: WebsocketClientConfig[] = [];
   for (let k = 0; k < file.length; k++) {
     if (file[k].chainId == chainId) {
@@ -304,14 +360,41 @@ export async function calculateBlockFromTime(
   mustBeBefore = true
 ): Promise<[number, number]> {
   // rpc #1 & #2
-  let max = await provider.getBlockNumber();
-  const blk1 = await provider.getBlock(max);
-  const targetTimestamp = since.getTime() / 1000;
+  //   let max = await provider.getBlockNumber();
+  //   const blk1 = await provider.getBlock(max);
+  const tsSinceMs = since.getTime();
+  if (tsSinceMs < 1640995232000 || tsSinceMs > Date.now()) {
+    const msg = `calculateBlockFromTime: invalid date since ${since}`;
+    throw Error(msg);
+  }
+  let blk1 = await provider.getBlock("latest");
+  let max = blk1.number;
+  const targetTimestamp = tsSinceMs / 1000;
   const secElapsed = blk1.timestamp - targetTimestamp;
 
   let blockSampleNum = Math.floor(secElapsed / 2);
+  if (blockSampleNum >= max) {
+    // 2 second blocks would mean more than current number of blocks
+    // --> too many, it was a bad estimate, default to a simpler estimate
+    blockSampleNum = Math.floor(max / 10);
+  }
   // rpc #3
-  let blk0 = await provider.getBlock(max - blockSampleNum);
+  let blk0;
+  let iterNum = 0;
+  let rpcErr = true;
+  while (rpcErr) {
+    try {
+      blk0 = await provider.getBlock(max - blockSampleNum);
+      rpcErr = false;
+    } catch (err) {
+      // likely Blockheight too far in the past
+      blockSampleNum = Math.ceil(blockSampleNum * 0.75);
+      iterNum++;
+      if (iterNum > 10) {
+        throw err;
+      }
+    }
+  }
   let secPerBlockInSample = (blk1.timestamp - blk0.timestamp) / blockSampleNum;
   // sample again
   blockSampleNum = Math.floor(secElapsed / secPerBlockInSample);
@@ -389,4 +472,27 @@ export async function calculateBlockFromTimeOld(
     }
   }
   return [0, nowblock];
+}
+
+export function chooseRandomRPC(ws = false, rpcConfig: any): string {
+  dotenv.config();
+  let chainId: number = Number(<string>process.env.CHAIN_ID || -1);
+  if (chainId == -1) {
+    throw new Error("Set CHAIN_ID in .env (e.g. CHAIN_ID=80001)");
+  }
+
+  let urls: string[] = [];
+  for (let k = 0; k < rpcConfig.length; k++) {
+    if (rpcConfig[k].chainId == chainId) {
+      if (ws) {
+        urls = rpcConfig[k].WS;
+      } else {
+        urls = rpcConfig[k].HTTP;
+      }
+    }
+  }
+  if (urls.length < 1) {
+    throw new Error(`No ${ws ? "Websocket" : "HTTP"} RPC defined for chain ID ${chainId}`);
+  }
+  return urls[Math.floor(Math.random() * urls.length)];
 }

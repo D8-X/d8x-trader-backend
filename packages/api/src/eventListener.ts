@@ -19,7 +19,7 @@ import {
   SmartContractOrder,
   TraderInterface,
 } from "@d8x/perpetuals-sdk";
-import { BigNumber } from "ethers";
+import { BigNumber, Contract, ethers, providers } from "ethers";
 import { IncomingMessage } from "http";
 import WebSocket from "ws";
 
@@ -52,8 +52,18 @@ import { ExecutionFailed, LimitOrderCreated, PriceUpdate, Trade, UpdateMarginAcc
 //      onUpdateMarginAccount
 //      onPerpetualLimitOrderCancelled
 //      onTrade
+
+interface ClientSubscription {
+  perpetualId: number;
+  symbol: string;
+  traderAddr: string;
+}
+
 export default class EventListener extends IndexPriceInterface {
   traderInterface: TraderInterface;
+  proxyContract: Contract | undefined;
+  orderBookContracts: Record<string, Contract> = {};
+  wsRPC: string;
 
   fundingRate: Map<number, number>; // perpetualId -> funding rate
   openInterest: Map<number, number>; // perpetualId -> openInterest
@@ -62,21 +72,27 @@ export default class EventListener extends IndexPriceInterface {
   // subscription for perpetualId and trader address. Multiple websocket-clients can subscribe
   // (hence array of websockets)
   subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>; // perpetualId -> traderAddr -> ws[]
-  clients: Map<WebSocket.WebSocket, Array<{ perpetualId: number; symbol: string; traderAddr: string }>>;
+  clients: Map<WebSocket.WebSocket, Array<ClientSubscription>>;
 
-  constructor(sdkConfig: NodeSDKConfig) {
+  constructor(sdkConfig: NodeSDKConfig, wsRPC: string) {
     super();
+    this.wsRPC = wsRPC;
     this.lastBlockChainEventTs = Date.now();
     this.fundingRate = new Map<number, number>();
     this.openInterest = new Map<number, number>();
     this.traderInterface = new TraderInterface(sdkConfig);
     this.subscriptions = new Map<number, Map<string, WebSocket.WebSocket[]>>();
-    this.clients = new Map<WebSocket.WebSocket, Array<{ perpetualId: number; symbol: string; traderAddr: string }>>();
+    this.clients = new Map<WebSocket.WebSocket, Array<ClientSubscription>>();
   }
 
   public async initialize(sdkInterface: SDKInterface) {
     await super.initialize(sdkInterface);
     await this.traderInterface.createProxyInstance();
+    this.proxyContract = new Contract(
+      this.traderInterface.getProxyAddress(),
+      this.traderInterface.getABI("proxy")!,
+      new providers.WebSocketProvider(this.wsRPC)
+    );
     sdkInterface.registerObserver(this);
     this.addProxyEventHandlers();
     this.lastBlockChainEventTs = Date.now();
@@ -97,7 +113,8 @@ export default class EventListener extends IndexPriceInterface {
   }
 
   /**
-   *
+   * Subscribe to perpetual
+   * Unsubscribes from all other perpetuals.
    * @param ws websocket client
    * @param perpetualsSymbol symbol of the form BTC-USD-MATIC
    * @param traderAddr address of the trader
@@ -106,18 +123,21 @@ export default class EventListener extends IndexPriceInterface {
   public subscribe(ws: WebSocket.WebSocket, perpetualsSymbol: string, traderAddr: string): boolean {
     let id = this.traderInterface.getPerpIdFromSymbol(perpetualsSymbol);
     if (this.clients.get(ws) == undefined) {
-      this.clients.set(ws, new Array<{ perpetualId: number; symbol: string; traderAddr: string }>());
+      this.clients.set(ws, new Array<ClientSubscription>());
     }
-    let perpArray: Array<{ perpetualId: number; symbol: string; traderAddr: string }> = this.clients.get(ws) || [];
+    let clientSubscriptions = this.clients.get(ws);
+    this._unsubscribe(clientSubscriptions!, Math.floor(id / 1e5), ws); //<----------
+
     // check that not already subscribed
-    for (let k = 0; k < perpArray?.length; k++) {
-      if (perpArray[k].perpetualId == id && perpArray[k].traderAddr == traderAddr) {
+    for (let k = 0; k < clientSubscriptions!.length; k++) {
+      if (clientSubscriptions![k].perpetualId == id && clientSubscriptions![k].traderAddr == traderAddr) {
         // already subscribed
         console.log(`client tried to subscribe again for perpetual ${id} and trader ${traderAddr}`);
         return false;
       }
     }
-    this.clients.get(ws)?.push({ perpetualId: id, symbol: perpetualsSymbol, traderAddr: traderAddr });
+    clientSubscriptions!.push({ perpetualId: id, symbol: perpetualsSymbol, traderAddr: traderAddr });
+
     console.log(`${new Date(Date.now())}: #ws=${this.clients.size}, new client ${traderAddr}`);
     let perpSubscribers = this.subscriptions.get(id);
     if (perpSubscribers == undefined) {
@@ -151,13 +171,27 @@ export default class EventListener extends IndexPriceInterface {
   public unsubscribe(ws: WebSocket.WebSocket, req: IncomingMessage) {
     console.log(`${new Date(Date.now())}: #ws=${this.clients.size}, client unsubscribed`);
     //subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>;
+    //clients: Map<WebSocket.WebSocket, Array<ClientSubscription>>;
     let clientSubscriptions = this.clients.get(ws);
     if (clientSubscriptions == undefined) {
       console.log("unknown client unsubscribed, ip=", this._getIP(req));
       return;
     }
+    this._unsubscribe(clientSubscriptions, undefined, ws);
+    this.clients.delete(ws);
+  }
+
+  private _unsubscribe(
+    clientSubscriptions: ClientSubscription[],
+    exceptionPoolId: number | undefined,
+    ws: WebSocket.WebSocket
+  ) {
     for (let k = 0; k < clientSubscriptions?.length; k++) {
       let id = clientSubscriptions[k].perpetualId;
+      const poolId = Math.floor(id / 1e5);
+      if (poolId == exceptionPoolId) {
+        continue;
+      }
       let traderMap = this.subscriptions.get(id);
       if (traderMap == undefined) {
         continue;
@@ -178,7 +212,6 @@ export default class EventListener extends IndexPriceInterface {
         this.removeOrderBookEventHandlers(clientSubscriptions[k].symbol);
       }
     }
-    this.clients.delete(ws);
   }
 
   /**
@@ -246,13 +279,29 @@ export default class EventListener extends IndexPriceInterface {
    * onTrade
    */
   private addProxyEventHandlers() {
-    let proxyContract = this.traderInterface.getReadOnlyProxyInstance();
+    if (!this.proxyContract) {
+      throw new Error("proxy contract not defined");
+    }
+    const proxyContract = this.proxyContract;
     proxyContract.on("UpdateMarkPrice", (perpetualId, fMidPricePremium, fMarkPricePremium, fSpotIndexPrice) => {
       this.onUpdateMarkPrice(perpetualId, fMidPricePremium, fMarkPricePremium, fSpotIndexPrice);
     });
     proxyContract.on("UpdateFundingRate", (perpetualId: number, fFundingRate: BigNumber) => {
       this.onUpdateFundingRate(perpetualId, fFundingRate);
     });
+
+    /*
+        event UpdateMarginAccount(
+            uint24 indexed perpetualId,
+            address indexed trader,
+            bytes16 indexed positionId,
+            int128 fPositionBC,
+            int128 fCashCC,
+            int128 fLockedInValueQC,
+            int128 fFundingPaymentCC,
+            int128 fOpenInterestBC
+        );
+    */
     proxyContract.on(
       "UpdateMarginAccount",
       (
@@ -295,7 +344,8 @@ export default class EventListener extends IndexPriceInterface {
         newPositionSizeBC: BigNumber,
         price: BigNumber,
         fFeeCC: BigNumber,
-        fPnlCC: BigNumber
+        fPnlCC: BigNumber,
+        fB2C: BigNumber
       ) => {
         /**
      *  event Trade(
@@ -307,7 +357,9 @@ export default class EventListener extends IndexPriceInterface {
         int128 newPositionSizeBC,
         int128 price,
         int128 fFeeCC,
-        int128 fPnlCC
+        int128 fPnlCC,
+        int128 fB2C
+    );
     );
      */
         this.onTrade(perpetualId, trader, positionId, order, orderDigest, newPositionSizeBC, price, fFeeCC, fPnlCC);
@@ -324,18 +376,18 @@ export default class EventListener extends IndexPriceInterface {
    * @param symbol order book symbol
    */
   private addOrderBookEventHandlers(symbol: string) {
-    let contract = this.traderInterface.getOrderBookContract(symbol);
+    this.orderBookContracts[symbol] = new Contract(
+      this.traderInterface.getOrderBookAddress(symbol),
+      this.traderInterface.getABI("lob")!,
+      new providers.WebSocketProvider(this.wsRPC)
+    );
+
+    const contract = this.orderBookContracts[symbol];
+
     contract.on(
       "PerpetualLimitOrderCreated",
-      (
-        perpetualId: number,
-        trader: string,
-        referrerAddr: string,
-        brokerAddr: string,
-        Order: SmartContractOrder,
-        digest: string
-      ) => {
-        this.onPerpetualLimitOrderCreated(perpetualId, trader, referrerAddr, brokerAddr, Order, digest);
+      (perpetualId: number, trader: string, brokerAddr: string, Order: SmartContractOrder, digest: string) => {
+        this.onPerpetualLimitOrderCreated(perpetualId, trader, brokerAddr, Order, digest);
       }
     );
     contract.on("ExecutionFailed", (perpetualId: number, trader: string, digest: string, reason: string) => {
@@ -348,10 +400,23 @@ export default class EventListener extends IndexPriceInterface {
    * @param symbol symbol for order-book
    */
   private removeOrderBookEventHandlers(symbolOrId: string) {
-    let contract = this.traderInterface.getOrderBookContract(symbolOrId);
+    // let contract = this.traderInterface.getOrderBookContract(symbolOrId);
+    let contract = this.orderBookContracts[symbolOrId];
     // contract.removeAllListeners("PerpetualLimitOrderCancelled");
     contract.removeAllListeners("PerpetualLimitOrderCreated");
     contract.removeAllListeners("ExecutionFailed");
+  }
+
+  /**
+   * Unlisten/Remove all event handlers
+   */
+  public stopListening() {
+    // let contract = this.traderInterface.getOrderBookContract(symbolOrId);
+    this.proxyContract?.removeAllListeners();
+    for (const symbol of Object.keys(this.orderBookContracts)) {
+      const contract = this.orderBookContracts[symbol];
+      contract.removeAllListeners();
+    }
   }
 
   /**
@@ -616,7 +681,6 @@ export default class EventListener extends IndexPriceInterface {
    *)
    * @param perpetualId id of the perpetual
    * @param trader address of the trader
-   * @param referrerAddr address of the referrer
    * @param brokerAddr address of the broker
    * @param Order order struct
    * @param digest order id
@@ -624,7 +688,6 @@ export default class EventListener extends IndexPriceInterface {
   private onPerpetualLimitOrderCreated(
     perpetualId: number,
     trader: string,
-    referrerAddr: string,
     brokerAddr: string,
     Order: SmartContractOrder,
     digest: string

@@ -2,7 +2,7 @@
 
 - Optional: build your own instance of the Pyth Price service:
   - Using [repo](https://github.com/pyth-network/pyth-crosschain/tree/main/price_service/server)
-  - Set the endpoint of your price service in the field `wsEndpoints` of the file packages/utils/src/wsConfig.json. Note that you can have
+  - Set the endpoint of your price service in the field `wsEndpoints` of the file config/live.wsConfig.json. Note that you can have
     multiple servers in the configuration instead of just one.
 
 ## Prerequisites
@@ -18,7 +18,7 @@ Either
 
 ## Using Docker
 
-- check `packages/src/wsConfig.json`, especially edit the entry `wsEndpoints` optionally add your own endpoint for the
+- check `packages/src/live.wsConfig.json`, especially edit the entry `wsEndpoints` optionally add your own endpoint for the
   [price service](https://github.com/pyth-network/pyth-crosschain/tree/main/price_service/server)
 - Copy `.envExample` file and paste as `.env` file. No changes should be necessary for testnet.
 - `cd` into the repository root directory and

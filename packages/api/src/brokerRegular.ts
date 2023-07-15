@@ -18,11 +18,11 @@ export default class BrokerRegular extends BrokerIntegration {
     return this.sdk.getAddress();
   }
 
-  public getBrokerAddress(traderAddr: string, order?: Order): string {
+  public async getBrokerAddress(): Promise<string> {
     return this.sdk.getAddress();
   }
 
-  public getBrokerFeeTBps(traderAddr: string, order?: Order): number {
+  public async getBrokerFeeTBps(traderAddr: string, order?: Order): Promise<number> {
     return this.brokerFeeTenthOfBasisPoints;
   }
 
