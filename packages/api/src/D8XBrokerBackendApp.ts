@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
 import { extractErrorMsg } from "utils";
 import { Order, PerpetualState, NodeSDKConfig, MarginAccount } from "@d8x/perpetuals-sdk";
-import EventListener from "./eventListener";
+import EventListener, { TradeInteractionEvent } from "./eventListener";
 import BrokerIntegration from "./brokerIntegration";
 import fs from "fs";
 import cors from "cors";
@@ -61,13 +61,21 @@ export default class D8XBrokerBackendApp {
 
   public async checkTradeEventListenerHeartbeat(sdkConfig: NodeSDKConfig, newWsRPC: string) {
     const lastEventTs = this.eventListener.timeMsSinceLastBlockchainEvent();
-    const lastTradeEventTs = this.eventListener.timeMsSinceLastTradeBlockchainEvent();
-    const msg = `Last trade event/RPC reset ${Math.floor(lastTradeEventTs / 1000 / 6) / 10}mins, last event ${
+    const lastTradeEventsTs = this.eventListener.timeMsSinceLastTradeBlockchainEvents();
+    let mins = lastTradeEventsTs.map((x) => Math.floor(x / 1000 / 6) / 10);
+    const msg = `Last events/RPC reset: trade ${mins[TradeInteractionEvent.TradeEvt]}mins, overall ${
       Math.floor(lastEventTs / 1000 / 6) / 10
     }mins.`;
 
-    const doRestart = lastEventTs > 5 * 60_000 || (lastEventTs < 2 * 60_000 && lastTradeEventTs > 3 * 60_000);
-    if (doRestart) {
+    const lastEventTooOld =
+      lastEventTs > 10 * 60_000 ||
+      mins[TradeInteractionEvent.TradeEvt] > 20 ||
+      mins[TradeInteractionEvent.LimitOrderCreatedEvt] > 20;
+    const tradeEventTooOldRelativeToEvent =
+      mins[TradeInteractionEvent.TradeEvt] - mins[TradeInteractionEvent.LimitOrderCreatedEvt] > 15;
+    const tradeEventDiffTooLarge =
+      Math.abs(mins[TradeInteractionEvent.TradeEvt] - mins[TradeInteractionEvent.LimitOrderCreatedEvt]) > 2;
+    if (lastEventTooOld || tradeEventTooOldRelativeToEvent || tradeEventDiffTooLarge) {
       // no event since timeSeconds, restart listener
       console.log(msg + ` - restarting event listener`);
       this.eventListener.resetRPCWebsocket(newWsRPC);

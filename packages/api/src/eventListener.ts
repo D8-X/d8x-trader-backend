@@ -61,10 +61,9 @@ interface ClientSubscription {
 
 // Events that are crucial for
 // trade interactions
-enum TradeInteractionEvent {
-  TradeEvt,
+export enum TradeInteractionEvent {
+  TradeEvt = 0,
   LimitOrderCreatedEvt,
-  UpdateMarginAccountEvt,
   UpdateMarkPriceEvt,
 }
 
@@ -79,7 +78,7 @@ export default class EventListener extends IndexPriceInterface {
   lastBlockChainEventTs: number; //here we log the event occurence time to guess whether the connection is alive
 
   // track cross-section of event occurrences
-  eventOccurrenceTs: Map<TradeInteractionEvent, number>; //eventName -> number
+  eventOccurrenceTs: Record<TradeInteractionEvent, number> = {} as Record<TradeInteractionEvent, number>;
 
   // subscription for perpetualId and trader address. Multiple websocket-clients can subscribe
   // (hence array of websockets)
@@ -95,14 +94,12 @@ export default class EventListener extends IndexPriceInterface {
     this.traderInterface = new TraderInterface(sdkConfig);
     this.subscriptions = new Map<number, Map<string, WebSocket.WebSocket[]>>();
     this.clients = new Map<WebSocket.WebSocket, Array<ClientSubscription>>();
-    this.eventOccurrenceTs = new Map<TradeInteractionEvent, number>();
   }
 
   private initEventOccurrenceTs() {
-    const ts = Date.now(); //ms
-    Object.keys(TradeInteractionEvent).forEach((key, index) => {
-      this.eventOccurrenceTs.set(index, ts);
-    });
+    for (let k = 0; k < Object.keys(TradeInteractionEvent).length / 2; k++) {
+      this.eventOccurrenceTs[k as TradeInteractionEvent] = Date.now();
+    }
   }
 
   public async initialize(sdkInterface: SDKInterface) {
@@ -158,14 +155,14 @@ export default class EventListener extends IndexPriceInterface {
    * Can be used to check "alive" status
    * @returns milliseconds since last event
    */
-  public timeMsSinceLastTradeBlockchainEvent(): number {
-    let minTs = Date.now() + 100;
-    for (let [key, ts] of this.eventOccurrenceTs) {
-      if (minTs > ts) {
-        minTs = ts;
-      }
+  public timeMsSinceLastTradeBlockchainEvents(): number[] {
+    let tsArr = new Array<number>();
+    const dt = Date.now();
+    for (let k = 0; k < Object.keys(this.eventOccurrenceTs).length; k++) {
+      let ts = this.eventOccurrenceTs[k as TradeInteractionEvent];
+      tsArr.push(dt - ts);
     }
-    return Date.now() - minTs;
+    return tsArr;
   }
 
   /**
@@ -504,7 +501,6 @@ export default class EventListener extends IndexPriceInterface {
     fOpenInterestBC: BigNumber
   ): Promise<void> {
     this.lastBlockChainEventTs = Date.now();
-    this.eventOccurrenceTs.set(TradeInteractionEvent.UpdateMarginAccountEvt, this.lastBlockChainEventTs);
     this.openInterest.set(perpetualId, ABK64x64ToFloat(fOpenInterestBC));
 
     let symbol = this.symbolFromPerpetualId(perpetualId);
@@ -619,7 +615,7 @@ export default class EventListener extends IndexPriceInterface {
     fSpotIndexPrice: BigNumber
   ): void {
     this.lastBlockChainEventTs = Date.now();
-    this.eventOccurrenceTs.set(TradeInteractionEvent.UpdateMarkPriceEvt, Date.now());
+    this.eventOccurrenceTs[TradeInteractionEvent.UpdateMarkPriceEvt] = Date.now();
     let [newMidPrice, newMarkPrice, newIndexPrice] = EventListener.ConvertUpdateMarkPrice(
       fMidPricePremium,
       fMarkPricePremium,
@@ -704,8 +700,8 @@ export default class EventListener extends IndexPriceInterface {
     fFeeCC: BigNumber,
     fPnlCC: BigNumber
   ) {
-    console.log(`onTrade ${trader} ${positionId}`);
-    this.eventOccurrenceTs.set(TradeInteractionEvent.TradeEvt, this.lastBlockChainEventTs);
+    console.log(`onTrade ${trader} in perpetual ${perpetualId}`);
+    this.eventOccurrenceTs[TradeInteractionEvent.TradeEvt] = this.lastBlockChainEventTs;
     this.lastBlockChainEventTs = Date.now();
     let symbol = this.symbolFromPerpetualId(perpetualId);
     // return transformed trade info
@@ -746,8 +742,8 @@ export default class EventListener extends IndexPriceInterface {
     Order: SmartContractOrder,
     digest: string
   ): void {
-    this.eventOccurrenceTs.set(TradeInteractionEvent.LimitOrderCreatedEvt, Date.now());
     this.lastBlockChainEventTs = Date.now();
+    this.eventOccurrenceTs[TradeInteractionEvent.LimitOrderCreatedEvt] = Date.now();
     console.log("onPerpetualLimitOrderCreated");
     // send to subscriber who sent the order
     let symbol = this.symbolFromPerpetualId(perpetualId);
