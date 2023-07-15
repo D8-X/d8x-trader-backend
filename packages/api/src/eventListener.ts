@@ -214,6 +214,10 @@ export default class EventListener extends IndexPriceInterface {
     }
   }
 
+  public isWsKnown(ws: WebSocket.WebSocket): boolean {
+    return this.clients.get(ws) != undefined;
+  }
+
   /**
    * Handles updates from sdk interface
    * @param msg from observable
