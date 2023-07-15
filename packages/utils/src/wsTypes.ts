@@ -138,3 +138,9 @@ export interface WebsocketClientConfig {
   feedIds: Array<[string, string]>; //tickername tickerid
   wsEndpoints: string[]; // array of endpoints of the form "ws://<ip>:<port>"
 }
+
+export interface RPCConfig {
+  chainId: number;
+  HTTP: string[];
+  WS: string[];
+}
