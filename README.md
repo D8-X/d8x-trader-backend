@@ -12,6 +12,8 @@ the servers so the traffic can flow via https/wss.
 
 There must be one backend per chain-id.
 
+See also https://repeated-pink-afb.notion.site/D8X-Broker-Howto-b51acf693edb42608098c297e2ce6c98 for a backend howto.
+
 # Configuration
 
 ## Backend
