@@ -116,6 +116,7 @@ export default class EventListener extends IndexPriceInterface {
   public async resetRPCWebsocket(newWsRPC: string) {
     this.stopListening();
     this.wsRPC = newWsRPC;
+    console.log(`set new ws rpc : ${newWsRPC}`);
     this.proxyContract = new Contract(
       this.traderInterface.getProxyAddress(),
       this.traderInterface.getABI("proxy")!,
