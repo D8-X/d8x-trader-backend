@@ -126,7 +126,7 @@ export default class EventListener extends IndexPriceInterface {
       this.clients.set(ws, new Array<ClientSubscription>());
     }
     let clientSubscriptions = this.clients.get(ws);
-    this._unsubscribe(clientSubscriptions!, [id], ws);
+    this._unsubscribe(clientSubscriptions!, Math.floor(id / 1e5), ws); //<----------
 
     // check that not already subscribed
     for (let k = 0; k < clientSubscriptions!.length; k++) {
@@ -177,14 +177,19 @@ export default class EventListener extends IndexPriceInterface {
       console.log("unknown client unsubscribed, ip=", this._getIP(req));
       return;
     }
-    this._unsubscribe(clientSubscriptions, [], ws);
+    this._unsubscribe(clientSubscriptions, undefined, ws);
     this.clients.delete(ws);
   }
 
-  private _unsubscribe(clientSubscriptions: ClientSubscription[], exceptionPerpId: number[], ws: WebSocket.WebSocket) {
+  private _unsubscribe(
+    clientSubscriptions: ClientSubscription[],
+    exceptionPoolId: number | undefined,
+    ws: WebSocket.WebSocket
+  ) {
     for (let k = 0; k < clientSubscriptions?.length; k++) {
       let id = clientSubscriptions[k].perpetualId;
-      if (exceptionPerpId.includes(id)) {
+      const poolId = Math.floor(id / 1e5);
+      if (poolId == exceptionPoolId) {
         continue;
       }
       let traderMap = this.subscriptions.get(id);
