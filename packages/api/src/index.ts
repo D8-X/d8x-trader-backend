@@ -32,7 +32,7 @@ async function start() {
   while (true) {
     await sleep(60_000);
     const wsRPC = chooseRandomRPC(true, rpcConfig);
-    await d8XBackend.checkTradeEventListenerHeartbeat(sdkConfig, wsRPC);
+    await d8XBackend.checkTradeEventListenerHeartbeat(wsRPC);
   }
 }
 start();

@@ -26,6 +26,8 @@ export default class D8XBrokerBackendApp {
   private wss: WebSocketServer;
   private eventListener: EventListener;
   private CORS_ON: boolean;
+  private lastRequestTsMs: number; // last API request, used to inform whether wsRPC should be switched on event-listener
+  private lastRequestPositionRiskOnTrade: number; // last position risk on trade API request
 
   constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig, wsRPC: string) {
     dotenv.config();
@@ -50,6 +52,8 @@ export default class D8XBrokerBackendApp {
     this.sdk = new SDKInterface(broker);
 
     this.middleWare();
+    this.lastRequestTsMs = Date.now();
+    this.lastRequestPositionRiskOnTrade = this.lastRequestTsMs;
   }
 
   public async initialize() {
@@ -59,31 +63,43 @@ export default class D8XBrokerBackendApp {
     this.routes();
   }
 
-  public async checkTradeEventListenerHeartbeat(sdkConfig: NodeSDKConfig, newWsRPC: string) {
-    const lastEventTs = this.eventListener.timeMsSinceLastBlockchainEvent();
-    const lastTradeEventsTs = this.eventListener.timeMsSinceLastTradeBlockchainEvents();
-    let mins = lastTradeEventsTs.map((x) => Math.floor(x / 1000 / 6) / 10);
+  /**
+   * Check last event occurrences and determine whether
+   * to re-connect to RPC or not (and connect)
+   * @param newWsRPC new rpc address
+   */
+  public async checkTradeEventListenerHeartbeat(newWsRPC: string) {
+    const timeSinceLastEvent = this.eventListener.timeMsSinceLastBlockchainEvent();
+    const timeSinceLastTradeEvents = this.eventListener.timeMsSinceLastTradeBlockchainEvents();
+    let mins = timeSinceLastTradeEvents.map((x) => Math.floor(x / 1000 / 6) / 10);
     const msg = `Last events/RPC reset: trade ${mins[TradeInteractionEvent.TradeEvt]}mins, overall ${
-      Math.floor(lastEventTs / 1000 / 6) / 10
+      Math.floor(timeSinceLastEvent / 1000 / 6) / 10
     }mins.`;
-
+    const timeSinceLastAPIReq = Date.now() - this.lastRequestTsMs;
+    const timeSinceLastPositionOnTradeReq = Date.now() - this.lastRequestPositionRiskOnTrade;
     const lastEventTooOld =
-      lastEventTs > 10 * 60_000 ||
-      mins[TradeInteractionEvent.TradeEvt] > 20 ||
-      mins[TradeInteractionEvent.LimitOrderCreatedEvt] > 20;
+      timeSinceLastAPIReq - timeSinceLastEvent > 1 * 60_000 ||
+      timeSinceLastPositionOnTradeReq - timeSinceLastTradeEvents[TradeInteractionEvent.TradeEvt] > 10 * 60_000 ||
+      timeSinceLastPositionOnTradeReq - timeSinceLastTradeEvents[TradeInteractionEvent.LimitOrderCreatedEvt] >
+        5 * 60_000;
     const tradeEventTooOldRelativeToEvent =
       mins[TradeInteractionEvent.TradeEvt] - mins[TradeInteractionEvent.LimitOrderCreatedEvt] > 15;
     const tradeEventDiffTooLarge =
       Math.abs(mins[TradeInteractionEvent.TradeEvt] - mins[TradeInteractionEvent.LimitOrderCreatedEvt]) > 2;
     if (lastEventTooOld || tradeEventTooOldRelativeToEvent || tradeEventDiffTooLarge) {
       // no event since timeSeconds, restart listener
-      console.log(msg + ` - restarting event listener`);
+      console.log(
+        msg +
+          ` - restarting event listener ${lastEventTooOld}${tradeEventTooOldRelativeToEvent}${tradeEventDiffTooLarge}`
+      );
       this.eventListener.resetRPCWebsocket(newWsRPC);
-      if (sdkConfig == undefined) {
-        sdkConfig = this.sdkConfig;
-      }
+      this.lastRequestPositionRiskOnTrade = Date.now();
+      this.lastRequestTsMs = Date.now();
     } else {
-      console.log(msg + ` - no restart`);
+      // only display sometimes
+      if (Math.random() < 0.1) {
+        console.log(msg + ` - no restart`);
+      }
     }
   }
 
@@ -179,6 +195,7 @@ export default class D8XBrokerBackendApp {
     // in swagger
     this.express.get("/exchange-info", async (req: Request, res: Response) => {
       try {
+        this.lastRequestTsMs = Date.now();
         let rsp = await this.sdk.exchangeInfo();
         res.send(D8XBrokerBackendApp.JSONResponse("exchange-info", "", rsp));
       } catch (err: any) {
@@ -187,14 +204,17 @@ export default class D8XBrokerBackendApp {
     });
 
     this.express.get("/perpetual-mid-price", async (req: Request, res: Response) => {
+      this.lastRequestTsMs = Date.now();
       await this.priceType(req.query.symbol, "mid", "perpetual-mid-price", res);
     });
 
     this.express.get("/mark-price", async (req: Request, res: Response) => {
+      this.lastRequestTsMs = Date.now();
       await this.priceType(req.query.symbol, "mark", "mark-price", res);
     });
 
     this.express.get("/oracle-price", async (req: Request, res: Response) => {
+      this.lastRequestTsMs = Date.now();
       await this.priceType(req.query.symbol, "oracle", "oracle-price", res);
     });
 
@@ -203,6 +223,7 @@ export default class D8XBrokerBackendApp {
       // open-orders?traderAddr=0xCafee&symbol=BTC-USD-MATIC
       let rsp;
       try {
+        this.lastRequestTsMs = Date.now();
         let addr: string;
         let symbol: string;
         if (typeof req.query.traderAddr != "string" || typeof req.query.symbol != "string") {
@@ -222,6 +243,7 @@ export default class D8XBrokerBackendApp {
     this.express.get("/current-trader-volume", async (req: Request, res: Response) => {
       let rsp;
       try {
+        this.lastRequestTsMs = Date.now();
         let traderAddr: string;
         let poolSymbol: string;
         if (typeof req.query.traderAddr != "string" || typeof req.query.poolSymbol != "string") {
@@ -246,6 +268,7 @@ export default class D8XBrokerBackendApp {
     this.express.get("/order-ids", async (req: Request, res: Response) => {
       let rsp;
       try {
+        this.lastRequestTsMs = Date.now();
         let traderAddr: string;
         let symbol: string;
         if (typeof req.query.traderAddr != "string" || typeof req.query.symbol != "string") {
@@ -265,6 +288,7 @@ export default class D8XBrokerBackendApp {
     this.express.get("/trading-fee", async (req: Request, res: Response) => {
       let rsp;
       try {
+        this.lastRequestTsMs = Date.now();
         let traderAddr: string;
         let poolSymbol: string;
         if (typeof req.query.traderAddr != "string" || typeof req.query.poolSymbol != "string") {
@@ -287,6 +311,7 @@ export default class D8XBrokerBackendApp {
       // http://localhost:3001/position-risk?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=MATIC
       let rsp;
       try {
+        this.lastRequestTsMs = Date.now();
         let addr: string;
         let symbol: string;
         if (typeof req.query.traderAddr != "string" || typeof req.query.symbol != "string") {
@@ -308,6 +333,7 @@ export default class D8XBrokerBackendApp {
     this.express.get("/max-order-size-for-trader", async (req: Request, res: Response) => {
       let rsp: string;
       try {
+        this.lastRequestTsMs = Date.now();
         let addr: string;
         let symbol: string;
         if (typeof req.query.traderAddr != "string" || typeof req.query.symbol != "string") {
@@ -332,6 +358,7 @@ export default class D8XBrokerBackendApp {
     this.express.get("/trader-loyalty", async (req: Request, res: Response) => {
       let rsp: string;
       try {
+        this.lastRequestTsMs = Date.now();
         let addr: string;
         if (typeof req.query.traderAddr != "string") {
           throw new Error("wrong arguments. Requires traderAddr");
@@ -350,6 +377,7 @@ export default class D8XBrokerBackendApp {
 
     this.express.get("/perpetual-static-info", async (req: Request, res: Response) => {
       try {
+        this.lastRequestTsMs = Date.now();
         if (typeof req.query.symbol != "string") {
           throw new Error("wrong argument. Requires a symbol.");
         }
@@ -369,6 +397,7 @@ export default class D8XBrokerBackendApp {
     // see test/post.test.ts for an example
     this.express.post("/order-digest", async (req, res) => {
       try {
+        this.lastRequestTsMs = Date.now();
         let orders: Order[] = <Order[]>req.body.orders;
         let traderAddr: string = req.body.traderAddr;
         let rsp = await this.sdk.orderDigest(orders, traderAddr);
@@ -383,6 +412,8 @@ export default class D8XBrokerBackendApp {
 
     this.express.post("/position-risk-on-trade", async (req, res) => {
       try {
+        this.lastRequestPositionRiskOnTrade = Date.now();
+        this.lastRequestTsMs = Date.now();
         let order: Order = <Order>req.body.order;
         let traderAddr: string = req.body.traderAddr;
         let rsp = await this.sdk.positionRiskOnTrade(order, traderAddr);
@@ -400,6 +431,7 @@ export default class D8XBrokerBackendApp {
 
     this.express.post("/position-risk-on-collateral-action", async (req, res) => {
       try {
+        this.lastRequestTsMs = Date.now();
         let traderAddr: string = req.body.traderAddr;
         let deltaCollateral: number = <number>req.body.amount;
         let curPositionRisk: MarginAccount = <MarginAccount>req.body.positionRisk;
@@ -418,6 +450,7 @@ export default class D8XBrokerBackendApp {
 
     this.express.get("/add-collateral", async (req: Request, res: Response) => {
       try {
+        this.lastRequestTsMs = Date.now();
         if (typeof req.query.symbol != "string" || typeof req.query.amount != "string") {
           throw new Error("wrong arguments. Requires a symbol and an amount.");
         }
@@ -433,6 +466,7 @@ export default class D8XBrokerBackendApp {
 
     this.express.get("/remove-collateral", async (req: Request, res: Response) => {
       try {
+        this.lastRequestTsMs = Date.now();
         if (typeof req.query.symbol != "string" || typeof req.query.amount != "string") {
           throw new Error("wrong arguments. Requires a symbol and an amount.");
         }
@@ -448,6 +482,7 @@ export default class D8XBrokerBackendApp {
 
     this.express.get("/available-margin", async (req: Request, res: Response) => {
       try {
+        this.lastRequestTsMs = Date.now();
         if (typeof req.query.symbol != "string" || typeof req.query.traderAddr != "string") {
           throw new Error("wrong arguments. Requires a symbol and a trader address.");
         }
@@ -463,6 +498,7 @@ export default class D8XBrokerBackendApp {
 
     this.express.get("/cancel-order", async (req: Request, res: Response) => {
       try {
+        this.lastRequestTsMs = Date.now();
         if (typeof req.query.symbol != "string" || typeof req.query.orderId != "string") {
           throw new Error("wrong arguments. Requires a symbol and an order Id.");
         }
