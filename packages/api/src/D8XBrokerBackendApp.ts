@@ -86,6 +86,13 @@ export default class D8XBrokerBackendApp {
       mins[TradeInteractionEvent.TradeEvt] - mins[TradeInteractionEvent.LimitOrderCreatedEvt] > 15;
     const tradeEventDiffTooLarge =
       Math.abs(mins[TradeInteractionEvent.TradeEvt] - mins[TradeInteractionEvent.LimitOrderCreatedEvt]) > 2;
+    console.log(`-----`);
+    console.log(`TimeSinceLastAPIReq : ${timeSinceLastAPIReq}`);
+    console.log(`TimeSinceLastPositionOnTradeReq : ${timeSinceLastPositionOnTradeReq}`);
+    console.log(`TimeSinceLastEvent : ${timeSinceLastEvent}`);
+    console.log(`TradeEvt : ${timeSinceLastTradeEvents[TradeInteractionEvent.TradeEvt]}`);
+    console.log(`LimitOrderCreatedEvt : ${timeSinceLastTradeEvents[TradeInteractionEvent.LimitOrderCreatedEvt]}`);
+    console.log(`-----`);
     if (lastEventTooOld || tradeEventTooOldRelativeToEvent || tradeEventDiffTooLarge) {
       // no event since timeSeconds, restart listener
       console.log(
@@ -96,10 +103,7 @@ export default class D8XBrokerBackendApp {
       this.lastRequestPositionRiskOnTrade = Date.now();
       this.lastRequestTsMs = Date.now();
     } else {
-      // only display sometimes
-      if (Math.random() < 0.1) {
-        console.log(msg + ` - no restart`);
-      }
+      console.log(msg + ` - no restart`);
     }
   }
 
@@ -110,9 +114,14 @@ export default class D8XBrokerBackendApp {
     return JSON.stringify({ type: type, msg: msg, data: dataObj });
   }
 
+  private setLastRequestNow() {
+    this.lastRequestTsMs = Date.now();
+  }
+
   private initWebSocket() {
     let eventListener = this.eventListener;
     let sdk = this.sdk;
+    let setLastRequestNow = this.setLastRequestNow;
     this.wss.on("connection", function connection(ws: WebSocket.WebSocket, req: IncomingMessage) {
       ws.on("error", console.error);
       ws.on("message", async (data: WebSocket.RawData) => {
@@ -127,6 +136,7 @@ export default class D8XBrokerBackendApp {
           } else {
             console.log("received: ", obj);
             //type = subscription
+            setLastRequestNow();
             if (typeof obj.traderAddr != "string" || typeof obj.symbol != "string") {
               throw new Error("wrong arguments. Requires traderAddr and symbol");
             }
