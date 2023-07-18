@@ -338,6 +338,32 @@ export function floatToABK64x64(x: number): bigint {
 }
 
 /**
+ *
+ * @param promise async function to be executed
+ * @param timeoutMs timeout in MS
+ * @param errMsgOnTimeout optional error message
+ * @returns function return value or ends in error
+ */
+export function executeWithTimeout<T>(
+  promise: Promise<T>,
+  timeout: number,
+  errMsgOnTimeout: string | undefined = undefined
+): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const msg = errMsgOnTimeout ?? "Function execution timed out.";
+      reject(new Error(msg));
+    }, timeout);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    clearTimeout(timeoutId);
+  });
+}
+
+/**
  * Find a close block to 'since'.
  *
  * Approach:
