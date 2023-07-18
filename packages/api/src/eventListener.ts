@@ -10,6 +10,7 @@ import {
   ExchangeInfo,
   getNewPositionLeverage,
   MarginAccount,
+  MASK_MARKET_ORDER,
   mul64x64,
   NodeSDKConfig,
   ONE_64x64,
@@ -59,12 +60,10 @@ interface ClientSubscription {
   traderAddr: string;
 }
 
-// Events that are crucial for
-// trade interactions
-export enum TradeInteractionEvent {
-  TradeEvt = 0,
-  LimitOrderCreatedEvt,
-  UpdateMarkPriceEvt,
+interface EventFrequencyCount {
+  createdCount: number;
+  executedCount: number;
+  lastResetTs: number;
 }
 
 export default class EventListener extends IndexPriceInterface {
@@ -77,13 +76,12 @@ export default class EventListener extends IndexPriceInterface {
   openInterest: Map<number, number>; // perpetualId -> openInterest
   lastBlockChainEventTs: number; //here we log the event occurence time to guess whether the connection is alive
 
-  // track cross-section of event occurrences
-  eventOccurrenceTs: Record<TradeInteractionEvent, number> = {} as Record<TradeInteractionEvent, number>;
-
   // subscription for perpetualId and trader address. Multiple websocket-clients can subscribe
   // (hence array of websockets)
   subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>; // perpetualId -> traderAddr -> ws[]
   clients: Map<WebSocket.WebSocket, Array<ClientSubscription>>;
+
+  private mktOrderFrequency: EventFrequencyCount = { createdCount: 0, executedCount: 0, lastResetTs: 0 };
 
   constructor(sdkConfig: NodeSDKConfig, wsRPC: string) {
     super();
@@ -94,12 +92,7 @@ export default class EventListener extends IndexPriceInterface {
     this.traderInterface = new TraderInterface(sdkConfig);
     this.subscriptions = new Map<number, Map<string, WebSocket.WebSocket[]>>();
     this.clients = new Map<WebSocket.WebSocket, Array<ClientSubscription>>();
-  }
-
-  private initEventOccurrenceTs() {
-    for (let k = 0; k < Object.keys(TradeInteractionEvent).length / 2; k++) {
-      this.eventOccurrenceTs[k as TradeInteractionEvent] = Date.now();
-    }
+    this.resetEventFrequencies(this.mktOrderFrequency);
   }
 
   public async initialize(sdkInterface: SDKInterface) {
@@ -123,8 +116,8 @@ export default class EventListener extends IndexPriceInterface {
     for (const symbol of Object.keys(this.orderBookContracts)) {
       this.addOrderBookEventHandlers(symbol);
     }
-    this.initEventOccurrenceTs();
     this.lastBlockChainEventTs = Date.now();
+    this.resetEventFrequencies(this.mktOrderFrequency);
   }
 
   /**
@@ -150,28 +143,37 @@ export default class EventListener extends IndexPriceInterface {
     }
   }
 
-  /**
-   * Time elapsed since last trade-related event was received.
-   * Can be used to check "alive" status
-   * @returns milliseconds since last event
-   */
-  public timeMsSinceLastTradeBlockchainEvents(): number[] {
-    let tsArr = new Array<number>();
-    const dt = Date.now();
-    for (let k = 0; k < Object.keys(this.eventOccurrenceTs).length; k++) {
-      let ts = this.eventOccurrenceTs[k as TradeInteractionEvent];
-      tsArr.push(dt - ts);
+  private resetEventFrequencies(freq: EventFrequencyCount) {
+    freq.createdCount = 0;
+    freq.executedCount = 0;
+    freq.lastResetTs = Date.now();
+  }
+
+  public getMarketOrderFrequencies(): [number, number] {
+    return [this.mktOrderFrequency.createdCount, this.mktOrderFrequency.executedCount];
+  }
+
+  public doMarketOrderFrequenciesMatch(): boolean {
+    let c = this.mktOrderFrequency.createdCount;
+    let e = this.mktOrderFrequency.executedCount;
+    const maxCount = Math.max(c, e);
+    if (maxCount < 5) {
+      return true;
     }
-    return tsArr;
+    let relDev = Math.abs(c - e) / Math.max(c, e);
+    if (Date.now() - this.mktOrderFrequency.lastResetTs > 10 * 60_000) {
+      this.resetEventFrequencies(this.mktOrderFrequency);
+    }
+    return relDev < 0.5;
   }
 
   /**
    * Time elapsed since last event was received.
    * Can be used to check "alive" status
-   * @returns milliseconds since last event
+   * @returns milliseconds of last event
    */
-  public timeMsSinceLastBlockchainEvent(): number {
-    return Date.now() - this.lastBlockChainEventTs;
+  public lastBlockchainEventTsMs(): number {
+    return this.lastBlockChainEventTs;
   }
 
   private symbolFromPerpetualId(perpetualId: number): string {
@@ -615,7 +617,6 @@ export default class EventListener extends IndexPriceInterface {
     fSpotIndexPrice: BigNumber
   ): void {
     this.lastBlockChainEventTs = Date.now();
-    this.eventOccurrenceTs[TradeInteractionEvent.UpdateMarkPriceEvt] = Date.now();
     let [newMidPrice, newMarkPrice, newIndexPrice] = EventListener.ConvertUpdateMarkPrice(
       fMidPricePremium,
       fMarkPricePremium,
@@ -700,8 +701,13 @@ export default class EventListener extends IndexPriceInterface {
     fFeeCC: BigNumber,
     fPnlCC: BigNumber
   ) {
-    console.log(`onTrade ${trader} in perpetual ${perpetualId}`);
-    this.eventOccurrenceTs[TradeInteractionEvent.TradeEvt] = this.lastBlockChainEventTs;
+    const isMarketOrder = this.containsFlag(BigNumber.from(order.flags), MASK_MARKET_ORDER);
+    if (isMarketOrder) {
+      this.mktOrderFrequency.executedCount += 1;
+      console.log(`onTrade ${trader} Market Order in perpetual ${perpetualId}`);
+    } else {
+      console.log(`onTrade ${trader} Conditional Order in perpetual ${perpetualId}`);
+    }
     this.lastBlockChainEventTs = Date.now();
     let symbol = this.symbolFromPerpetualId(perpetualId);
     // return transformed trade info
@@ -718,6 +724,10 @@ export default class EventListener extends IndexPriceInterface {
     let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onTrade", "", wsMsg);
     // broadcast
     this.sendToSubscribers(perpetualId, jsonMsg);
+  }
+
+  private containsFlag(f1: BigNumber, f2: BigNumber): boolean {
+    return (parseInt(f1.toString()) & parseInt(f2.toString())) > 0;
   }
 
   /**
@@ -743,7 +753,11 @@ export default class EventListener extends IndexPriceInterface {
     digest: string
   ): void {
     this.lastBlockChainEventTs = Date.now();
-    this.eventOccurrenceTs[TradeInteractionEvent.LimitOrderCreatedEvt] = Date.now();
+    const isMarketOrder = this.containsFlag(BigNumber.from(Order.flags), MASK_MARKET_ORDER);
+    if (isMarketOrder) {
+      this.mktOrderFrequency.createdCount += 1;
+    }
+
     console.log("onPerpetualLimitOrderCreated");
     // send to subscriber who sent the order
     let symbol = this.symbolFromPerpetualId(perpetualId);
