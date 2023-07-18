@@ -1,6 +1,6 @@
 import { JsonRpcProvider, Contract } from "ethers";
 import { MarketData, PerpetualStaticInfo } from "@d8x/perpetuals-sdk";
-import { getSDKFromEnv } from "../utils/abi";
+import { getSDKConfigFromEnv } from "../utils/abi";
 import { MarginTokenInfo, MarginTokenData } from "../db/margin_token_info";
 
 export default class StaticInfo {
@@ -27,9 +27,10 @@ export default class StaticInfo {
 	 * - referral rebate that people who execute trades receive
 	 * @param provider RPC
 	 */
-	public async initialize(provider: JsonRpcProvider) {
-		const sdk = getSDKFromEnv();
-		const md = new MarketData(sdk);
+	public async initialize(provider: JsonRpcProvider, httpRpcUrl: string) {
+		const config = getSDKConfigFromEnv();
+		config.nodeURL = httpRpcUrl;
+		const md = new MarketData(config);
 
 		await md.createProxyInstance();
 		const info = await md.exchangeInfo();

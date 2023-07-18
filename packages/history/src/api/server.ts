@@ -23,7 +23,7 @@ import {
 
 import { getAddress } from "ethers";
 import { MarketData } from "@d8x/perpetuals-sdk";
-import { getSDKFromEnv } from "../utils/abi";
+import { getSDKConfigFromEnv } from "../utils/abi";
 import dotenv from "dotenv";
 import cors from "cors";
 import { PriceInfo } from "../db/price_info";
@@ -76,10 +76,13 @@ export class PNLRestAPI {
 
 	/**
 	 * Initialize PNLRestAPI
+	 *
+	 * @param httpRpcUrl
 	 */
-	public async init() {
+	public async init(httpRpcUrl: string) {
 		// Init marked data
-		let config = getSDKFromEnv();
+		let config = getSDKConfigFromEnv();
+		config.nodeURL = httpRpcUrl;
 		const md = new MarketData(config);
 		await md.createProxyInstance();
 		this.md = md;
@@ -105,8 +108,8 @@ export class PNLRestAPI {
 	/**
 	 * Starts the express app
 	 */
-	public async start() {
-		await this.init();
+	public async start(httpRPCUrl: string) {
+		await this.init(httpRPCUrl);
 
 		this.app.listen(this.opts.port, () => {
 			this.l.info("starting pnl rest api server", { port: this.opts.port });
