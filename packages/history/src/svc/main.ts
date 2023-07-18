@@ -1,7 +1,7 @@
 import * as winston from "winston";
 import { EventListener } from "../contracts/listeners";
 import * as dotenv from "dotenv";
-import { chooseRandomRPC } from "utils";
+import { chooseRandomRPC, executeWithTimeout } from "utils";
 import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer";
 import {
 	BigNumberish,
@@ -105,7 +105,12 @@ export const main = async () => {
 	const dbMarginTokenInfo = new MarginTokenInfo(prisma, logger);
 	// get sharepool token info and margin token info
 	const staticInfo = new StaticInfo();
-	await staticInfo.initialize(httpProvider);
+	// the following call will throw an error on RPC timeout
+	await executeWithTimeout(
+		staticInfo.initialize(httpProvider),
+		15_000,
+		"RPC call timeout"
+	);
 	// store margin token info and perpetual info to DB
 	await staticInfo.checkAndWriteMarginTokenInfoToDB(dbMarginTokenInfo);
 
