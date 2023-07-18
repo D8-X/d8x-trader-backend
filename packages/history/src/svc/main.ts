@@ -107,8 +107,8 @@ export const main = async () => {
 	const staticInfo = new StaticInfo();
 	// the following call will throw an error on RPC timeout
 	await executeWithTimeout(
-		staticInfo.initialize(httpProvider),
-		30_000,
+		staticInfo.initialize(httpProvider, httpRpcUrl),
+		10_000,
 		"RPC call timeout"
 	);
 	// store margin token info and perpetual info to DB
@@ -178,7 +178,7 @@ export const main = async () => {
 		},
 		logger
 	);
-	api.start();
+	api.start(httpRpcUrl);
 };
 
 export interface hdFilterersOpt {

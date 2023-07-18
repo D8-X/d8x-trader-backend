@@ -2,7 +2,7 @@ import { PerpetualDataHandler } from "@d8x/perpetuals-sdk";
 
 import { ethers } from "ethers";
 
-export const getSDKFromEnv = () => {
+export const getSDKConfigFromEnv = () => {
 	const configName = (process.env.SDK_CONFIG_NAME as string) ?? "";
 	if (configName == "") {
 		throw Error("SDK_CONFIG_NAME missing in .env");
@@ -12,18 +12,18 @@ export const getSDKFromEnv = () => {
 };
 
 export function getPerpetualManagerABI(): ethers.InterfaceAbi {
-	let abi = getSDKFromEnv().proxyABI as string;
+	let abi = getSDKConfigFromEnv().proxyABI as string;
 	return abi as ethers.InterfaceAbi;
 }
 
 export function getPerpetualManagerProxyAddress(): string {
-	return getSDKFromEnv().proxyAddr;
+	return getSDKConfigFromEnv().proxyAddr;
 }
 
 export function getDefaultRPC(): string {
-	return getSDKFromEnv().nodeURL;
+	return getSDKConfigFromEnv().nodeURL;
 }
 
 export const getShareTokenContractABI = async () => {
-	return getSDKFromEnv().shareTokenABI as ethers.InterfaceAbi;
+	return getSDKConfigFromEnv().shareTokenABI as ethers.InterfaceAbi;
 };
