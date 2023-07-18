@@ -464,7 +464,6 @@ export class PNLRestAPI {
 			const fromPriceInfo = await this.opts.prisma.$queryRaw<p_info[]>`
                 select * from price_info
                 where pool_id = ${poolId}
-                and timestamp < ${from}::timestamp
                 order by abs(extract(epoch from ("timestamp" -  ${from}::timestamp )))
                 limit 1
             `;
