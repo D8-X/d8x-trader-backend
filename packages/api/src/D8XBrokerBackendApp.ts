@@ -81,7 +81,7 @@ export default class D8XBrokerBackendApp {
       console.log(
         msg +
           msgFreq2 +
-          ` - restarting event listener. Last event too old? ${lastEventTooOld}; Trade/Post freq check failed? ${checkMktOrderFreq}`
+          ` - restarting event listener. Last event too old? ${lastEventTooOld}; Trade/Post freq match? ${checkMktOrderFreq}`
       );
       this.eventListener.resetRPCWebsocket(newWsRPC);
       this.lastRequestTsMs = Date.now();
