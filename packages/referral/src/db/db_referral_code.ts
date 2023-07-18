@@ -192,14 +192,18 @@ export default class DBReferralCode {
   }
 
   public async queryTraderCode(addr: string): Promise<APITraderCode> {
-    const res = await this.prisma.referralCodeUsage.findFirst({
+    const dateNow = new Date().toISOString();
+    const res = await this.prisma.referralCodeUsage.findMany({
       where: {
         trader_addr: {
           equals: addr,
           mode: "insensitive",
         },
+        valid_to: {
+          gt: dateNow,
+        },
         valid_from: {
-          gte: new Date().toISOString(),
+          lt: dateNow,
         },
       },
       select: {
@@ -210,7 +214,7 @@ export default class DBReferralCode {
     if (res == null) {
       return { code: "", activeSince: undefined };
     }
-    return { code: res.code, activeSince: res.valid_from };
+    return { code: res[0].code, activeSince: res[0].valid_from };
   }
 
   public async queryCode(code: string): Promise<APIReferralCodeRecord> {
