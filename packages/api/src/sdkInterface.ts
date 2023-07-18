@@ -259,16 +259,10 @@ export default class SDKInterface extends Observable {
     return JSON.stringify(resArray);
   }
 
-  public async maxOrderSizeForTrader(addr: string, symbol: string) {
+  public async maxOrderSizeForTrader(addr: string, symbol: string): Promise<string> {
     this.checkAPIInitialized();
-    let positionRiskArr: MarginAccount[] | undefined = await this.apiInterface!.positionRisk(addr, symbol);
-    if (positionRiskArr != undefined) {
-      let sizeBUY = await this.apiInterface!.maxOrderSizeForTrader(BUY_SIDE, positionRiskArr[0]);
-      let sizeSELL = await this.apiInterface!.maxOrderSizeForTrader(SELL_SIDE, positionRiskArr[0]);
-      return JSON.stringify({ buy: sizeBUY, sell: sizeSELL });
-    } else {
-      return JSON.stringify({ error: "positionRisk not available for trader" });
-    }
+    const sizes = await this.apiInterface!.maxOrderSizeForTrader(addr, symbol);
+    return JSON.stringify({ buy: sizes.buy, sell: sizes.sell });
   }
 
   public async getCurrentTraderVolume(traderAddr: string, symbol: string): Promise<string> {

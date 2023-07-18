@@ -108,7 +108,7 @@ export const main = async () => {
 	// the following call will throw an error on RPC timeout
 	await executeWithTimeout(
 		staticInfo.initialize(httpProvider),
-		15_000,
+		30_000,
 		"RPC call timeout"
 	);
 	// store margin token info and perpetual info to DB
