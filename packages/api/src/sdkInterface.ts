@@ -86,11 +86,7 @@ export default class SDKInterface extends Observable {
    * @returns loyality score
    */
   public async traderLoyalty(traderAddr: string): Promise<string> {
-    let brokerAddr = await this.broker.getBrokerAddress();
-    if (brokerAddr == ZERO_ADDRESS) {
-      brokerAddr = "";
-    }
-    let score = await this.apiInterface!.getTraderLoyalityScore(traderAddr, brokerAddr);
+    let score = await this.apiInterface!.getTraderLoyalityScore(traderAddr);
     return score.toString();
   }
 
