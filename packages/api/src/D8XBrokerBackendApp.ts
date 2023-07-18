@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
 import { extractErrorMsg } from "utils";
 import { Order, PerpetualState, NodeSDKConfig, MarginAccount } from "@d8x/perpetuals-sdk";
-import EventListener, { TradeInteractionEvent } from "./eventListener";
+import EventListener from "./eventListener";
 import BrokerIntegration from "./brokerIntegration";
 import fs from "fs";
 import cors from "cors";
@@ -27,7 +27,6 @@ export default class D8XBrokerBackendApp {
   private eventListener: EventListener;
   private CORS_ON: boolean;
   private lastRequestTsMs: number; // last API request, used to inform whether wsRPC should be switched on event-listener
-  private lastRequestPositionRiskOnTrade: number; // last position risk on trade API request
 
   constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig, wsRPC: string) {
     dotenv.config();
@@ -53,7 +52,6 @@ export default class D8XBrokerBackendApp {
 
     this.middleWare();
     this.lastRequestTsMs = Date.now();
-    this.lastRequestPositionRiskOnTrade = this.lastRequestTsMs;
   }
 
   public async initialize() {
@@ -69,41 +67,26 @@ export default class D8XBrokerBackendApp {
    * @param newWsRPC new rpc address
    */
   public async checkTradeEventListenerHeartbeat(newWsRPC: string) {
-    const timeSinceLastEvent = this.eventListener.timeMsSinceLastBlockchainEvent();
-    const timeSinceLastTradeEvents = this.eventListener.timeMsSinceLastTradeBlockchainEvents();
-    let mins = timeSinceLastTradeEvents.map((x) => Math.floor(x / 1000 / 6) / 10);
-    const msg = `Last events/RPC reset: trade ${mins[TradeInteractionEvent.TradeEvt]}mins, overall ${
-      Math.floor(timeSinceLastEvent / 1000 / 6) / 10
-    }mins.`;
-    const timeSinceLastAPIReq = Date.now() - this.lastRequestTsMs;
-    const timeSinceLastPositionOnTradeReq = Date.now() - this.lastRequestPositionRiskOnTrade;
-    const lastEventTooOld =
-      timeSinceLastAPIReq - timeSinceLastEvent > 1 * 60_000 ||
-      timeSinceLastPositionOnTradeReq - timeSinceLastTradeEvents[TradeInteractionEvent.TradeEvt] > 10 * 60_000 ||
-      timeSinceLastPositionOnTradeReq - timeSinceLastTradeEvents[TradeInteractionEvent.LimitOrderCreatedEvt] >
-        5 * 60_000;
-    const tradeEventTooOldRelativeToEvent =
-      mins[TradeInteractionEvent.TradeEvt] - mins[TradeInteractionEvent.LimitOrderCreatedEvt] > 15;
-    const tradeEventDiffTooLarge =
-      Math.abs(mins[TradeInteractionEvent.TradeEvt] - mins[TradeInteractionEvent.LimitOrderCreatedEvt]) > 2;
-    console.log(`-----`);
-    console.log(`TimeSinceLastAPIReq : ${timeSinceLastAPIReq}`);
-    console.log(`TimeSinceLastPositionOnTradeReq : ${timeSinceLastPositionOnTradeReq}`);
-    console.log(`TimeSinceLastEvent : ${timeSinceLastEvent}`);
-    console.log(`TradeEvt : ${timeSinceLastTradeEvents[TradeInteractionEvent.TradeEvt]}`);
-    console.log(`LimitOrderCreatedEvt : ${timeSinceLastTradeEvents[TradeInteractionEvent.LimitOrderCreatedEvt]}`);
-    console.log(`-----`);
-    if (lastEventTooOld || tradeEventTooOldRelativeToEvent || tradeEventDiffTooLarge) {
+    const lastEventTs = this.eventListener.lastBlockchainEventTsMs();
+    // last trade event longer than 2 mins ago and recent market order submission (so no execution observed)
+    const checkMktOrderFreq = this.eventListener.doMarketOrderFrequenciesMatch();
+    const lastEventTooOld = Date.now() - lastEventTs > 10 * 60_000;
+    let [c, d] = this.eventListener.getMarketOrderFrequencies();
+    const msg = `Last event: ${Math.floor((Date.now() - lastEventTs) / 1000 / 6) / 10}mins.`;
+    const msgFreq2 = ` Order posted vs executed : ${c}:${d} `;
+    console.log();
+
+    if (lastEventTooOld || !checkMktOrderFreq) {
       // no event since timeSeconds, restart listener
       console.log(
         msg +
-          ` - restarting event listener ${lastEventTooOld}${tradeEventTooOldRelativeToEvent}${tradeEventDiffTooLarge}`
+          msgFreq2 +
+          ` - restarting event listener. Last event too old? ${lastEventTooOld}; Trade/Post freq check failed? ${checkMktOrderFreq}`
       );
       this.eventListener.resetRPCWebsocket(newWsRPC);
-      this.lastRequestPositionRiskOnTrade = Date.now();
       this.lastRequestTsMs = Date.now();
     } else {
-      console.log(msg + ` - no restart`);
+      console.log(msg + msgFreq2 + ` - no restart`);
     }
   }
 
@@ -114,14 +97,9 @@ export default class D8XBrokerBackendApp {
     return JSON.stringify({ type: type, msg: msg, data: dataObj });
   }
 
-  private setLastRequestNow() {
-    this.lastRequestTsMs = Date.now();
-  }
-
   private initWebSocket() {
     let eventListener = this.eventListener;
     let sdk = this.sdk;
-    let setLastRequestNow = this.setLastRequestNow;
     this.wss.on("connection", function connection(ws: WebSocket.WebSocket, req: IncomingMessage) {
       ws.on("error", console.error);
       ws.on("message", async (data: WebSocket.RawData) => {
@@ -136,7 +114,6 @@ export default class D8XBrokerBackendApp {
           } else {
             console.log("received: ", obj);
             //type = subscription
-            setLastRequestNow();
             if (typeof obj.traderAddr != "string" || typeof obj.symbol != "string") {
               throw new Error("wrong arguments. Requires traderAddr and symbol");
             }
@@ -422,10 +399,11 @@ export default class D8XBrokerBackendApp {
 
     this.express.post("/position-risk-on-trade", async (req, res) => {
       try {
-        this.lastRequestPositionRiskOnTrade = Date.now();
+        let traderAddr: string = req.body.traderAddr;
+
         this.lastRequestTsMs = Date.now();
         let order: Order = <Order>req.body.order;
-        let traderAddr: string = req.body.traderAddr;
+
         let rsp = await this.sdk.positionRiskOnTrade(order, traderAddr);
         res.send(D8XBrokerBackendApp.JSONResponse("position-risk-on-trade", "", rsp));
       } catch (err: any) {
