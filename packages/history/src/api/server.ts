@@ -27,6 +27,7 @@ import { getSDKConfigFromEnv } from "../utils/abi";
 import dotenv from "dotenv";
 import cors from "cors";
 import { PriceInfo } from "../db/price_info";
+import { tokenToString } from "typescript";
 export const DECIMAL40_FORMAT_STRING = "FM9999999999999999999999999999999999999";
 
 // Make sure the decimal values are always return as normal numeric strings
@@ -116,21 +117,7 @@ export class PNLRestAPI {
 		});
 	}
 
-	private extractTimestamps(fromStr: string, toStr: string): [number, number] {
-		let t_from = parseInt(fromStr);
-		let t_to = parseInt(toStr);
-		const reDigit = /^\d+$/;
-		if (
-			isNaN(t_from) ||
-			isNaN(t_to) ||
-			fromStr.match(reDigit) === null ||
-			toStr.match(reDigit) === null
-		) {
-			throw Error(
-				"invalid fromTimestamp or toTimestamp, please provide correct unix timestamps"
-			);
-		}
-
+	private extractTimestamps(t_from: number, t_to: number): [number, number] {
 		if (t_from < 1681402080) {
 			throw Error("timestamp to old");
 		}
@@ -142,6 +129,7 @@ export class PNLRestAPI {
 		}
 		return [t_from, t_to];
 	}
+
 	/**
 	 * Retrieve open withdrawal information
 	 *
@@ -424,43 +412,36 @@ export class PNLRestAPI {
 		}
 	}
 
-	private async apyCalculation(
-		req: Request<
-			any,
-			any,
-			any,
-			{
-				poolSymbol: string;
-				// Date/timestamp from which we check the APY
-				fromTimestamp: string;
-				// Either NOW or later date than from_timestamp
-				toTimestamp: string;
-			}
-		>,
-		resp: Response
-	) {
+	private async apyCalculation(req: Request, resp: Response) {
 		const usage =
-			"required query parameters: poolSymbol, fromTimestamp (seconds), toTimestamp (seconds) ";
+			"required query parameters: poolSymbol, optional: fromTimestamp (seconds), toTimestamp (seconds) ";
 		try {
-			if (
-				!correctQueryArgs(req.query, [
-					"poolSymbol",
-					"fromTimestamp",
-					"toTimestamp",
-				])
-			) {
+			let t1 = typeof req.query.fromTimestamp;
+			let t2 = typeof req.query.toTimestamp;
+			if (typeof req.query.poolSymbol != "string") {
+				resp.status(400);
 				throw Error("please provide correct query parameters");
 			}
-
+			const symbol = req.query.poolSymbol;
 			let pool_id: number;
 			try {
-				pool_id = this.md!.getPoolIdFromSymbol(req.query.poolSymbol)!;
+				pool_id = this.md!.getPoolIdFromSymbol(symbol);
 			} catch (error) {
-				throw Error(`no pool found for symbol ${req.query.poolSymbol}`);
+				resp.status(400);
+				throw Error(`no pool found for symbol ${symbol}`);
 			}
-
-			const { fromTimestamp, toTimestamp } = req.query;
-
+			let toTimestamp: number =
+				req.query.toTimestamp != undefined
+					? Number(req.query.toTimestamp)
+					: Math.round(Date.now() / 1000);
+			let fromTimestamp: number =
+				req.query.fromTimestamp != undefined
+					? Number(req.query.fromTimestamp)
+					: toTimestamp - 86_400 * 7;
+			if (isNaN(fromTimestamp) || isNaN(toTimestamp)) {
+				resp.status(400);
+				throw Error("please provide timestamps");
+			}
 			// Check if provided timestamps in seconds are ok
 			let [t_from, t_to] = this.extractTimestamps(fromTimestamp, toTimestamp);
 
@@ -483,6 +464,7 @@ export class PNLRestAPI {
 			const fromPriceInfo = await this.opts.prisma.$queryRaw<p_info[]>`
                 select * from price_info
                 where pool_id = ${poolId}
+                and timestamp < ${from}::timestamp
                 order by abs(extract(epoch from ("timestamp" -  ${from}::timestamp )))
                 limit 1
             `;
@@ -495,6 +477,7 @@ export class PNLRestAPI {
 
 			// Price info was found
 			if (toPriceInfo.length != 1 || fromPriceInfo.length != 1) {
+				resp.status(503);
 				throw Error("not enough prices found");
 			}
 			const start_timestamp = fromPriceInfo[0].timestamp.getTime() / 1000;
@@ -509,28 +492,32 @@ export class PNLRestAPI {
 				24 *
 				3600;
 
-			const price_ratio =
-				toPriceInfo[0].pool_token_price / fromPriceInfo[0].pool_token_price;
+			const St = toPriceInfo[0].pool_token_price;
+			const S0 = fromPriceInfo[0].pool_token_price;
+			const rawReturn = (St - S0) / S0;
 
 			// division by 0
 			if (t_diff === 0) {
+				resp.status(503);
 				throw Error(
 					"not enough price data for the given time range to calculate APY"
 				);
 			}
 
-			// APY = (priceCurrent/priceOld-1)/(TimestampSec.now()-TimestampSec.priceOld) * #secondsInYear
-			const apy = ((price_ratio - 1) / t_diff) * secondsInYear;
+			const apy = (rawReturn * secondsInYear) / t_diff;
 
 			const response = {
 				startTimestamp: start_timestamp,
 				endTimestamp: end_timestamp,
-				startPrice: toPriceInfo[0].pool_token_price,
-				endPrice: fromPriceInfo[0].pool_token_price,
+				startPrice: fromPriceInfo[0].pool_token_price,
+				endPrice: toPriceInfo[0].pool_token_price,
 				apy,
 			};
 			resp.send(toJson(response));
 		} catch (err: any) {
+			if (resp.statusCode == 200) {
+				resp.statusCode = 400;
+			}
 			resp.send(errorResp(extractErrorMsg(err), usage));
 		}
 	}
