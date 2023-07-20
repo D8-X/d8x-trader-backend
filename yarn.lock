@@ -79,7 +79,7 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@d8x/perpetuals-sdk@^0.8.13", "@d8x/perpetuals-sdk@^0.8.9":
+"@d8x/perpetuals-sdk@^0.8.13":
   version "0.8.13"
   resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.8.13.tgz#32ae1818a44fdba4ca6a225e412d0a4c1e781ce8"
   integrity sha512-v4Xw1iQcZSZlXUxJlUqXXaiap6zpT7CsEYfmf3BsBj+SI8XAFH5Vh/3wVeYebwDvuQLXmehtiAQ9LCwU6QrTzQ==
