@@ -126,7 +126,8 @@ export default class PaymentDataCollector {
           numRequests = 0;
           lastWaitSeconds *= 2;
         } else {
-          throw new Error(error as string | undefined);
+          let message = error instanceof Error ? error.message : "Unknown Error";
+          throw new Error(message);
         }
       }
     }
