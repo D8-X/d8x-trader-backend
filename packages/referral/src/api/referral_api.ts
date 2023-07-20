@@ -217,12 +217,7 @@ export default class ReferralAPI {
 
   private async onMyReferralCodes(req: Request, res: Response) {
     let addr: string = this.throwErrorIfInvalidAddr(req.query.addr);
-    let traderCode: APITraderCode = await this.dbReferralCode.queryTraderCode(addr);
-    if (traderCode.code != "") {
-      // if there is a code for the trader, get the rebate
-      let codeData = await this.dbReferralCode.queryCode(traderCode.code);
-      traderCode.traderRebatePerc = codeData.traderRebatePerc;
-    }
+    let traderCode: APITraderCode = await this.dbReferralCode.queryTraderCode(addr, this.tokenAccountant);
     let referrerCodes: APIReferralCodeRecord[] = await this.dbReferralCode.queryReferrerCodes(addr);
     let agencyCodes: APIReferralCodeRecord[] = await this.dbReferralCode.queryAgencyCodes(addr);
     let resultObj = {
