@@ -27,7 +27,6 @@ export default class ReferralPaymentExecutor {
   private minBrokerFeeCCForRebate = new Map<number, number>(); //pool-id -> fee in coll.currency
   private payExecutor: AbstractPayExecutor;
   private brokerAddr = "";
-  mode = "DEBUG";
 
   constructor(
     dbPayment: DBPayments,
@@ -100,43 +99,34 @@ export default class ReferralPaymentExecutor {
       // this order is to prevent double payments in case the system stops after paying
       // and before writing the db entry
       // Timestamp needs to be set to: last_trade_considered_ts
-      if (this.mode != "DEBUG") {
-        if (!(await this.dbPayment.registerPayment(openPayments[k], brokerAmount, TEMPORARY_TX_HASH))) {
-          continue;
-        }
+      if (!(await this.dbPayment.registerPayment(openPayments[k], brokerAmount, TEMPORARY_TX_HASH))) {
+        continue;
       }
+
       // we must use the timestamp in seconds of the last considered trade,
       // so future payments will start after that date.
       const id: number = Math.round(openPayments[k].last_trade_considered_ts.getTime() / 1000);
       // we must encode the code and pool-id into the message
       const msg = msg4Chain + "." + openPayments[k].code + "." + openPayments[k].pool_id.toString();
 
-      if (this.mode == "DEBUG") {
-        const dec = tokenAddr.substring(0, 3) == "0xe" ? 6 : 18;
-        const amtDec = amounts.map((x) => decNToFloat(x, dec));
-        const amtStr = `trader ${amtDec[0]} referrer ${amtDec[1]} agency ${amtDec[2]} broker ${amtDec[3]}`;
-        console.log(`Transact Payment token ${tokenAddr}... ${amtStr}`);
-        console.log(`onchain message: ${msg}`);
-      } else {
-        let txHash = await this.payExecutor.transactPayment(tokenAddr, amounts, addr, id, msg);
-        if (txHash == "fail") {
-          // wipe payment entry
-          let keyTs = openPayments[k].last_trade_considered_ts;
-          let poolId = Number(openPayments[k].pool_id.toString());
-          await this.dbPayment.deletePaymentRecord(openPayments[k].trader_addr, poolId, keyTs);
-          // record failed payments
-          this.accumulatePayment(failedPayments, tokenAddr, amounts);
-          continue;
-        }
-        // we update the database with the received transaction hash
-        await this.dbPayment.writeTxHashForPayment(openPayments[k], txHash);
-        executionNum++;
+      let txHash = await this.payExecutor.transactPayment(tokenAddr, amounts, addr, id, msg);
+      if (txHash == "fail") {
+        // wipe payment entry
+        let keyTs = openPayments[k].last_trade_considered_ts;
+        let poolId = Number(openPayments[k].pool_id.toString());
+        await this.dbPayment.deletePaymentRecord(openPayments[k].trader_addr, poolId, keyTs);
+        // record failed payments
+        this.accumulatePayment(failedPayments, tokenAddr, amounts);
+        continue;
       }
+      // we update the database with the received transaction hash
+      await this.dbPayment.writeTxHashForPayment(openPayments[k], txHash);
+      executionNum++;
     }
 
-    this.accumulatePaymentLog(totalPayments, "Total Payments");
+    this.accumulatePaymentLog(totalPayments, "--- Total Payments ---");
     if (failedPayments.size > 0) {
-      this.accumulatePaymentLog(failedPayments, "of which Failed Payments");
+      this.accumulatePaymentLog(failedPayments, "!!! of which Failed Payments !!!");
     }
 
     return executionNum;
