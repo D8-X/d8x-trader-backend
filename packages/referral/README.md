@@ -1,5 +1,9 @@
 # Referral System
 
+# Payment System
+
+[See here](README_PAYSYS.md)
+
 # API
 
 ### get: `http://localhost:8889/my-referral-codes?addr=0x9d5aab428e98678d0e645ea4aebd25f744341a05`
@@ -19,6 +23,7 @@ _Response_: Example with all fields filled
 "data":{
     "trader":{
     "code":"REBATE100",
+    "traderRebatePercFinal":2.1,
     "activeSince":"2023-06-26T17:49:21.413Z"
     },
     "referrer":[

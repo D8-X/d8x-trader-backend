@@ -4,6 +4,7 @@ import ReferralCodeValidator from "../svc/referralCodeValidator";
 import { ReferralSettings, APIReferralCodeRecord, APITraderCode } from "../referralTypes";
 import { APIReferralCodePayload, APIReferralCodeSelectionPayload } from "@d8x/perpetuals-sdk";
 import { sleep, adjustNDigitPercentagesTo100 } from "utils";
+import TokenAccountant from "../svc/tokenAccountant";
 
 interface ReferralCodeData {
   brokerPayoutAddr: string;
@@ -191,30 +192,37 @@ export default class DBReferralCode {
     }
   }
 
-  public async queryTraderCode(addr: string): Promise<APITraderCode> {
+  public async queryTraderCode(addr: string, tokenAccountant: TokenAccountant): Promise<APITraderCode> {
     const dateNow = new Date().toISOString();
-    const res = await this.prisma.referralCodeUsage.findMany({
-      where: {
-        trader_addr: {
-          equals: addr,
-          mode: "insensitive",
-        },
-        valid_to: {
-          gt: dateNow,
-        },
-        valid_from: {
-          lt: dateNow,
-        },
-      },
-      select: {
-        code: true,
-        valid_from: true,
-      },
-    });
-    if (res == null) {
-      return { code: "", activeSince: undefined };
+    interface SQLRes {
+      code: string;
+      trader_rebate_perc: number;
+      referrer_addr: string;
+      agency_addr: string;
+      valid_from: Date;
     }
-    return { code: res[0].code, activeSince: res[0].valid_from };
+
+    const res = await this.prisma.$queryRaw<SQLRes[]>`
+        SELECT rcu.code as code, rc.trader_rebate_perc, rc.referrer_addr, rc.agency_addr, rcu.valid_from as valid_from
+        FROM referral_code_usage rcu
+        JOIN referral_code rc
+        ON rc.code = rcu.code
+        WHERE rcu.valid_to > ${dateNow}::timestamp
+            AND rcu.valid_from < ${dateNow}::timestamp
+            AND LOWER(rcu.trader_addr) = ${addr.toLowerCase()} 
+    `;
+    if (res.length == 0) {
+      return { code: "", traderRebatePercFinal: 0, activeSince: undefined };
+    }
+    let traderRebatePerc;
+    if (res[0].agency_addr != "") {
+      let agencyCut = await tokenAccountant.getCutPercentageForAgency();
+      traderRebatePerc = (agencyCut * res[0].trader_rebate_perc) / 100;
+    } else {
+      let referrerCut = await tokenAccountant.getCutPercentageForReferrer(res[0].referrer_addr);
+      traderRebatePerc = (referrerCut * res[0].trader_rebate_perc) / 100;
+    }
+    return { code: res[0].code, traderRebatePercFinal: traderRebatePerc, activeSince: res[0].valid_from };
   }
 
   public async queryCode(code: string): Promise<APIReferralCodeRecord> {
