@@ -248,20 +248,12 @@ The option --data-only ensure that only the data is restored (the schema is ther
 
 ### Testing Codes
 
-INSERT INTO referral_code (code, referrer_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc)
-VALUES ('CASPAR', '0x863AD9Ce46acF07fD9390147B619893461036194', '0x9d5aaB428e98678d0E645ea4AeBd25f744341a05', '0x0aB6527027EcFF1144dEc3d78154fce309ac838c', 10, 50);
+INSERT INTO referral_code (code, referrer_addr, agency_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc, agency_rebate_perc)
+VALUES ('CUMULUS', '0x863AD9Ce46acF07fD9390147B619893461036194', '0x6fe871703eb23771c4016eb62140367944e8edfc',
+'0x5a09217f6d36e73ee5495b430e889f8c57876ef3', '0x9d5aaB428e98678d0E645ea4AeBd25f744341a05', 20, 60, 20);
 
-INSERT INTO referral_code (code, referrer_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc)
-VALUES ('MARCO', '0x21B864083eedF1a4279dA1a9A7B1321E6102fD39', '0x9d5aaB428e98678d0E645ea4AeBd25f744341a05', '0x0aB6527027EcFF1144dEc3d78154fce309ac838c', 15, 60);
+insert into referral_code_usage (trader_addr, code, valid_from) values ('0x0ab6527027ecff1144dec3d78154fce309ac838c', 'CUMULUS', '2023-04-13 12:10:00+00:00');
 
-INSERT INTO referral_code (code, referrer_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc, expiry)
-VALUES ('EXPIRED', '0x21B864083eedF1a4279dA1a9A7B1321E6102fD39', '0x9d5aaB428e98678d0E645ea4AeBd25f744341a05', '0x0aB6527027EcFF1144dEc3d78154fce309ac838c', 15, 60, '2023-04-13 12:10:00+00:00');
-
-INSERT INTO referral_code (code, referrer_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc)
-VALUES ('DEFAULT', '0x21B864083eedF1a4279dA1a9A7B1321E6102fD39', '0x9d5aaB428e98678d0E645ea4AeBd25f744341a05', '0x0aB6527027EcFF1144dEc3d78154fce309ac838c', 15, 60);
-
-INSERT INTO referral_code_usage (trader_addr, code)
-VALUES ('0x6fe871703eb23771c4016eb62140367944e8edfc', 'CASPAR');
-
-INSERT INTO referral_code_usage (trader_addr, code)
-VALUES ('0x9d5aaB428e98678d0E645ea4AeBd25f744341a05', 'CASPAR');
+frankencoin:
+0xf33c07b1e0e16f97fd04f9bce4db4783eaab3815
+0x0aB6527027EcFF1144dEc3d78154fce309ac838c

@@ -1,8 +1,8 @@
-import { Contract, ethers } from "ethers";
+import { Contract, ethers, BigNumber } from "ethers";
 import { Logger } from "winston";
 import DBTokenHoldings from "../db/db_token_holdings";
 import { TokenAccount, DBActiveReferrer, DBTokenAmount } from "../referralTypes";
-import { sleep } from "utils";
+import { sleep, executeWithTimeout } from "utils";
 
 // specify maximal time until we update the token balance again
 const MAXIMAL_BALANCE_AGE_SEC = 7 * 86_400;
@@ -86,7 +86,8 @@ export default class TokenAccountant {
       if (refs[k].last_updated == null || now - refs[k].last_updated!.getTime() > MAXIMAL_BALANCE_AGE_SEC) {
         // get amount
         try {
-          amountDecN = BigInt((await contract.balanceOf(refs[k].referrer_addr)).toString());
+          let amtBN: BigNumber = await executeWithTimeout(contract.balanceOf(refs[k].referrer_addr), 10_000);
+          amountDecN = BigInt(amtBN.toString());
           accounts.push({ referrerAddr: refs[k].referrer_addr, tokenHoldings: amountDecN });
         } catch (error) {
           if (waitTime > maxWait) {

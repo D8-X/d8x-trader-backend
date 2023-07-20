@@ -42,8 +42,8 @@ export default class ReferralPaymentManager {
 
     await this.paymentDataCollector.confirmPayments(this.brokerAddr, since);
     this.l.info("WIP version");
-    /*
-    -> WIP
+
+    //-> WIP
     this.l.info("Historical payment data collector confirmation processed");
     // get last payment execution date from db
     this.lastPaymentExecution = await this.dbPayment.queryLastRecordedPaymentDate();
@@ -51,7 +51,6 @@ export default class ReferralPaymentManager {
     await this.checkAndExecutePayments();
     // launch scheduler that checks every minute if we need to execute according to pattern
     this.startPaymentScheduler();
-    */
   }
 
   startPaymentScheduler(): void {
