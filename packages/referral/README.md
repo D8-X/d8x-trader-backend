@@ -1,5 +1,9 @@
 # Referral System
 
+# Payment System
+
+[See here](README_PAYSYS.md)
+
 # API
 
 ### get: `http://localhost:8889/my-referral-codes?addr=0x9d5aab428e98678d0e645ea4aebd25f744341a05`
