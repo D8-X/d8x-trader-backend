@@ -211,7 +211,7 @@ export default class DBReferralCode {
         valid_from: true,
       },
     });
-    if (res == null) {
+    if (res.length == 0) {
       return { code: "", activeSince: undefined };
     }
     return { code: res[0].code, activeSince: res[0].valid_from };
