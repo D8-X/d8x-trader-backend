@@ -100,47 +100,6 @@ function loadSettings() {
   return file;
 }
 
-/**
- * Currently not used
- * @param l logger
- * @returns broker address
- */
-async function getBrokerAddressViaRedis(l: winston.Logger): Promise<string> {
-  // wait for broker initialization by packages/api/sdkInterface
-  let redisClient: Redis = constructRedis("referral");
-  let brokerAddr: string | null = null;
-  let count = 0;
-  while (brokerAddr == null && count < 5) {
-    await sleep(20_000);
-    // BrokerAddress key is set by sdkInterface.ts
-    brokerAddr = await redisClient.get("BrokerAddress");
-    if (brokerAddr == null) {
-      l.info("Broker address not found yet.");
-    } else {
-      l.info("Broker address found:" + brokerAddr);
-    }
-    count++;
-  }
-  if (brokerAddr == "") {
-    l.info("Broker address not found as REDIS key, closing referral system");
-    return "";
-  }
-  return brokerAddr || "";
-}
-
-function getBrokerAddressFromKey(key: string): string {
-  let addr = "";
-  if (key == "") return addr;
-  try {
-    const wallet = new ethers.Wallet(key);
-    // Get the wallet address
-    addr = wallet.address;
-  } catch (err) {
-    logger.error("Invalid broker key:" + err);
-  }
-  return addr;
-}
-
 async function setDefaultReferralCode(dbReferralCodes: DBReferralCode, settings: ReferralSettings) {
   let s = settings.defaultReferralCode;
   await dbReferralCodes.writeDefaultReferralCodeToDB(
@@ -208,12 +167,6 @@ async function start() {
     key = process.env.BROKER_KEY;
   }
 
-  let brokerAddr = getBrokerAddressFromKey(key);
-  if (brokerAddr == "" || brokerAddr == ZERO_ADDRESS) {
-    logger.info("shutting down referral system (no broker)");
-    return;
-  }
-
   let port: number;
   if (process.env.REFERRAL_API_PORT == undefined) {
     logger.error("Set REFERRAL_API_PORT in .env (e.g. REFERRAL_API_PORT=8889)");
@@ -242,6 +195,10 @@ async function start() {
     logger.error("setDBSettings failed");
     return;
   }
+
+  let payExecutor = new PayExecutorLocal(key, settings.multiPayContractAddr, rpcUrl, logger);
+  const brokerAddr = await payExecutor.getBrokerAddress();
+
   const dbReferralCode = new DBReferralCode(BigInt(chainId), prisma, brokerAddr, settings, logger);
   const dbReferralCuts = new ReferralCut(BigInt(chainId), prisma, logger);
   const dbTokenHoldings = new DBTokenHoldings(BigInt(chainId), prisma, logger);
@@ -258,7 +215,7 @@ async function start() {
   await api.initialize();
   // start payment manager
   logger.info("Starting Referral system");
-  let payExecutor = new PayExecutorLocal(key, settings.multiPayContractAddr, rpcUrl, logger);
+
   let paymentManager = new ReferralPaymentManager(brokerAddr, dbPayment, settings, rpcUrl, payExecutor, logger);
   // starting (async)
   paymentManager.run();
