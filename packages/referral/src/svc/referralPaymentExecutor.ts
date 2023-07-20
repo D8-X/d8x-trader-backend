@@ -45,6 +45,32 @@ export default class ReferralPaymentExecutor {
     }
   }
 
+  private accumulatePayment(paymentsRegister: Map<string, bigint[]>, tokenAddr: string, amounts: bigint[]) {
+    if (paymentsRegister.get(tokenAddr) == undefined) {
+      // initialize
+      let amountPayment = new Array<bigint>(4);
+      for (let j = 0; j < amountPayment.length; j++) {
+        amountPayment[j] = 0n;
+      }
+      paymentsRegister.set(tokenAddr, amountPayment);
+    }
+    const currPayments = paymentsRegister.get(tokenAddr)!;
+    for (let j = 0; j < amounts.length; j++) {
+      currPayments[j] = currPayments[j] + amounts[j];
+    }
+  }
+
+  private accumulatePaymentLog(paymentsRegister: Map<string, bigint[]>, title: string) {
+    console.log(`\n\n${title}`);
+    for (let [key, val] of paymentsRegister) {
+      console.log(`\ntoken ${key}`);
+      const amtStr = `\ttraders   \t:${val[0]}\n\treferrers\t:${val[1]}\n\tagencies\t:${val[2]}\n\tbroker   \t:${val[3]}`;
+      console.log(amtStr);
+      console.log(`Total (decimal-n)\t:${val[0] + val[1] + val[2] + val[3]}`);
+      console.log(`From Wallet: ${this.brokerAddr}`);
+    }
+  }
+
   /**
    * Process all open payments
    * @returns number of payments executed
@@ -55,6 +81,7 @@ export default class ReferralPaymentExecutor {
     const msg4Chain = Math.round(Date.now() / 1000).toString();
     let executionNum = 0;
     let totalPayments = new Map<string, bigint[]>();
+    let failedPayments = new Map<string, bigint[]>();
     for (let k = 0; k < openPayments.length; k++) {
       let tokenAddr = openPayments[k].token_addr;
       let [amounts, addr] = this._extractPaymentDirections(openPayments[k]);
@@ -64,18 +91,8 @@ export default class ReferralPaymentExecutor {
         );
         continue;
       }
-      // record amounts
-      if (totalPayments.get(tokenAddr) == undefined) {
-        let amountPayment = new Array<bigint>(4);
-        for (let j = 0; j < amountPayment.length; j++) {
-          amountPayment[j] = 0n;
-        }
-        totalPayments.set(tokenAddr, amountPayment);
-      }
-      const currPayments = totalPayments.get(tokenAddr)!;
-      for (let j = 0; j < amounts.length; j++) {
-        currPayments[j] = currPayments[j] + amounts[j];
-      }
+      // record amounts in totalPayments
+      this.accumulatePayment(totalPayments, tokenAddr, amounts);
 
       const brokerAmount = amounts[3];
       // first call 'registerPayment' to store the event with a tx_hash
@@ -107,6 +124,8 @@ export default class ReferralPaymentExecutor {
           let keyTs = openPayments[k].last_trade_considered_ts;
           let poolId = Number(openPayments[k].pool_id.toString());
           await this.dbPayment.deletePaymentRecord(openPayments[k].trader_addr, poolId, keyTs);
+          // record failed payments
+          this.accumulatePayment(failedPayments, tokenAddr, amounts);
           continue;
         }
         // we update the database with the received transaction hash
@@ -114,13 +133,10 @@ export default class ReferralPaymentExecutor {
         executionNum++;
       }
     }
-    console.log("\n\nTotal Payments");
-    for (let [key, val] of totalPayments) {
-      console.log(`\ntoken ${key}`);
-      const amtStr = `\ttraders   \t:${val[0]}\n\treferrers\t:${val[1]}\n\tagencies\t:${val[2]}\n\tbroker   \t:${val[3]}`;
-      console.log(amtStr);
-      console.log(`Total (decimal-n)\t: ${val[0] + val[1] + val[2] + val[3]}`);
-      console.log(`From Wallet: ${this.brokerAddr}`);
+
+    this.accumulatePaymentLog(totalPayments, "Total Payments");
+    if (failedPayments.size > 0) {
+      this.accumulatePaymentLog(failedPayments, "of which Failed Payments");
     }
 
     return executionNum;
