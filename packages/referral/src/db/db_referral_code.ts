@@ -212,9 +212,9 @@ export default class DBReferralCode {
       },
     });
     if (res.length == 0) {
-      return { code: "", activeSince: undefined };
+      return { code: "", traderRebatePerc: 0, activeSince: undefined };
     }
-    return { code: res[0].code, activeSince: res[0].valid_from };
+    return { code: res[0].code, traderRebatePerc: 0, activeSince: res[0].valid_from };
   }
 
   public async queryCode(code: string): Promise<APIReferralCodeRecord> {
