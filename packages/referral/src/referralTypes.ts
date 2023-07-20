@@ -118,6 +118,7 @@ export interface PaymentEvent {
 
 export interface APITraderCode {
   code: string;
+  traderRebatePerc: number;
   activeSince: Date | undefined;
 }
 

@@ -23,6 +23,7 @@ _Response_: Example with all fields filled
 "data":{
     "trader":{
     "code":"REBATE100",
+    "traderRebatePerc":10,
     "activeSince":"2023-06-26T17:49:21.413Z"
     },
     "referrer":[
