@@ -21,7 +21,7 @@ export class FundingRatePayments {
 
 	/**
 	 * Insert funding rate payment event into trade_history. If event data is
-	 * already present in the database - this will be a no-op.
+	 * already present in the database, collected by event is set to false.
 	 *
 	 * @param e event
 	 * @param txHash transaction hash from the event
