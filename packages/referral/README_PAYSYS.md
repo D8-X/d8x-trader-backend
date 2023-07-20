@@ -29,7 +29,8 @@ a higher cut, the more of a specified token they own.
 To summarize, the rebates are distributed as follows:
 
 - referrerCutPerc := f(tokenholdings as defined in settings)
-- trader\*rebate_cc = FEE_EARNINGS \* referrerCutPerc/100 \* trader_rebate_perc/100
+- trader-rebate = FEE_EARNINGS \* referrerCutPerc/100 \* trader_rebate_perc/100
+- referrer-rebate = FEE_EARNINGS \* referrerCutPerc/100 \* referrer_rebate_perc/100
 - the broker keeps the remainder
 
 where trader_rebate_perc + referrer_rebate_perc = 100, agency_rebate_perc = 0
