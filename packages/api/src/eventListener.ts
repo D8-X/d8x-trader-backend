@@ -23,6 +23,7 @@ import {
 import { BigNumber, Contract, ethers, providers } from "ethers";
 import { IncomingMessage } from "http";
 import WebSocket from "ws";
+import crypto from "crypto";
 
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
 import IndexPriceInterface from "./indexPriceInterface";
@@ -66,6 +67,12 @@ interface EventFrequencyCount {
   lastResetTs: number;
 }
 
+type ControlledEventHandlerName =
+  | "onTrade"
+  | "onUpdateMarkPrice"
+  | "onPerpetualLimitOrderCreated"
+  | "onExecutionFailed";
+
 export default class EventListener extends IndexPriceInterface {
   traderInterface: TraderInterface;
   proxyContract: Contract | undefined;
@@ -83,6 +90,10 @@ export default class EventListener extends IndexPriceInterface {
 
   private mktOrderFrequency: EventFrequencyCount = { createdCount: 0, executedCount: 0, lastResetTs: 0 };
 
+  // keep a record of calls to the event handler functions that are triggered upon receipt of a RPC websocket
+  // event. This is to detect if an event is triggered multiple times (an RPC issue)
+  eventControlCircularBuffer: Record<ControlledEventHandlerName, { hash: string[]; pointer: number }>;
+
   constructor(sdkConfig: NodeSDKConfig, wsRPC: string) {
     super();
     this.wsRPC = wsRPC;
@@ -93,6 +104,12 @@ export default class EventListener extends IndexPriceInterface {
     this.subscriptions = new Map<number, Map<string, WebSocket.WebSocket[]>>();
     this.clients = new Map<WebSocket.WebSocket, Array<ClientSubscription>>();
     this.resetEventFrequencies(this.mktOrderFrequency);
+    this.eventControlCircularBuffer = {
+      onTrade: { hash: new Array<string>(10), pointer: 0 },
+      onUpdateMarkPrice: { hash: new Array<string>(10), pointer: 0 },
+      onPerpetualLimitOrderCreated: { hash: new Array<string>(10), pointer: 0 },
+      onExecutionFailed: { hash: new Array<string>(10), pointer: 0 },
+    };
   }
 
   public async initialize(sdkInterface: SDKInterface) {
@@ -617,6 +634,13 @@ export default class EventListener extends IndexPriceInterface {
     fSpotIndexPrice: BigNumber
   ): void {
     this.lastBlockChainEventTs = Date.now();
+
+    const hash = fMidPricePremium.add(fMarkPricePremium).add(fSpotIndexPrice).toString() + perpetualId.toString();
+    if (!this.grantEventControlPassage(hash, "onUpdateMarkPrice")) {
+      console.log("onUpdateMarkPrice duplicate");
+      return;
+    }
+
     let [newMidPrice, newMarkPrice, newIndexPrice] = EventListener.ConvertUpdateMarkPrice(
       fMidPricePremium,
       fMarkPricePremium,
@@ -709,6 +733,13 @@ export default class EventListener extends IndexPriceInterface {
       console.log(`onTrade ${trader} Conditional Order in perpetual ${perpetualId}`);
     }
     this.lastBlockChainEventTs = Date.now();
+
+    const orderHash = this.hashOrder(order);
+    if (!this.grantEventControlPassage(orderHash, "onTrade")) {
+      console.log("onTrade duplicate");
+      return;
+    }
+
     let symbol = this.symbolFromPerpetualId(perpetualId);
     // return transformed trade info
     let data: Trade = {
@@ -731,6 +762,34 @@ export default class EventListener extends IndexPriceInterface {
   }
 
   /**
+   * Hash an order
+   * @param Order SmartContractOrder that is to be hashed
+   * @returns hash of order
+   */
+  private hashOrder(Order: SmartContractOrder): string {
+    const jsonString = JSON.stringify(Order);
+    const hash = crypto.createHash("sha256").update(jsonString).digest("hex");
+    return hash;
+  }
+
+  /**
+   * Check if event was already called with the same data.
+   * @param hash hash that identifies the event (such as order hash)
+   * @param eventHandlerName name of the event handler that received the event
+   *    onPerpetualLimitOrderCreated,onTrade,onUpdateMarkPrice
+   */
+  private grantEventControlPassage(hash: string, eventHandlerName: ControlledEventHandlerName): boolean {
+    if (this.eventControlCircularBuffer[eventHandlerName].hash.includes(hash)) {
+      return false;
+    }
+    let idx = this.eventControlCircularBuffer[eventHandlerName].pointer;
+    this.eventControlCircularBuffer[eventHandlerName].hash[idx] = hash;
+    this.eventControlCircularBuffer[eventHandlerName].pointer =
+      (idx + 1) % this.eventControlCircularBuffer[eventHandlerName].hash.length;
+    return true;
+  }
+
+  /**
    * event PerpetualLimitOrderCreated(
    *    uint24 indexed perpetualId,
    *    address indexed trader,
@@ -742,22 +801,26 @@ export default class EventListener extends IndexPriceInterface {
    * @param perpetualId id of the perpetual
    * @param trader address of the trader
    * @param brokerAddr address of the broker
-   * @param Order order struct
+   * @param order order struct
    * @param digest order id
    */
   private onPerpetualLimitOrderCreated(
     perpetualId: number,
     trader: string,
     brokerAddr: string,
-    Order: SmartContractOrder,
+    order: SmartContractOrder,
     digest: string
   ): void {
     this.lastBlockChainEventTs = Date.now();
-    const isMarketOrder = this.containsFlag(BigNumber.from(Order.flags), MASK_MARKET_ORDER);
+    const isMarketOrder = this.containsFlag(BigNumber.from(order.flags), MASK_MARKET_ORDER);
     if (isMarketOrder) {
       this.mktOrderFrequency.createdCount += 1;
     }
-
+    const orderHash = this.hashOrder(order);
+    if (!this.grantEventControlPassage(orderHash, "onPerpetualLimitOrderCreated")) {
+      console.log("onPerpetualLimitOrderCreated duplicate");
+      return;
+    }
     console.log("onPerpetualLimitOrderCreated");
     // send to subscriber who sent the order
     let symbol = this.symbolFromPerpetualId(perpetualId);
@@ -803,7 +866,10 @@ export default class EventListener extends IndexPriceInterface {
    */
   private onExecutionFailed(perpetualId: number, trader: string, digest: string, reason: string) {
     this.lastBlockChainEventTs = Date.now();
-
+    if (!this.grantEventControlPassage(digest, "onExecutionFailed")) {
+      console.log("onExecutionFailed duplicate");
+      return;
+    }
     console.log("onExecutionFailed:", reason);
     let symbol = this.symbolFromPerpetualId(perpetualId);
     let obj: ExecutionFailed = {
