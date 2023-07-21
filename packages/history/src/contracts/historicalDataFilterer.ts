@@ -1,5 +1,5 @@
 import { Logger } from "winston";
-import { calculateBlockFromTime } from "utils";
+import { calculateBlockFromTime, executeWithTimeout } from "utils";
 import {
 	LiquidationsFilteredCb,
 	LiquidityAddedEvent,
@@ -74,10 +74,10 @@ export class HistoricalDataFilterer {
 			const poolId = i + 1;
 			const c = new Contract(currentAddress, shareTokenAbi, this.provider);
 			const filter = c.filters.P2PTransfer();
-			const sinceBlock = (await calculateBlockFromTime(this.provider, since[i]))[0];
+            let sinceBlocks: [number, number] = await executeWithTimeout(calculateBlockFromTime(this.provider, since[i]), 10_000, "RPC call timeout");
 			this.genericFilterer(
 				filter,
-				sinceBlock,
+				sinceBlocks[0],
 				[filter.fragment.topicHash],
 				c,
 				(
@@ -210,10 +210,10 @@ export class HistoricalDataFilterer {
 					break;
 			}
 		};
-		const sinceBlock = (await calculateBlockFromTime(this.provider, since))[0];
+		let sinceBlocks: [number, number] = await executeWithTimeout(calculateBlockFromTime(this.provider, since), 10_000, "RPC call timeout");
 		await this.genericFilterer(
 			topicFilters!,
-			sinceBlock,
+			sinceBlocks[0],
 			topicHashes,
 			this.PerpManagerProxy,
 			cb
@@ -241,7 +241,7 @@ export class HistoricalDataFilterer {
 	) {
 		// limit: 10_000 blocks in one eth_getLogs call
 		const deltaBlocks = 9_999;
-		const endBlock = await this.provider.getBlockNumber();
+		const endBlock : number = await executeWithTimeout(this.provider.getBlockNumber(), 10_000, "RPC timeout");
 		const eventNames = topicHashes.map((topic0) => c.interface.getEventName(topic0));
 
 		this.l.info("querying historical logs", {
