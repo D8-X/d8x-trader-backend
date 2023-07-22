@@ -473,7 +473,12 @@ export class PNLRestAPI {
                 order by abs(extract(epoch from ("timestamp" - ${to}::timestamp )))
                 limit 1
             `;
-
+			const firstTimestamp = await this.opts.prisma.$queryRaw<p_info[]>`
+                select timestamp from price_info
+                where pool_id = ${poolId}
+                order by timestamp
+                limit 1
+            `;
 			// Price info was found
 			if (toPriceInfo.length != 1 || fromPriceInfo.length != 1) {
 				resp.status(503);
@@ -483,7 +488,7 @@ export class PNLRestAPI {
 			const end_timestamp = toPriceInfo[0].timestamp.getTime() / 1000;
 
 			// Now - Old timestamp
-			const t_diff = end_timestamp - start_timestamp;
+			let t_diff = end_timestamp - start_timestamp;
 
 			const year = new Date().getUTCFullYear();
 			const secondsInYear =
@@ -502,15 +507,19 @@ export class PNLRestAPI {
 					"not enough price data for the given time range to calculate APY"
 				);
 			}
-
 			const apy = (rawReturn * secondsInYear) / t_diff;
 
+			const allTimeAPY =
+				((St - 1) * secondsInYear) /
+				(end_timestamp - firstTimestamp[0].timestamp.getTime() / 1000);
 			const response = {
 				startTimestamp: start_timestamp,
 				endTimestamp: end_timestamp,
 				startPrice: fromPriceInfo[0].pool_token_price,
 				endPrice: toPriceInfo[0].pool_token_price,
-				apy,
+				apy: apy,
+				rawReturn: rawReturn,
+				allTimeAPY: allTimeAPY,
 			};
 			resp.send(toJson(response));
 		} catch (err: any) {
