@@ -92,7 +92,8 @@ export class HistoricalDataFilterer {
 						blockTimestamp,
 						{ poolId }
 					);
-				}
+				},
+                sinceBlocks[1]
 			);
 		}
 	}
@@ -216,17 +217,19 @@ export class HistoricalDataFilterer {
 			sinceBlocks[0],
 			topicHashes,
 			this.PerpManagerProxy,
-			cb
+			cb,
+            sinceBlocks[1]
 		);
 	}
 
 	/**
 	 * Filter event logs based on provided parameters.
 	 *
-	 * @param filter
-	 * @param fromBlock
-	 * @param eventName
-	 * @param cb
+	 * @param filter        
+	 * @param fromBlock    first block to scan
+	 * @param eventName    name of the event we filter
+	 * @param cb           
+     * @param currentBlock current block number
 	 */
 	private async genericFilterer(
 		filter: ContractEventName,
@@ -237,11 +240,12 @@ export class HistoricalDataFilterer {
 			decodedEvent: Record<string, any>,
 			event: ethers.EventLog,
 			blockTimestamp: number
-		) => void
+		) => void,
+        currentBlock: number
 	) {
 		// limit: 10_000 blocks in one eth_getLogs call
 		const deltaBlocks = 9_999;
-		const endBlock : number = await executeWithTimeout(this.provider.getBlockNumber(), 10_000, "RPC timeout");
+		const endBlock : number = currentBlock;
 		const eventNames = topicHashes.map((topic0) => c.interface.getEventName(topic0));
 
 		this.l.info("querying historical logs", {
