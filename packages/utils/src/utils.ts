@@ -425,22 +425,7 @@ export async function calculateBlockFromTime(
   // sample again
   blockSampleNum = Math.floor(secElapsed / secPerBlockInSample);
   // rpc #4
-  //   blk0 = await provider.getBlock(max - blockSampleNum);
-  rpcErr = true;
-  iterNum = 0;
-  while (rpcErr) {
-    try {
-      blk0 = await provider.getBlock(max - blockSampleNum);
-      rpcErr = false;
-    } catch (err) {
-      // likely Blockheight too far in the past
-      blockSampleNum = Math.ceil(blockSampleNum * 0.75);
-      iterNum++;
-      if (iterNum > 10) {
-        throw err;
-      }
-    }
-  }
+  blk0 = await provider.getBlock(max - blockSampleNum);
   secPerBlockInSample = (blk1.timestamp - blk0.timestamp) / blockSampleNum;
   let numBlocksBack = Math.floor(secElapsed / secPerBlockInSample);
   if (!mustBeBefore) {
@@ -448,44 +433,14 @@ export async function calculateBlockFromTime(
   }
   // get the block we would arrive at and its timestamp
   //let rpcCount = 5;
-  //   let blk = await provider.getBlock(max - numBlocksBack);
-  let blk;
-  rpcErr = true;
-  iterNum = 0;
-  while (rpcErr) {
-    try {
-      blk = await provider.getBlock(max - blockSampleNum);
-      rpcErr = false;
-    } catch (err) {
-      // likely Blockheight too far in the past
-      blockSampleNum = Math.ceil(blockSampleNum * 0.75);
-      iterNum++;
-      if (iterNum > 10) {
-        throw err;
-      }
-    }
-  }
+  let blk = await provider.getBlock(max - numBlocksBack);
   let currTimestamp = blk.timestamp;
   // estimate blocktime for the period between the first and second sampling
   secPerBlockInSample = Math.abs((blk.timestamp - blk0.timestamp) / (blk.number - blk0.number));
   // linearly step back by number of blocks
   while (currTimestamp > targetTimestamp) {
     let numBlocks = Math.ceil((currTimestamp - targetTimestamp) / secPerBlockInSample);
-    rpcErr = true;
-    iterNum = 0;
-    while (rpcErr) {
-      try {
-        blk = await provider.getBlock(max - blockSampleNum);
-        rpcErr = false;
-      } catch (err) {
-        // likely Blockheight too far in the past
-        blockSampleNum = Math.ceil(blockSampleNum * 0.75);
-        iterNum++;
-        if (iterNum > 10) {
-          throw err;
-        }
-      }
-    }
+    blk = await provider.getBlock(blk.number - numBlocks);
     //rpcCount++;
     currTimestamp = blk.timestamp;
   }
