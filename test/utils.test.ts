@@ -8,7 +8,7 @@ import {
   chooseRandomRPC,
 } from "../packages/utils/src/utils";
 import { error } from "console";
-async function test() {
+async function testCalculateBlockFromTime() {
   const rpcConfig = require("../config/example.rpc.json");
   const rpcURL = chooseRandomRPC(false, rpcConfig);
   const provider = new providers.StaticJsonRpcProvider(rpcURL);
@@ -52,6 +52,6 @@ function testadjustNDigitPercentagesTo100() {
   console.log("sum=", s);
 }
 //test();
-
+testCalculateBlockFromTime();
 //testGetPrevDate();
-testadjustNDigitPercentagesTo100();
+//testadjustNDigitPercentagesTo100();
