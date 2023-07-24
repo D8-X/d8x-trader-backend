@@ -213,6 +213,13 @@ export class PNLRestAPI {
 		}
 	}
 
+	/**
+	 * See "Estimated Earnings" in
+	 * https://www.notion.so/Trader-Backend-Historical-Data-6a13d2a4aba74c7da1726c31640386f9
+	 *
+	 * @param req request
+	 * @param resp response
+	 */
 	private async earnings(
 		req: Request<any, any, any, { lpAddr: string; poolSymbol: string }>,
 		resp: Response
@@ -292,23 +299,19 @@ export class PNLRestAPI {
 				throw Error("invalid wallet address");
 			}
 
-			const data: FundingRatePayment[] =
-				await this.opts.prisma.fundingRatePayment.findMany({
-					orderBy: {
-						payment_timestamp: "desc",
-					},
-					where: {
-						trader_addr: {
-							equals: user_wallet,
-						},
-					},
-				});
-
+			let d = await this.opts.prisma.$queryRaw<FundingRatePayment[]>`
+                select 
+                    perpetual_id, 
+                    TO_CHAR(payment_amount, ${DECIMAL40_FORMAT_STRING}) AS payment_amount, 
+                    payment_timestamp, 
+                    tx_hash
+                from funding_rate_payments
+                where trader_addr=${user_wallet};`;
 			// return response
 			resp.contentType("json");
 			resp.send(
 				toJson(
-					data.map((f: FundingRatePayment) => ({
+					d.map((f: FundingRatePayment) => ({
 						perpetualId: Number(f.perpetual_id),
 						amount: ABK64x64ToFloat(BigInt(f.payment_amount.toString())),
 						timestamp: f.payment_timestamp,
