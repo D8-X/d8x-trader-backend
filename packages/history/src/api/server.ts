@@ -104,6 +104,7 @@ export class PNLRestAPI {
 		app.get("/apy", this.apyCalculation.bind(this));
 		app.get("/earnings", this.earnings.bind(this));
 		app.get("/open-withdrawals", this.withdrawals.bind(this));
+		app.get("/broker-fee-payments", this.brokerFeePayments.bind(this));
 	}
 
 	/**
@@ -524,6 +525,72 @@ export class PNLRestAPI {
 				rawReturn: rawReturn,
 				allTimeAPY: allTimeAPY,
 			};
+			resp.send(toJson(response));
+		} catch (err: any) {
+			if (resp.statusCode == 200) {
+				resp.statusCode = 400;
+			}
+			resp.send(errorResp(extractErrorMsg(err), usage));
+		}
+	}
+
+	private async brokerFeePayments(req: Request, resp: Response) {
+		const usage = "required query parameters: brokerAddr, fromTimestamp (seconds)";
+		try {
+			let t_from;
+			if (req.query.fromTimestamp != undefined) {
+				t_from = Number(req.query.fromTimestamp);
+			} else {
+				t_from = Date.now() / 1000 - 86400 * 14;
+			}
+
+			if (t_from > Date.now() / 1000) {
+				throw Error("timestamp must be in seconds and in near past.");
+			}
+			if (t_from < Date.now() / 1000 - 86_400 * 15) {
+				throw Error("timestamp too old");
+			}
+			const fromDate = new Date(t_from * 1000);
+
+			const reqBrokerAddr = req.query.brokerAddr?.toString().toLowerCase();
+			if (reqBrokerAddr == undefined || !isValidAddress(reqBrokerAddr)) {
+				resp.status(400);
+				throw Error("invalid address");
+			}
+
+			interface FeeRes {
+				pool_id: number;
+				trader_addr: string;
+				broker_fee_cc: string;
+				trade_ts: Date;
+			}
+			const queryResponse = await this.opts.prisma.$queryRaw<FeeRes[]>`
+                SELECT 
+                    FLOOR(th.perpetual_id/100000) as pool_id,
+                    th.trader_addr,
+                    TO_CHAR(sum(th.broker_fee_tbps * ABS(th.quantity_cc)/100000), ${DECIMAL40_FORMAT_STRING}) as broker_fee_cc, -- ABDK 64x64 format
+                    th.trade_timestamp as trade_ts
+                FROM trades_history th
+                    WHERE th.trade_timestamp > ${fromDate}::timestamp
+                    AND LOWER(th.broker_addr)=${reqBrokerAddr}
+                GROUP BY pool_id, th.trader_addr, th.perpetual_id/100000, th.trade_timestamp
+                ORDER BY th.trader_addr;
+            `;
+			interface BrokerFeePayments {
+				poolId: number;
+				traderAddr: string;
+				brokerFeeCCABDK: string;
+				brokerAddr: string;
+				tradeTs: number;
+			}
+			const response = queryResponse.map((x) => {
+				return {
+					poolId: x.pool_id,
+					traderAddr: x.trader_addr,
+					brokerFeeCCABDK: x.broker_fee_cc,
+					tradeTs: Math.round(x.trade_ts.getTime() / 1000),
+				};
+			});
 			resp.send(toJson(response));
 		} catch (err: any) {
 			if (resp.statusCode == 200) {
