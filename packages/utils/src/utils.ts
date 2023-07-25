@@ -363,90 +363,101 @@ export function executeWithTimeout<T>(
   });
 }
 
-// /**
-//  * Find a close block to 'since'.
-//  *
-//  * Approach:
-//  *  - get a block in the past which covers approximately the timespan
-//  *    of now-since (exact if each block were to take 2 seconds)
-//  *  - calculate the average block time for this timespan
-//  *  - repeat the calculation of the average block-time over the period that
-//  *    now more accurately reflects now-since
-//  *  - report the estimated block number based on the repeated average block-time
-//  * @param provider ethers.provider
-//  * @param since date for which we are searching the block
-//  * @param mustBeBefore if set to true, guarantees that the block.timestamp is smaller
-//  *  than the since timestamp. If set to false 4 rpc calls are needed, usually 5 if
-//  *  set to true
-//  * @returns block number that closely matches 'since', latest block number
-//  */
-// export async function calculateBlockFromTime(
-//   provider: any, //ethers.provider
-//   since: Date,
-//   mustBeBefore = true
-// ): Promise<[number, number]> {
-//   // rpc #1 & #2
-//   //   let max = await provider.getBlockNumber();
-//   //   const blk1 = await provider.getBlock(max);
-//   const tsSinceMs = since.getTime();
-//   if (tsSinceMs < 1640995232000 || tsSinceMs > Date.now()) {
-//     const msg = `calculateBlockFromTime: invalid date since ${since}`;
-//     throw Error(msg);
-//   }
-//   let blk1 = await provider.getBlock("latest");
-//   let max = blk1.number;
-//   const targetTimestamp = tsSinceMs / 1000;
-//   const secElapsed = blk1.timestamp - targetTimestamp;
+/**
+ * Find a close block to 'since'.
+ *
+ * Approach:
+ *  - get a block in the past which covers approximately the timespan
+ *    of now-since (exact if each block were to take 2 seconds)
+ *  - calculate the average block time for this timespan
+ *  - repeat the calculation of the average block-time over the period that
+ *    now more accurately reflects now-since
+ *  - report the estimated block number based on the repeated average block-time
+ * @param provider ethers.provider
+ * @param since date for which we are searching the block
+ * @param mustBeBefore if set to true, guarantees that the block.timestamp is smaller
+ *  than the since timestamp. If set to false 4 rpc calls are needed, usually 5 if
+ *  set to true
+ * @returns block number that closely matches 'since', latest block number
+ */
+export async function calculateBlockFromTime(
+  provider: any, //ethers.provider
+  since: Date,
+  mustBeBefore = true
+): Promise<[number, number]> {
+  const MAX_RPC_CALLS = 8;
+  const tsSinceMs = since.getTime();
+  if (tsSinceMs < 1680000000000 || tsSinceMs > Date.now()) {
+    const msg = `calculateBlockFromTime: invalid date since ${since}`;
+    throw Error(msg);
+  }
+  const targetTS = Math.floor(since.getTime() / 1_000);
 
-//   let blockSampleNum = Math.floor(secElapsed / 2);
-//   if (blockSampleNum >= max) {
-//     // 2 second blocks would mean more than current number of blocks
-//     // --> too many, it was a bad estimate, default to a simpler estimate
-//     blockSampleNum = Math.floor(max / 10);
-//   }
-//   // rpc #3
-//   let blk0;
-//   let iterNum = 0;
-//   let rpcErr = true;
-//   while (rpcErr) {
-//     try {
-//       blk0 = await provider.getBlock(max - blockSampleNum);
-//       rpcErr = false;
-//     } catch (err) {
-//       // likely Blockheight too far in the past
-//       blockSampleNum = Math.ceil(blockSampleNum * 0.75);
-//       iterNum++;
-//       if (iterNum > 10) {
-//         throw err;
-//       }
-//     }
-//   }
-//   let secPerBlockInSample = (blk1.timestamp - blk0.timestamp) / blockSampleNum;
-//   // sample again
-//   blockSampleNum = Math.floor(secElapsed / secPerBlockInSample);
-//   // rpc #4
-//   blk0 = await provider.getBlock(max - blockSampleNum);
-//   secPerBlockInSample = (blk1.timestamp - blk0.timestamp) / blockSampleNum;
-//   let numBlocksBack = Math.floor(secElapsed / secPerBlockInSample);
-//   if (!mustBeBefore) {
-//     return [Math.max(0, max - numBlocksBack), max];
-//   }
-//   // get the block we would arrive at and its timestamp
-//   //let rpcCount = 5;
-//   let blk = await provider.getBlock(max - numBlocksBack);
-//   let currTimestamp = blk.timestamp;
-//   // estimate blocktime for the period between the first and second sampling
-//   secPerBlockInSample = Math.abs((blk.timestamp - blk0.timestamp) / (blk.number - blk0.number));
-//   // linearly step back by number of blocks
-//   while (currTimestamp > targetTimestamp) {
-//     let numBlocks = Math.ceil((currTimestamp - targetTimestamp) / secPerBlockInSample);
-//     blk = await provider.getBlock(blk.number - numBlocks);
-//     //rpcCount++;
-//     currTimestamp = blk.timestamp;
-//   }
-//   //console.log("rpccount=", rpcCount);
-//   return [blk.number, max];
-// }
+  // latest block: RPC #1
+  let { number: latestBN, timestamp: latestTS } = await provider.getBlock("latest");
+  //   console.log("rpc 1 block #", latestBN, "ts", latestTS);
+  const maxBlockNumber = latestBN;
+  if (latestTS <= targetTS) {
+    // target is in the future, done
+    return [latestBN, maxBlockNumber];
+  }
+
+  // early, reference block: RPC #2
+  let factor = 0.9;
+  let interpolatedBN = Math.max(1, Math.round(latestBN * factor));
+  let { number: earlyBN, timestamp: earlyTS } = await provider.getBlock(interpolatedBN);
+  console.log(earlyBN, earlyTS);
+  //   console.log("rpc 2 block #", earlyBN, "ts", earlyTS);
+
+  let numRPC = 2;
+  // possibly further calls if 'since' is in the 10% earliest blocks (very rare, not counted)
+  for (let i = 0; i < 10 && earlyBN > 1 && earlyTS >= targetTS && numRPC < MAX_RPC_CALLS; i++) {
+    factor *= factor;
+    // this case should be very rare and we should never end up here more than once or twice:
+    // usually 'since' is close to a few hours prior to current time, far away from blockchain inception
+    latestBN = earlyBN;
+    latestTS = earlyTS;
+    earlyBN = Math.max(1, Math.round(latestBN * factor));
+    earlyTS = (await provider.getBlock(earlyBN)).timestamp;
+    numRPC += 1;
+    // console.log("rpc", numRPC, "block #", earlyBN, "ts", earlyTS);
+  }
+
+  // 'since' is too early, either error or return earliest block we found
+  if (earlyBN == 1 || earlyTS >= targetTS) {
+    // hit the first block or 10 RPC calls and couldn't find the time
+    if (mustBeBefore) {
+      throw new Error("Date is older than this blockchain");
+    } else {
+      return [earlyBN, maxBlockNumber];
+    }
+  }
+
+  while (numRPC < MAX_RPC_CALLS) {
+    // ith linear interpolation (RPC #i+2 , typically)
+    interpolatedBN = Math.round(earlyBN + ((latestBN - earlyBN) / (latestTS - earlyTS)) * (targetTS - earlyTS));
+    let { number: bn, timestamp: ts } = await provider.getBlock(interpolatedBN);
+    numRPC += 1;
+    // console.log("rpc", numRPC, "block #", bn, "ts", ts);
+
+    if (ts < targetTS) {
+      earlyBN = bn;
+      earlyTS = ts;
+    } else if (ts > targetTS) {
+      latestBN = bn;
+      latestTS = ts;
+    } else {
+      // found it
+      return [bn, maxBlockNumber];
+    }
+  }
+  // didn't find the exact block, but have one that's not too much earlier
+  if (mustBeBefore) {
+    return [earlyBN, maxBlockNumber];
+  } else {
+    return [Math.round((earlyBN + latestBN) / 2), maxBlockNumber];
+  }
+}
 
 /**
  * Get the nearest block number for given time
@@ -454,7 +465,7 @@ export function executeWithTimeout<T>(
  * @param time
  * @returns [startblock, endblock]
  */
-export async function calculateBlockFromTime(
+export async function calculateBlockFromTimeOld(
   provider: any, //ethers.provider
   time: Date | undefined
 ): Promise<[number, number]> {
