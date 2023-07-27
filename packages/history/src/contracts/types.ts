@@ -69,7 +69,7 @@ export interface UpdateMarginAccountEvent {
 export type UpdateMarginAccountFilteredCb = EventCallback<UpdateMarginAccountEvent>;
 
 export interface LiquidityAddedEvent {
-	poolId: bigint;
+	poolId: bigint | number;
 	user: string;
 	tokenAmount: bigint;
 	shareAmount: bigint;
@@ -78,7 +78,7 @@ export interface LiquidityAddedEvent {
 export type LiquidityAddedFilteredCb = EventCallback<LiquidityAddedEvent>;
 
 export interface LiquidityRemovedEvent {
-	poolId: bigint;
+	poolId: bigint | number;
 	user: string;
 	tokenAmount: bigint;
 	shareAmount: bigint;
@@ -95,7 +95,7 @@ export interface P2PTransferEvent {
 export type P2PTransferFilteredCb = EventCallback<P2PTransferEvent, { poolId: number }>;
 
 export interface LiquidityWithdrawalInitiatedEvent {
-	poolId: bigint;
+	poolId: bigint | number;
 	user: string;
 	shareAmount: bigint;
 }
