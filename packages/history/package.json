@@ -14,18 +14,21 @@
 		"prisma-prod": "npx prisma migrate deploy",
 		"run-production-reset": "yarn prisma-reset && yarn prisma-prod && node ./dist/main.js",
 		"run-production": "yarn prisma-prod && node ./dist/main.js",
-		"watch": "nodemon ./src/main.ts"
+		"watch": "nodemon ./src/main.ts",
+		"postinstall": "patch-package"
 	},
 	"dependencies": {
 		"@d8x/perpetuals-sdk": "^0.8.13",
 		"@prisma/client": "^4.13.0",
+		"@types/ws": "^8.5.5",
 		"cors": "^2.8.5",
 		"cron-schedule": "^4.0.0",
 		"date-fns": "^2.30.0",
-		"ethers": "^6.2.3",
+		"ethers": "^6.6.5",
 		"express": "^4.18.2",
 		"node-fetch": "^3.3.1",
 		"nodemon": "^2.0.22",
+		"sturdy-websocket": "^0.2.1",
 		"ts-node": "^10.9.1",
 		"utils": "*",
 		"winston": "^3.8.2"

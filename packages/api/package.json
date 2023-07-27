@@ -26,8 +26,10 @@
   },
   "dependencies": {
     "@d8x/perpetuals-sdk": "^0.8.13",
+    "@ethersproject/providers": "^5.7.2",
     "ethers": "^5.7.2",
     "rimraf": "^4.4.1",
+    "sturdy-websocket": "^0.2.1",
     "utils": "*"
   },
   "devDependencies": {
