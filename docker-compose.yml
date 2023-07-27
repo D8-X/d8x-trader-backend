@@ -40,7 +40,7 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "1k"
+        max-size: "5000k"
         max-file: "10"
 
   # History component listens to block-chain events and stores them in postgres
@@ -63,7 +63,7 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "1k"
+        max-size: "5000k"
         max-file: "10"
 
   # Referral component that handles referral/agency/broker/trader rebates
@@ -88,7 +88,7 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "1k"
+        max-size: "5000k"
         max-file: "10"
 
   # stream oracle prices from price service (pyth 'offchain'-network)
