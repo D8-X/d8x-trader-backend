@@ -19,16 +19,13 @@
     "@types/swagger-ui-express": "4.1.3",
     "@types/ws": "8.5.4",
     "lerna": "^6.6.1",
-    "typescript": "4.9.5",
-    "patch-package": "^7.0.2",
-    "postinstall-postinstall": "^2.1.0"
+    "typescript": "4.9.5"
   },
   "scripts": {
     "buildPrisma": "npx prisma generate --schema=`./packages/utils/prisma/schema.prisma`",
     "build": "npx tsc",
     "startWSClient": "node dist/src/indexPXWSClient/startIndexPXWSClient.js",
-    "start": "node dist/src/index.js",
-    "postinstall": "patch-package"
+    "start": "node dist/src/index.js"
   },
   "version": "v0.1.2",
   "name": "d8x-trader-backend",
