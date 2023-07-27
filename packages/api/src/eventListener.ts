@@ -474,7 +474,6 @@ export default class EventListener extends IndexPriceInterface {
     );
 
     const contract = this.orderBookContracts[symbol];
-
     contract.on(
       "PerpetualLimitOrderCreated",
       (perpetualId: number, trader: string, brokerAddr: string, Order: SmartContractOrder, digest: string) => {
