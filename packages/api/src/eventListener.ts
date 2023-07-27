@@ -29,6 +29,7 @@ import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
 import IndexPriceInterface from "./indexPriceInterface";
 import SDKInterface from "./sdkInterface";
 import { ExecutionFailed, LimitOrderCreated, PriceUpdate, Trade, UpdateMarginAccount, WSMsg } from "utils/src/wsTypes";
+import SturdyWebSocket from "sturdy-websocket";
 
 /**
  * Class that listens to blockchain events on
@@ -127,7 +128,7 @@ export default class EventListener extends IndexPriceInterface {
     this.proxyContract = new Contract(
       this.traderInterface.getProxyAddress(),
       this.traderInterface.getABI("proxy")!,
-      new providers.WebSocketProvider(this.wsRPC)
+      new providers.WebSocketProvider(new SturdyWebSocket(this.wsRPC, { wsConstructor: WebSocket }))
     );
     this.addProxyEventHandlers();
     for (const symbol of Object.keys(this.orderBookContracts)) {
