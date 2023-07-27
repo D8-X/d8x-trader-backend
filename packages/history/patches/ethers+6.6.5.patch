@@ -1,0 +1,13 @@
+diff --git a/node_modules/ethers/lib.commonjs/providers/format.js b/node_modules/ethers/lib.commonjs/providers/format.js
+index a549999..615e784 100644
+--- a/node_modules/ethers/lib.commonjs/providers/format.js
++++ b/node_modules/ethers/lib.commonjs/providers/format.js
+@@ -101,7 +101,7 @@ const _formatLog = object({
+     index: ["logIndex"]
+ });
+ function formatLog(value) {
+-    return _formatLog(value);
++    return _formatLog(Array.isArray(value)? value[0] : value);
+ }
+ exports.formatLog = formatLog;
+ const _formatBlock = object({
