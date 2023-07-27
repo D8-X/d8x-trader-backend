@@ -3,7 +3,6 @@ import {
   getPreviousCronDate,
   cronParserCheckExpression,
   calculateBlockFromTime,
-  calculateBlockFromTimeOld,
   floatToDec18,
   adjustNDigitPercentagesTo100,
   chooseRandomRPC,
@@ -14,7 +13,7 @@ async function testCalculateBlockFromTime() {
   const rpcURL = chooseRandomRPC(false, rpcConfig);
   const provider = new providers.StaticJsonRpcProvider(rpcURL);
   let R = (Math.random() - 0.5) / 0.5;
-  let sinceTs = new Date("2023-07-01T01:01:00.000Z").getTime() + Math.round(1000 * R * 20 * 86400);
+  let sinceTs = new Date("2023-06-01T01:01:00.000Z").getTime() + Math.round(1000 * R * 20 * 86400);
   let sinceDate = new Date(sinceTs);
   console.log("Target = ", sinceDate);
 
@@ -25,12 +24,12 @@ async function testCalculateBlockFromTime() {
   console.log("error sec=", ts1 - sinceDate.getTime() / 1000);
   console.log("\t", from1, to1, from1Timestamp);
 
-  console.log("\nExisting version");
-  let [from0, to0] = await calculateBlockFromTimeOld(provider, sinceDate, true);
+  /*console.log("\nExisting version");
+  let [from0, to0] = await calculateBlockFromTimeOld(provider, sinceDate);
   let ts0 = (await provider.getBlock(from0)).timestamp;
   let from0Timestamp = new Date(ts0 * 1000);
   console.log("error sec=", ts0 - sinceDate.getTime() / 1000);
-  console.log("\t", from0, to0, from0Timestamp);
+  console.log("\t", from0, to0, from0Timestamp);*/
 }
 
 function testGetPrevDate() {
