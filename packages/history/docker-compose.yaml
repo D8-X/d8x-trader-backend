@@ -1,13 +1,13 @@
 services:
-  postgres:
-    image: postgres:14
-    environment:
-      POSTGRES_USER: username
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: db
-    ports:
-      - 5432:5432
-    volumes:
-      - pgdb:/var/lib/postgresql/data
+    postgres:
+        image: postgres:14
+        environment:
+            POSTGRES_USER: username
+            POSTGRES_PASSWORD: password
+            POSTGRES_DB: referral_db
+        ports:
+            - 5432:5432
+        volumes:
+            - pgdb:/var/lib/postgresql/data
 volumes:
-  pgdb:
+    pgdb:

@@ -20,7 +20,13 @@ REFERRAL_API_PORT=8889
 POSTGRES_USER=user
 POSTGRES_PASSWORD=password
 POSTGRES_DB=db
-DATABASE_URL="postgresql://user:password@localhost:5432/db?schema=public"
+#docker will use:
+# DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}?schema=public"
+
+POSTGRES_USER_REFERRAL=user
+POSTGRES_PASSWORD_REFERRAL=password
+POSTGRES_DB_REFERRAL=db_referral
+DATABASE_URL_REFERRAL="postgresql://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@127.0.0.1:5432/${POSTGRES_DB_REFERRAL}?schema=public"
 
 #--- BROKER SETTINGS (optional) ----
 # Broker key

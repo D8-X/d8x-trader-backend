@@ -1,21 +1,31 @@
 import Redis from "ioredis";
 import { ethers } from "ethers";
 import * as winston from "winston";
-import { ReferralSettings } from "./referralTypes";
+import { ReferralSettings, ReferralCodeData } from "./referralTypes";
 import { constructRedis, sleep, isValidAddress, cronParserCheckExpression, chooseRandomRPC } from "utils";
 import dotenv from "dotenv";
-import { PrismaClient } from "@prisma/client";
-import ReferralAPI from "./api/referral_api";
-import DBReferralCode from "./db/db_referral_code";
-import DBPayments from "./db/db_payments";
+import { APIReferralCodeSelectionPayload } from "@d8x/perpetuals-sdk";
 import DBSettings from "./db/db_settings";
+import DBReferralCode from "./db/db_referral_code";
 import DBTokenHoldings from "./db/db_token_holdings";
-import ReferralCut from "./db/db_referral_cut";
+import DBReferralCut from "./db/db_referral_cut";
+/*
+import ReferralAPI from "./api/referral_api";
+
+import DBPayments from "./db/db_payments";
+
+
+
+import DBBrokerFeeAccumulator from "./db/db_brokerFeeAccumulator";
+*/
 import TokenAccountant from "./svc/tokenAccountant";
 import ReferralPaymentManager from "./svc/referralPaymentManager";
 import ReferralCodeValidator from "./svc/referralCodeValidator";
 import PayExecutorLocal from "./svc/payExecutorLocal";
 
+import { createKyselyDBInstance } from "./db/database";
+import { Database } from "./db/db_types";
+import { Kysely } from "kysely";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const defaultLogger = () => {
@@ -112,10 +122,10 @@ async function setDefaultReferralCode(dbReferralCodes: DBReferralCode, settings:
 
 async function setDBSettings(
   settings: ReferralSettings,
-  prisma: PrismaClient,
+  dbHandler: Kysely<Database>,
   logger: winston.Logger
 ): Promise<boolean> {
-  const dbSettings = new DBSettings(settings, prisma, logger);
+  const dbSettings = new DBSettings(settings, dbHandler, logger);
   return await dbSettings.writeSettings();
 }
 
@@ -136,7 +146,7 @@ async function setDBSettings(
  * @param dbReferralCuts db handle
  * @param settings  settings file with information for this table
  */
-async function setReferralCutSettings(dbReferralCuts: ReferralCut, settings: ReferralSettings) {
+async function setReferralCutSettings(dbReferralCuts: DBReferralCut, settings: ReferralSettings) {
   await dbReferralCuts.writeReferralCutsToDB(true, [[settings.agencyCutPercent, 0]], 0, "");
   await dbReferralCuts.writeReferralCutsToDB(
     false,
@@ -189,8 +199,8 @@ async function start() {
   }
 
   // Initialize db client
-  const prisma = new PrismaClient();
-  const setOk = await setDBSettings(settings, prisma, logger);
+  const dbHandler = await createKyselyDBInstance();
+  const setOk = await setDBSettings(settings, dbHandler, logger);
   if (!setOk) {
     logger.error("setDBSettings failed");
     return;
@@ -199,25 +209,49 @@ async function start() {
   let payExecutor = new PayExecutorLocal(key, settings.multiPayContractAddr, rpcUrl, logger);
   const brokerAddr = await payExecutor.getBrokerAddress();
 
-  const dbReferralCode = new DBReferralCode(BigInt(chainId), prisma, brokerAddr, settings, logger);
-  const dbReferralCuts = new ReferralCut(BigInt(chainId), prisma, logger);
-  const dbTokenHoldings = new DBTokenHoldings(BigInt(chainId), prisma, logger);
-  const referralCodeValidator = new ReferralCodeValidator(settings, dbReferralCode);
-  const dbPayment = new DBPayments(BigInt(chainId), prisma, logger);
+  const dbTokenHoldings = new DBTokenHoldings(dbHandler, logger);
 
+  let res2 = await dbTokenHoldings.queryCutPercentForTokenHoldings(
+    110000000000000000000n,
+    "0x2d10075E54356E16Ebd5C6BB5194290709B69C1e"
+  );
+  console.log(res2);
+  const dbReferralCode = new DBReferralCode(dbHandler, brokerAddr, settings, logger);
   await setDefaultReferralCode(dbReferralCode, settings);
+  let tst: APIReferralCodeSelectionPayload = {
+    code: "CUMULUS2",
+    traderAddr: "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
+    createdOn: 0,
+    signature: "",
+  };
+  await dbReferralCode.queryTraderCode("0x9d5aaB428e98678d0E645ea4AeBd25f744341a05");
+
+  const dbReferralCuts = new DBReferralCut(dbHandler, logger);
   await setReferralCutSettings(dbReferralCuts, settings);
+
+  /*
+  
+  const referralCodeValidator = new ReferralCodeValidator(settings, dbReferralCode);
+
+  const dbBrokerFeeAccumulator = new DBBrokerFeeAccumulator(settings.historyAPIEndpoint, brokerAddr, dbHandler, logger);
+  const dbPayment = new DBPayments(BigInt(chainId), dbBrokerFeeAccumulator, dbHandler, logger);
+
+  
   let ta = new TokenAccountant(dbTokenHoldings, settings.tokenX.address, logger);
   ta.initProvider(rpcUrl);
   await ta.fetchBalancesFromChain();
   // start REST API server
   let api = new ReferralAPI(port, dbReferralCode, dbPayment, referralCodeValidator, ta, brokerAddr, logger);
   await api.initialize();
+  // populate broker-fee table
+  await dbBrokerFeeAccumulator.updateBrokerFeesFromAPIAllPools(
+    Math.round(Date.now() / 1000 - settings.paymentMaxLookBackDays * 86400)
+  );
   // start payment manager
   logger.info("Starting Referral system");
-
   let paymentManager = new ReferralPaymentManager(brokerAddr, dbPayment, settings, rpcUrl, payExecutor, logger);
   // starting (async)
   paymentManager.run();
+  */
 }
 start();

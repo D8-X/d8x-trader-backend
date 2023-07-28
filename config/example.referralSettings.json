@@ -6,6 +6,7 @@
     "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
     "0x98232"
   ],
+  "historyAPIEndpoint": "http://localhost:8888",
   "referrerCutPercentForTokenXHolding": [
     [0.2, 0],
     [1.5, 100],

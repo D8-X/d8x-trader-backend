@@ -1,4 +1,5 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Database } from "./types";
+import { Kysely } from "kysely";
 import { Logger } from "winston";
 import { ABK64x64ToDecN, ABK64x64ToFloat, decNToFloat } from "utils";
 import {
@@ -11,15 +12,16 @@ import {
   APIRebateEarned,
   TraderOpenPayResponse,
 } from "../referralTypes";
-
-// Make sure the decimal values are always return as normal numeric strings
-// instead of scientific notation
-Prisma.Decimal.prototype.toJSON = function () {
-  return this.toFixed();
-};
+import DBBrokerFeeAccumulator from "../db/db_brokerFeeAccumulator";
 
 export default class DBPayments {
-  constructor(public chainId: bigint, public prisma: PrismaClient, public l: Logger) {}
+  private lastUpdateBrokerFeesTsSec = 0;
+  constructor(
+    public chainId: bigint,
+    private dbBrokerFeeAccumulator: DBBrokerFeeAccumulator,
+    private dbHandler: Kysely<Database>,
+    public l: Logger
+  ) {}
 
   /**
    * Pre-register a payment before on-chain execution

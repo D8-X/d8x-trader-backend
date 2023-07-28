@@ -4,6 +4,7 @@ export interface ReferralSettings {
   referralSystemEnabled: boolean;
   agencyCutPercent: number;
   permissionedAgencies: string[];
+  historyAPIEndpoint: string; //endpoint of main history app
   referrerCutPercentForTokenXHolding: Array<[number, number]>;
   tokenX: {
     address: string;
@@ -19,6 +20,13 @@ export interface ReferralSettings {
     traderReferrerAgencyPerc: [number, number, number];
   };
   multiPayContractAddr: string;
+}
+
+export interface ReferralCodeData {
+  brokerPayoutAddr: string;
+  referrerAddr: string;
+  agencyAddr: string;
+  traderReferrerAgencyPerc: [number, number, number];
 }
 
 export interface ReferralOpenPayResponse {
