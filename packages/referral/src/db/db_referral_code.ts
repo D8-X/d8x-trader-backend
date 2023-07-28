@@ -1,27 +1,102 @@
-import { PrismaClient, ReferralCodeUsage } from "@prisma/client";
+import {
+  Database,
+  ReferralCodeTable,
+  ReferralCodeTbl,
+  NewReferralCodeTbl,
+  UpdateReferralCodeTbl,
+  ReferralCodeUsageTbl,
+  UpdateReferralCodeUsageTbl,
+  NewReferralCodeUsageTbl,
+} from "./db_types";
+import { Kysely, sql, Insertable, Selectable, Updateable } from "kysely";
+import { ReferralCodeData } from "../referralTypes";
 import { Logger } from "winston";
 import ReferralCodeValidator from "../svc/referralCodeValidator";
 import { ReferralSettings, APIReferralCodeRecord, APITraderCode } from "../referralTypes";
 import { APIReferralCodePayload, APIReferralCodeSelectionPayload } from "@d8x/perpetuals-sdk";
 import { sleep, adjustNDigitPercentagesTo100 } from "utils";
 import TokenAccountant from "../svc/tokenAccountant";
-
-interface ReferralCodeData {
-  brokerPayoutAddr: string;
-  referrerAddr: string;
-  agencyAddr: string;
-  traderReferrerAgencyPerc: [number, number, number];
-}
+import { emitWarning } from "process";
 
 export default class DBReferralCode {
   private codeUsgMUTEX = new Map<string, boolean>(); //mutex per trader address
   constructor(
-    private chainId: bigint,
-    private prisma: PrismaClient,
+    private dbHandler: Kysely<Database>,
     private brokerAddr: string,
     private settings: ReferralSettings,
     private l: Logger
   ) {}
+
+  public async codeExistsReferrerAndAgency(
+    code: string
+  ): Promise<{ exists: boolean; referrer: string; agency: string }> {
+    let cleanCode = ReferralCodeValidator.washCode(code);
+    interface Response {
+      referrer_addr: string;
+      agency_addr: string;
+    }
+    const exists = await sql<Response>`
+        SELECT referrer_addr, agency_addr
+        FROM referral_code
+        where code=${cleanCode}`.execute(this.dbHandler);
+    if (exists.rows.length > 0) {
+      return { exists: true, referrer: exists.rows[0].referrer_addr, agency: exists.rows[0].agency_addr || "" };
+    } else {
+      return { exists: false, referrer: "", agency: "" };
+    }
+  }
+
+  /**
+   * No checks on percentages correctness or other consistencies
+   * @param codeName name of the code to be inserted (will be 'washed')
+   * @param rd  referral code metadata
+   */
+  public async insert(codeName: string, rd: ReferralCodeData): Promise<void> {
+    const cleanCodeName = ReferralCodeValidator.washCode(codeName);
+    let r = await this.codeExistsReferrerAndAgency(codeName);
+    if (r.exists) {
+      throw Error("cannot insert code, already exists" + cleanCodeName);
+    }
+    const input: NewReferralCodeTbl = {
+      code: cleanCodeName,
+      referrer_addr: rd.referrerAddr.toLowerCase(),
+      agency_addr: rd.agencyAddr.toLowerCase(),
+      broker_addr: this.brokerAddr.toLowerCase(),
+      broker_payout_addr: rd.brokerPayoutAddr.toLowerCase(),
+      trader_rebate_perc: rd.traderReferrerAgencyPerc[0],
+      referrer_rebate_perc: rd.traderReferrerAgencyPerc[1],
+      agency_rebate_perc: rd.traderReferrerAgencyPerc[2],
+    };
+    await this.dbHandler.insertInto("referral_code").values(input).executeTakeFirst();
+    this.l.info("inserted new referral code info", {
+      codeName,
+      rd,
+    });
+  }
+
+  /**
+   * No checks on percentages correctness or other consistencies
+   * @param codeName code name (will be 'washed')
+   * @param rd ReferralCodeData with updated fields
+   */
+  public async update(codeName: string, rd: ReferralCodeData): Promise<void> {
+    const cleanCodeName = ReferralCodeValidator.washCode(codeName);
+    //INSERT INTO referral_code (code, referrer_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc)
+    let input: UpdateReferralCodeTbl = {
+      referrer_addr: rd.referrerAddr.toLowerCase(),
+      agency_addr: rd.agencyAddr.toLowerCase(),
+      broker_addr: this.brokerAddr.toLowerCase(),
+      broker_payout_addr: rd.brokerPayoutAddr.toLowerCase(),
+      trader_rebate_perc: rd.traderReferrerAgencyPerc[0],
+      referrer_rebate_perc: rd.traderReferrerAgencyPerc[1],
+      agency_rebate_perc: rd.traderReferrerAgencyPerc[2],
+    };
+    await this.dbHandler.updateTable("referral_code").set(input).where("code", "=", cleanCodeName).executeTakeFirst();
+    this.l.info("updated referral code info", {
+      codeName,
+      rd,
+    });
+  }
 
   public async insertNewCodeFromPayload(payload: APIReferralCodePayload) {
     let perc: number[] = adjustNDigitPercentagesTo100(
@@ -67,43 +142,39 @@ export default class DBReferralCode {
       }
       this.codeUsgMUTEX.set(traderAddr, true);
       // first reset valid until for code
-      let latestCode = await this.prisma.referralCodeUsage.findMany({
-        where: {
-          trader_addr: traderAddr,
-        },
-        orderBy: {
-          valid_to: "desc",
-        },
-        take: 1,
-      });
-
+      const latestCode = await sql<ReferralCodeUsageTbl>`
+        SELECT trader_addr, code,
+        valid_from, valid_to
+        FROM referral_code_usage
+        WHERE LOWER(trader_addr)=${traderAddr}
+        ORDER BY valid_to DESC
+        LIMIT 1`.execute(this.dbHandler);
       // if we found a code usage and it's not the same code we update the existing code's valid until
-      if (latestCode.length > 0) {
-        if (latestCode[0].code == payload.code) {
+      if (latestCode.rows.length > 0) {
+        if (latestCode.rows[0].code == payload.code) {
+          // trader already has that code, so we leave
           this.l.info(`Tried to select same code ${payload.code} again`);
           return;
         }
-        await this.prisma.referralCodeUsage.update({
-          where: {
-            trader_addr_valid_from: {
-              trader_addr: latestCode[0].trader_addr,
-              valid_from: latestCode[0].valid_from.toISOString(),
-            },
-          },
-          data: {
-            valid_to: new Date(Date.now()).toISOString(),
-          },
-        });
-        this.l.info(`invalidated old code ${latestCode[0].code} selection for ${traderAddr}`);
+        // update valid to of old code
+        let noRowsUpdated = await sql<UpdateReferralCodeUsageTbl>`
+            UPDATE referral_code_usage
+            SET valid_to=${new Date(Date.now())}
+            WHERE LOWER(trader_addr)=${traderAddr}
+                AND code=${latestCode.rows[0].code}
+                AND valid_to=${latestCode.rows[0].valid_to}
+            `.execute(this.dbHandler);
+        if (noRowsUpdated.numAffectedRows == 0n) {
+          throw Error("no rows updated");
+        }
       }
-
       // now insert new code
-      await this.prisma.referralCodeUsage.create({
-        data: {
-          trader_addr: traderAddr,
-          code: payload.code,
-        },
-      });
+      let noRowsUpdated = await sql<NewReferralCodeUsageTbl>`
+        INSERT INTO referral_code_usage (trader_addr, code)
+        VALUES (${traderAddr}, ${payload.code})`.execute(this.dbHandler);
+      if (noRowsUpdated.numAffectedRows == 0n) {
+        throw Error("no rows updated");
+      }
       this.l.info(`inserted new code selection for ${traderAddr} info`, {
         payload,
       });
@@ -115,84 +186,7 @@ export default class DBReferralCode {
     }
   }
 
-  /**
-   * No checks on percentages correctness or other consistencies
-   * @param codeName
-   * @param rd
-   */
-  public async update(codeName: string, rd: ReferralCodeData): Promise<void> {
-    const cleanCodeName = ReferralCodeValidator.washCode(codeName);
-    //INSERT INTO referral_code (code, referrer_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc)
-    await this.prisma.referralCode.update({
-      where: {
-        code: cleanCodeName,
-      },
-      data: {
-        referrer_addr: rd.referrerAddr.toLowerCase(),
-        agency_addr: rd.agencyAddr.toLowerCase(),
-        broker_addr: this.brokerAddr.toLowerCase(),
-        broker_payout_addr: rd.brokerPayoutAddr.toLowerCase(),
-        trader_rebate_perc: rd.traderReferrerAgencyPerc[0],
-        referrer_rebate_perc: rd.traderReferrerAgencyPerc[1],
-        agency_rebate_perc: rd.traderReferrerAgencyPerc[2],
-      },
-    });
-    this.l.info("updated referral code info", {
-      codeName,
-      rd,
-    });
-  }
-
-  /**
-   * No checks on percentages correctness or other consistencies
-   * @param codeName
-   * @param rd
-   */
-  public async insert(codeName: string, rd: ReferralCodeData): Promise<void> {
-    const cleanCodeName = ReferralCodeValidator.washCode(codeName);
-    let r = await this.codeExistsReferrerAndAgency(codeName);
-    if (r.exists) {
-      throw Error("cannot insert code, already exists" + cleanCodeName);
-    }
-
-    //INSERT INTO referral_code (code, referrer_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc)
-    await this.prisma.referralCode.create({
-      data: {
-        code: cleanCodeName,
-        referrer_addr: rd.referrerAddr.toLowerCase(),
-        agency_addr: rd.agencyAddr.toLowerCase(),
-        broker_addr: this.brokerAddr.toLowerCase(),
-        broker_payout_addr: rd.brokerPayoutAddr.toLowerCase(),
-        trader_rebate_perc: rd.traderReferrerAgencyPerc[0],
-        referrer_rebate_perc: rd.traderReferrerAgencyPerc[1],
-        agency_rebate_perc: rd.traderReferrerAgencyPerc[2],
-      },
-    });
-    this.l.info("inserted new referral code info", {
-      codeName,
-      rd,
-    });
-  }
-
-  public async codeExistsReferrerAndAgency(
-    code: string
-  ): Promise<{ exists: boolean; referrer: string; agency: string }> {
-    let cleanCode = ReferralCodeValidator.washCode(code);
-    const exists = await this.prisma.referralCode.findFirst({
-      where: {
-        code: {
-          equals: cleanCode,
-        },
-      },
-    });
-    if (exists != null) {
-      return { exists: true, referrer: exists.referrer_addr, agency: exists.agency_addr || "" };
-    } else {
-      return { exists: false, referrer: "", agency: "" };
-    }
-  }
-
-  public async queryTraderCode(addr: string, tokenAccountant: TokenAccountant): Promise<APITraderCode> {
+  public async queryTraderCode(addr: string, tokenAccountant?: TokenAccountant): Promise<APITraderCode | void> {
     const dateNow = new Date().toISOString();
     interface SQLRes {
       code: string;
@@ -201,99 +195,100 @@ export default class DBReferralCode {
       agency_addr: string;
       valid_from: Date;
     }
-
-    const res = await this.prisma.$queryRaw<SQLRes[]>`
+    const res = await sql<SQLRes>`
         SELECT rcu.code as code, rc.trader_rebate_perc, rc.referrer_addr, rc.agency_addr, rcu.valid_from as valid_from
         FROM referral_code_usage rcu
         JOIN referral_code rc
         ON rc.code = rcu.code
         WHERE rcu.valid_to > ${dateNow}::timestamp
             AND rcu.valid_from < ${dateNow}::timestamp
-            AND LOWER(rcu.trader_addr) = ${addr.toLowerCase()} 
-    `;
-    if (res.length == 0) {
+            AND LOWER(rcu.trader_addr) = ${addr.toLowerCase()}`.execute(this.dbHandler);
+    if (res.rows.length == 0) {
       return { code: "", traderRebatePercFinal: 0, activeSince: undefined };
     }
+    res.rows[0].trader_rebate_perc = Number(res.rows[0].trader_rebate_perc);
+    emitWarning("unfinished");
+    /*
     let traderRebatePerc;
-    if (res[0].agency_addr != "") {
+    if (res.rows[0].agency_addr != "") {
       let agencyCut = await tokenAccountant.getCutPercentageForAgency();
-      traderRebatePerc = (agencyCut * res[0].trader_rebate_perc) / 100;
+      traderRebatePerc = (agencyCut * res.rows[0].trader_rebate_perc) / 100;
     } else {
-      let referrerCut = await tokenAccountant.getCutPercentageForReferrer(res[0].referrer_addr);
-      traderRebatePerc = (referrerCut * res[0].trader_rebate_perc) / 100;
+      let referrerCut = await tokenAccountant.getCutPercentageForReferrer(res.rows[0].referrer_addr);
+      traderRebatePerc = (referrerCut * res.rows[0].trader_rebate_perc) / 100;
     }
-    return { code: res[0].code, traderRebatePercFinal: traderRebatePerc, activeSince: res[0].valid_from };
+    return { code: res.rows[0].code, traderRebatePercFinal: traderRebatePerc, activeSince: res.rows[0].valid_from };
+    */
   }
 
+  /**
+   * Query the db entry for the given code to get
+   * the ReferralCodeTbl metadata for this code
+   * @param addr code (must be exact)
+   * @returns metadata for given code
+   */
   public async queryCode(code: string): Promise<APIReferralCodeRecord> {
-    const res = await this.prisma.referralCode.findFirst({
-      where: {
-        code: {
-          equals: code,
-          mode: "insensitive", //ensure no uppercase/lowercase problem
-        },
-      },
-      select: {
-        code: true,
-        referrer_addr: true,
-        agency_addr: true,
-        broker_addr: true,
-        trader_rebate_perc: true,
-        agency_rebate_perc: true,
-        referrer_rebate_perc: true,
-        created_on: true,
-        expiry: true,
-      },
-    });
-    let codes: APIReferralCodeRecord[] = this._formatReferralCodes([res]);
+    const res = await sql<ReferralCodeTbl>`
+      SELECT
+        code,
+        referrer_addr,
+        agency_addr,
+        broker_addr,
+        trader_rebate_perc,
+        agency_rebate_perc,
+        referrer_rebate_perc,
+        created_on,
+        expiry
+      FROM referral_code
+      WHERE code=${code}
+      LIMIT 1`.execute(this.dbHandler);
+    let codes: APIReferralCodeRecord[] = this._formatReferralCodes(res.rows);
     return codes[0];
   }
 
+  /**
+   * Query codes for a given agency address
+   * @param addr address of the agency (will be lowercased)
+   * @returns formated response array
+   */
   public async queryAgencyCodes(addr: string): Promise<APIReferralCodeRecord[]> {
-    const res = await this.prisma.referralCode.findMany({
-      where: {
-        agency_addr: {
-          equals: addr,
-          mode: "insensitive", //ensure no uppercase/lowercase problem
-        },
-      },
-      select: {
-        code: true,
-        referrer_addr: true,
-        agency_addr: true,
-        broker_addr: true,
-        trader_rebate_perc: true,
-        agency_rebate_perc: true,
-        referrer_rebate_perc: true,
-        created_on: true,
-        expiry: true,
-      },
-    });
-    let codes: APIReferralCodeRecord[] = this._formatReferralCodes(res);
+    const res = await sql<ReferralCodeTbl>`
+      SELECT
+        code,
+        referrer_addr,
+        agency_addr,
+        broker_addr,
+        trader_rebate_perc,
+        agency_rebate_perc,
+        referrer_rebate_perc,
+        created_on,
+        expiry
+      FROM referral_code
+      WHERE LOWER(agency_addr)=${addr.toLowerCase()}`.execute(this.dbHandler);
+    let codes: APIReferralCodeRecord[] = this._formatReferralCodes(res.rows);
     return codes;
   }
 
+  /**
+   * Query codes for a given referrer address
+   * @param addr address of the referrer (will be lowercased)
+   * @returns formated response array
+   */
   public async queryReferrerCodes(addr: string): Promise<APIReferralCodeRecord[]> {
-    const res = await this.prisma.referralCode.findMany({
-      where: {
-        referrer_addr: {
-          equals: addr,
-          mode: "insensitive",
-        },
-      },
-      select: {
-        code: true,
-        referrer_addr: true,
-        agency_addr: true,
-        broker_addr: true,
-        trader_rebate_perc: true,
-        agency_rebate_perc: true,
-        referrer_rebate_perc: true,
-        created_on: true,
-        expiry: true,
-      },
-    });
-    let codes: APIReferralCodeRecord[] = this._formatReferralCodes(res);
+    const res = await sql<ReferralCodeTbl>`
+      SELECT
+        code,
+        referrer_addr,
+        agency_addr,
+        broker_addr,
+        trader_rebate_perc,
+        agency_rebate_perc,
+        referrer_rebate_perc,
+        created_on,
+        expiry
+      FROM referral_code
+      WHERE LOWER(referrer_addr)=${addr.toLowerCase()}`.execute(this.dbHandler);
+    let codes: APIReferralCodeRecord[] = this._formatReferralCodes(res.rows);
     return codes;
   }
 
@@ -358,23 +353,18 @@ export default class DBReferralCode {
   ) {
     const defaultCodeName = "DEFAULT";
     let exists = (await this.codeExistsReferrerAndAgency(defaultCodeName)).exists;
-    if (exists) {
-      await this.prisma.referralCode.delete({
-        where: {
-          code: defaultCodeName,
-        },
-      });
-      this.l.info("deleted DEFAULT code entry for replacement");
-    }
     let rd: ReferralCodeData = {
       brokerPayoutAddr: brokerPayoutAddr,
       referrerAddr: referrerAddr,
       agencyAddr: agencyAddr,
       traderReferrerAgencyPerc: traderReferrerAgencyPerc,
     };
-    await this.insert(defaultCodeName, rd);
-    this.l.info("replaced default referral code data", {
-      rd,
-    });
+    if (exists) {
+      await this.update("DEFAULT", rd);
+      this.l.info("updated DEFAULT code entry");
+    } else {
+      await this.insert(defaultCodeName, rd);
+      this.l.info("replaced default referral code data");
+    }
   }
 }
