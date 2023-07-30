@@ -210,6 +210,13 @@ async function start() {
   let ta = new TokenAccountant(dbTokenHoldings, settings.tokenX.address, logger);
   ta.initProvider(rpcUrl);
   await ta.fetchBalancesFromChain();
+  // reguarly refetch all balances
+  setInterval(async () => {
+    const success = await ta.fetchBalancesFromChain();
+    if (!success) {
+      ta.initProvider(chooseRandomRPC(false, rpcConfig));
+    }
+  }, 60 * 60 * 1_000); // every hour
   // start REST API server
   let api = new ReferralAPI(port, dbReferralCode, dbPayment, referralCodeValidator, ta, brokerAddr, logger);
   await api.initialize();
