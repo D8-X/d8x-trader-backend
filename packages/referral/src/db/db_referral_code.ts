@@ -16,7 +16,6 @@ import { ReferralSettings, APIReferralCodeRecord, APITraderCode } from "../refer
 import { APIReferralCodePayload, APIReferralCodeSelectionPayload } from "@d8x/perpetuals-sdk";
 import { sleep, adjustNDigitPercentagesTo100 } from "utils";
 import TokenAccountant from "../svc/tokenAccountant";
-import { emitWarning } from "process";
 
 export default class DBReferralCode {
   private codeUsgMUTEX = new Map<string, boolean>(); //mutex per trader address
@@ -186,7 +185,7 @@ export default class DBReferralCode {
     }
   }
 
-  public async queryTraderCode(addr: string, tokenAccountant?: TokenAccountant): Promise<APITraderCode | void> {
+  public async queryTraderCode(addr: string, tokenAccountant: TokenAccountant): Promise<APITraderCode> {
     const dateNow = new Date().toISOString();
     interface SQLRes {
       code: string;
@@ -207,8 +206,6 @@ export default class DBReferralCode {
       return { code: "", traderRebatePercFinal: 0, activeSince: undefined };
     }
     res.rows[0].trader_rebate_perc = Number(res.rows[0].trader_rebate_perc);
-    emitWarning("unfinished");
-    /*
     let traderRebatePerc;
     if (res.rows[0].agency_addr != "") {
       let agencyCut = await tokenAccountant.getCutPercentageForAgency();
@@ -218,7 +215,6 @@ export default class DBReferralCode {
       traderRebatePerc = (referrerCut * res.rows[0].trader_rebate_perc) / 100;
     }
     return { code: res.rows[0].code, traderRebatePercFinal: traderRebatePerc, activeSince: res.rows[0].valid_from };
-    */
   }
 
   /**

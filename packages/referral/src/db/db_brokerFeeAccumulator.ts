@@ -1,6 +1,5 @@
-import { Database } from "./types";
+import { Database, NewMarginTokenInfoTbl, NewBrokerFeesPerTraderTbl, UpdateMarginTokenInfoTbl } from "./db_types";
 import { Kysely } from "kysely";
-import { error } from "console";
 import { Logger } from "winston";
 
 interface BrokerFeePayments {
@@ -27,14 +26,14 @@ interface MarginTokenInfo {
  * Subsequently, the data is used for the payment system
  */
 export default class DBBrokerFeeAccumulator {
-  private historyAPIEndpoint;
+  public historyAPIEndpoint;
   private lastMarginTokenInfoUpdateTsMs;
   private poolIds = new Array<number>();
   private latestFeeRecordInPoolTsSec = new Array<number>();
   constructor(
+    private dbHandler: Kysely<Database>,
     historyAPIEndpoint: string,
     private brokerAddr: string,
-    private dbHandler: Kysely<Database>,
     public l: Logger
   ) {
     this.historyAPIEndpoint = historyAPIEndpoint.replace(/\/+$/, ""); // remove trailing slash
@@ -42,8 +41,9 @@ export default class DBBrokerFeeAccumulator {
   }
 
   private async queryBrokerFeesFromAPI(fromTsSec: number, poolId: number): Promise<BrokerFeePayments[]> {
-    const endp = this.historyAPIEndpoint;
-    const req = `${endp}/brokerAddr=${this.brokerAddr}&poolId=${poolId}&fromTimestamp=${fromTsSec}`;
+    const endp = this.historyAPIEndpoint + "/broker-fee-payments";
+    //???????/??????x
+    const req = `${endp}?brokerAddr=${this.brokerAddr}&poolId=${poolId}&fromTimestamp=${fromTsSec}`;
     let res = await fetch(req);
     const data: BrokerFeePayments[] = await res.json();
     return data;
@@ -57,7 +57,7 @@ export default class DBBrokerFeeAccumulator {
   }
 
   public async updateMarginTokenInfoFromAPI(forceUpdate: boolean) {
-    if (!forceUpdate && Date.now() - this.lastMarginTokenInfoUpdateTsMs > 86400_000) {
+    if (!forceUpdate && Date.now() - this.lastMarginTokenInfoUpdateTsMs < 86400_000) {
       return;
     }
     const tokenData = await this.queryMarginTokenInfoFromAPI();
@@ -68,24 +68,36 @@ export default class DBBrokerFeeAccumulator {
     for (let k = 0; k < tokenData.length; k++) {
       const currRecord: MarginTokenInfo = tokenData[k];
       this.poolIds.push(currRecord.poolId);
-      await this.prisma.referralMarginTokenInfo.upsert({
-        where: {
-          pool_id: currRecord.poolId,
-        },
-        update: {
-          token_addr: currRecord.tokenAddr,
-          token_decimals: currRecord.tokenDecimals,
-          token_name: currRecord.tokenName,
-        },
-        create: {
+      let res = await this.dbHandler
+        .selectFrom("referral_margin_token_info")
+        .select("token_addr")
+        .where("pool_id", "=", currRecord.poolId)
+        .executeTakeFirst();
+      if (res == undefined) {
+        // doesn't exist*/
+        const data: NewMarginTokenInfoTbl = {
           pool_id: currRecord.poolId,
           token_addr: currRecord.tokenAddr,
-          token_decimals: currRecord.tokenDecimals,
           token_name: currRecord.tokenName,
-        },
-      });
+          token_decimals: currRecord.tokenDecimals,
+        };
+        await this.dbHandler.insertInto("referral_margin_token_info").values(data).executeTakeFirst();
+      } else {
+        // update
+        const data: UpdateMarginTokenInfoTbl = {
+          token_addr: currRecord.tokenAddr,
+          token_name: currRecord.tokenName,
+          token_decimals: currRecord.tokenDecimals,
+        };
+        await this.dbHandler
+          .updateTable("referral_margin_token_info")
+          .set(data)
+          .where("pool_id", "=", currRecord.poolId)
+          .executeTakeFirst();
+      }
     }
-    // ensure we have one slot per pool in latestFeeRecordInPoolTsSec
+    // ensure we have one slot per pool in latestFeeRecordInPoolTsSec which
+    // is initialized with 14 days in the past
     while (this.latestFeeRecordInPoolTsSec.length < this.poolIds.length) {
       this.latestFeeRecordInPoolTsSec.push(Date.now() / 1000 - 86_400 * 14);
     }
@@ -130,36 +142,19 @@ export default class DBBrokerFeeAccumulator {
       let latestRecordTsSec = Date.now() / 1000 - 86_400 * 30;
       for (let k = 0; k < feeData.length; k++) {
         const currRecord: BrokerFeePayments = feeData[k];
-        if (currRecord.tradeTimestamp.getTime() / 1000 > latestRecordTsSec) {
-          latestRecordTsSec = currRecord.tradeTimestamp.getTime() / 1000;
+        const dateTs = new Date(currRecord.tradeTimestamp);
+        if (dateTs.getTime() / 1000 > latestRecordTsSec) {
+          latestRecordTsSec = dateTs.getTime() / 1000;
         }
-        await this.prisma.referralBrokerFeesPerTrader.upsert({
-          where: {
-            pool_id_trader_addr_trade_timestamp: {
-              pool_id: poolId,
-              trader_addr: currRecord.traderAddr,
-              trade_timestamp: currRecord.tradeTimestamp,
-            },
-          },
-          update: {
-            pool_id: poolId,
-            trader_addr: currRecord.traderAddr,
-            trade_timestamp: currRecord.tradeTimestamp,
-            broker_addr: this.brokerAddr,
-            fee_cc: currRecord.brokerFeeCcAbdk,
-            quantity_cc: currRecord.quantityCcAbdk,
-            created_at: dtCreatedAt,
-          },
-          create: {
-            pool_id: poolId,
-            trader_addr: currRecord.traderAddr,
-            trade_timestamp: currRecord.tradeTimestamp,
-            broker_addr: this.brokerAddr,
-            fee_cc: currRecord.brokerFeeCcAbdk,
-            quantity_cc: currRecord.quantityCcAbdk,
-            created_at: dtCreatedAt,
-          },
-        });
+        let data: NewBrokerFeesPerTraderTbl = {
+          pool_id: poolId,
+          trader_addr: currRecord.traderAddr,
+          quantity_cc: BigInt(currRecord.quantityCcAbdk), // signed quantity traded in ABDK format
+          fee_cc: BigInt(currRecord.brokerFeeCcAbdk), // fee paid in ABDK format
+          trade_timestamp: dateTs,
+          broker_addr: this.brokerAddr,
+        };
+        await this.dbHandler.insertInto("referral_broker_fees_per_trader").values(data).executeTakeFirst();
       }
       this.latestFeeRecordInPoolTsSec[poolId - 1] = latestRecordTsSec;
     } catch (error) {

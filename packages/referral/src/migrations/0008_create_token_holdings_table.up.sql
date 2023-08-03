@@ -3,7 +3,7 @@ begin;
 -- The token address is specified in referral settings
 -- The amount is stored in decimal-N format
     -- CreateTable
-    CREATE TABLE "referral_token_holdings" (
+    CREATE TABLE if not exists "referral_token_holdings" (
         "referrer_addr" VARCHAR(42) NOT NULL,
         "holding_amount_dec_n" DECIMAL(77,0) NOT NULL,
         "token_addr" VARCHAR(42) NOT NULL,
@@ -13,6 +13,6 @@ begin;
     );
 
 -- CreateIndex
-CREATE INDEX "referral_token_holdings_referrer_addr_idx" ON "referral_token_holdings" USING HASH ("referrer_addr");
+CREATE INDEX IF NOT EXISTS "referral_token_holdings_referrer_addr_idx" ON "referral_token_holdings" USING HASH ("referrer_addr");
 
 end;

@@ -2,7 +2,7 @@ begin;
 -- Referral cut as specified in referralSettings.json
 -- The amount is stored in decimal-N format
 -- CreateTable
-CREATE TABLE "referral_setting_cut" (
+CREATE TABLE if not exists "referral_setting_cut" (
     "is_agency_cut" BOOLEAN NOT NULL,
     "cut_perc" DECIMAL(5,2) NOT NULL,
     "holding_amount_dec_n" DECIMAL(77,0),
@@ -13,9 +13,9 @@ CREATE TABLE "referral_setting_cut" (
 
 
 -- CreateIndex
-CREATE INDEX "referral_setting_cut_cut_perc_idx" ON "referral_setting_cut"("cut_perc");
+CREATE INDEX IF NOT EXISTS "referral_setting_cut_cut_perc_idx" ON "referral_setting_cut"("cut_perc");
 
 -- CreateIndex
-CREATE INDEX "referral_setting_cut_holding_amount_dec_n_idx" ON "referral_setting_cut"("holding_amount_dec_n");
+CREATE INDEX IF NOT EXISTS "referral_setting_cut_holding_amount_dec_n_idx" ON "referral_setting_cut"("holding_amount_dec_n");
 
 end;

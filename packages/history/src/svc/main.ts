@@ -20,7 +20,7 @@ import {
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
-import { PNLRestAPI } from "../api/server";
+import { HistoryRestAPI } from "../api/server";
 import { getPerpetualManagerProxyAddress, getDefaultRPC } from "../utils/abi";
 import { EstimatedEarnings } from "../db/estimated_earnings";
 import { PriceInfo } from "../db/price_info";
@@ -34,10 +34,10 @@ const defaultLogger = () => {
 	return winston.createLogger({
 		level: "info",
 		format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-		defaultMeta: { service: "pnl-service" },
+		defaultMeta: { service: "history" },
 		transports: [
 			new winston.transports.Console(),
-			new winston.transports.File({ filename: "pnl.log" }),
+			new winston.transports.File({ filename: "history.log" }),
 		],
 	});
 };
@@ -68,10 +68,10 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 	});
 };
 
-// Entrypoint of PnL service
+// Entrypoint of history service
 export const main = async () => {
 	loadEnv();
-	logger.info("starting pnl service");
+	logger.info("starting history service");
 
 	// Initialize db client
 	const prisma = new PrismaClient();
@@ -164,8 +164,8 @@ export const main = async () => {
 		runHistoricalDataFilterers(hdOpts);
 	}, 14_400_000); // 4 * 60 * 60 * 1000 miliseconds
 
-	// Start the pnl api
-	const api = new PNLRestAPI(
+	// Start the history api
+	const api = new HistoryRestAPI(
 		{
 			port: parseInt(process.env.API_PORT!),
 			prisma,

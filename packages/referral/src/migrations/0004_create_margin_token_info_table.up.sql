@@ -1,7 +1,7 @@
 begin;
 
 -- CreateTable
-CREATE TABLE "referral_margin_token_info" (
+CREATE TABLE if not exists "referral_margin_token_info" (
     "pool_id" INTEGER NOT NULL,
     "token_addr" VARCHAR(42) NOT NULL,
     "token_name" VARCHAR(20) NOT NULL,

@@ -5,9 +5,9 @@ import { ColumnType, Generated, Insertable, Selectable, Updateable } from "kysel
 export interface Database {
   referral_code: ReferralCodeTable;
   referral_code_usage: ReferralCodeUsageTable;
-  margin_token_info: MarginTokenInfoTable;
-  broker_fees_per_trader: BrokerFeesPerTraderTable;
-  payment_table: PaymentTable;
+  referral_margin_token_info: MarginTokenInfoTable;
+  referral_broker_fees_per_trader: BrokerFeesPerTraderTable;
+  referral_payment: PaymentTable;
   referral_setting_cut: SettingCutTable;
   referral_settings: SettingsTable;
   referral_token_holdings: TokenHoldingsTable;
@@ -29,9 +29,9 @@ export type BrokerFeesPerTraderTbl = Selectable<BrokerFeesPerTraderTable>;
 export type NewBrokerFeesPerTraderTbl = Insertable<BrokerFeesPerTraderTable>;
 export type UpdateBrokerFeesPerTraderTbl = Updateable<BrokerFeesPerTraderTable>;
 
-export type BrokerPaymentTableTbl = Selectable<PaymentTable>;
-export type NewPaymentTableTbl = Insertable<PaymentTable>;
-export type UpdatePaymentTableTbl = Updateable<PaymentTable>;
+export type PaymentTbl = Selectable<PaymentTable>;
+export type NewPaymentTbl = Insertable<PaymentTable>;
+export type UpdatePaymentTbl = Updateable<PaymentTable>;
 
 export type SettingCutTbl = Selectable<SettingCutTable>;
 export type NewSettingCutTbl = Insertable<SettingCutTable>;
@@ -93,14 +93,14 @@ export interface PaymentTable {
   code: string;
   pool_id: number;
   //`ColumnType<SelectType, InsertType, UpdateType>
-  timestamp: ColumnType<Date, undefined, undefined | Date>;
+  timestamp: ColumnType<Date, Date, Date>;
   // payment in token's number format, single transaction
   trader_paid_amount_cc: bigint;
   referrer_paid_amount_cc: bigint;
   agency_paid_amount_cc: bigint;
   broker_paid_amount_cc: bigint;
   tx_hash: string;
-  tx_confirmed: ColumnType<boolean, undefined, undefined | boolean>;
+  tx_confirmed: boolean;
 }
 
 export interface SettingCutTable {

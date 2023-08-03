@@ -17,13 +17,13 @@ CREATE TABLE if not exists "referral_code" (
 
 
 -- CreateIndex
-CREATE INDEX "referral_code_referrer_addr_idx" ON "referral_code" USING HASH ("referrer_addr");
+CREATE INDEX  IF NOT EXISTS "referral_code_referrer_addr_idx" ON "referral_code" USING HASH ("referrer_addr");
 
 -- CreateIndex
-CREATE INDEX "referral_code_agency_addr_idx" ON "referral_code" USING HASH ("agency_addr");
+CREATE INDEX  IF NOT EXISTS "referral_code_agency_addr_idx" ON "referral_code" USING HASH ("agency_addr");
 
 -- CreateIndex
-CREATE INDEX "referral_code_broker_addr_idx" ON "referral_code" USING HASH ("broker_addr");
+CREATE INDEX  IF NOT EXISTS "referral_code_broker_addr_idx" ON "referral_code" USING HASH ("broker_addr");
 
 
 end;

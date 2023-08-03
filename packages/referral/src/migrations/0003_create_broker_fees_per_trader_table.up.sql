@@ -1,7 +1,7 @@
 begin;
 
 -- CreateTable
-CREATE TABLE "referral_broker_fees_per_trader" (
+CREATE TABLE if not exists "referral_broker_fees_per_trader" (
     "pool_id" INTEGER NOT NULL,
     "trader_addr" VARCHAR(42) NOT NULL,
     "quantity_cc" DECIMAL(40,0) NOT NULL,
@@ -14,12 +14,12 @@ CREATE TABLE "referral_broker_fees_per_trader" (
 );
 
 -- CreateIndex
-CREATE INDEX "referral_broker_fees_per_trader_pool_id_idx" ON "referral_broker_fees_per_trader"("pool_id");
+CREATE INDEX IF NOT EXISTS "referral_broker_fees_per_trader_pool_id_idx" ON "referral_broker_fees_per_trader"("pool_id");
 
 -- CreateIndex
-CREATE INDEX "referral_broker_fees_per_trader_trade_timestamp_idx" ON "referral_broker_fees_per_trader"("trade_timestamp");
+CREATE INDEX IF NOT EXISTS "referral_broker_fees_per_trader_trade_timestamp_idx" ON "referral_broker_fees_per_trader"("trade_timestamp");
 
 -- CreateIndex
-CREATE INDEX "referral_broker_fees_per_trader_trader_addr_idx" ON "referral_broker_fees_per_trader"("trader_addr");
+CREATE INDEX IF NOT EXISTS "referral_broker_fees_per_trader_trader_addr_idx" ON "referral_broker_fees_per_trader"("trader_addr");
 
 end;

@@ -3,7 +3,7 @@ begin;
 -- CreateTable
   -- no constraint for referral code because we could collect the data from onchain
   -- and we could encounter an unknown referral code in this case
-CREATE TABLE "referral_payment" (
+CREATE TABLE if not exists "referral_payment" (
     "trader_addr" VARCHAR(42) NOT NULL,
     "broker_addr" VARCHAR(42) NOT NULL,
     "code" VARCHAR(200) NOT NULL,
@@ -21,12 +21,12 @@ CREATE TABLE "referral_payment" (
 );
 
 -- CreateIndex
-CREATE INDEX "referral_payment_timestamp_idx" ON "referral_payment"("timestamp");
+CREATE INDEX  IF NOT EXISTS "referral_payment_timestamp_idx" ON "referral_payment"("timestamp");
 
 -- CreateIndex
-CREATE INDEX "referral_payment_pool_id_idx" ON "referral_payment"("pool_id");
+CREATE INDEX  IF NOT EXISTS "referral_payment_pool_id_idx" ON "referral_payment"("pool_id");
 
 -- CreateIndex
-CREATE INDEX "referral_payment_trader_addr_idx" ON "referral_payment"("trader_addr");
+CREATE INDEX  IF NOT EXISTS "referral_payment_trader_addr_idx" ON "referral_payment"("trader_addr");
 
 end;
