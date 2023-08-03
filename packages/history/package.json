@@ -17,7 +17,7 @@
 		"watch": "nodemon ./src/main.ts"
 	},
 	"dependencies": {
-		"@d8x/perpetuals-sdk": "^0.8.14",
+		"@d8x/perpetuals-sdk": "^0.8.18",
 		"@prisma/client": "^4.13.0",
 		"cors": "^2.8.5",
 		"cron-schedule": "^4.0.0",
