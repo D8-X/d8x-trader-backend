@@ -146,6 +146,7 @@ LEFT JOIN margin_token_info minfo
 
 
 -- Trading volume per referral code
+--- > replaced with API query
 CREATE VIEW referral_vol AS
 SELECT 
   perpetual_id/100000 as pool_id,
