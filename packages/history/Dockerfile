@@ -2,7 +2,14 @@
 FROM node:18-alpine
 
 WORKDIR /app
-COPY . . 
+#COPY . . 
+COPY ./packages/utils/. ./packages/utils
+COPY ./packages/history/. ./packages/history
+COPY ./package.json .
+COPY ./nx.json .
+COPY ./lerna.json .
+COPY ./config/. ./config/.
+
 RUN yarn install
 RUN npx lerna run build --scope=history
 
