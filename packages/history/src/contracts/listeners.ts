@@ -202,7 +202,7 @@ export class EventListener {
 		proxy.on(
 			"LiquidityAdded",
 			(
-				poolId: bigint,
+				poolId: number,
 				user: string,
 				tokenAmount: bigint,
 				shareAmount: bigint,
@@ -214,7 +214,7 @@ export class EventListener {
 				});
 				this.onLiquidityAdded(
 					{
-						poolId: poolId,
+						poolId: BigInt(poolId),
 						user: user,
 						tokenAmount: tokenAmount,
 						shareAmount: shareAmount,
@@ -229,7 +229,7 @@ export class EventListener {
 		proxy.on(
 			"LiquidityRemoved",
 			(
-				poolId: bigint,
+				poolId: number,
 				user: string,
 				tokenAmount: bigint,
 				shareAmount: bigint,
@@ -241,7 +241,7 @@ export class EventListener {
 				});
 				this.onLiquidityRemoved(
 					{
-						poolId: poolId,
+						poolId: BigInt(poolId),
 						user: user,
 						tokenAmount: tokenAmount,
 						shareAmount: shareAmount,
@@ -287,14 +287,14 @@ export class EventListener {
 		proxy.on(
 			"LiquidityWithdrawalInitiated",
 			(
-				poolId: bigint,
+				poolId: number,
 				user: string,
 				shareAmount: bigint,
 				event: ethers.ContractEventPayload
 			) =>
 				this.onLiquidityWithdrawalInitiated(
 					{
-						poolId: poolId,
+						poolId: BigInt(poolId),
 						user: user,
 						shareAmount: shareAmount,
 					},
