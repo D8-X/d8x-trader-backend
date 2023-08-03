@@ -346,10 +346,14 @@ export default class DBPayments {
    */
   public async queryEarliestUnconfirmedTxDate(): Promise<Date | undefined> {
     try {
-      const aggrTs = await sql<Date>`
-        SELECT min(timestamp)
+      interface Response {
+        min_ts: Date;
+      }
+      const aggrTs = await sql<Response>`
+        SELECT min(timestamp) as min_ts
+        FROM referral_payment
         WHERE tx_confirmed=false OR tx_hash = ${TEMPORARY_TX_HASH}`.execute(this.dbHandler);
-      const timestamp: Date | null = aggrTs.rows[0];
+      const timestamp: Date | null = aggrTs.rows[0].min_ts;
       return timestamp == null ? undefined : timestamp;
     } catch (error) {
       this.l.warn(`DBPayments: failed searching for oldest unconfirmed transaction`);
@@ -359,10 +363,14 @@ export default class DBPayments {
 
   public async queryLastRecordedPaymentDate(): Promise<Date | undefined> {
     try {
-      const aggrTs = await sql<Date>`
-        SELECT max(timestamp)
+      interface Response {
+        max_ts: Date;
+      }
+      const aggrTs = await sql<Response>`
+        SELECT max(timestamp) as max_ts
+        FROM referral_payment
         where tx_confirmed = true`.execute(this.dbHandler);
-      const timestamp: Date | null = aggrTs.rows[0];
+      const timestamp: Date | null = aggrTs.rows[0].max_ts;
       return timestamp == null ? undefined : timestamp;
     } catch (error) {
       this.l.warn(`DBPayments: failed searching for oldest unconfirmed transaction`);
