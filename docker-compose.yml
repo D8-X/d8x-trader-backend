@@ -52,7 +52,7 @@ services:
     depends_on:
       - postgres
     environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}?schema=public
       - API_PORT=${PNL_API_PORT}
       - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
       - CHAIN_ID=${CHAIN_ID}
@@ -73,12 +73,14 @@ services:
       context: .
       dockerfile: ./packages/referral/Dockerfile
     depends_on:
-      - postgres
+      - postgres_referral
       - redis
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       # we need to call the database url variable DATABASE_URL too (prisma uses it and we can only have one prisma file in a monorepo)
-      - DATABASE_URL=postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@postgres:5432/${POSTGRES_DB_REFERRAL}?schema=public
+      - DATABASE_URL=postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@postgres_referral:${POSTGRES_PORT_REFERRAL}/${POSTGRES_DB_REFERRAL}?schema=public
+      #- DATABASE_URL_REFERRAL=postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@postgres_referral:${POSTGRES_PORT_REFERRAL}/${POSTGRES_DB_REFERRAL}?schema=public
+      - DATABASE_URL_REFERRAL=${DATABASE_URL_REFERRAL}
       - REFERRAL_API_PORT=${REFERRAL_API_PORT}
       - BROKER_KEY=${BROKER_KEY}
       - CHAIN_ID=${CHAIN_ID}
@@ -113,7 +115,7 @@ services:
         max-size: "1k"
         max-file: "10"
 
-  # Database component required by history and referral components
+  # Database component required by history
   postgres:
     image: postgres:15
     environment:
@@ -121,7 +123,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - 127.0.0.1:5432:5432
+      - 127.0.0.1:${POSTGRES_PORT}:5432
     volumes:
       - pgdb:/var/lib/postgresql/data
     logging:
@@ -129,5 +131,23 @@ services:
       options:
         max-size: "1k"
         max-file: "10"
+
+  # Database component required by referral
+  postgres_referral:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER_REFERRAL}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_REFERRAL}
+      POSTGRES_DB: ${POSTGRES_DB_REFERRAL}
+    ports:
+      - 127.0.0.1:${POSTGRES_PORT_REFERRAL}:5432
+    volumes:
+      - pgdb_referral:/var/lib/postgresql/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "10"
 volumes:
   pgdb:
+  pgdb_referral:
