@@ -105,6 +105,12 @@ export default class DBTokenHoldings {
     return response.rows;
   }
 
+  /**
+   * Queries how much rebate the referrer gets for the given token holding amount
+   * @param holdingAmount token holding (decimal N)
+   * @param tokenAddr address of the token
+   * @returns percentage number, e.g. 1.2 for 1.2%
+   */
   public async queryCutPercentForTokenHoldings(holdingAmount: bigint, tokenAddr: string): Promise<number> {
     let addr = tokenAddr.toLowerCase();
     interface Response {

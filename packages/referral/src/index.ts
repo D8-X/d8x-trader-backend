@@ -9,15 +9,10 @@ import DBSettings from "./db/db_settings";
 import DBReferralCode from "./db/db_referral_code";
 import DBTokenHoldings from "./db/db_token_holdings";
 import DBReferralCut from "./db/db_referral_cut";
-/*
+import DBBrokerFeeAccumulator from "./db/db_brokerFeeAccumulator";
+import DBPayments from "./db/db_payments";
 import ReferralAPI from "./api/referral_api";
 
-import DBPayments from "./db/db_payments";
-
-
-
-import DBBrokerFeeAccumulator from "./db/db_brokerFeeAccumulator";
-*/
 import TokenAccountant from "./svc/tokenAccountant";
 import ReferralPaymentManager from "./svc/referralPaymentManager";
 import ReferralCodeValidator from "./svc/referralCodeValidator";
@@ -33,7 +28,7 @@ const defaultLogger = () => {
     level: "info",
     format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
     defaultMeta: { service: "referral-service" },
-    transports: [new winston.transports.Console(), new winston.transports.File({ filename: "pnl.log" })],
+    transports: [new winston.transports.Console(), new winston.transports.File({ filename: "referral.log" })],
   });
 };
 
@@ -224,21 +219,25 @@ async function start() {
     createdOn: 0,
     signature: "",
   };
-  await dbReferralCode.queryTraderCode("0x9d5aaB428e98678d0E645ea4AeBd25f744341a05");
+
+  let ta = new TokenAccountant(dbTokenHoldings, settings.tokenX.address, logger);
+  await ta.initProvider(rpcUrl);
 
   const dbReferralCuts = new DBReferralCut(dbHandler, logger);
   await setReferralCutSettings(dbReferralCuts, settings);
 
-  /*
-  
   const referralCodeValidator = new ReferralCodeValidator(settings, dbReferralCode);
 
-  const dbBrokerFeeAccumulator = new DBBrokerFeeAccumulator(settings.historyAPIEndpoint, brokerAddr, dbHandler, logger);
-  const dbPayment = new DBPayments(BigInt(chainId), dbBrokerFeeAccumulator, dbHandler, logger);
-
+  const dbBrokerFeeAccumulator = new DBBrokerFeeAccumulator(dbHandler, settings.historyAPIEndpoint, brokerAddr, logger);
+  await dbBrokerFeeAccumulator.updateMarginTokenInfoFromAPI(false);
+  await dbBrokerFeeAccumulator.updateBrokerFeesFromAPIAllPools(undefined);
+  const dbPayment = new DBPayments(dbBrokerFeeAccumulator, dbHandler, logger);
+  dbPayment.queryReferredVolume("0x6fe871703eb23771c4016eb62140367944e8edfc");
+  /*
   
-  let ta = new TokenAccountant(dbTokenHoldings, settings.tokenX.address, logger);
-  ta.initProvider(rpcUrl);
+queryReferredVolume
+  
+  
   await ta.fetchBalancesFromChain();
   // start REST API server
   let api = new ReferralAPI(port, dbReferralCode, dbPayment, referralCodeValidator, ta, brokerAddr, logger);

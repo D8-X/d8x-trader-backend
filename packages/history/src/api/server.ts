@@ -49,7 +49,7 @@ export interface RestAPIOptions {
 }
 
 // Profit and loss express REST API
-export class PNLRestAPI {
+export class HistoryRestAPI {
 	private app: express.Application;
 
 	private db: DBHandlers;
@@ -76,7 +76,7 @@ export class PNLRestAPI {
 	}
 
 	/**
-	 * Initialize PNLRestAPI
+	 * Initialize HistoryRestAPI
 	 *
 	 * @param httpRpcUrl
 	 */
@@ -96,7 +96,7 @@ export class PNLRestAPI {
 	}
 
 	/**
-	 * Register routes of pnl API
+	 * Register routes of history API
 	 */
 	private registerRoutes(app: express.Application) {
 		app.get("/funding-rate-payments", this.fundingRatePayments.bind(this));
@@ -116,16 +116,17 @@ export class PNLRestAPI {
 		await this.init(httpRPCUrl);
 
 		this.app.listen(this.opts.port, () => {
-			this.l.info("starting pnl rest api server", { port: this.opts.port });
+			this.l.info("starting history rest api server", { port: this.opts.port });
 		});
 	}
 
 	private extractSecondTimestamps(t_from: number, t_to: number): [number, number] {
-		if (t_from < 1681402080) {
-			throw Error("timestamp to old");
-		}
 		if (t_from >= t_to) {
 			throw Error("from must be smaller than to");
+		}
+		if (t_from < 1681402080) {
+			//timestamp to old
+			t_from = 1681402080;
 		}
 		if (t_to > Date.now()) {
 			throw Error("timestamp must be in seconds");
@@ -574,14 +575,14 @@ export class PNLRestAPI {
 		try {
 			if (
 				Number(req.query.fromTimestamp) == undefined ||
-				Number(req.query.fromTimestamp) == undefined
+				Number(req.query.toTimestamp) == undefined
 			) {
 				resp.statusCode = 400;
 				throw Error("invalid timestamp");
 			}
 			let [t_from, t_to] = this.extractSecondTimestamps(
 				Number(req.query.fromTimestamp),
-				Number(req.query.fromTimestamp)
+				Number(req.query.toTimestamp)
 			);
 			const reqTraderAddr = req.query.traderAddr?.toString().toLowerCase();
 			if (reqTraderAddr == undefined || !isValidAddress(reqTraderAddr)) {
@@ -596,8 +597,8 @@ export class PNLRestAPI {
 			}
 			const queryResponse = await this.opts.prisma.$queryRaw<SqlResponse[]>`
                 SELECT 
-                    perpetual_id/100000 as pool_id,
-                    TO_CHAR(SUM(ABS(th.quantity_cc)),  ${DECIMAL40_FORMAT_STRING}) as quantity_cc_abdk,
+                    FLOOR(perpetual_id/100000) as pool_id,
+                    TO_CHAR(SUM(ABS(th.quantity_cc)), ${DECIMAL40_FORMAT_STRING}) as quantity_cc_abdk
                 FROM trades_history th
                 WHERE LOWER(th.trader_addr) = ${reqTraderAddr}
                     AND th.trade_timestamp >= ${fromDate}::timestamp
@@ -608,8 +609,8 @@ export class PNLRestAPI {
 			});
 			resp.send(toJson(response));
 		} catch (err: any) {
-			if (resp.statusCode != 400) {
-				resp.statusCode = 200;
+			if (resp.statusCode == 200) {
+				resp.statusCode = 400;
 			}
 			resp.send(errorResp(extractErrorMsg(err), usage));
 		}

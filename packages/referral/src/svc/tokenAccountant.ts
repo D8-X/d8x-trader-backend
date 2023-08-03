@@ -45,7 +45,8 @@ export default class TokenAccountant {
     }
     // need to query from onchain
     const contract = new Contract(this.tokenXAddr, this.tknAbi, this.provider);
-    let amountDecN = BigInt((await contract.balanceOf(referrerAddr)).toString());
+    let amount = await contract.balanceOf(referrerAddr);
+    let amountDecN = BigInt(amount.toString());
     // and store in db
     this.dbTokenHoldings.writeTokenHoldingsToDB(
       [{ referrerAddr: referrerAddr, tokenHoldings: amountDecN }],
