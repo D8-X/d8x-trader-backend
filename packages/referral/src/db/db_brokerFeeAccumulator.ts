@@ -1,6 +1,7 @@
 import { Database, NewMarginTokenInfoTbl, NewBrokerFeesPerTraderTbl, UpdateMarginTokenInfoTbl } from "./db_types";
 import { Kysely } from "kysely";
 import { Logger } from "winston";
+import { sleep } from "utils";
 
 interface BrokerFeePayments {
   poolId: number;
@@ -42,7 +43,6 @@ export default class DBBrokerFeeAccumulator {
 
   private async queryBrokerFeesFromAPI(fromTsSec: number, poolId: number): Promise<BrokerFeePayments[]> {
     const endp = this.historyAPIEndpoint + "/broker-fee-payments";
-    //???????/??????x
     const req = `${endp}?brokerAddr=${this.brokerAddr}&poolId=${poolId}&fromTimestamp=${fromTsSec}`;
     let res = await fetch(req);
     const data: BrokerFeePayments[] = await res.json();
@@ -132,13 +132,59 @@ export default class DBBrokerFeeAccumulator {
     }
   }
 
+  /**
+   * Query what time-range we have recorded in the db for table
+   * referral_broker_fees_per_trader
+   * @param poolId pool id
+   * @returns first trade and last trade date recorded in db
+   */
+  private async getTimeRangeFromBrokerFeesTbl(
+    poolId: number
+  ): Promise<{ first_trade: Date; last_trade: Date } | undefined> {
+    let res = await this.dbHandler
+      .selectFrom("referral_broker_fees_per_trader")
+      .select(({ eb }) => [
+        eb.fn.min("trade_timestamp").as("first_trade"),
+        eb.fn.max("trade_timestamp").as("last_trade"),
+      ])
+      .where("broker_addr", "=", this.brokerAddr)
+      .where("pool_id", "=", poolId)
+      .groupBy("pool_id")
+      .executeTakeFirst();
+    return res;
+  }
+
+  /*
+    1) select newest date recorded from table
+    2) get missing time from API
+    3) insert into table
+  */
   public async updateBrokerFeesFromAPIForPool(fromTsSec: number, poolId: number): Promise<boolean> {
     // insert into DB referral_broker_fees_per_trader
     try {
       // ensure we have the token information
       await this.updateMarginTokenInfoFromAPI(false);
+      // see what dates we have in our db
+      let datesInDb = await this.getTimeRangeFromBrokerFeesTbl(poolId);
+      let fromTsSecFetch = fromTsSec;
+      // shrink from-time to only query for the time we already have after
+      if (datesInDb != undefined) {
+        const tsDbSec = Math.floor(datesInDb.last_trade.getTime() / 1000);
+        if (tsDbSec > fromTsSecFetch) {
+          fromTsSecFetch = tsDbSec;
+        }
+      }
+      return this.fetchBrokerFeesFromAPIForPool(fromTsSecFetch, poolId);
+    } catch (err) {
+      this.l.error("updateBrokerFeesFromAPI update/insert failed", err);
+      return false;
+    }
+  }
+
+  private async fetchBrokerFeesFromAPIForPool(fromTsSec: number, poolId: number): Promise<boolean> {
+    try {
       const feeData = await this.queryBrokerFeesFromAPI(fromTsSec, poolId);
-      let dtCreatedAt = new Date();
+      await sleep(10);
       let latestRecordTsSec = Date.now() / 1000 - 86_400 * 30;
       for (let k = 0; k < feeData.length; k++) {
         const currRecord: BrokerFeePayments = feeData[k];
@@ -154,7 +200,17 @@ export default class DBBrokerFeeAccumulator {
           trade_timestamp: dateTs,
           broker_addr: this.brokerAddr,
         };
-        await this.dbHandler.insertInto("referral_broker_fees_per_trader").values(data).executeTakeFirst();
+        let exists = await this.dbHandler
+          .selectFrom("referral_broker_fees_per_trader")
+          .select("fee_cc")
+          .where("broker_addr", "=", this.brokerAddr)
+          .where("pool_id", "=", poolId)
+          .where("trader_addr", "=", "trader_addr")
+          .where("trade_timestamp", "=", dateTs)
+          .executeTakeFirst();
+        if (exists == undefined) {
+          await this.dbHandler.insertInto("referral_broker_fees_per_trader").values(data).executeTakeFirst();
+        }
       }
       this.latestFeeRecordInPoolTsSec[poolId - 1] = latestRecordTsSec;
     } catch (error) {

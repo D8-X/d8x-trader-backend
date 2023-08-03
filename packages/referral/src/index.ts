@@ -230,27 +230,22 @@ async function start() {
 
   const dbBrokerFeeAccumulator = new DBBrokerFeeAccumulator(dbHandler, settings.historyAPIEndpoint, brokerAddr, logger);
   await dbBrokerFeeAccumulator.updateMarginTokenInfoFromAPI(false);
-  await dbBrokerFeeAccumulator.updateBrokerFeesFromAPIAllPools(undefined);
-  const dbPayment = new DBPayments(dbBrokerFeeAccumulator, dbHandler, logger);
-  dbPayment.queryReferredVolume("0x6fe871703eb23771c4016eb62140367944e8edfc");
-  /*
-  
-queryReferredVolume
-  
-  
-  await ta.fetchBalancesFromChain();
-  // start REST API server
-  let api = new ReferralAPI(port, dbReferralCode, dbPayment, referralCodeValidator, ta, brokerAddr, logger);
-  await api.initialize();
   // populate broker-fee table
   await dbBrokerFeeAccumulator.updateBrokerFeesFromAPIAllPools(
     Math.round(Date.now() / 1000 - settings.paymentMaxLookBackDays * 86400)
   );
+  const dbPayment = new DBPayments(dbBrokerFeeAccumulator, dbHandler, logger);
+
+  // fetch token balances for referral rebates
+  await ta.fetchBalancesFromChain();
+  // start REST API server
+  let api = new ReferralAPI(port, dbReferralCode, dbPayment, referralCodeValidator, ta, brokerAddr, logger);
+  await api.initialize();
+
   // start payment manager
   logger.info("Starting Referral system");
   let paymentManager = new ReferralPaymentManager(brokerAddr, dbPayment, settings, rpcUrl, payExecutor, logger);
   // starting (async)
-  paymentManager.run();
-  */
+  //paymentManager.run();
 }
 start();
