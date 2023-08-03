@@ -246,6 +246,6 @@ async function start() {
   logger.info("Starting Referral system");
   let paymentManager = new ReferralPaymentManager(brokerAddr, dbPayment, settings, rpcUrl, payExecutor, logger);
   // starting (async)
-  //paymentManager.run();
+  paymentManager.run();
 }
 start();
