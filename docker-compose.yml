@@ -52,7 +52,7 @@ services:
     depends_on:
       - postgres
     environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}?schema=public
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       - API_PORT=${PNL_API_PORT}
       - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
       - CHAIN_ID=${CHAIN_ID}
@@ -78,9 +78,8 @@ services:
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       # we need to call the database url variable DATABASE_URL too (prisma uses it and we can only have one prisma file in a monorepo)
-      - DATABASE_URL=postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@postgres_referral:${POSTGRES_PORT_REFERRAL}/${POSTGRES_DB_REFERRAL}?schema=public
-      #- DATABASE_URL_REFERRAL=postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@postgres_referral:${POSTGRES_PORT_REFERRAL}/${POSTGRES_DB_REFERRAL}?schema=public
-      - DATABASE_URL_REFERRAL=${DATABASE_URL_REFERRAL}
+      - DATABASE_URL=postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@postgres_referral:5432/${POSTGRES_DB_REFERRAL}?schema=public
+      - DATABASE_URL_REFERRAL=postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@postgres_referral:5432/${POSTGRES_DB_REFERRAL}?schema=public
       - REFERRAL_API_PORT=${REFERRAL_API_PORT}
       - BROKER_KEY=${BROKER_KEY}
       - CHAIN_ID=${CHAIN_ID}
