@@ -3,8 +3,7 @@ import { Logger } from "winston";
 import DBTokenHoldings from "../db/db_token_holdings";
 import { TokenAccount, DBActiveReferrer, DBTokenAmount } from "../referralTypes";
 import { sleep, executeWithTimeout } from "utils";
-import { Multicall3, Multicall3__factory } from "@d8x/perpetuals-sdk/dist/esm/contracts";
-import { MULTICALL_ADDRESS } from "@d8x/perpetuals-sdk";
+import { MULTICALL_ADDRESS, Multicall3, Multicall3__factory } from "@d8x/perpetuals-sdk";
 
 // specify maximal time until we update the token balance again
 const MAXIMAL_BALANCE_AGE_SEC = 7 * 86_400;
