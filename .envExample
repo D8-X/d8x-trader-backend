@@ -16,7 +16,7 @@ PNL_API_PORT=8888
 REFERRAL_API_PORT=8889
 
 
-# Postgres credentials for docker-compose
+# Postgres credentials for docker-compose (development only)
 POSTGRES_USER=user
 POSTGRES_PASSWORD=password
 POSTGRES_DB=db
@@ -35,3 +35,13 @@ BROKER_KEY=""
 # Broker fee in tenth of basis point.
 # For example 0.06% = 6 bps = 60 tbps
 BROKER_FEE_TBPS=60
+
+
+# Database connection DSN strings. See
+# https://stackoverflow.com/questions/3582552/what-is-the-format-for-the-postgresql-connection-string-url/20722229#20722229 
+# for more information. 
+#
+# Database connection url for history database. 
+DATABASE_DSN_HISTORY="postgresql://user:password@host:port/postgres?schema=public"
+# Database connection url for referral database
+DATABASE_DSN_REFERRAL="postgresql://user:password@host:port/postgres?schema=public"
