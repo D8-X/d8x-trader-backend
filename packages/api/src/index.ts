@@ -15,7 +15,7 @@ async function start() {
   const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig(configName);
   const rpcConfig = require("../../../config/live.rpc.json");
   const wsConfigs = loadConfigJSON(sdkConfig.chainId);
-  sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
+
   const priceFeedEndpoints: Array<{ type: string; endpoint: string }> = [];
   wsConfigs.map((wsConfig) => {
     const arr = wsConfig.httpEndpoints;
@@ -26,9 +26,8 @@ async function start() {
   if (priceFeedEndpoints.length > 0) {
     sdkConfig.priceFeedEndpoints = priceFeedEndpoints;
   }
-  const wsRPC = chooseRandomRPC(true, rpcConfig);
-  console.log(`RPC (HTTP) = ${sdkConfig.nodeURL}`);
-  console.log(`RPC (WS)   = ${wsRPC}`);
+  let wsRPC = chooseRandomRPC(true, rpcConfig);
+
   let broker;
   if (process.env.BROKER_KEY == undefined || process.env.BROKER_KEY == "" || process.env.BROKER_FEE_TBPS == undefined) {
     console.log("No broker PK or fee defined, using empty broker.");
@@ -36,14 +35,56 @@ async function start() {
   } else {
     console.log("Initializing broker");
     const feeTbps = process.env.BROKER_FEE_TBPS == undefined ? 0 : Number(process.env.BROKER_FEE_TBPS);
-    broker = new BrokerRegular(process.env.BROKER_KEY, feeTbps, sdkConfig);
+    let count = 0;
+    while (count < 10) {
+      try {
+        sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
+        wsRPC = chooseRandomRPC(false, rpcConfig);
+        console.log(`RPC (HTTP) = ${sdkConfig.nodeURL}`);
+        console.log(`RPC (WS)   = ${wsRPC}`);
+        broker = new BrokerRegular(process.env.BROKER_KEY, feeTbps, sdkConfig);
+      } catch (error) {
+        await sleep(5_000);
+        if (count > 10) {
+          throw error;
+        }
+        console.log("retrying new rpc...");
+      }
+      count++;
+    }
   }
-  let d8XBackend = new D8XBrokerBackendApp(broker, sdkConfig, wsRPC);
-  await d8XBackend.initialize();
+  let d8XBackend: D8XBrokerBackendApp | undefined;
+  let count = 0;
+  while (count < 10) {
+    try {
+      console.log(`RPC (HTTP) = ${sdkConfig.nodeURL}`);
+      console.log(`RPC (WS)   = ${wsRPC}`);
+      d8XBackend = await initBackend(broker, sdkConfig, wsRPC);
+      count = 11;
+    } catch (error) {
+      await sleep(5_000);
+      if (count > 10) {
+        throw error;
+      }
+      console.log("retrying new rpc...");
+      sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
+      wsRPC = chooseRandomRPC(false, rpcConfig);
+    }
+    count++;
+  }
+
   while (true) {
     await sleep(60_000);
-    const wsRPC = chooseRandomRPC(true, rpcConfig);
-    await d8XBackend.checkTradeEventListenerHeartbeat(wsRPC);
+    wsRPC = chooseRandomRPC(true, rpcConfig);
+    sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
+    await d8XBackend!.checkTradeEventListenerHeartbeat(wsRPC);
   }
 }
+
+async function initBackend(broker: any, sdkConfig: NodeSDKConfig, wsRPC: string): Promise<D8XBrokerBackendApp> {
+  let d8XBackend = new D8XBrokerBackendApp(broker, sdkConfig, wsRPC);
+  await d8XBackend.initialize();
+  return d8XBackend;
+}
+
 start();
