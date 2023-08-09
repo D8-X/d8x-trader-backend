@@ -18,7 +18,7 @@ WORKDIR packages/referral
 
 # Expose the provided API_PORT
 EXPOSE ${REFERRAL_API_PORT}
-RUN echo -e "DATABASE_URL_REFERRAL\n" > .env
+RUN echo -e "DATABASE_DSN_REFERRAL\n" > .env
 
 CMD ["yarn", "run-production"]
 

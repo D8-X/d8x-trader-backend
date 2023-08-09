@@ -9,8 +9,7 @@ export async function createKyselyDBInstance(): Promise<Kysely<Database>> {
   dotenv.config();
 
   // see also https://node-postgres.com/features/connecting
-  const connStr = process.env.DATABASE_URL_REFERRAL;
-  //const connStr = "postgresql://user:password@localhost:5433/db_referral";
+  const connStr = process.env.DATABASE_DSN_REFERRAL;
   console.log(`Connecting to "${connStr}"`);
   const dialect = new PostgresDialect({
     //https://github.com/brianc/node-postgres/blob/cf24ef28ee2134b63576afba341452f8adfb8a4d/packages/pg-pool/index.js#L67

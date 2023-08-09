@@ -52,7 +52,7 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 
 	// Check if required env variables were provided
 	const required = wantEnvs ?? [
-		"DATABASE_URL",
+		"DATABASE_DSN_HISTORY",
 		"SDK_CONFIG_NAME",
 		"CHAIN_ID",
 		"API_PORT",
