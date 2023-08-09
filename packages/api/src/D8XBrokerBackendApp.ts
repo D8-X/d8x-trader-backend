@@ -54,7 +54,10 @@ export default class D8XBrokerBackendApp {
     this.lastRequestTsMs = Date.now();
   }
 
-  public async initialize() {
+  public async initialize(sdkConfig: NodeSDKConfig | undefined) {
+    if (sdkConfig != undefined) {
+      this.sdkConfig = sdkConfig;
+    }
     await this.sdk.initialize(this.sdkConfig);
     await this.eventListener.initialize(this.sdk);
     this.initWebSocket();
@@ -445,7 +448,7 @@ export default class D8XBrokerBackendApp {
         let rsp = await this.sdk.addCollateral(req.query.symbol, req.query.amount);
         res.send(D8XBrokerBackendApp.JSONResponse("add-collateral", "", rsp));
       } catch (err: any) {
-        const usg = "add-collateral?symbol=MATIC&amount='110.4'";
+        const usg = "add-collateral?symbol=MATIC-USDC-USDC&amount='110.4'";
         res.send(
           D8XBrokerBackendApp.JSONResponse("error", "add-collateral", { error: extractErrorMsg(err), usage: usg })
         );
