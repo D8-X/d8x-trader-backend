@@ -18,8 +18,8 @@ The tables `referral_code` and `referral_code_usage` cannot be restored if the d
 Here is how to **export** the data:
 
 ```
-export DATABASE_URL_E="postgresql://user:password@localhost:5432/db"
-pg_dump $DATABASE_URL_E -t referral_code -t referral_code_usage -Fc -f export_referral_code.dmp
+export DATABASE_DSN_REFERRAL="postgresql://user:password@localhost:5432/db"
+pg_dump $DATABASE_DSN_REFERRAL -t referral_code -t referral_code_usage -Fc -f export_referral_code.dmp
 ```
 
 The first line defines an environment variable. Replace user with your PostgreSQL username, password with your password,
