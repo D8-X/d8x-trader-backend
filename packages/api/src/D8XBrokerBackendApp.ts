@@ -46,7 +46,7 @@ export default class D8XBrokerBackendApp {
     this.wss = new WebSocketServer({ port: this.portWS });
     this.swaggerDocument.servers[0].url += ":" + process.env.PORT_REST;
     this.sdkConfig = sdkConfig;
-    this.eventListener = new EventListener(sdkConfig, wsRPC);
+    this.eventListener = new EventListener();
     console.log("url=", this.swaggerDocument.servers[0].url);
     this.sdk = new SDKInterface(broker);
 
@@ -54,12 +54,10 @@ export default class D8XBrokerBackendApp {
     this.lastRequestTsMs = Date.now();
   }
 
-  public async initialize(sdkConfig: NodeSDKConfig | undefined) {
-    if (sdkConfig != undefined) {
-      this.sdkConfig = sdkConfig;
-    }
+  public async initialize(sdkConfig: NodeSDKConfig, wsRPC: string) {
+    this.sdkConfig = sdkConfig;
     await this.sdk.initialize(this.sdkConfig);
-    await this.eventListener.initialize(this.sdk);
+    await this.eventListener.initialize(this.sdk, sdkConfig, wsRPC);
     this.initWebSocket();
     this.routes();
   }

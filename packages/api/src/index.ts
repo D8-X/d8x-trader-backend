@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { chooseRandomRPC, loadConfigJSON, sleep } from "utils";
+import { chooseRandomRPC, loadConfigJSON, sleep, executeWithTimeout } from "utils";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
 import BrokerNone from "./brokerNone";
 import BrokerRegular from "./brokerRegular";
@@ -27,8 +27,6 @@ async function start() {
   if (priceFeedEndpoints.length > 0) {
     sdkConfig.priceFeedEndpoints = priceFeedEndpoints;
   }
-  let wsRPC = chooseRandomRPC(true, rpcConfig);
-
   let broker: BrokerIntegration;
   if (process.env.BROKER_KEY == undefined || process.env.BROKER_KEY == "" || process.env.BROKER_FEE_TBPS == undefined) {
     console.log("No broker PK or fee defined, using empty broker.");
@@ -36,43 +34,27 @@ async function start() {
   } else {
     console.log("Initializing broker");
     const feeTbps = process.env.BROKER_FEE_TBPS == undefined ? 0 : Number(process.env.BROKER_FEE_TBPS);
-    let count = 0;
-    while (count < 10) {
-      try {
-        sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
-
-        console.log(`RPC (HTTP) = ${sdkConfig.nodeURL}`);
-
-        broker = new BrokerRegular(process.env.BROKER_KEY, feeTbps, sdkConfig);
-        count = 10;
-      } catch (error) {
-        await sleep(5_000);
-        if (count > 10) {
-          throw error;
-        }
-        console.log("retrying new rpc...", error);
-      }
-      count++;
-    }
+    broker = new BrokerRegular(process.env.BROKER_KEY, feeTbps);
   }
-  wsRPC = chooseRandomRPC(true, rpcConfig);
-  console.log(`RPC (WS)   = ${wsRPC}`);
+  sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
+  let wsRPC = chooseRandomRPC(true, rpcConfig);
   let d8XBackend = new D8XBrokerBackendApp(broker!, sdkConfig, wsRPC);
   let count = 0;
-  while (count < 10) {
+  let isSuccess = false;
+  while (!isSuccess) {
     try {
-      await d8XBackend.initialize(sdkConfig);
-      count = 10;
+      console.log(`RPC (HTTP) = ${sdkConfig.nodeURL}`);
+      console.log(`RPC (WS)   = ${wsRPC}`);
+      await executeWithTimeout(d8XBackend.initialize(sdkConfig, wsRPC), 20_000, "initialize timeout");
+      isSuccess = true;
     } catch (error) {
-      await sleep(5_000);
+      await sleep(500);
       if (count > 10) {
         throw error;
       }
       console.log("retrying new rpc...");
       sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
-      wsRPC = chooseRandomRPC(false, rpcConfig);
-      console.log(`RPC (HTTP) = ${sdkConfig.nodeURL}`);
-      console.log(`RPC (WS)   = ${wsRPC}`);
+      wsRPC = chooseRandomRPC(true, rpcConfig);
     }
     count++;
   }

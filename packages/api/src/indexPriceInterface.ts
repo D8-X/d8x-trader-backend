@@ -32,7 +32,7 @@ export default abstract class IndexPriceInterface extends Observer {
     this.mrkPremium = new Map<number, number>();
   }
 
-  public async initialize(sdkInterface: SDKInterface) {
+  public async priceInterfaceInitialize(sdkInterface: SDKInterface) {
     await this.redisSubClient.subscribe("feedHandler");
     this.redisSubClient.on("message", (channel, message) => {
       this._onRedisFeedHandlerMsg(message);

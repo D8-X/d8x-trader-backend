@@ -19,7 +19,7 @@ export default class BrokerRemote extends BrokerIntegration {
     super();
   }
 
-  public async initialize(): Promise<string> {
+  public async initialize(config: NodeSDKConfig): Promise<string> {
     return await this.getBrokerAddress();
   }
 

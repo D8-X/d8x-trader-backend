@@ -151,6 +151,29 @@ async function setReferralCutSettings(dbReferralCuts: DBReferralCut, settings: R
   );
 }
 
+/**
+ * Tries to update margin token info from history-api. If not available sleeps and
+ * retries for 10 times
+ * @param dbBrokerFeeAccumulator object of type DBBrokerFeeAccumulator
+ */
+async function waitAndUpdateMarginTokenInfoFromAPI(dbBrokerFeeAccumulator: DBBrokerFeeAccumulator) {
+  let isSuccess = false;
+  let count = 0;
+  while (!isSuccess) {
+    try {
+      await dbBrokerFeeAccumulator.updateMarginTokenInfoFromAPI(false);
+      isSuccess = true;
+    } catch (err) {
+      console.log("Waiting for history API...");
+      if (count == 10) {
+        throw err;
+      }
+      await sleep(15_000);
+    }
+    count++;
+  }
+}
+
 async function start() {
   dotenv.config();
 
@@ -233,7 +256,8 @@ async function start() {
   const referralCodeValidator = new ReferralCodeValidator(settings, dbReferralCode);
 
   const dbBrokerFeeAccumulator = new DBBrokerFeeAccumulator(dbHandler, historyAPIEndpoint, brokerAddr, logger);
-  await dbBrokerFeeAccumulator.updateMarginTokenInfoFromAPI(false);
+  await waitAndUpdateMarginTokenInfoFromAPI(dbBrokerFeeAccumulator);
+
   // populate broker-fee table
   await dbBrokerFeeAccumulator.updateBrokerFeesFromAPIAllPools(
     Math.round(Date.now() / 1000 - settings.paymentMaxLookBackDays * 86400)
