@@ -36,6 +36,7 @@ services:
     ports:
       - "127.0.0.1:${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
       - "127.0.0.1:${PORT_REST}:${PORT_REST}"
+      - "127.0.0.1:8888:8888" # historyAPIEndpoint
     restart: on-failure
     logging:
       driver: "json-file"
@@ -120,7 +121,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - 127.0.0.1:${POSTGRES_PORT}:5432
+      - 127.0.0.1:${POSTGRES_PORT_HISTORY}:5432
     volumes:
       - pgdb:/var/lib/postgresql/data
     logging:
