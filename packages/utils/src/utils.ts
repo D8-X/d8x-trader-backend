@@ -194,7 +194,6 @@ export function getRedisConfig(): RedisConfig {
   if (originUrl == undefined) {
     throw new Error("REDIS_URL not defined");
   }
-  console.log("URL=", originUrl);
   let redisURL = new URL(originUrl);
   const host = redisURL.hostname;
   const port = parseInt(redisURL.port);
