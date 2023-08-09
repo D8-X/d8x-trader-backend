@@ -1,6 +1,6 @@
 declare namespace NodeJS {
 	export interface ProcessEnv {
-		DATABASE_DSN_REFERRAL: string;
+		DATABASE_DSN_HISTORY: string;
 		SC_ADDRESS_PERPETUAL_MANAGER_PROXY: string;
 	}
 }
