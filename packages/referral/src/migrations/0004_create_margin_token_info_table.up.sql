@@ -1,4 +1,3 @@
-begin;
 
 -- CreateTable
 CREATE TABLE if not exists "referral_margin_token_info" (
@@ -9,5 +8,3 @@ CREATE TABLE if not exists "referral_margin_token_info" (
 
     CONSTRAINT "referral_margin_token_info_pkey" PRIMARY KEY ("pool_id")
 );
-
-end;

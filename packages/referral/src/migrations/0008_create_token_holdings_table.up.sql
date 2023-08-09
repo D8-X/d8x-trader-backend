@@ -1,4 +1,3 @@
-begin;
 -- Amount of tokens that the referrer_addr holds
 -- The token address is specified in referral settings
 -- The amount is stored in decimal-N format
@@ -15,4 +14,3 @@ begin;
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "referral_token_holdings_referrer_addr_idx" ON "referral_token_holdings" USING HASH ("referrer_addr");
 
-end;

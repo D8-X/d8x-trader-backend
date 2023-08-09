@@ -1,3 +1,3 @@
-begin;
-    drop table if exists referral_margin_token_info;
-end;
+
+drop table if exists referral_margin_token_info;
+

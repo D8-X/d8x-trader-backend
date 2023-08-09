@@ -1,4 +1,4 @@
-begin;
+
 
 -- CreateTable
 CREATE TABLE if not exists "referral_broker_fees_per_trader" (
@@ -22,4 +22,3 @@ CREATE INDEX IF NOT EXISTS "referral_broker_fees_per_trader_trade_timestamp_idx"
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "referral_broker_fees_per_trader_trader_addr_idx" ON "referral_broker_fees_per_trader"("trader_addr");
 
-end;

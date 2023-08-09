@@ -1,4 +1,4 @@
-begin;
+
 
 -- CreateTable
   -- no constraint for referral code because we could collect the data from onchain
@@ -29,4 +29,3 @@ CREATE INDEX  IF NOT EXISTS "referral_payment_pool_id_idx" ON "referral_payment"
 -- CreateIndex
 CREATE INDEX  IF NOT EXISTS "referral_payment_trader_addr_idx" ON "referral_payment"("trader_addr");
 
-end;
