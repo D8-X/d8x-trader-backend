@@ -27,6 +27,8 @@ import { PriceInfo } from "../db/price_info";
 import StaticInfo from "../contracts/static_info";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 import { MarginTokenInfo } from "../db/margin_token_info";
+import SturdyWebSocket from "sturdy-websocket";
+import WebSocket from "ws";
 
 const MAX_HISTORY_SINCE_TS = 1681387680;
 
@@ -87,7 +89,13 @@ export const main = async () => {
 		logger.info(msg);
 	}
 	const network = Network.from(chainId);
-	let wsProvider: ethers.WebSocketProvider = new WebSocketProvider(wsRpcUrl, network);
+	let wsProvider: ethers.WebSocketProvider = new WebSocketProvider(
+		() =>
+			new SturdyWebSocket(chooseRandomRPC(true, rpcConfig), {
+				wsConstructor: WebSocket,
+			}),
+		network
+	);
 	let httpProvider: ethers.JsonRpcProvider = new JsonRpcProvider(httpRpcUrl, network, {
 		staticNetwork: network,
 		batchMaxCount: 25,
@@ -144,11 +152,19 @@ export const main = async () => {
 	};
 	runHistoricalDataFilterers(hdOpts);
 
-	eventsListener.listen(new WebSocketProvider(wsRpcUrl));
+	eventsListener.listen(wsProvider);
 	// re-start listeners with new WS provider periodically
 	// 2.5 hours - typically the connection should stay alive longer, so this ensures no gaps
 	setInterval(async () => {
-		eventsListener.listen(new WebSocketProvider(wsRpcUrl));
+		eventsListener.listen(
+			new WebSocketProvider(
+				() =>
+					new SturdyWebSocket(chooseRandomRPC(true, rpcConfig), {
+						wsConstructor: WebSocket,
+					}),
+				network
+			)
+		);
 	}, 9_000_000); // 2.5 * 60 * 60 * 1000 miliseconds
 
 	// check heartbeat of RPC connection every 5 minutes - cheap (one eth_call)
