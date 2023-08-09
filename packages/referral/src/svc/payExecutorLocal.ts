@@ -74,7 +74,7 @@ export default class PayExecutorLocal extends AbstractPayExecutor {
       const tokenContract = new ethers.Contract(tokenAddr, tokenAbi, signer);
       const approvalTx = await tokenContract
         .connect(signer)
-        .approve(this.multiPayContractAddr, ethers.constants.MaxUint256);
+        .approve(this.multiPayContractAddr, ethers.constants.MaxUint256, { gasLimit: 100_000n });
       await approvalTx.wait();
       console.log(`Successfully approved spender ${this.multiPayContractAddr} for token ${tokenAddr}`);
       this.approvedTokens.set(tokenAddr, true);
