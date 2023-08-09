@@ -4,7 +4,6 @@ export interface ReferralSettings {
   referralSystemEnabled: boolean;
   agencyCutPercent: number;
   permissionedAgencies: string[];
-  historyAPIEndpoint: string; //endpoint of main history app
   referrerCutPercentForTokenXHolding: Array<[number, number]>;
   tokenX: {
     address: string;

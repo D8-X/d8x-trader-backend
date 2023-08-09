@@ -185,7 +185,11 @@ async function start() {
     logger.error("Set CHAIN_ID in .env (e.g. CHAIN_ID=80001)");
     return;
   }
-
+  let historyAPIEndpoint = process.env.HISTORY_API_ENDPOINT;
+  if (historyAPIEndpoint == undefined) {
+    logger.error("Set HISTORY_API_ENDPOINT");
+    return;
+  }
   const rpcConfig = require("../../../config/live.rpc.json");
   let rpcUrl = chooseRandomRPC(false, rpcConfig);
   if (rpcUrl == "") {
@@ -228,7 +232,7 @@ async function start() {
 
   const referralCodeValidator = new ReferralCodeValidator(settings, dbReferralCode);
 
-  const dbBrokerFeeAccumulator = new DBBrokerFeeAccumulator(dbHandler, settings.historyAPIEndpoint, brokerAddr, logger);
+  const dbBrokerFeeAccumulator = new DBBrokerFeeAccumulator(dbHandler, historyAPIEndpoint, brokerAddr, logger);
   await dbBrokerFeeAccumulator.updateMarginTokenInfoFromAPI(false);
   // populate broker-fee table
   await dbBrokerFeeAccumulator.updateBrokerFeesFromAPIAllPools(
