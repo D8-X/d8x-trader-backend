@@ -25,7 +25,9 @@
     "buildPrisma": "npx prisma generate --schema=`./packages/utils/prisma/schema.prisma`",
     "build": "npx tsc",
     "startWSClient": "node dist/src/indexPXWSClient/startIndexPXWSClient.js",
-    "start": "node dist/src/index.js"
+    "start": "node dist/src/index.js",
+    "patch-package": "^7.0.2",
+    "postinstall-postinstall": "^2.1.0"
   },
   "version": "v0.1.2",
   "name": "d8x-trader-backend",
