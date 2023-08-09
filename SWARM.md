@@ -136,12 +136,32 @@ accesible on worker nodes.
 docker image push 127.0.0.1:5555/main:latest
 ```
 
-Now add a `.env` file with environment variables and run the main api with the
-following command:
+Edit `.env` file with your environment variables and `source` it to make env
+vars available in your current shell session before running deployment:
+
+````bash
+vim ./.env
+...
+. ./.env
+```bash
+
+
+To run the main api, fire off the following command:
 
 ```bash
-docker service create --name main-api --env-file .env  127.0.0.1:5555/main:latest
+docker stack deploy -c ./docker-stack.yml stack
+````
+
+Alternatively, you can manually create a service without the `docker stack deploy`
+
+```bash
+docker service create --name main-api --env-file .env --network the-network \
+    --publish 3001:3001 --publish 3002:3002 --replicas 2 127.0.0.1:5555/main:latest
 ```
+
+**Note that by default ports 3001 and 3002 are used and exposed as API and
+Websockets ports.** If you wish, you can adjust these ports via environment
+variables `PORT_REST` and `PORT_WEBSOCKET`.
 
 ## Securing ports
 

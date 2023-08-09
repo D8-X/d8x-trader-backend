@@ -1,0 +1,26 @@
+version: "3.5"
+services:
+  api:
+    image: 127.0.0.1:5555/main:latest
+    ports:
+      # REST API
+      - ${PORT_REST:-3001}:${PORT_REST:-3001}
+      # Websockets port
+      - ${PORT_WEBSOCKET:-3002}:${PORT_WEBSOCKET:-3002}
+    environment:
+      - BROKER_KEY=${BROKER_KEY}
+      - BROKER_FEE_TBPS=${BROKER_FEE_TBPS}
+      - REDIS_URL=${REDIS_URL:-redis://:thisismypassword@redis:6379/0}
+      - CHAIN_ID=${CHAIN_ID:-80001}
+      - SDK_CONFIG_NAME=${SDK_CONFIG_NAME:-testnet}
+      - CORS_ON=${CORS_ON:-FALSE}
+      - PORT_REST=${PORT_REST:-3001}
+      - PORT_WEBSOCKET=${PORT_WEBSOCKET:-3002}
+    networks:
+      - d8x_backend
+    deploy:
+      replicas: 2
+networks:
+  d8x_backend:
+    driver: overlay
+    name: d8x_backend

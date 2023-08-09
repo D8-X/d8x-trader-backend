@@ -83,7 +83,7 @@ services:
       - BROKER_KEY=${BROKER_KEY}
       - CHAIN_ID=${CHAIN_ID}
       - CORS_ON=${CORS_ON}
-      - HISTORY_API_ENDPOINT=http://backend_history:8880
+      - HISTORY_API_ENDPOINT=http://backend_history:${PNL_API_PORT}
     ports:
       - "127.0.0.1:${REFERRAL_API_PORT}:${REFERRAL_API_PORT}"
     restart: on-failure
