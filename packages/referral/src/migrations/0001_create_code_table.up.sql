@@ -1,4 +1,4 @@
-begin;
+
 -- CreateTable
 CREATE TABLE if not exists "referral_code" (
     "code" VARCHAR(200) NOT NULL,
@@ -26,4 +26,3 @@ CREATE INDEX  IF NOT EXISTS "referral_code_agency_addr_idx" ON "referral_code" U
 CREATE INDEX  IF NOT EXISTS "referral_code_broker_addr_idx" ON "referral_code" USING HASH ("broker_addr");
 
 
-end;

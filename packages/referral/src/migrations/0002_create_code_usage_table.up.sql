@@ -1,4 +1,3 @@
-begin;
 
 -- CreateTable
 CREATE TABLE if not exists "referral_code_usage" (
@@ -16,4 +15,3 @@ CREATE INDEX  IF NOT EXISTS "referral_code_usage_code_idx" ON "referral_code_usa
 -- CreateIndex
 CREATE INDEX  IF NOT EXISTS "referral_code_usage_valid_to_idx" ON "referral_code_usage"("valid_to");
 
-end;

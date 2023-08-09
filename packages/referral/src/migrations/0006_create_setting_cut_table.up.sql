@@ -1,4 +1,3 @@
-begin;
 -- Referral cut as specified in referralSettings.json
 -- The amount is stored in decimal-N format
 -- CreateTable
@@ -17,5 +16,3 @@ CREATE INDEX IF NOT EXISTS "referral_setting_cut_cut_perc_idx" ON "referral_sett
 
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "referral_setting_cut_holding_amount_dec_n_idx" ON "referral_setting_cut"("holding_amount_dec_n");
-
-end;
