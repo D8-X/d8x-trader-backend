@@ -127,11 +127,15 @@ export default class EventListener extends IndexPriceInterface {
     this.stopListening();
     this.wsRPC = newWsRPC;
     console.log(`set new ws rpc : ${newWsRPC}`);
+
+    let provider = new providers.WebSocketProvider(new SturdyWebSocket(this.wsRPC, { wsConstructor: WebSocket }));
+    provider.on("error", (error: Error) => this.onError(error));
     this.proxyContract = new Contract(
       this.traderInterface.getProxyAddress(),
       this.traderInterface.getABI("proxy")!,
-      new providers.WebSocketProvider(new SturdyWebSocket(this.wsRPC, { wsConstructor: WebSocket }))
+      provider
     );
+
     this.addProxyEventHandlers();
     for (const symbol of Object.keys(this.orderBookContracts)) {
       this.addOrderBookEventHandlers(symbol);
@@ -161,6 +165,15 @@ export default class EventListener extends IndexPriceInterface {
     for (const symbol of Object.keys(this.orderBookContracts)) {
       this.removeOrderBookEventHandlers(symbol);
     }
+  }
+
+  /**
+   * On Error of Websocket connection -> rethrow
+   * @param error error from websocket
+   */
+  private onError(error: Error) {
+    console.log(`Websocket error:${error.message}`);
+    throw Error("websocket");
   }
 
   private resetEventFrequencies(freq: EventFrequencyCount) {
@@ -379,6 +392,7 @@ export default class EventListener extends IndexPriceInterface {
       throw new Error("proxy contract not defined");
     }
     const proxyContract = this.proxyContract;
+
     proxyContract.on("UpdateMarkPrice", (perpetualId, fMidPricePremium, fMarkPricePremium, fSpotIndexPrice) => {
       this.onUpdateMarkPrice(perpetualId, fMidPricePremium, fMarkPricePremium, fSpotIndexPrice);
     });
@@ -472,12 +486,13 @@ export default class EventListener extends IndexPriceInterface {
    * @param symbol order book symbol
    */
   private addOrderBookEventHandlers(symbol: string) {
+    let provider = new providers.WebSocketProvider(this.wsRPC);
     this.orderBookContracts[symbol] = new Contract(
       this.traderInterface.getOrderBookAddress(symbol),
       this.traderInterface.getABI("lob")!,
-      new providers.WebSocketProvider(this.wsRPC)
+      provider
     );
-
+    provider.on("error", (error: Error) => this.onError(error));
     const contract = this.orderBookContracts[symbol];
 
     contract.on(
