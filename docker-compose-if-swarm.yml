@@ -1,0 +1,125 @@
+# docker-compose.yml
+
+#docker rmi $(docker images -f "dangling=true" -q)
+#sudo docker-compose --env-file .env up --build
+version: "3"
+services:
+  redis:
+    image: redis
+    environment:
+      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: redis-server --bind 0.0.0.0 --requirepass ${REDIS_PASSWORD}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "10"
+
+  # History component listens to block-chain events and stores them in postgres
+  # Exposes a REST API
+  backend_history:
+    build:
+      context: .
+      dockerfile: ./packages/history/Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_DSN_HISTORY=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      - API_PORT=${PNL_API_PORT}
+      - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
+      - CHAIN_ID=${CHAIN_ID}
+      - CORS_ON=${CORS_ON}
+    ports:
+      - "127.0.0.1:${PNL_API_PORT}:${PNL_API_PORT}"
+    restart: on-failure
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5000k"
+        max-file: "10"
+
+  # Referral component that handles referral/agency/broker/trader rebates
+  # Exposes a REST API and uses the postgres DB that the history component mainly fills
+  backend_referral:
+    build:
+      context: .
+      dockerfile: ./packages/referral/Dockerfile
+    depends_on:
+      - postgres_referral
+      - redis
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - DATABASE_DSN_REFERRAL=postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@postgres_referral:5432/${POSTGRES_DB_REFERRAL}?schema=public
+      - REFERRAL_API_PORT=${REFERRAL_API_PORT}
+      - BROKER_KEY=${BROKER_KEY}
+      - CHAIN_ID=${CHAIN_ID}
+      - CORS_ON=${CORS_ON}
+      - HISTORY_API_ENDPOINT=http://backend_history:${PNL_API_PORT}
+    ports:
+      - "127.0.0.1:${REFERRAL_API_PORT}:${REFERRAL_API_PORT}"
+    restart: on-failure
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5000k"
+        max-file: "10"
+
+  # stream oracle prices from price service (pyth 'offchain'-network)
+  backend_pyth_connection:
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    build:
+      context: .
+      dockerfile: ./packages/pxws-client/Dockerfile
+    links:
+      - redis
+    environment:
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      PORT_REST: ${PORT_REST}
+      PORT_WEBSOCKET: ${PORT_WEBSOCKET}
+      CHAIN_ID: ${CHAIN_ID}
+    restart: on-failure
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "10"
+
+  # Database component required by history
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - 127.0.0.1:${POSTGRES_PORT_HISTORY}:5432
+    volumes:
+      - pgdb:/var/lib/postgresql/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "10"
+
+  # Database component required by referral
+  postgres_referral:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER_REFERRAL}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_REFERRAL}
+      POSTGRES_DB: ${POSTGRES_DB_REFERRAL}
+    ports:
+      - 127.0.0.1:${POSTGRES_PORT_REFERRAL}:5432
+    volumes:
+      - pgdb_referral:/var/lib/postgresql/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1k"
+        max-file: "10"
+volumes:
+  pgdb:
+  pgdb_referral:

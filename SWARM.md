@@ -19,6 +19,20 @@ Provide the connection strings as `DATABASE_DSN_HISTORY` and `DATABASE_DSN_REFER
 https://stackoverflow.com/questions/3582552/what-is-the-format-for-the-postgresql-connection-string-url/20722229#20722229
 for more info about DSN structure.
 
+# Server 1 [WIP]
+
+The first server runs all services except the 'api-service' that is run via docker swarm.
+Server 1 also communicates with the database.
+
+```
+docker-compose -f docker-compose-if-swarm.yml build
+
+```
+
+This server also runs the REDIS database that the swarm needs access to, hence its IP needs to
+be known to the docker swarm servers that we detail below. Add a private IP address for this communication
+(Linode: Network > Add An IP Address > select Private > allocate).
+
 # Deploying with docker swarm
 
 For initial setup of main API we will use 3 servers with docker swarm. Go ahead
@@ -40,6 +54,12 @@ IP address.
 **Note if you have firewall enabled on your private network, make sure you allow
 accessing docker swarm ports. See
 [Docker swarm ports](https://docs.docker.com/engine/swarm/swarm-tutorial/#open-protocols-and-ports-between-the-hosts)**
+For example:
+
+```
+sudo ufw allow 2377/tcp & sudo ufw allow 7946/tcp & sudo ufw allow 7946/udp
+
+```
 
 To initialize swarm manager:
 
