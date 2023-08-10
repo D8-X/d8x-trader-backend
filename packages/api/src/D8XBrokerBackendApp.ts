@@ -1,8 +1,6 @@
 import express, { Express, Request, Response } from "express";
 import WebSocket, { WebSocketServer } from "ws";
 import { IncomingMessage } from "http";
-import swaggerJSDoc from "swagger-jsdoc";
-import swaggerUi from "swagger-ui-express";
 import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
 import { extractErrorMsg } from "utils";
@@ -17,8 +15,6 @@ dotenv.config();
 
 export default class D8XBrokerBackendApp {
   public express: express.Application;
-  private swaggerData;
-  private swaggerDocument;
   private sdk: SDKInterface;
   private sdkConfig: NodeSDKConfig;
   private port: number;
@@ -31,9 +27,6 @@ export default class D8XBrokerBackendApp {
   constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig, wsRPC: string) {
     dotenv.config();
     this.express = express();
-
-    this.swaggerData = fs.readFileSync(__dirname + "/swagger.json", "utf-8");
-    this.swaggerDocument = JSON.parse(this.swaggerData);
     if (process.env.PORT_REST == undefined) {
       throw Error("define PORT_REST in .env");
     }
@@ -44,10 +37,9 @@ export default class D8XBrokerBackendApp {
     this.port = Number(process.env.PORT_REST);
     this.portWS = Number(process.env.PORT_WEBSOCKET);
     this.wss = new WebSocketServer({ port: this.portWS });
-    this.swaggerDocument.servers[0].url += ":" + process.env.PORT_REST;
+
     this.sdkConfig = sdkConfig;
     this.eventListener = new EventListener();
-    console.log("url=", this.swaggerDocument.servers[0].url);
     this.sdk = new SDKInterface(broker);
 
     this.middleWare();
@@ -173,14 +165,10 @@ export default class D8XBrokerBackendApp {
       console.log(`⚡️[server]: HTTP is running at http://localhost:${this.port}`);
     });
 
-    // swagger docs
-    this.express.use("/api/docs", swaggerUi.serve, swaggerUi.setup(this.swaggerDocument));
-
     this.express.post("/", (req: Request, res: Response) => {
       res.status(201).send(D8XBrokerBackendApp.JSONResponse("/", "Express + TypeScript Server", {}));
     });
 
-    // in swagger
     this.express.get("/exchange-info", async (req: Request, res: Response) => {
       try {
         this.lastRequestTsMs = Date.now();
@@ -206,7 +194,6 @@ export default class D8XBrokerBackendApp {
       await this.priceType(req.query.symbol, "oracle", "oracle-price", res);
     });
 
-    // in swagger
     this.express.get("/open-orders", async (req: Request, res: Response) => {
       // open-orders?traderAddr=0xCafee&symbol=BTC-USD-MATIC
       let rsp;
@@ -293,7 +280,6 @@ export default class D8XBrokerBackendApp {
       }
     });
 
-    // in swagger
     this.express.get("/position-risk", async (req: Request, res: Response) => {
       // http://localhost:3001/position-risk?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=BTC-USD-MATIC
       // http://localhost:3001/position-risk?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=MATIC
