@@ -151,6 +151,8 @@ You can use any external container image registry or run local one in your swarm
 docker service create --name registry --publish 5555:5000 registry:latest
 ```
 
+To check the service is running: `sudo docker service ls`
+
 Firstly, edit your `live.*` configuration files in `config` directory. Currently
 they are baked-in in the images at the image build time (this will be adjusted
 in the future):
@@ -167,10 +169,10 @@ docker build -f ./packages/api/Dockerfile -t 127.0.0.1:5555/main:latest .
 
 This will tag our image with our local registry prefix (`127.0.0.1:5555`). Now
 let's push the image to our container registry. This step is needed to make our
-image accesible to worker nodes.
+image accessible to worker nodes.
 
 Now push the image to our local image registry. This will make our image
-accesible on worker nodes.
+accessible on worker nodes.
 
 ```bash
 docker image push 127.0.0.1:5555/main:latest
@@ -213,6 +215,9 @@ docker service create --name main-api --env-file .env --network the-network \
 **Note that by default ports 3001 and 3002 are used and exposed as API and
 Websockets ports.** If you wish, you can adjust these ports via environment
 variables `PORT_REST` and `PORT_WEBSOCKET`.
+
+List the docker stacks: `docker stack ls`
+Display status: `docker stack ps <name>`
 
 ## Securing ports
 
