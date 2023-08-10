@@ -25,7 +25,7 @@
     "url": "https://github.com/D8-X/d8x-trader-backend/issues"
   },
   "dependencies": {
-    "@d8x/perpetuals-sdk": "^0.8.19",
+    "@d8x/perpetuals-sdk": "^0.8.28",
     "ioredis": "^5.3.1",
     "rimraf": "^4.4.1",
     "utils": "*"
