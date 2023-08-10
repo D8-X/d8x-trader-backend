@@ -6,7 +6,8 @@ database server.
 
 Make sure to add and whitelist your servers' IP addresses which will be used to
 run the services and connect to freshly created postgres db in Access Controls
-section.
+section. We recommend connecting to your database via private IP address and
+using servers in the same region.
 
 To run History and Referrals services you will need to use 2 different
 databases. These database can be hosted on the same cluster or it can even be a
@@ -14,19 +15,28 @@ different schemas in the same database. It's up to you to choose. For minmal
 setup we recommend having 2 schemas on same database. We will assume you have 2
 schemas: `history` and `referrals` in your `postgres` database in the exaples.
 
-Provide the connection strings as `DATABASE_DSN_HISTORY` and `DATABASE_DSN_REFERRALS` environment variables in your
-`.env` file. See
+Provide the connection strings as `DATABASE_DSN_HISTORY` and
+`DATABASE_DSN_REFERRALS` environment variables in your `.env` file. See
 https://stackoverflow.com/questions/3582552/what-is-the-format-for-the-postgresql-connection-string-url/20722229#20722229
 for more info about DSN structure.
 
 # Server 1 [WIP]
 
-The first server runs all services except the 'api-service' that is run via docker swarm.
-Server 1 also communicates with the database.
+In case your database uses ssl mode you might need to provide `sslrootcert` via
+DSN query parameter for `DATABASE_DSN_REFERRAL`. In Linode dashboard you can
+find "Download CA Certificate" link which will get you the ca certificate of
+your database cluster. Place this certificate in the root directory of this
+repository as `pg_ca_cert.ca` file. This file will be provided to
+`backend_referral` service as `pg_ca_cert` config. You can reference it in your
+`DATABASE_DSN_REFERRAL` DSN strings as`sslrootcert=/pg_ca_cert` query parameter.
+
+The first server runs all services except the 'api-service' that is run via
+docker swarm. Server 1 also communicates with the database. Make sure to set
+environment variables `DATABASE_DSN_REFERRAL` and `DATABASE_DSN_HISTORY` to your
+external postgres service connection strings for referral and history databases.
 
 ```
-docker-compose -f docker-compose-if-swarm.yml build
-
+docker-compose -f docker-compose-prod.yml build
 ```
 
 This server also runs the REDIS database that the swarm needs access to, hence its IP needs to
@@ -163,7 +173,7 @@ vars available in your current shell session before running deployment:
 vim ./.env
 ...
 . ./.env
-```bash
+```
 
 
 To run the main api, fire off the following command:
