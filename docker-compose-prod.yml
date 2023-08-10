@@ -16,17 +16,14 @@ services:
       options:
         max-size: "1k"
         max-file: "10"
-
   # History component listens to block-chain events and stores them in postgres
   # Exposes a REST API
   backend_history:
     build:
       context: .
       dockerfile: ./packages/history/Dockerfile
-    depends_on:
-      - postgres
     environment:
-      - DATABASE_DSN_HISTORY=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      - DATABASE_DSN_HISTORY=${DATABASE_DSN_HISTORY}
       - API_PORT=${PNL_API_PORT}
       - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
       - CHAIN_ID=${CHAIN_ID}
@@ -47,11 +44,10 @@ services:
       context: .
       dockerfile: ./packages/referral/Dockerfile
     depends_on:
-      - postgres_referral
       - redis
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-      - DATABASE_DSN_REFERRAL=postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@postgres_referral:5432/${POSTGRES_DB_REFERRAL}?schema=public
+      - DATABASE_DSN_REFERRAL=${DATABASE_DSN_REFERRAL}
       - REFERRAL_API_PORT=${REFERRAL_API_PORT}
       - BROKER_KEY=${BROKER_KEY}
       - CHAIN_ID=${CHAIN_ID}
@@ -65,6 +61,8 @@ services:
       options:
         max-size: "5000k"
         max-file: "10"
+    configs:
+      - pg_ca_cert
 
   # stream oracle prices from price service (pyth 'offchain'-network)
   backend_pyth_connection:
@@ -87,39 +85,10 @@ services:
         max-size: "1k"
         max-file: "10"
 
-  # Database component required by history
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - 127.0.0.1:${POSTGRES_PORT_HISTORY}:5432
-    volumes:
-      - pgdb:/var/lib/postgresql/data
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "1k"
-        max-file: "10"
-
-  # Database component required by referral
-  postgres_referral:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER_REFERRAL}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_REFERRAL}
-      POSTGRES_DB: ${POSTGRES_DB_REFERRAL}
-    ports:
-      - 127.0.0.1:${POSTGRES_PORT_REFERRAL}:5432
-    volumes:
-      - pgdb_referral:/var/lib/postgresql/data
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "1k"
-        max-file: "10"
 volumes:
   pgdb:
   pgdb_referral:
+
+configs:
+  pg_ca_cert:
+    file: "./pg_ca_cert.ca"
