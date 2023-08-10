@@ -9,13 +9,16 @@ services:
     environment:
       - REDIS_ARGS=--requirepass ${REDIS_PASSWORD}
     ports:
-      - "127.0.0.1:6379:6379"
+      # - "127.0.0.1:6379:6379"
+      # Production redis is exposed to other nodes (main-api) in our network
+      - "6379:6379"
     command: redis-server --bind 0.0.0.0 --requirepass ${REDIS_PASSWORD}
     logging:
       driver: "json-file"
       options:
         max-size: "1k"
         max-file: "10"
+    restart: "always"
   # History component listens to block-chain events and stores them in postgres
   # Exposes a REST API
   backend_history:
@@ -24,12 +27,12 @@ services:
       dockerfile: ./packages/history/Dockerfile
     environment:
       - DATABASE_DSN_HISTORY=${DATABASE_DSN_HISTORY}
-      - API_PORT=${PNL_API_PORT}
+      - API_PORT=${PNL_API_PORT:-8888}
       - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
       - CHAIN_ID=${CHAIN_ID}
       - CORS_ON=${CORS_ON}
     ports:
-      - "127.0.0.1:${PNL_API_PORT}:${PNL_API_PORT}"
+      - "127.0.0.1:${PNL_API_PORT:-8888}:${PNL_API_PORT:-8888}"
     restart: on-failure
     logging:
       driver: "json-file"
@@ -52,7 +55,7 @@ services:
       - BROKER_KEY=${BROKER_KEY}
       - CHAIN_ID=${CHAIN_ID}
       - CORS_ON=${CORS_ON}
-      - HISTORY_API_ENDPOINT=http://backend_history:${PNL_API_PORT}
+      - HISTORY_API_ENDPOINT="http://backend_history:${PNL_API_PORT:-8888}"
     ports:
       - "127.0.0.1:${REFERRAL_API_PORT}:${REFERRAL_API_PORT}"
     restart: on-failure

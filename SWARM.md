@@ -20,6 +20,12 @@ Provide the connection strings as `DATABASE_DSN_HISTORY` and
 https://stackoverflow.com/questions/3582552/what-is-the-format-for-the-postgresql-connection-string-url/20722229#20722229
 for more info about DSN structure.
 
+# Host setup
+
+Please note that you will need docker compose v2 for the deployment.
+`host_setup.sh` helper script can be used to automate installation of latest
+docker version.
+
 # Server 1 [WIP]
 
 In case your database uses ssl mode you might need to provide `sslrootcert` via
@@ -35,8 +41,12 @@ docker swarm. Server 1 also communicates with the database. Make sure to set
 environment variables `DATABASE_DSN_REFERRAL` and `DATABASE_DSN_HISTORY` to your
 external postgres service connection strings for referral and history databases.
 
-```
-docker-compose -f docker-compose-prod.yml build
+It is recommended to set a strong password for `REDIS_PASSWORD` variable. Also
+make note of this password as you will need to use it when spinning up docker
+swarm stack.
+
+```bash
+docker compose -f docker-compose-prod.yml up --build
 ```
 
 This server also runs the REDIS database that the swarm needs access to, hence its IP needs to
@@ -167,20 +177,31 @@ docker image push 127.0.0.1:5555/main:latest
 ```
 
 Edit `.env` file with your environment variables and `source` it to make env
-vars available in your current shell session before running deployment:
+vars available in your current shell session before running deployment. Make
+sure you edit important required variables such as:
 
-````bash
+- REDIS_URL - set the host to private ip address of server on which you ran
+  `docker compose up` in [Server setup](#server-1-wip) section.
+- BROKER_KEY
+- BROKER_FEE_TBPS
+
+You can explore `docker-stack.yml` for more available environment variables.
+
+```bash
 vim ./.env
 ...
 . ./.env
 ```
 
-
-To run the main api, fire off the following command:
+Since docker stack deploy does not substitute env variables from your shell
+session automatically, we can workaround this by processing `docker-stack.yml`
+via docker compose. To run the main api, fire off the following command:
 
 ```bash
-docker stack deploy -c ./docker-stack.yml stack
-````
+docker compose -f ./docker-stack.yml config | sed -E 's/published: "([0-9]+)"/published: \1/g' |  sed -E 's/^name: .*$/ /'|  docker stack deploy -c - stack
+```
+
+Why sed is used see [this issue](https://github.com/docker/compose/issues/9306).
 
 Alternatively, you can manually create a service without the `docker stack deploy`
 
@@ -200,3 +221,4 @@ Make sure you deny all traffic except for
 - Main API ports
 - Docker swarm ports
 - SSH (optional, depending on the setup)
+- Securing redis from docker-compose deployment
