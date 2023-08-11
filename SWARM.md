@@ -238,15 +238,15 @@ connecting to redis instance on your docker swarm machines.
 iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdstport 6379 --ctorigdst <PUBLIC_IP> -j REJECT
 ```
 
-### Securing swarm worker nodes
+### Securing swarm nodes (workers + manager)
 
 Since published services on docker swarm are accessible to public internet, it
-is important to secure our worker nodes containers by rejecting any direct
-traffic to workers' public IP addresses in `DOCKER-USER` chain. The following
-iptables rules will drop all tcp and udp connections to ports exposed from swarm
-containers deployed via `docker stack deploy`. Make sure to run this on each
-worker node and substitue the `<PUBLIC_IP>` address of that corresponding
-server.
+is important to restrict access to ports exposed by swarm containers. This can
+be done by rejecting any direct traffic to swarm servers' public IP addresses in
+`DOCKER-USER` chain. The following iptables rules will drop all tcp and udp
+connections to ports exposed from swarm containers deployed via `docker stack
+deploy`. Make sure to run this on each swarm node and substitue the
+`<PUBLIC_IP>` address of that corresponding server.
 
 ```bash
 iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdst <PUBLIC_IP> -j DROP
@@ -264,7 +264,7 @@ will dump updated iptables rules and load them on server startup. We can use
 apt-get install -y iptables-persistent
 ```
 
-Then whenever you modify iptables, to persist them run:
+Whenever you modify iptables, to persist them run:
 
 ```bash
 netfilter-persistent save
@@ -275,3 +275,86 @@ Other considerations:
 - SSH (optional, depending on the setup)
 
 # Setting up nginx
+
+For simplicty, we recommend using nginx to expose the services to the public
+internet. Install nginx on your server and run it as standalone application.
+
+You should install nginx on the swarm manager and compose deployment servers.
+Swarm worker nodes should not have nginx running.
+
+Nginx setup will be different depending on factor such as domains/subdomains
+used, rate limiting, usage of different ports, ssl/tls certs used, etc. Here we
+provide an abstract guide and excerpts of nginx configs for proxying traffic to
+docker swarm and docker compose deployments.
+
+## Nginx for docker swarm
+
+Swarm hosts main api which is an API + Websockets server. Default port for main
+API is `3001` and `3002` for websockets (see `docker-stack.yml`). If you modify
+default ports via env or other ways, make sure you adjust and `proxy_pass`
+directives with appropriate values.
+
+Possible setup in `server` or `location` block for the main api websockets:
+
+```conf
+{
+    proxy_pass http://127.0.0.1:3002;
+    proxy_read_timeout 60;
+    proxy_connect_timeout 60;
+    proxy_redirect off;
+
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header Host $host;
+    proxy_cache_bypass $http_upgrade;
+}
+```
+
+For example if you are running `wss-main.d8x.brokerdomain.com` subdomain and
+your websockets port is set to `3002`, you can proxy websockets traffic with
+similar setup:
+
+```conf
+server {
+  server_name wss-main.d8x.brokerdomain.com;
+  listen 80;
+  location / {
+    proxy_pass http://127.0.0.1:3002;
+    proxy_read_timeout 60;
+    proxy_connect_timeout 60;
+    proxy_redirect off;
+
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header Host $host;
+    proxy_cache_bypass $http_upgrade;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}
+```
+
+Note the `upgrade` headers - they are required for upgrading to ws connection.
+
+For the rest api, minimal nginx config could look like this:
+
+```conf
+server {
+  server_name main.d8x.brokerdomain.com;
+  listen 80;
+  location / {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}
+```
+
+Setup for docker compose deployement of `referrals` and `history` is analogous.
+
+# SSL/TLS certs
+
+Use certbot to setup certificates on servers running publicly exposed nginx.
