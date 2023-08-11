@@ -219,11 +219,59 @@ variables `PORT_REST` and `PORT_WEBSOCKET`.
 List the docker stacks: `docker stack ls`
 Display status: `docker stack ps <name>`
 
-## Securing ports
+## Security
 
-Make sure you deny all traffic except for
+There are some security considerations that need to be taken care of. If you
+followed the guide up to this point, you will have a publicly accesible redis
+instance on server where you ran `docker compose` as well as publicly accesible
+docker swarm cluster with publicly exposed ports of main api as well as registry.
 
-- Main API ports
-- Docker swarm ports
+### Securing redis from server 1
+
+Make sure you deny all traffic on public IP address for your redis container.
+You will need to replace `<PUBLIC_IP>` with the public IP address of your server
+where redis is running. This will reject packets coming to default redis port
+6379 via public IP. Make sure you use your private network IP addresses when
+connecting to redis instance on your docker swarm machines.
+
+```bash
+iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdstport 6379 --ctorigdst <PUBLIC_IP> -j REJECT
+```
+
+### Securing swarm worker nodes
+
+Since published services on docker swarm are accessible to public internet, it
+is important to secure our worker nodes containers by rejecting any direct
+traffic to workers' public IP addresses in `DOCKER-USER` chain. The following
+iptables rules will drop all tcp and udp connections to ports exposed from swarm
+containers deployed via `docker stack deploy`. Make sure to run this on each
+worker node and substitue the `<PUBLIC_IP>` address of that corresponding
+server.
+
+```bash
+iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdst <PUBLIC_IP> -j DROP
+iptables -I DOCKER-USER -p udp -m conntrack --ctorigdst <PUBLIC_IP> -j DROP
+```
+
+### Persisting iptables rules
+
+All iptables rules that you have set via shell are lost when server restarts.
+Therfore we need to make sure they are persisted between reboots. To do so, we
+will dump updated iptables rules and load them on server startup. We can use
+`iptables-persistent` to manage iptables persistence.
+
+```bash
+apt-get install -y iptables-persistent
+```
+
+Then whenever you modify iptables, to persist them run:
+
+```bash
+netfilter-persistent save
+```
+
+Other considerations:
+
 - SSH (optional, depending on the setup)
-- Securing redis from docker-compose deployment
+
+# Setting up nginx
