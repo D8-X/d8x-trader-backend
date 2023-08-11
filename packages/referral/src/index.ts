@@ -212,7 +212,8 @@ async function start() {
   if (historyAPIEndpoint == undefined) {
     logger.error("Set HISTORY_API_ENDPOINT");
     return;
-  }
+  } 
+  historyAPIEndpoint = historyAPIEndpoint.replaceAll(`"`, '')
   const rpcConfig = require("../../../config/live.rpc.json");
   let rpcUrl = chooseRandomRPC(false, rpcConfig);
   if (rpcUrl == "") {
