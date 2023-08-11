@@ -22,7 +22,7 @@ POSTGRES_PASSWORD=password
 POSTGRES_DB=db
 POSTGRES_PORT_HISTORY=5432
 # History database postgres connection string (production)
-DATABASE_DSN_HISTORY="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=allow&schema=history"
+DATABASE_DSN_HISTORY="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT_HISTORY}/${POSTGRES_DB}?sslmode=allow&schema=history"
 
 POSTGRES_USER_REFERRAL=user
 POSTGRES_PASSWORD_REFERRAL=password
