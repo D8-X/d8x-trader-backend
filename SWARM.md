@@ -26,7 +26,7 @@ Please note that you will need docker compose v2 for the deployment.
 `host_setup.sh` helper script can be used to automate installation of latest
 docker version.
 
-# Server 1 [WIP]
+# Server 1
 
 In case your database uses ssl mode you might need to provide `sslrootcert` via
 DSN query parameter for `DATABASE_DSN_REFERRAL`. In Linode dashboard you can
@@ -226,7 +226,7 @@ followed the guide up to this point, you will have a publicly accesible redis
 instance on server where you ran `docker compose` as well as publicly accesible
 docker swarm cluster with publicly exposed ports of main api as well as registry.
 
-### Securing redis from server 1
+### Securing REDIS From Server 1
 
 Make sure you deny all traffic on public IP address for your redis container.
 You will need to replace `<PUBLIC_IP>` with the public IP address of your server
@@ -238,7 +238,7 @@ connecting to redis instance on your docker swarm machines.
 iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdstport 6379 --ctorigdst <PUBLIC_IP> -j REJECT
 ```
 
-### Securing swarm nodes (workers + manager)
+### Securing Docker Swarm Nodes (Workers and Manager)
 
 Since published services on docker swarm are accessible to public internet, it
 is important to restrict access to ports exposed by swarm containers. This can
@@ -253,7 +253,7 @@ iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdst <PUBLIC_IP> -j DROP
 iptables -I DOCKER-USER -p udp -m conntrack --ctorigdst <PUBLIC_IP> -j DROP
 ```
 
-### Persisting iptables rules
+### Persisting IPTables Rules
 
 All iptables rules that you have set via shell are lost when server restarts.
 Therfore we need to make sure they are persisted between reboots. To do so, we
@@ -274,18 +274,59 @@ Other considerations:
 
 - SSH (optional, depending on the setup)
 
-# Setting up nginx
+# Setting Up Nginx and Certbot
+Our example setup uses Nginx and Certbot, to estables secured connection (SSL/TLS) to the backend components.
+Nginx can differ depending on choices such as rate limiting, and port usage set in .env. 
+Here we provide a guide that works with the example setting without rate limits.
 
-For simplicty, we recommend using nginx to expose the services to the public
-internet. Install nginx on your server and run it as standalone application.
+## SSL/TLS
 
-You should install nginx on the swarm manager and compose deployment servers.
-Swarm worker nodes should not have nginx running.
+### A-Name Entries
 
-Nginx setup will be different depending on factor such as domains/subdomains
-used, rate limiting, usage of different ports, ssl/tls certs used, etc. Here we
-provide an abstract guide and excerpts of nginx configs for proxying traffic to
-docker swarm and docker compose deployments.
+We require the following A-name entries which you can set up on your domain provider's website:
+* Pointing to the IP of server1: history, referral. For example: history.main.yourdomain.com, referral.main.yourdomain.com
+* Pointing to the IP of the swarm manager: api, ws. For example: ws.main.yourdomain.com, api.main.yourdomain.com
+
+### Certbot
+Setup certificates with Certbot on Server 1 and the Swarm manager.
+Install Nginx via `sudo apt install nginx` on the Swarm manager and Server 1. 
+
+Then follow this guide to install Certbot:
+[Linode Certbot howto](https://www.linode.com/docs/guides/enabling-https-using-certbot-with-nginx-on-ubuntu/)
+
+* On Server 1: history, referral. For example: history.main.yourdomain.com, referral.main.yourdomain.com
+* On the Swarm manager: api, ws. For example: ws.main.yourdomain.com, api.main.yourdomain.com
+
+## Nginx For Server 1
+
+See for example [the Linod guidance on Nginx](https://www.linode.com/docs/guides/how-to-install-and-use-nginx-on-ubuntu-20-04/#manage-nginx).
+A configuration could look like this
+```
+server {
+        server_name referral.dev.yourdomain.com;
+        ssl_certificate /etc/letsencrypt/live/api.main.yourdomain.com/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/api.main.yourdomain.com/privkey.pem;
+        listen 443 ssl;
+        location / {
+                proxy_pass http://127.0.0.1:8889;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+}
+server {
+        server_name history.yourdomain.com;
+        listen 443 ssl;
+        location / {
+                proxy_pass http://127.0.0.1:8888;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;            
+        }
+}
+
+```
+
 
 ## Nginx for docker swarm
 
@@ -294,33 +335,19 @@ API is `3001` and `3002` for websockets (see `docker-stack.yml`). If you modify
 default ports via env or other ways, make sure you adjust and `proxy_pass`
 directives with appropriate values.
 
-Possible setup in `server` or `location` block for the main api websockets:
-
-```conf
-{
-    proxy_pass http://127.0.0.1:3002;
-    proxy_read_timeout 60;
-    proxy_connect_timeout 60;
-    proxy_redirect off;
-
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection 'upgrade';
-    proxy_set_header Host $host;
-    proxy_cache_bypass $http_upgrade;
-}
-```
-
-For example if you are running `wss-main.d8x.brokerdomain.com` subdomain and
-your websockets port is set to `3002`, you can proxy websockets traffic with
-similar setup:
+For example if you are running `ws.main.yourdomain.com` subdomain, your certificates
+have been stored to `api.main.yourdomain.com` and
+your websockets port is set to `8080`, you can proxy websocket traffic with:
 
 ```conf
 server {
-  server_name wss-main.d8x.brokerdomain.com;
-  listen 80;
+  server_name ws.main.yourdomain.com;
+  ssl_certificate /etc/letsencrypt/live/api.main.yourdomain.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/api.main.yourdomain.com/privkey.pem;
+
+  listen 443 ssl;
   location / {
-    proxy_pass http://127.0.0.1:3002;
+    proxy_pass http://127.0.0.1:8080;
     proxy_read_timeout 60;
     proxy_connect_timeout 60;
     proxy_redirect off;
@@ -342,8 +369,12 @@ For the rest api, minimal nginx config could look like this:
 
 ```conf
 server {
-  server_name main.d8x.brokerdomain.com;
-  listen 80;
+  server_name api.dev2.quantena.tech;
+  ssl_certificate /etc/letsencrypt/live/api.main.yourdomain.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/api.main.yourdomain.com/privkey.pem;
+
+  listen 443 ssl;
+
   location / {
     proxy_pass http://127.0.0.1:3001;
     proxy_set_header Host $host;
@@ -353,8 +384,4 @@ server {
 }
 ```
 
-Setup for docker compose deployement of `referrals` and `history` is analogous.
 
-# SSL/TLS certs
-
-Use certbot to setup certificates on servers running publicly exposed nginx.
