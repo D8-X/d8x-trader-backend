@@ -49,7 +49,7 @@ swarm stack.
 docker compose -f docker-compose-prod.yml up --build
 ```
 
-This server also runs the REDIS database that the swarm needs access to, hence its IP needs to
+This server also runs the REDIS database that the swarm needs s to, hence its IP needs to
 be known to the docker swarm servers that we detail below. Add a private IP address for this communication
 (Linode: Network > Add An IP Address > select Private > allocate).
 
@@ -72,7 +72,7 @@ simplicity we will use placeholder `<PRIVATE_IP_ADDR>` as our manager's private
 IP address.
 
 **Note if you have firewall enabled on your private network, make sure you allow
-accessing docker swarm ports. See
+sing docker swarm ports. See
 [Docker swarm ports](https://docs.docker.com/engine/swarm/swarm-tutorial/#open-protocols-and-ports-between-the-hosts)**
 For example:
 
@@ -222,9 +222,12 @@ Display status: `docker stack ps <name>`
 ## Security
 
 There are some security considerations that need to be taken care of. If you
-followed the guide up to this point, you will have a publicly accesible redis
-instance on server where you ran `docker compose` as well as publicly accesible
-docker swarm cluster with publicly exposed ports of main api as well as registry.
+followed the guide up to this point, you will have a publicly accessible Redis
+instance on server where you ran `docker compose` as well as publicly accessible
+Docker Swarm cluster with publicly exposed ports of main api as well as registry.
+
+Additionally on running a firewall (for example ufw), we need to specifically
+block ports.
 
 ### Securing REDIS From Server 1
 
