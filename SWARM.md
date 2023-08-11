@@ -1,7 +1,7 @@
 # Creating managed database service
 
 We will be using linode in this guide. Go ahead to your dashboard > Databases
-and create a managed database. We recommend using more than 4GB ram for your
+and create a managed database. We recommend using more than >=4GB ram for your
 database server.
 
 Make sure to add and whitelist your servers' IP addresses which will be used to
