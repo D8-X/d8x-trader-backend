@@ -5,9 +5,9 @@ The entire backend for the D8X Perpetuals trading frontend package consists of
 - this backend code - lerna monorepo consisting of a few services (history; api;
   pxws-client) read [here](#services) to find out more about the services.
 - candle stick chart server: https://github.com/D8-X/candleD8
-- a price server that provides off-chain oracle prices: [D8X fork repo](https://github.com/D8-X/pyth-crosschain-d8x/tree/main/price_service/server)
+- a price server that provides Pyth off-chain oracle prices
 
-The services run over http/ws and it is required to install a reverse proxy on
+The services run over http/ws and we propose to install a reverse proxy on
 the servers so the traffic can flow via https/wss.
 
 There must be one backend per chain-id.
