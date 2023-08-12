@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("DATABASE_DSN_HISTORY")
 }
 
 enum trade_side{
@@ -130,99 +130,10 @@ model LiquidityWithdrawal{
     @@index([timestamp])
 }
 
-
 model MarginTokenInfo {
   @@map("margin_token_info")
   pool_id Int @id
   token_addr String @db.VarChar(42)
   token_name String @db.VarChar(20)
   token_decimals Int
-}
-
-// referral codes are unique per broker and chain (the code is a database key)
-// e.g., they apply to all pools
-model ReferralCode {
-  @@map("referral_code")
-  code String @id @db.VarChar(200)
-  referrer_addr String @db.VarChar(42)
-  agency_addr String? @db.VarChar(42)
-  broker_addr String @db.VarChar(42)
-  broker_payout_addr String @db.VarChar(42)
-  created_on DateTime @db.Timestamptz @default(now())
-  expiry DateTime @db.Timestamptz @default("2042-04-24T04:42:42+02:00")
-  trader_rebate_perc Decimal @db.Decimal(5,2) @default(0)
-  referrer_rebate_perc Decimal @db.Decimal(5,2) @default(0)
-  agency_rebate_perc Decimal @db.Decimal(5,2) @default(0)
-  @@index([referrer_addr], type: Hash)
-  @@index([agency_addr], type: Hash)
-  @@index([broker_addr], type: Hash)
-  // 0 to many relationships
-  referral_code_usage ReferralCodeUsage[]
-}
-
-// current code registered for trader
-model ReferralCodeUsage {
-  @@map("referral_code_usage")
-  trader_addr String @db.VarChar(42)
-  referral_code ReferralCode @relation(fields: [code], references: [code]) 
-  code String @db.VarChar(200)
-  valid_from DateTime @db.Timestamptz @default(now())
-  valid_to DateTime @db.Timestamptz @default("2042-01-01T00:42:42+00:00")
-  @@id([trader_addr, valid_from])
-  @@index([code])
-  @@index([valid_to])
-}
-
-model ReferralPayment {
-  @@map("referral_payment")
-  trader_addr String @db.VarChar(42)
-  broker_addr String @db.VarChar(42)
-  // no constraint for referral code because we could collect the data from onchain
-  // and we could encounter an unknown referral code in this case
-  code String @db.VarChar(200)
-  pool_id Int
-  timestamp DateTime @db.Timestamptz @default(now())
-  // payment in token's number format, single transaction
-  trader_paid_amount_cc Decimal @db.Decimal(40, 0)
-  referrer_paid_amount_cc Decimal @db.Decimal(40, 0)
-  agency_paid_amount_cc Decimal @db.Decimal(40, 0)
-  broker_paid_amount_cc Decimal @db.Decimal(40, 0)
-    
-  tx_hash String @db.Text
-  tx_confirmed Boolean @default(false)
-  @@id([trader_addr, pool_id, timestamp])
-  @@index([timestamp])
-  @@index([pool_id])
-  @@index([trader_addr])
-}
-
-// Referral cut as specified in referralSettings.json
-// The amount is stored in decimal-N format
-model ReferralSettingCut {
-    @@map("referral_setting_cut")
-    is_agency_cut Boolean
-    cut_perc Decimal @db.Decimal(5, 2)
-    holding_amount_dec_n Decimal? @db.Decimal(77, 0)
-    token_addr String @db.VarChar(42)
-    @@id([is_agency_cut, cut_perc])
-    @@index([cut_perc])
-    @@index([holding_amount_dec_n])
-}
-
-// Amount of tokens that the referrer_addr holds
-// The token address is specified in referral settings
-// The amount is stored in decimal-N format
-model ReferralTokenHoldings {
-    @@map("referral_token_holdings")
-    referrer_addr String @db.VarChar(42)
-    holding_amount_dec_n Decimal @db.Decimal(77, 0)
-    token_addr String @db.VarChar(42)
-    last_updated DateTime @db.Timestamptz @default(now())
-    @@id([referrer_addr, token_addr])
-}
-
-model ReferralSettings {
-    @@map("referral_settings")
-    property String @id @db.VarChar(50)
-    value String @db.VarChar(50)
 }
