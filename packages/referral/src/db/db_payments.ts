@@ -97,7 +97,6 @@ export default class DBPayments {
       if (result.numUpdatedRows > 0n) {
         this.l.info(`dbPayments: inserted tx hash ${hash}`);
       }
-      throw Error();
     } catch (error) {
       this.l.warn(`dbPayments: failed inserting tx hash ${hash} for trader ${openPayment.trader_addr}`);
     }
