@@ -1,5 +1,4 @@
 import { BigNumber, ethers, providers, Wallet } from "ethers";
-``;
 import { Signer } from "@ethersproject/abstract-signer";
 import { StaticJsonRpcProvider } from "@ethersproject/providers";
 import { keccak256 } from "@ethersproject/keccak256";
@@ -15,7 +14,9 @@ interface PaySummary {
   token: string; //addr
   timestamp: number; //uint32
   id: number; //uint32
-  totalAmount: BigNumber; //uint256
+  totalAmount: string; //big int
+  chainId: number;
+  multiPayCtrct: string; //addr
 }
 /**
  * This class uses a remote server that
@@ -213,7 +214,9 @@ export default class PayExecutorRemote extends AbstractPayExecutor {
       token: tokenAddr,
       timestamp: Math.floor(Date.now() / 1000),
       id: id,
-      totalAmount: sm,
+      totalAmount: sm.toString(),
+      chainId: this.chainId,
+      multiPayCtrct: this.multiPayContractAddr,
     };
   }
 }

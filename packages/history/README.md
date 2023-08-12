@@ -63,13 +63,13 @@ yarn watch
 ## Environment variables
 
 ```
-DATABASE_URL - postgres DSN string
+DATABASE_DSN_HISTORY - postgres DSN string
 API_PORT - port on which the REST API will be exposed on
 CHAIN_ID - corresponding to the apprropriate network
 SDK_CONFIG_NAME=testnet
 ```
 
-DATABASE_URL:
+DATABASE_DSN_HISTORY:
 
 -   Create an empty postgres database my_db
 -   The URL is of the form `postgresql://username:password@host:port/databaseName`, e.g., `postgresql://postgres:postgres@host:5432/my_db`

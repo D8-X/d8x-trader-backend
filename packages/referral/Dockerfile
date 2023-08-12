@@ -2,7 +2,12 @@
 FROM node:18-alpine
 
 WORKDIR /app
-COPY . . 
+COPY ./packages/utils ./packages/utils
+COPY ./packages/referral ./packages/referral
+COPY ./package.json .
+COPY ./nx.json .
+COPY ./lerna.json .
+COPY ./config/. ./config/.
 
 RUN yarn install
 RUN npx lerna run build --scope=referral
@@ -13,7 +18,7 @@ WORKDIR packages/referral
 
 # Expose the provided API_PORT
 EXPOSE ${REFERRAL_API_PORT}
-EXPOSE ${HTTP_RPC_URL}
+RUN echo -e "DATABASE_DSN_REFERRAL\n" > .env
 
 CMD ["yarn", "run-production"]
 
