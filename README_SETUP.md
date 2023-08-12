@@ -1,7 +1,20 @@
-# Creating managed database service
+# D8X Backend Setup
 
-We will be using linode in this guide. Go ahead to your dashboard > Databases
-and create a managed database. We recommend using more than >=4GB ram for your
+We recommend the following setup:
+
+- A managed database service. The database hosts tables for historical trading data and the referral system
+- Docker swarm with 3 servers. This component hosts the main API that the front-end communicates with via Websocket and REST API.
+- Docker compose with 1 server that hosts a Redis cache, the components "history", "pxws-client", and "referral"
+
+The documentation below walks through the setup of these services. Alternatively, one could set up everything on one server
+using `docker-compose-all.yml`.
+
+Separate and not documented here are (1) a "remote broker server" that hosts the key and signs, (2) candle data.
+
+# Creating Managed Database Service
+
+We will be using Linode in this guide. Go ahead to your dashboard > Databases
+and create a managed database. We recommend using more than >=4GB RAM for your
 database server.
 
 Make sure to add and whitelist your servers' IP addresses which will be used to
@@ -23,10 +36,27 @@ for more info about DSN structure.
 # Host setup
 
 Please note that you will need docker compose v2 for the deployment.
+It is key to have Docker version >=24.0.5.
 `host_setup.sh` helper script can be used to automate installation of latest
 docker version.
 
-# Server 1
+## Configuration
+
+Parameters for the backend services are found in the `./config` subdirectory at the root level.
+
+- Copy the files in ./config/example.<name>.json into ./config/live.<name>.json (i.e., copy and replace prefix "example." with prefix "live.")
+- live.rpc.json: A list of RPC URLs used for interacting with the different chains.
+  - You are not required to make changes to this file, but you may add or remove as many RPCs as you need
+  - It is encouraged to keep multiple HTTP options for best user experience/robustness
+  - At least one Websocket RPC must be defined
+- live.wsConfig.json: A list of price IDs and price streaming endpoints
+  - You are encouraged to modify this configuration, but the services should be able to start with the default values provided
+  - See the main API [readme](./packages/api/README.md) for details
+- live.referralSettings.json: Configuration of the referral service
+
+  - See the referral API [readme](./packages/referral/README.md) for details
+
+## Server 1
 
 In case your database uses ssl mode you might need to provide `sslrootcert` via
 DSN query parameter for `DATABASE_DSN_REFERRAL`. In Linode dashboard you can
@@ -53,7 +83,7 @@ This server also runs the REDIS database that the swarm needs s to, hence its IP
 be known to the docker swarm servers that we detail below. Add a private IP address for this communication
 (Linode: Network > Add An IP Address > select Private > allocate).
 
-# Deploying with docker swarm
+# Deploying With Docker Swarm
 
 For initial setup of main API we will use 3 servers with docker swarm. Go ahead
 and create 3 ubuntu 22.04 boxes in your linode dashboard. Make sure you create
@@ -137,7 +167,7 @@ line with the ID of your managed node from `docker node ls` command:
 docker node update <MANAGER_NODE_ID> --availability drain
 ```
 
-## Deploying Main API
+### Deploying Main API
 
 This guide assumes you have already pulled this repository on your manager host.
 
@@ -277,33 +307,37 @@ Other considerations:
 
 - SSH (optional, depending on the setup)
 
-# Setting Up Nginx and Certbot
+## Setting Up Nginx and Certbot
+
 Our example setup uses Nginx and Certbot, to estables secured connection (SSL/TLS) to the backend components.
-Nginx can differ depending on choices such as rate limiting, and port usage set in .env. 
+Nginx can differ depending on choices such as rate limiting, and port usage set in .env.
 Here we provide a guide that works with the example setting without rate limits.
 
-## SSL/TLS
+### SSL/TLS
 
-### A-Name Entries
+#### A-Name Entries
 
 We require the following A-name entries which you can set up on your domain provider's website:
-* Pointing to the IP of server1: history, referral. For example: history.main.yourdomain.com, referral.main.yourdomain.com
-* Pointing to the IP of the swarm manager: api, ws. For example: ws.main.yourdomain.com, api.main.yourdomain.com
 
-### Certbot
+- Pointing to the IP of server1: history, referral. For example: history.main.yourdomain.com, referral.main.yourdomain.com
+- Pointing to the IP of the swarm manager: api, ws. For example: ws.main.yourdomain.com, api.main.yourdomain.com
+
+#### Certbot
+
 Setup certificates with Certbot on Server 1 and the Swarm manager.
-Install Nginx via `sudo apt install nginx` on the Swarm manager and Server 1. 
+Install Nginx via `sudo apt install nginx` on the Swarm manager and Server 1.
 
 Then follow this guide to install Certbot:
 [Linode Certbot howto](https://www.linode.com/docs/guides/enabling-https-using-certbot-with-nginx-on-ubuntu/)
 
-* On Server 1: history, referral. For example: history.main.yourdomain.com, referral.main.yourdomain.com
-* On the Swarm manager: api, ws. For example: ws.main.yourdomain.com, api.main.yourdomain.com
+- On Server 1: history, referral. For example: history.main.yourdomain.com, referral.main.yourdomain.com
+- On the Swarm manager: api, ws. For example: ws.main.yourdomain.com, api.main.yourdomain.com
 
-## Nginx For Server 1
+#### Nginx For Server 1
 
 See for example [the Linod guidance on Nginx](https://www.linode.com/docs/guides/how-to-install-and-use-nginx-on-ubuntu-20-04/#manage-nginx).
 A configuration could look like this
+
 ```
 server {
         server_name referral.dev.yourdomain.com;
@@ -335,14 +369,13 @@ server {
                 add_header 'Access-Control-Allow-Origin' '*';
                 add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
                 add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range';
-                add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range';            
+                add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range';
         }
 }
 
 ```
 
-
-## Nginx for docker swarm
+#### Nginx for docker swarm
 
 Swarm hosts main api which is an API + Websockets server. Default port for main
 API is `3001` and `3002` for websockets (see `docker-stack.yml`). If you modify
@@ -408,5 +441,3 @@ server {
   }
 }
 ```
-
-
