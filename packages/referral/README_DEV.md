@@ -1,15 +1,5 @@
 # Referral System DEV
 
-# Migrate
-
-https://github.com/golang-migrate/migrate#migration-sources
-
-```
-$ source .env
-$ migrate -path ./packages/referral/src/migrations -database "postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@localhost:5432/${POSTGRES_DB_REFERRAL}?sslmode=disable" up
-
-```
-
 ### Testing Codes
 
 INSERT INTO referral_code (code, referrer_addr, agency_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc, agency_rebate_perc)
