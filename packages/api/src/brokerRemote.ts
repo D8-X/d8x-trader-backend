@@ -44,12 +44,12 @@ export default class BrokerRemote extends BrokerIntegration {
     try {
       const response = await fetch(endpoint);
       const data = await response.json();
-      this.brokerFee = data.brokerFeeTbps;
+      this.brokerFee = Number(data.BrokerFeeTbps);
     } catch (error) {
       console.log("brokerRemote: failed to fetch broker address");
     }
 
-    return this.brokerFee ?? 0;
+    return this.brokerFee!;
   }
 
   public async signOrder(SCOrder: SmartContractOrder): Promise<string> {
