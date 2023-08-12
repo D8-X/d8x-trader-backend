@@ -32,8 +32,12 @@ POSTGRES_PORT_REFERRAL=5433
 DATABASE_DSN_REFERRAL="postgresql://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@localhost:${POSTGRES_PORT_REFERRAL}/${POSTGRES_DB_REFERRAL}?sslmode=allow&sslrootcert=/pg_ca_cert&schema=referral"
 
 #--- BROKER SETTINGS (optional) ----
-# Broker key
+# Broker key. If remote broker is provided, 
+# this key is used to sign referral payment requests to the remote broker
 BROKER_KEY=""
-# Broker fee in tenth of basis point.
+# Broker fee in tenth of basis point. Not relevant if REMOTE_BROKER_HTTP provided
 # For example 0.06% = 6 bps = 60 tbps
 BROKER_FEE_TBPS=60
+# Optional Remote Broker, e.g., https://broker.main.yourdomain.com
+REMOTE_BROKER_HTTP=""
+
