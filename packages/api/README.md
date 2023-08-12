@@ -114,8 +114,6 @@ then the frontend can submit it.
     - `newPositionRisk` is what the given trader's positionRisk would look like if the given order is executed
     - `availableMargin` is the maximum amount of margin that can be withdrawn from this account
 
-Swagger (incomplete): http://localhost:3001/api/docs/
-
 # Websocket
 
 The frontend subscribes to perpetuals and trader addresses. Some messages
