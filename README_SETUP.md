@@ -3,8 +3,8 @@
 We recommend the following setup:
 
 - A managed database service. The database hosts tables for historical trading data and the referral system
-- Docker swarm with 3 servers. This component hosts the main API that the front-end communicates with via Websocket and REST API.
-- Docker compose with 1 server that hosts a Redis cache, the components "history", "pxws-client", and "referral"
+- 'Swarm manager and 2 servers': Docker swarm with 3 servers. This component hosts the main API that the front-end communicates with via Websocket and REST API.
+- 'Server 1': Docker compose with 1 server that hosts a Redis cache, the components "history", "pxws-client", and "referral"
 
 The documentation below walks through the setup of these services. Alternatively, one could set up everything on one server
 using `docker-compose-all.yml`.
@@ -23,38 +23,131 @@ section. We recommend connecting to your database via private IP address and
 using servers in the same region.
 
 To run History and Referrals services you will need to use 2 different
-databases. These database can be hosted on the same cluster or it can even be a
-different schemas in the same database. It's up to you to choose. For minmal
-setup we recommend having 2 schemas on same database. We will assume you have 2
-schemas: `history` and `referrals` in your `postgres` database in the exaples.
+databases. In our proposed setup the tables for history and referral are hosted on the same cluster with 2 schemas. 
 
-Provide the connection strings as `DATABASE_DSN_HISTORY` and
-`DATABASE_DSN_REFERRALS` environment variables in your `.env` file. See
-https://stackoverflow.com/questions/3582552/what-is-the-format-for-the-postgresql-connection-string-url/20722229#20722229
-for more info about DSN structure.
+
 
 # Host setup
 
-Please note that you will need docker compose v2 for the deployment.
 It is key to have Docker version >=24.0.5.
-`host_setup.sh` helper script can be used to automate installation of latest
-docker version.
+Use the helper script `host_setup.sh` to get the latest version.
+On the docker-swarm manager and Server 1, download the code and prepare .env:
+```
+$ git clone https://<user>:<token>@github.com/D8-X/d8x-trader-backend.git
+$ cd d8x-trader-backend
+$ cp .envExample .env
+$ nano .env
+```
 
-## Configuration
+- Provide the connection strings as `DATABASE_DSN_HISTORY` and
+`DATABASE_DSN_REFERRALS` environment variables in your `.env` file. See
+https://stackoverflow.com/questions/3582552/what-is-the-format-for-the-postgresql-connection-string-url/20722229#20722229
+for more info about DSN structure.
+- Insert a broker key (BROKER_KEY=”abcde0123…” without “0x”).
+    - Option 1: Broker Key on Server
+        - if the broker key is to be hosted on this server, then you also set the broker fee. That is, adjust BROKER_FEE_TBPS. The unit is tenth of a basis point, so 60 = 6 basis points = 0.06%.
+    - Option 2: External Broker Server That Hosts The Broker-Key
+        - You can run an external “broker server” that hosts the key: https://github.com/D8-X/d8x-broker-server
+        - You will still need “BROKER_KEY”, and the address corresponding to your BROKER_KEY has to be whitelisted on the broker-server in the file config/live.chainConfig.json under “allowedExecutors”. (The BROKER_KEY in this case is used for the referral system to sign the payment execution request that is sent to the broker-server).
+        - For the broker-server to be used, set the environment variable `REMOTE_BROKER_HTTP=""` to the http-address of your broker server.
+- Specify `CHAIN_ID=80001` for [the chain](https://chainlist.org/) that you are running the backend for (of course only chains where D8X perpetuals are deployed to like Mumbai 80001 or zkEVM testnet 1442)
+- Change passwords for the entries `REDIS_PASSWORD`, and `POSTGRES_PASSWORD`
 
-Parameters for the backend services are found in the `./config` subdirectory at the root level.
+Additional parameters for the backend services on top of .env are found in the `./config` subdirectory at the root level.
 
-- Copy the files in ./config/example.<name>.json into ./config/live.<name>.json (i.e., copy and replace prefix "example." with prefix "live.")
+Copy the files in  `./config/example.<name>.json` into `./config/live.<name>.json` (i.e., copy and replace prefix "example." with prefix "live.")
+
 - live.rpc.json: A list of RPC URLs used for interacting with the different chains.
-  - You are not required to make changes to this file, but you may add or remove as many RPCs as you need
+  - You may add or remove as many RPCs as you need
   - It is encouraged to keep multiple HTTP options for best user experience/robustness
   - At least one Websocket RPC must be defined
 - live.wsConfig.json: A list of price IDs and price streaming endpoints
-  - You are encouraged to modify this configuration, but the services should be able to start with the default values provided
+  - The services should be able to start with the default values provided
   - See the main API [readme](./packages/api/README.md) for details
-- live.referralSettings.json: Configuration of the referral service
+- live.referralSettings.json: Configuration of the referral service.
+  - You can turn off the referral system by editing config/live.referralSettings.json and setting `"referralSystemEnabled": false,` — if you choose to turn it on, see below how to configure the system
+  or the referral API [readme](./packages/referral/README.md) for more details.
 
-  - See the referral API [readme](./packages/referral/README.md) for details
+Ensure you have the same .env and live.* configuration files on Server 1 and the Swarm Manager.
+
+## Referral System Configuration
+The referral system is optional and can be disabled by setting the first entry in  config/live.referralSettings.json to false. If you enable the referral system, also make sure there is a broker key entered in the .env-file (see above). 
+
+Here is how the referral system works in a nutshell.
+
+
+- The system allows referrers to distribute codes to traders. Traders will receive a fee rebate after a given amount of time and accrued fees. Referrers will also receive a portion of the trader fees that they referred
+- The broker can determine the share of the broker imposed trading fee that go to the referrer, and the referrer can re-distribute this fee between a fee rebate for the trader and a portion for themselves. The broker can make the size of the fee share dependent on token holdings of the referrer. The broker can configure the fee, amount, and token.
+- There is a second type of referral that works via agency. In this setup the agency serves as an intermediary that connects to referrers. In this case the token holdings are not considered. Instead, the broker sets a fixed amount of the trading fee to be redistributed to the agency (e.g., 80%), and the agency determines how this fee is split between referrer, trader, and agency
+- More details here [referral/README_PAYSYS.md](./packages/referral/README_PAYSYS.md)
+
+All of this can be configured as follows.
+<details> <summary>How to set live.referralSettings.json Parameters</summary>
+  
+- `referralSystemEnabled`
+    set to true to enable the referral system, false otherwise. The following settings do not matter if the system is disabled.
+    
+- `agencyCutPercent`
+    if the broker works with an agency that distributes referral codes to referrers/KOL (Key Opinion Leaders), the broker redistributes 80% of the fees earned by a trader that was referred through the agency. Set this value to another percentage if desired.
+    
+- `permissionedAgencies`
+    the broker allow-lists the agencies that can generate referral codes. The broker doesn’t want to open this to the public because otherwise each trader could be their own agency and get an 80% (or so) fee rebate.
+    
+- `referrerCutPercentForTokenXHolding`
+    the broker can have their own token and allow a different rebate to referrers that do not use an agency. The more tokens that the referrer holds, the higher the rebate they get. Here is how to set this. For example, in the config below the referrer without tokens gets 0.2% rebate that they can re-distribute between them and a trader, and the referrer with 100 tokens gets 1.5% rebate. Note that the referrer can also be the trader, because creating referral codes is permissionless, so don’t be to generous especially for low token holdings. 
+    
+- `tokenX`
+    specify the token address that you as a broker want to use for the referrer cut. If you do not have a token, use the D8X token! Set the decimals according to the ERC-20 decimal convention. Most tokens use 18 decimals.
+    
+- `paymentScheduleMinHourDayofmonthWeekday`
+    here you can schedule the rebate payments that will automatically be performed. The syntax is similar to “cron”-schedules that you might be familiar with. In the example below, *"0-14-*-0"*, the payments are processed on Sundays (weekday 0) at 14:00 UTC.
+    
+- `paymentMaxLookBackDays`
+    If no payment was processed, the maximal look-back time for trading fee rebates is 14 days. For example, fees paid 15 days ago will not be eligible for a rebate. This setting is not of high importance and 14 is a good value.
+    
+- `minBrokerFeeCCForRebatePerPool`
+    this settings is crucial, it determines the minimal amount of trader fees accrued for a given trader in the pool’s collateral currency that triggers a payment. For example, in pool 1, the trader needs to have paid at least 100 tokens in fees before a rebate is paid. If the trader accrues 100 tokens only after 3 payment cycles, the entire amount will be considered. Hence this setting saves on gas-costs for the payments. Depending on whether the collateral of the pool is BTC or MATIC, we obviously need quite a different number. 
+    
+- `brokerPayoutAddr`
+    you might want to separate the address that accrues the trading fees from the address that receives the fees after redistribution. Use this setting to determine the address that receives the net fees.
+    </details>
+
+<details>
+  <summary>Sample Referral Configuration File (config/live.referralSettings.json)</summary>
+  
+  ```
+ {
+  "referralSystemEnabled": false,
+  "agencyCutPercent": 80,
+  "permissionedAgencies": [
+    "0x21B864083eedF1a4279dA1a9A7B1321E6102fD39",
+    "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
+    "0x98232"
+  ],
+  "referrerCutPercentForTokenXHolding": [
+    [0.2, 0],
+    [1.5, 100],
+    [2.5, 1000],
+    [3.5, 10000]
+  ],
+  "tokenX": { "address": "0x2d10075E54356E16Ebd5C6BB5194290709B69C1e", "decimals": 18 },
+  "paymentScheduleMinHourDayofmonthWeekday": "0-14-*-0",
+  "paymentMaxLookBackDays": 14,
+  "minBrokerFeeCCForRebatePerPool": [
+    [100, 1],
+    [100, 2],
+    [0.01, 3]
+  ],
+  "brokerPayoutAddr": "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
+  "defaultReferralCode": {
+    "referrerAddr": "",
+    "agencyAddr": "0x863AD9Ce46acF07fD9390147B619893461036194",
+    "traderReferrerAgencyPerc": [0, 0, 45]
+  },
+  "multiPayContractAddr": "0xfCBE2f332b1249cDE226DFFE8b2435162426AfE5"
+}
+  ```
+</details>
 
 ## Server 1
 
@@ -101,8 +194,7 @@ IP address of the server which will be the swarm manager. For the sake of
 simplicity we will use placeholder `<PRIVATE_IP_ADDR>` as our manager's private
 IP address.
 
-**Note if you have firewall enabled on your private network, make sure you allow
-sing docker swarm ports. See
+**Make sure your firewall allows docker swarm ports. See
 [Docker swarm ports](https://docs.docker.com/engine/swarm/swarm-tutorial/#open-protocols-and-ports-between-the-hosts)**
 For example:
 
