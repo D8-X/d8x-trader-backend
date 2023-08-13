@@ -58,10 +58,10 @@ export default class TokenAccountant {
 
   public async getCutPercentageForReferrer(referrerAddr: string): Promise<number> {
     let tokenAmount = await this.getSetTokenAmountForReferrer(referrerAddr);
-    return this.dbTokenHoldings.queryCutPercentForTokenHoldings(tokenAmount, this.tokenXAddr);
+    return this.dbTokenHoldings.queryCutPercentForTokenHoldings(tokenAmount, this.tokenXAddr, false);
   }
   public async getCutPercentageForAgency(): Promise<number> {
-    return this.dbTokenHoldings.queryCutPercentForTokenHoldings(BigInt(0), "");
+    return this.dbTokenHoldings.queryCutPercentForTokenHoldings(BigInt(0), "", true);
   }
 
   /**
