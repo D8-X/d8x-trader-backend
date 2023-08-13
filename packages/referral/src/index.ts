@@ -21,6 +21,8 @@ import PayExecutorLocal from "./svc/payExecutorLocal";
 import { createKyselyDBInstance } from "./db/database";
 import { Database } from "./db/db_types";
 import { Kysely } from "kysely";
+import AbstractPayExecutor from "./svc/abstractPayExecutor";
+import PayExecutorRemote from "./svc/payExecutorRemote";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const defaultLogger = () => {
@@ -194,6 +196,10 @@ async function start() {
   if (process.env.BROKER_KEY != undefined && process.env.BROKER_KEY != "") {
     key = process.env.BROKER_KEY;
   }
+  if (key == "") {
+    logger.info("No BROKER_KEY defined. Required for referral system. Existing.");
+    return;
+  }
 
   let port: number;
   if (process.env.REFERRAL_API_PORT == undefined) {
@@ -212,8 +218,8 @@ async function start() {
   if (historyAPIEndpoint == undefined) {
     logger.error("Set HISTORY_API_ENDPOINT");
     return;
-  } 
-  historyAPIEndpoint = historyAPIEndpoint.replaceAll(`"`, '')
+  }
+  historyAPIEndpoint = historyAPIEndpoint.replaceAll(`"`, "");
   const rpcConfig = require("../../../config/live.rpc.json");
   let rpcUrl = chooseRandomRPC(false, rpcConfig);
   if (rpcUrl == "") {
@@ -229,24 +235,30 @@ async function start() {
     return;
   }
 
-  let payExecutor = new PayExecutorLocal(key, settings.multiPayContractAddr, rpcUrl, logger);
+  let payExecutor: AbstractPayExecutor;
+  let remoteBrokerAddr = process.env.REMOTE_BROKER_HTTP;
+  if (remoteBrokerAddr != undefined && process.env.REMOTE_BROKER_HTTP != "") {
+    logger.info("Creating remote payment executor");
+    const myId = "1";
+    payExecutor = new PayExecutorRemote(
+      key,
+      settings.multiPayContractAddr,
+      rpcUrl,
+      chainId,
+      logger,
+      remoteBrokerAddr,
+      myId
+    );
+  } else {
+    logger.info("Creating local payment executor");
+    payExecutor = new PayExecutorLocal(key, settings.multiPayContractAddr, rpcUrl, logger);
+  }
   const brokerAddr = await payExecutor.getBrokerAddress();
 
   const dbTokenHoldings = new DBTokenHoldings(dbHandler, logger);
 
-  let res2 = await dbTokenHoldings.queryCutPercentForTokenHoldings(
-    110000000000000000000n,
-    "0x2d10075E54356E16Ebd5C6BB5194290709B69C1e"
-  );
-  console.log(res2);
   const dbReferralCode = new DBReferralCode(dbHandler, brokerAddr, settings, logger);
   await setDefaultReferralCode(dbReferralCode, settings);
-  let tst: APIReferralCodeSelectionPayload = {
-    code: "CUMULUS2",
-    traderAddr: "0x9d5aaB428e98678d0E645ea4AeBd25f744341a05",
-    createdOn: 0,
-    signature: "",
-  };
 
   let ta = new TokenAccountant(dbTokenHoldings, settings.tokenX.address, logger);
   await ta.initProvider(rpcUrl);

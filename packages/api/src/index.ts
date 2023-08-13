@@ -5,6 +5,7 @@ import BrokerNone from "./brokerNone";
 import BrokerRegular from "./brokerRegular";
 import BrokerIntegration from "./brokerIntegration";
 import { PerpetualDataHandler, NodeSDKConfig } from "@d8x/perpetuals-sdk";
+import BrokerRemote from "./brokerRemote";
 
 async function start() {
   dotenv.config();
@@ -28,13 +29,22 @@ async function start() {
     sdkConfig.priceFeedEndpoints = priceFeedEndpoints;
   }
   let broker: BrokerIntegration;
-  if (process.env.BROKER_KEY == undefined || process.env.BROKER_KEY == "" || process.env.BROKER_FEE_TBPS == undefined) {
-    console.log("No broker PK or fee defined, using empty broker.");
-    broker = new BrokerNone();
-  } else {
+  let remoteBrokerAddr = process.env.REMOTE_BROKER_HTTP;
+
+  if (remoteBrokerAddr != undefined && process.env.REMOTE_BROKER_HTTP != "") {
+    const brokerIdName = "1";
+    broker = new BrokerRemote(remoteBrokerAddr, brokerIdName, sdkConfig.chainId);
+  } else if (
+    process.env.BROKER_KEY != undefined &&
+    process.env.BROKER_KEY != "" &&
+    process.env.BROKER_FEE_TBPS != undefined
+  ) {
     console.log("Initializing broker");
     const feeTbps = process.env.BROKER_FEE_TBPS == undefined ? 0 : Number(process.env.BROKER_FEE_TBPS);
     broker = new BrokerRegular(process.env.BROKER_KEY, feeTbps);
+  } else {
+    console.log("No broker PK/fee or remore broker defined, using empty broker.");
+    broker = new BrokerNone();
   }
   sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
   let wsRPC = chooseRandomRPC(true, rpcConfig);
