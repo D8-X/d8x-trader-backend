@@ -195,10 +195,13 @@ We will use placeholder `<PRIVATE_IP_ADDR>` as our manager's private IP address.
 Again, it's important to have Docker >=24.0.5 installed. 
 Make sure you have Docker your firewall allows Docker Swarm ports. See
 [Docker swarm ports](https://docs.docker.com/engine/swarm/swarm-tutorial/#open-protocols-and-ports-between-the-hosts).
-For example:
+
+TCP port 2377: Used for cluster management communications.
+TCP and UDP port 7946: Used for communication among nodes.
+UDP port 4789: Used for overlay network traffic.
 
 ```
-sudo ufw allow 2377/tcp & sudo ufw allow 7946/tcp & sudo ufw allow 7946/udp
+sudo ufw allow 2377/tcp & sudo ufw allow 7946/tcp & sudo ufw allow 4789/udp
 
 ```
 
@@ -325,7 +328,8 @@ variables `PORT_REST` and `PORT_WEBSOCKET`.
 Helpful commands are:
 - List Docker stack: `docker stack ls`
 - Display status: `docker stack ps <name>`
-
+- `docker service ls` to get <service_name>
+- inspect logs: `docker service logs -f <service_name>`
 ## Security
 
 There are some security considerations that need to be taken care of. If you
