@@ -111,7 +111,7 @@ export default class DBTokenHoldings {
    * @param tokenAddr address of the token
    * @returns percentage number, e.g. 1.2 for 1.2%
    */
-  public async queryCutPercentForTokenHoldings(holdingAmount: bigint, tokenAddr: string): Promise<number> {
+  public async queryCutPercentForTokenHoldings(holdingAmount: bigint, tokenAddr: string, isViaAgency: boolean): Promise<number> {
     let addr = tokenAddr.toLowerCase();
     interface Response {
       max_cut: number;
@@ -120,9 +120,10 @@ export default class DBTokenHoldings {
         SELECT MAX(cut_perc) as max_cut
         FROM referral_setting_cut
         WHERE LOWER(token_addr)=${addr}
-         AND holding_amount_dec_n<${holdingAmount}
-         AND is_agency_cut=false
+         AND holding_amount_dec_n<=${holdingAmount}
+         AND is_agency_cut=${isViaAgency}
         `.execute(this.dbHandler);
+    
     if (response.rows.length == 0) {
       let msg = `could not determine cut percent for token ${tokenAddr} holding ${holdingAmount}`;
       this.l.error(msg);
