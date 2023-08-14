@@ -18,8 +18,8 @@
 		"postinstall": "patch-package"
 	},
 	"dependencies": {
-		"@d8x/perpetuals-sdk": "^0.8.19",
-		"@prisma/client": "^4.13.0",
+		"@d8x/perpetuals-sdk": "^0.8.33",
+		"@prisma/client": "^5.1.1",
 		"@types/ws": "^8.5.5",
 		"cors": "^2.8.5",
 		"cron-schedule": "^4.0.0",
