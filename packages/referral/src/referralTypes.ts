@@ -21,6 +21,13 @@ export interface ReferralSettings {
   multiPayContractAddr: string;
 }
 
+export interface ReferralCodeData {
+  brokerPayoutAddr: string;
+  referrerAddr: string;
+  agencyAddr: string;
+  traderReferrerAgencyPerc: [number, number, number];
+}
+
 export interface ReferralOpenPayResponse {
   pool_id: bigint;
   trader_addr: string;

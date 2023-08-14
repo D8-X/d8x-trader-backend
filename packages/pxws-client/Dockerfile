@@ -14,7 +14,15 @@ WORKDIR /app
 # COPY package*.json ./
 # COPY yarn.lock ./
 
-COPY . .
+#COPY . .
+COPY ./packages/utils ./packages/utils
+COPY ./packages/pxws-client ./packages/pxws-client
+COPY ./package.json .
+COPY ./nx.json .
+COPY ./lerna.json .
+COPY yarn.lock ./
+COPY ./config/. ./config/.
+
 RUN yarn install 
 
 

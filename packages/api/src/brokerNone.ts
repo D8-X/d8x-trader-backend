@@ -1,6 +1,6 @@
 import ethers from "ethers";
 import BrokerIntegration from "./brokerIntegration";
-import { Order, SmartContractOrder, ZERO_ADDRESS } from "@d8x/perpetuals-sdk";
+import { Order, SmartContractOrder, ZERO_ADDRESS, NodeSDKConfig } from "@d8x/perpetuals-sdk";
 
 export default class BrokerNone extends BrokerIntegration {
   public async getBrokerAddress(): Promise<string> {
@@ -14,7 +14,7 @@ export default class BrokerNone extends BrokerIntegration {
     return await "";
   }
 
-  public async initialize(): Promise<string> {
+  public async initialize(config: NodeSDKConfig): Promise<string> {
     return Promise.resolve("");
   }
 }

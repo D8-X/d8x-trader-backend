@@ -194,7 +194,6 @@ export function getRedisConfig(): RedisConfig {
   if (originUrl == undefined) {
     throw new Error("REDIS_URL not defined");
   }
-  console.log("URL=", originUrl);
   let redisURL = new URL(originUrl);
   const host = redisURL.hostname;
   const port = parseInt(redisURL.port);
@@ -531,7 +530,6 @@ export function chooseRandomRPC(ws = false, rpcConfig: RPCConfig[]): string {
   if (chainId == -1) {
     throw new Error("Set CHAIN_ID in .env (e.g. CHAIN_ID=80001)");
   }
-
   let urls: string[] = [];
   for (let k = 0; k < rpcConfig.length; k++) {
     if (rpcConfig[k].chainId == chainId) {

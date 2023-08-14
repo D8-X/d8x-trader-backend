@@ -2,6 +2,8 @@
   {
     "chainId": 80001,
     "streamName": "crypto1",
+    "type": "pyth",
+    "httpEndpoints": ["https://xc-testnet.pyth.network/api"],
     "wsEndpoints": ["wss://xc-testnet.pyth.network/ws"],
     "tickers": ["BTC-USD", "ETH-USD", "MATIC-USD", "USDC-USD", "USD-CHF", "GBP-USD", "XAU-USD"],
     "feedIds": [
@@ -17,6 +19,8 @@
   {
     "chainId": 1442,
     "streamName": "crypto1",
+    "type": "pyth",
+    "httpEndpoints": ["https://hermes-beta.pyth.network/api"],
     "wsEndpoints": ["wss://hermes-beta.pyth.network/ws"],
     "tickers": ["BTC-USD", "ETH-USD", "MATIC-USD", "USDC-USD", "USD-CHF", "GBP-USD", "XAU-USD"],
     "feedIds": [

@@ -75,11 +75,11 @@ type ControlledEventHandlerName =
   | "onExecutionFailed";
 
 export default class EventListener extends IndexPriceInterface {
-  traderInterface: TraderInterface;
+  traderInterface!: TraderInterface;
   proxyContract: Contract | undefined;
   orderBookContracts: Record<string, Contract> = {};
-  wsRPC: string;
-
+  wsRPC!: string;
+  isInitialized = false;
   fundingRate: Map<number, number>; // perpetualId -> funding rate
   openInterest: Map<number, number>; // perpetualId -> openInterest
   lastBlockChainEventTs: number; //here we log the event occurence time to guess whether the connection is alive
@@ -95,13 +95,12 @@ export default class EventListener extends IndexPriceInterface {
   // event. This is to detect if an event is triggered multiple times (an RPC issue)
   eventControlCircularBuffer: Record<ControlledEventHandlerName, { hash: string[]; pointer: number }>;
 
-  constructor(sdkConfig: NodeSDKConfig, wsRPC: string) {
+  constructor() {
     super();
-    this.wsRPC = wsRPC;
+
     this.lastBlockChainEventTs = Date.now();
     this.fundingRate = new Map<number, number>();
     this.openInterest = new Map<number, number>();
-    this.traderInterface = new TraderInterface(sdkConfig);
     this.subscriptions = new Map<number, Map<string, WebSocket.WebSocket[]>>();
     this.clients = new Map<WebSocket.WebSocket, Array<ClientSubscription>>();
     this.resetEventFrequencies(this.mktOrderFrequency);
@@ -113,23 +112,31 @@ export default class EventListener extends IndexPriceInterface {
     };
   }
 
-  public async initialize(sdkInterface: SDKInterface) {
-    await super.initialize(sdkInterface);
+  public async initialize(sdkInterface: SDKInterface, sdkConfig: NodeSDKConfig, wsRPC: string) {
+    await super.priceInterfaceInitialize(sdkInterface);
+    this.traderInterface = new TraderInterface(sdkConfig);
     await this.traderInterface.createProxyInstance();
+    this.wsRPC = wsRPC;
     this.resetRPCWebsocket(this.wsRPC);
     sdkInterface.registerObserver(this);
     this.lastBlockChainEventTs = Date.now();
+    this.isInitialized = true;
   }
 
   public async resetRPCWebsocket(newWsRPC: string) {
     this.stopListening();
     this.wsRPC = newWsRPC;
     console.log(`set new ws rpc : ${newWsRPC}`);
+
+    let provider = new providers.WebSocketProvider(new SturdyWebSocket(this.wsRPC, { wsConstructor: WebSocket }));
+    await provider.ready;
+    provider.on("error", (error: Error) => this.onError(error));
     this.proxyContract = new Contract(
       this.traderInterface.getProxyAddress(),
       this.traderInterface.getABI("proxy")!,
-      new providers.WebSocketProvider(new SturdyWebSocket(this.wsRPC, { wsConstructor: WebSocket }))
+      provider
     );
+
     this.addProxyEventHandlers();
     for (const symbol of Object.keys(this.orderBookContracts)) {
       this.addOrderBookEventHandlers(symbol);
@@ -159,6 +166,15 @@ export default class EventListener extends IndexPriceInterface {
     for (const symbol of Object.keys(this.orderBookContracts)) {
       this.removeOrderBookEventHandlers(symbol);
     }
+  }
+
+  /**
+   * On Error of Websocket connection -> rethrow
+   * @param error error from websocket
+   */
+  private onError(error: Error) {
+    console.log(`Websocket error:${error.message}`);
+    throw Error("websocket");
   }
 
   private resetEventFrequencies(freq: EventFrequencyCount) {
@@ -312,7 +328,10 @@ export default class EventListener extends IndexPriceInterface {
   protected async _update(msg: String) {
     // we receive a message from the observable sdk
     // on update exchange info; we update price info and inform subscribers
-    console.log("received update from sdkInterface");
+    if (!this.isInitialized) {
+      return;
+    }
+    console.log("received update from sdkInterface", msg);
     let info: ExchangeInfo = await this.traderInterface.exchangeInfo();
     // update fundingRate: Map<number, number>; // perpetualId -> funding rate
     //        openInterest: Map<number, number>; // perpetualId -> openInterest
@@ -374,6 +393,7 @@ export default class EventListener extends IndexPriceInterface {
       throw new Error("proxy contract not defined");
     }
     const proxyContract = this.proxyContract;
+
     proxyContract.on("UpdateMarkPrice", (perpetualId, fMidPricePremium, fMarkPricePremium, fSpotIndexPrice) => {
       this.onUpdateMarkPrice(perpetualId, fMidPricePremium, fMarkPricePremium, fSpotIndexPrice);
     });
@@ -467,12 +487,13 @@ export default class EventListener extends IndexPriceInterface {
    * @param symbol order book symbol
    */
   private addOrderBookEventHandlers(symbol: string) {
+    let provider = new providers.WebSocketProvider(this.wsRPC);
     this.orderBookContracts[symbol] = new Contract(
       this.traderInterface.getOrderBookAddress(symbol),
       this.traderInterface.getABI("lob")!,
-      new providers.WebSocketProvider(this.wsRPC)
+      provider
     );
-
+    provider.on("error", (error: Error) => this.onError(error));
     const contract = this.orderBookContracts[symbol];
 
     contract.on(

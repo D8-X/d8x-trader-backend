@@ -1,5 +1,4 @@
 import { BigNumber, ethers, providers, Wallet } from "ethers";
-``;
 import { Signer } from "@ethersproject/abstract-signer";
 import { StaticJsonRpcProvider } from "@ethersproject/providers";
 import { keccak256 } from "@ethersproject/keccak256";
@@ -15,7 +14,9 @@ interface PaySummary {
   token: string; //addr
   timestamp: number; //uint32
   id: number; //uint32
-  totalAmount: BigNumber; //uint256
+  totalAmount: string; //big int
+  chainId: number;
+  multiPayCtrct: string; //addr
 }
 /**
  * This class uses a remote server that
@@ -28,17 +29,20 @@ export default class PayExecutorRemote extends AbstractPayExecutor {
   private endpointGetBrokerAddress = "/broker-address";
   private endpointSignPaymentExecution = "/sign-payment";
   private signer: Signer;
+  private apiUrl: string;
   constructor(
     privateKey: string,
     multiPayContractAddr: string,
     rpcUrl: string,
     private chainId: number,
     l: Logger,
-    private apiUrl: string,
+    apiUrl: string,
     private myId: string
   ) {
     super(privateKey, multiPayContractAddr, rpcUrl, l);
     this.signer = this.createSigner(this.rpcUrl);
+    // remove trailing slash:
+    this.apiUrl = apiUrl.replace(/\/+$/, "");
   }
 
   public createSigner(nodeURL: string): Signer {
@@ -97,6 +101,9 @@ export default class PayExecutorRemote extends AbstractPayExecutor {
     try {
       remoteSig = await this.getRemoteSignature(sig, ps);
     } catch (error) {
+      if (error instanceof Error && error.message == "Multipay ctrct mismatch") {
+        throw error;
+      }
       return "fail";
     }
 
@@ -115,10 +122,13 @@ export default class PayExecutorRemote extends AbstractPayExecutor {
 
     // payment execution
     try {
-      let tx = await multiPay.delegatedPay(ps, remoteSig, d.amountsPayable, d.addrPayable, msg, { gasLimit: 75_000 });
+      let tx = await multiPay.delegatedPay(ps, remoteSig, d.amountsPayable, d.addrPayable, msg, { gasLimit: 150_000 });
       return tx.hash;
     } catch (error) {
       this.l.warn(`error when executing multipay for token ${ps.token}`, error);
+      if (Object(error).code !== undefined && Object(error).code == "INSUFFICIENT_FUNDS") {
+        throw Error("executor has insufficient funds");
+      }
       return "fail";
     }
   }
@@ -131,13 +141,16 @@ export default class PayExecutorRemote extends AbstractPayExecutor {
    */
   private async getRemoteSignature(signature: string, ps: PaySummary) {
     let reqData = {
-      PaySummary: ps,
+      payment: ps,
       signature: signature,
     };
     try {
       const response = await axios.post(this.apiUrl + this.endpointSignPaymentExecution, reqData);
       const responseData = response.data;
       const brokerSignature = responseData.brokerSignature;
+      if (brokerSignature == undefined) {
+        throw Error(response.data.error);
+      }
       console.log("Broker Signature:", brokerSignature);
       return brokerSignature;
       // Handle the brokerSignature here
@@ -213,7 +226,9 @@ export default class PayExecutorRemote extends AbstractPayExecutor {
       token: tokenAddr,
       timestamp: Math.floor(Date.now() / 1000),
       id: id,
-      totalAmount: sm,
+      totalAmount: sm.toString(),
+      chainId: this.chainId,
+      multiPayCtrct: this.multiPayContractAddr,
     };
   }
 }

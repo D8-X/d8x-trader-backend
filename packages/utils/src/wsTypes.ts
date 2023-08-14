@@ -134,8 +134,10 @@ export interface UpdateMarginAccount extends MarginAccount {
 export interface WebsocketClientConfig {
   chainId: number;
   streamName: string; //chainId & name must be unique
+  type: string; // source used by the underlying price service, usually "pyth"
   tickers: string[]; // tickers that we can get from all endpoints below
   feedIds: Array<[string, string]>; //tickername tickerid
+  httpEndpoints: string[]; // array of endpoints of the form "http://<ip>:<port>"
   wsEndpoints: string[]; // array of endpoints of the form "ws://<ip>:<port>"
 }
 

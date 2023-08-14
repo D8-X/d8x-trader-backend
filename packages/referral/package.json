@@ -16,23 +16,24 @@
     "url": "git+https://github.com/D8-X/d8x-trader-backend.git"
   },
   "scripts": {
-    "build": "npx prisma generate && rimraf ./dist && tsc",
-    "prisma-prod": "npx prisma migrate deploy",
-    "prisma-dev": "npx prisma migrate dev",
-    "prisma-reset": "npx prisma migrate reset --force",
-    "run-production-reset": "yarn prisma-reset && yarn prisma-prod && node ./dist/index.js",
-    "run-production": "yarn prisma-prod && node ./dist/index.js"
+    "build": "rimraf ./dist && tsc",
+    "migrate": "node ./dist/db/run_migrations.js",
+    "run-production": "yarn migrate && node ./dist/index.js"
   },
   "bugs": {
     "url": "https://github.com/D8-X/d8x-trader-backend/issues"
   },
   "dependencies": {
-    "@d8x/perpetuals-sdk": "^0.8.14",
-    "@prisma/client": "^4.13.0",
+    "@d8x/perpetuals-sdk": "^0.8.33",
+    "@prisma/client": "^5.1.1",
+    "@types/pg": "^8.10.2",
     "cron-schedule": "^4.0.0",
     "ethers": "^5.7.2",
     "express": "^4.18.2",
     "ioredis": "^5.3.1",
+    "kysely": "^0.26.1",
+    "node-pg-migrate": "^6.2.2",
+    "pg": "^8.11.1",
     "rimraf": "^4.4.1",
     "utils": "*",
     "winston": "^3.8.2"
