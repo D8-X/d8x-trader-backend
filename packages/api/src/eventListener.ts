@@ -129,6 +129,7 @@ export default class EventListener extends IndexPriceInterface {
     console.log(`set new ws rpc : ${newWsRPC}`);
 
     let provider = new providers.WebSocketProvider(new SturdyWebSocket(this.wsRPC, { wsConstructor: WebSocket }));
+    await provider.ready;
     provider.on("error", (error: Error) => this.onError(error));
     this.proxyContract = new Contract(
       this.traderInterface.getProxyAddress(),
