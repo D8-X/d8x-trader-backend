@@ -1,0 +1,253 @@
+// This is your Prisma schema file, learn more about it in the docs:
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["views"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_DSN_HISTORY")
+}
+
+enum trade_side{
+  buy
+  sell
+  liquidate_buy
+  liquidate_sell
+}
+
+
+// Decimal with 40 precision is used for int128 fields, since 128 bit number can
+// have 39 digits.
+model Trade{
+  @@map("trades_history")
+  // Wallet address of user 
+  trader_addr String @db.VarChar(42)
+  perpetual_id Int 
+  chain_id Int
+  side trade_side
+  // Order flags will be present only for trade events
+  order_flags BigInt @default(0) 
+  // price is stored in ABDK format
+  price Decimal @db.Decimal(40,0) 
+  // quantity (base currency) is stored in ABDK format
+  quantity Decimal @db.Decimal(40,0) 
+  // quantity_cc (collateral currency) is stored in ABDK format
+  quantity_cc Decimal? @db.Decimal(40,0)
+  // fee is stored in ABDK format
+  fee Decimal @db.Decimal(40,0)
+  // brokerFeeTbps is stored in tenth of 1 basis point (1e-5)
+  broker_fee_tbps Int
+  broker_addr String @db.VarChar(42) @default("")
+  // realized profit is stored in ABDK format
+  realized_profit Decimal @db.Decimal(40,0)
+
+  // the order digest is unique and is the key:
+  // posting two identical orders (same order_digest_hash) is not
+  // possible on chain
+  order_digest_hash String @id @db.Text
+
+  tx_hash String @db.Text 
+  trade_timestamp DateTime @db.Timestamptz @default(now())
+
+  is_collected_by_event Boolean @default(true)
+
+  @@index([trader_addr], type: Hash)
+  @@index([tx_hash], type: Hash)
+  @@index([trade_timestamp])
+}
+
+model FundingRatePayment{
+  @@map("funding_rate_payments")
+  trader_addr String @db.VarChar(42)
+  perpetual_id Int
+  tx_hash String @db.Text
+  // amount can be negative - user paid
+  payment_amount  Decimal @db.Decimal(40,0)
+  payment_timestamp DateTime @db.Timestamptz @default(now())
+
+  is_collected_by_event Boolean @default(true)
+  // in the same transaction we have 2 funding rate payments: trader and amm.
+  // we therefore use the key as tx_hash and trader_addr
+  @@id([trader_addr, tx_hash])
+  @@index([perpetual_id])
+  @@index([trader_addr], type: Hash)
+  @@index([tx_hash], type: Hash)
+}
+
+enum  estimated_earnings_event_type{
+    liquidity_added
+    liquidity_removed
+    share_token_p2p_transfer
+}
+
+
+model EstimatedEarningTokens{
+    @@map("estimated_earnings_tokens")
+    liq_provider_addr String @db.VarChar(42)
+    // liquidity pool id
+    pool_id Int
+    tx_hash String @db.Text    
+    token_amount Decimal @db.Decimal(40,0)
+    created_at DateTime @db.Timestamptz @default(now())
+
+    event_type estimated_earnings_event_type
+    is_collected_by_event Boolean @default(true)
+    @@id([pool_id, tx_hash])
+    @@index([tx_hash], type: Hash)
+    @@index([liq_provider_addr], type: Hash)
+    @@index([pool_id], type: Hash)
+}
+
+model Price{
+    @@map("price_info")
+    pool_token_price Float @db.DoublePrecision
+    // pool id
+    pool_id Int
+    timestamp DateTime @db.Timestamptz @default(now())
+
+    @@id([pool_id, timestamp])
+    @@index([pool_id], type: Hash)
+    @@index([timestamp])
+}
+
+model LiquidityWithdrawal{
+    @@map("liquidity_withdrawals")
+    liq_provider_addr String @db.VarChar(42)
+    pool_id Int
+    amount Decimal @db.Decimal(40, 0)
+    tx_hash String @db.Text    
+    is_removal Boolean
+    timestamp DateTime @db.Timestamptz @default(now())
+    
+    is_collected_by_event Boolean @default(true)
+
+    @@id([liq_provider_addr, tx_hash])
+    @@index([pool_id], type:Hash)
+    @@index([liq_provider_addr], type:Hash)
+    @@index([timestamp])
+}
+
+model MarginTokenInfo {
+  @@map("margin_token_info")
+  pool_id Int @id
+  token_addr String @db.VarChar(42)
+  token_name String @db.VarChar(20)
+  token_decimals Int
+}
+
+//-- Prisma struggles with monorepos, hence we use the same prisma file
+//   for the referral system
+model ReferralMarginTokenInfo {
+  @@map("referral_margin_token_info")
+  pool_id Int @id
+  token_addr String @db.VarChar(42)
+  token_name String @db.VarChar(20)
+  token_decimals Int
+}
+
+// broker fees from trader from historical data
+model ReferralBrokerFeesPerTrader {
+    @@map("referral_broker_fees_per_trader")
+    pool_id Int 
+    trader_addr String @db.VarChar(42)
+    quantity_cc Decimal @db.Decimal(40, 0) // signed quantity traded in ABDK format
+    fee_cc Decimal @db.Decimal(40, 0) // fee paid in ABDK format
+    trade_timestamp DateTime @db.Timestamptz
+    broker_addr String @db.VarChar(42)
+    created_at DateTime @db.Timestamptz @default(now())
+    @@id([pool_id, trader_addr, trade_timestamp])
+    @@index([pool_id])
+    @@index([trade_timestamp])
+    @@index([trader_addr])
+}
+
+// referral codes are unique per broker and chain (the code is a database key)
+// e.g., they apply to all pools
+model ReferralCode {
+  @@map("referral_code")
+  code String @id @db.VarChar(200)
+  referrer_addr String @db.VarChar(42)
+  agency_addr String? @db.VarChar(42)
+  broker_addr String @db.VarChar(42)
+  broker_payout_addr String @db.VarChar(42)
+  created_on DateTime @db.Timestamptz @default(now())
+  expiry DateTime @db.Timestamptz @default("2042-04-24T04:42:42+02:00")
+  trader_rebate_perc Decimal @db.Decimal(5,2) @default(0)
+  referrer_rebate_perc Decimal @db.Decimal(5,2) @default(0)
+  agency_rebate_perc Decimal @db.Decimal(5,2) @default(0)
+  @@index([referrer_addr], type: Hash)
+  @@index([agency_addr], type: Hash)
+  @@index([broker_addr], type: Hash)
+  // 0 to many relationships
+  referral_code_usage ReferralCodeUsage[]
+}
+
+// current code registered for trader
+model ReferralCodeUsage {
+  @@map("referral_code_usage")
+  trader_addr String @db.VarChar(42)
+  referral_code ReferralCode @relation(fields: [code], references: [code]) 
+  code String @db.VarChar(200)
+  valid_from DateTime @db.Timestamptz @default(now())
+  valid_to DateTime @db.Timestamptz @default("2042-01-01T00:42:42+00:00")
+  @@id([trader_addr, valid_from])
+  @@index([code])
+  @@index([valid_to])
+}
+
+model ReferralPayment {
+  @@map("referral_payment")
+  trader_addr String @db.VarChar(42)
+  broker_addr String @db.VarChar(42)
+  // no constraint for referral code because we could collect the data from onchain
+  // and we could encounter an unknown referral code in this case
+  code String @db.VarChar(200)
+  pool_id Int
+  timestamp DateTime @db.Timestamptz @default(now())
+  // payment in token's number format, single transaction
+  trader_paid_amount_cc Decimal @db.Decimal(40, 0)
+  referrer_paid_amount_cc Decimal @db.Decimal(40, 0)
+  agency_paid_amount_cc Decimal @db.Decimal(40, 0)
+  broker_paid_amount_cc Decimal @db.Decimal(40, 0)
+    
+  tx_hash String @db.Text
+  tx_confirmed Boolean @default(false)
+  @@id([trader_addr, pool_id, timestamp])
+  @@index([timestamp])
+  @@index([pool_id])
+  @@index([trader_addr])
+}
+
+// Referral cut as specified in referralSettings.json
+// The amount is stored in decimal-N format
+model ReferralSettingCut {
+    @@map("referral_setting_cut")
+    is_agency_cut Boolean
+    cut_perc Decimal @db.Decimal(5, 2)
+    holding_amount_dec_n Decimal? @db.Decimal(77, 0)
+    token_addr String @db.VarChar(42)
+    @@id([is_agency_cut, cut_perc])
+    @@index([cut_perc])
+    @@index([holding_amount_dec_n])
+}
+
+// Amount of tokens that the referrer_addr holds
+// The token address is specified in referral settings
+// The amount is stored in decimal-N format
+model ReferralTokenHoldings {
+    @@map("referral_token_holdings")
+    referrer_addr String @db.VarChar(42)
+    holding_amount_dec_n Decimal @db.Decimal(77, 0)
+    token_addr String @db.VarChar(42)
+    last_updated DateTime @db.Timestamptz @default(now())
+    @@id([referrer_addr, token_addr])
+}
+
+model ReferralSettings {
+    @@map("referral_settings")
+    property String @id @db.VarChar(50)
+    value String @db.VarChar(50)
+}

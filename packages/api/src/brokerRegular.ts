@@ -3,22 +3,26 @@ import { BrokerTool, NodeSDKConfig, Order, SmartContractOrder, ZERO_ADDRESS } fr
 
 export default class BrokerRegular extends BrokerIntegration {
   private brokerKey: string;
-  private sdk;
+  private sdk: BrokerTool | undefined = undefined;
   private brokerFeeTenthOfBasisPoints: number;
 
-  constructor(key: string, brokerFeeTenthOfBasisPoints: number, config: NodeSDKConfig) {
+  constructor(key: string, brokerFeeTenthOfBasisPoints: number) {
     super();
     this.brokerKey = key;
-    this.sdk = new BrokerTool(config, this.brokerKey);
+
     this.brokerFeeTenthOfBasisPoints = brokerFeeTenthOfBasisPoints;
   }
 
-  public async initialize(): Promise<string> {
+  public async initialize(config: NodeSDKConfig): Promise<string> {
+    this.sdk = new BrokerTool(config, this.brokerKey);
     await this.sdk.createProxyInstance();
     return this.sdk.getAddress();
   }
 
   public async getBrokerAddress(): Promise<string> {
+    if (this.sdk == undefined) {
+      throw Error("BrokerRegular: initialize required");
+    }
     return this.sdk.getAddress();
   }
 
@@ -27,6 +31,9 @@ export default class BrokerRegular extends BrokerIntegration {
   }
 
   public async signOrder(SCOrder: SmartContractOrder): Promise<string> {
+    if (this.sdk == undefined) {
+      throw Error("BrokerRegular: initialize required");
+    }
     return await this.sdk.signSCOrder(SCOrder);
   }
 }

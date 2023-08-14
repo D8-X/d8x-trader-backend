@@ -49,7 +49,7 @@ export interface RestAPIOptions {
 }
 
 // Profit and loss express REST API
-export class PNLRestAPI {
+export class HistoryRestAPI {
 	private app: express.Application;
 
 	private db: DBHandlers;
@@ -76,7 +76,7 @@ export class PNLRestAPI {
 	}
 
 	/**
-	 * Initialize PNLRestAPI
+	 * Initialize HistoryRestAPI
 	 *
 	 * @param httpRpcUrl
 	 */
@@ -96,15 +96,17 @@ export class PNLRestAPI {
 	}
 
 	/**
-	 * Register routes of pnl API
+	 * Register routes of history API
 	 */
 	private registerRoutes(app: express.Application) {
 		app.get("/funding-rate-payments", this.fundingRatePayments.bind(this));
-		app.get("/trades-history", this.historicalTrades.bind(this));
 		app.get("/apy", this.apyCalculation.bind(this));
 		app.get("/earnings", this.earnings.bind(this));
 		app.get("/open-withdrawals", this.withdrawals.bind(this));
 		app.get("/broker-fee-payments", this.brokerFeePayments.bind(this));
+		app.get("/margin-token-info", this.marginTokenInfo.bind(this));
+		app.get("/trading-volume", this.tradingVolume.bind(this));
+		app.get("/trades-history", this.historicalTrades.bind(this)); //<- to be phased out
 	}
 
 	/**
@@ -114,18 +116,19 @@ export class PNLRestAPI {
 		await this.init(httpRPCUrl);
 
 		this.app.listen(this.opts.port, () => {
-			this.l.info("starting pnl rest api server", { port: this.opts.port });
+			this.l.info("starting history rest api server", { port: this.opts.port });
 		});
 	}
 
-	private extractTimestamps(t_from: number, t_to: number): [number, number] {
-		if (t_from < 1681402080) {
-			throw Error("timestamp to old");
-		}
+	private extractSecondTimestamps(t_from: number, t_to: number): [number, number] {
 		if (t_from >= t_to) {
 			throw Error("from must be smaller than to");
 		}
-		if (t_to > 4837075680) {
+		if (t_from < 1681402080) {
+			//timestamp to old
+			t_from = 1681402080;
+		}
+		if (t_to > Date.now()) {
 			throw Error("timestamp must be in seconds");
 		}
 		return [t_from, t_to];
@@ -447,7 +450,7 @@ export class PNLRestAPI {
 				throw Error("please provide timestamps");
 			}
 			// Check if provided timestamps in seconds are ok
-			let [t_from, t_to] = this.extractTimestamps(fromTimestamp, toTimestamp);
+			let [t_from, t_to] = this.extractSecondTimestamps(fromTimestamp, toTimestamp);
 
 			// Retrieve the dates
 			let from: Date, to: Date;
@@ -527,6 +530,85 @@ export class PNLRestAPI {
 			};
 			resp.send(toJson(response));
 		} catch (err: any) {
+			if (resp.statusCode != 200) {
+				resp.statusCode = 400;
+			}
+			resp.send(errorResp(extractErrorMsg(err), usage));
+		}
+	}
+
+	private async marginTokenInfo(req: Request, resp: Response) {
+		try {
+			interface MgnTknResponse {
+				pool_id: number;
+				token_addr: string;
+				token_name: string;
+				token_decimals: number;
+			}
+			const queryResponse = await this.opts.prisma.$queryRaw<MgnTknResponse[]>`
+                SELECT pool_id, token_addr, token_name, token_decimals
+                from margin_token_info;
+            `;
+			const response = queryResponse.map((x) => {
+				return {
+					poolId: x.pool_id,
+					tokenAddr: x.token_addr,
+					tokenName: x.token_name,
+					tokenDecimals: x.token_decimals,
+				};
+			});
+			resp.send(toJson(response));
+		} catch (err: any) {
+			resp.send(errorResp(extractErrorMsg(err), ""));
+		}
+	}
+
+	/**
+	 * Aggregates trading volume for a given trader for provided
+	 * timestamps
+	 * @param req REST request data
+	 * @param resp response obj
+	 */
+	private async tradingVolume(req: Request, resp: Response) {
+		const usage =
+			"query parameters: traderAddr, fromTimestamp (seconds), toTimestamp (seconds)";
+		try {
+			if (
+				Number(req.query.fromTimestamp) == undefined ||
+				Number(req.query.toTimestamp) == undefined
+			) {
+				resp.statusCode = 400;
+				throw Error("invalid timestamp");
+			}
+			let [t_from, t_to] = this.extractSecondTimestamps(
+				Number(req.query.fromTimestamp),
+				Number(req.query.toTimestamp)
+			);
+			const reqTraderAddr = req.query.traderAddr?.toString().toLowerCase();
+			if (reqTraderAddr == undefined || !isValidAddress(reqTraderAddr)) {
+				resp.status(400);
+				throw Error("invalid address");
+			}
+			const fromDate = new Date(t_from * 1000);
+			const toDate = new Date(t_to * 1000);
+			interface SqlResponse {
+				pool_id: number;
+				quantity_cc_abdk: string;
+			}
+			const queryResponse = await this.opts.prisma.$queryRaw<SqlResponse[]>`
+                SELECT 
+                    FLOOR(perpetual_id/100000) as pool_id,
+                    TO_CHAR(SUM(ABS(th.quantity_cc)), ${DECIMAL40_FORMAT_STRING}) as quantity_cc_abdk
+                FROM trades_history th
+                WHERE LOWER(th.trader_addr) = ${reqTraderAddr}
+                    AND th.trade_timestamp >= ${fromDate}::timestamp
+                    AND th.trade_timestamp < ${toDate}::timestamp
+                GROUP BY pool_id;`;
+			const response = queryResponse.map((x) => {
+				return { poolId: x.pool_id, quantityCcAbdk: x.quantity_cc_abdk };
+			});
+			resp.send(toJson(response));
+		} catch (err: any) {
 			if (resp.statusCode == 200) {
 				resp.statusCode = 400;
 			}
@@ -535,7 +617,7 @@ export class PNLRestAPI {
 	}
 
 	private async brokerFeePayments(req: Request, resp: Response) {
-		const usage = "required query parameters: brokerAddr, fromTimestamp (seconds)";
+		const usage = "query parameters: brokerAddr, poolId, [fromTimestamp (seconds)]";
 		try {
 			let t_from;
 			if (req.query.fromTimestamp != undefined) {
@@ -551,7 +633,7 @@ export class PNLRestAPI {
 				throw Error("timestamp too old");
 			}
 			const fromDate = new Date(t_from * 1000);
-
+			const poolId = Number(req.query.pool_id) || 1;
 			const reqBrokerAddr = req.query.brokerAddr?.toString().toLowerCase();
 			if (reqBrokerAddr == undefined || !isValidAddress(reqBrokerAddr)) {
 				resp.status(400);
@@ -559,36 +641,31 @@ export class PNLRestAPI {
 			}
 
 			interface FeeRes {
-				pool_id: number;
 				trader_addr: string;
+				quantity_cc: string;
 				broker_fee_cc: string;
 				trade_ts: Date;
 			}
 			const queryResponse = await this.opts.prisma.$queryRaw<FeeRes[]>`
                 SELECT 
-                    FLOOR(th.perpetual_id/100000) as pool_id,
                     th.trader_addr,
+                    TO_CHAR(sum(ABS(th.quantity_cc)),  ${DECIMAL40_FORMAT_STRING}) as quantity_cc, -- ABDK 64x64 format
                     TO_CHAR(sum(th.broker_fee_tbps * ABS(th.quantity_cc)/100000), ${DECIMAL40_FORMAT_STRING}) as broker_fee_cc, -- ABDK 64x64 format
                     th.trade_timestamp as trade_ts
                 FROM trades_history th
                     WHERE th.trade_timestamp > ${fromDate}::timestamp
                     AND LOWER(th.broker_addr)=${reqBrokerAddr}
-                GROUP BY pool_id, th.trader_addr, th.perpetual_id/100000, th.trade_timestamp
+                    AND FLOOR(th.perpetual_id/100000) = ${poolId}
+                GROUP BY th.trader_addr, th.perpetual_id/100000, th.trade_timestamp
                 ORDER BY th.trader_addr;
             `;
-			interface BrokerFeePayments {
-				poolId: number;
-				traderAddr: string;
-				brokerFeeCCABDK: string;
-				brokerAddr: string;
-				tradeTs: number;
-			}
+
 			const response = queryResponse.map((x) => {
 				return {
-					poolId: x.pool_id,
 					traderAddr: x.trader_addr,
-					brokerFeeCCABDK: x.broker_fee_cc,
-					tradeTs: Math.round(x.trade_ts.getTime() / 1000),
+					quantityCcAbdk: x.quantity_cc,
+					brokerFeeCcAbdk: x.broker_fee_cc,
+					tradeTimestamp: x.trade_ts,
 				};
 			});
 			resp.send(toJson(response));

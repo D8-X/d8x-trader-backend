@@ -136,9 +136,7 @@ export default class ReferralAPI {
         await this.onMyReferralCodes(req, res);
       } catch (err: any) {
         const usg = `my-referral-codes?addr=0x...`;
-        res.send(
-          ReferralAPI.JSONResponse("error", "create-referral-code", { error: extractErrorMsg(err), usage: usg })
-        );
+        res.send(ReferralAPI.JSONResponse("error", "my-referral-codes", { error: extractErrorMsg(err), usage: usg }));
       }
     });
 
@@ -147,9 +145,7 @@ export default class ReferralAPI {
         await this.onReferralVolume(req, res);
       } catch (err: any) {
         const usg = `referral-volume?referrerAddr=0x...`;
-        res.send(
-          ReferralAPI.JSONResponse("error", "create-referral-code", { error: extractErrorMsg(err), usage: usg })
-        );
+        res.send(ReferralAPI.JSONResponse("error", "referral-volume", { error: extractErrorMsg(err), usage: usg }));
       }
     });
 

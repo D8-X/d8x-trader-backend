@@ -16,15 +16,28 @@ PNL_API_PORT=8888
 REFERRAL_API_PORT=8889
 
 
-# Postgres credentials for docker-compose
+# Postgres credentials for docker-compose (development only)
 POSTGRES_USER=user
 POSTGRES_PASSWORD=password
 POSTGRES_DB=db
-DATABASE_URL="postgresql://user:password@localhost:5432/db?schema=public"
+POSTGRES_PORT_HISTORY=5432
+# History database postgres connection string (production)
+DATABASE_DSN_HISTORY="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT_HISTORY}/${POSTGRES_DB}?sslmode=allow&schema=history"
+
+POSTGRES_USER_REFERRAL=user
+POSTGRES_PASSWORD_REFERRAL=password
+POSTGRES_DB_REFERRAL=db_referral
+POSTGRES_PORT_REFERRAL=5433
+# Referral database postgres connection string (production)
+DATABASE_DSN_REFERRAL="postgresql://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@localhost:${POSTGRES_PORT_REFERRAL}/${POSTGRES_DB_REFERRAL}?sslmode=allow&sslrootcert=/pg_ca_cert&schema=referral"
 
 #--- BROKER SETTINGS (optional) ----
-# Broker key
+# Broker key. If remote broker is provided, 
+# this key is used to sign referral payment requests to the remote broker
 BROKER_KEY=""
-# Broker fee in tenth of basis point.
+# Broker fee in tenth of basis point. Not relevant if REMOTE_BROKER_HTTP provided
 # For example 0.06% = 6 bps = 60 tbps
 BROKER_FEE_TBPS=60
+# Optional Remote Broker, e.g., https://broker.main.yourdomain.com
+REMOTE_BROKER_HTTP=""
+

@@ -14,7 +14,7 @@ const utils = require('utils');
 
 ### Change DB schema
 
-`export DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}?schema=public`
+`export DATABASE_DSN_REFERRAL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}?schema=public`
 `npx prisma migrate dev --schema="./packages/utils/prisma/schema.prisma" --name="yourchoice"`
 
 Reset if migration out of sync: `npx prisma migrate reset --schema="./packages/utils/prisma/schema.prisma"`

@@ -14,7 +14,13 @@ WORKDIR /app
 # COPY package*.json ./
 # COPY yarn.lock ./
 
-COPY . . 
+#COPY . . 
+COPY ./packages/utils ./packages/utils
+COPY ./packages/api ./packages/api
+COPY ./package.json .
+COPY ./nx.json .
+COPY ./lerna.json .
+COPY ./config/. ./config/.
 
 RUN yarn install 
 
