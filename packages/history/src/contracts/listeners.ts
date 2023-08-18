@@ -348,8 +348,8 @@ export class EventListener {
 			eventData,
 			txHash,
 			isCollectedByEvent,
-			blockNumber,
-			timestampSec
+			timestampSec,
+			blockNumber
 		);
 	}
 
