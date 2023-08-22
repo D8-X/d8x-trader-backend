@@ -1,7 +1,4 @@
 name: Build images
-permissions: 
-    contents: read
-    packages: write
 on:
   push:
     branches: [ "main" ]
@@ -11,6 +8,25 @@ env:
   repo_owner: d8-x
 jobs:
   build:
+    permissions: 
+        contents: read
+        packages: write
+    strategy:
+        fail-fast: false
+        matrix:
+            include:
+                - 
+                    dockerfile: ./packages/api/Dockerfile
+                    image: ghcr.io/d8-x/d8x-trader-main
+                - 
+                    dockerfile: ./packages/referral/Dockerfile
+                    image: ghcr.io/d8-x/d8x-trader-referral
+                - 
+                    dockerfile: ./packages/history/Dockerfile
+                    image: ghcr.io/d8-x/d8x-trader-history
+                - 
+                    dockerfile: ./packages/pxws-client/Dockerfile
+                    image: ghcr.io/d8-x/d8x-trader-pxws-client
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
@@ -25,34 +41,18 @@ jobs:
       name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
     -
-      name: Build and push main:latest
+        name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+            images: ${{matrix.image}}
+    -
+      name: Build and push ${{ matrix.image }}
       uses: docker/build-push-action@v4
       with:
         context: .
-        file: ./packages/api/Dockerfile
+        file: ${{ matrix.dockerfile }}
         push: true
-        tags: ${{ env.container_registry }}/${{ env.repo_owner }}/dx8-trader-main:latest
-    -
-        name: Build and push referral:latest
-        uses: docker/build-push-action@v4
-        with:
-            context: .
-            file: ./packages/referral/Dockerfile
-            push: true
-            tags: ${{ env.container_registry }}/${{ env.repo_owner }}/dx8-trader-referral:latest
-    -
-        name: Build and push history:latest
-        uses: docker/build-push-action@v4
-        with:
-            context: .
-            file: ./packages/history/Dockerfile
-            push: true
-            tags: ${{ env.container_registry }}/${{ env.repo_owner }}/dx8-trader-history:latest
-    -
-        name: Build and push pxws-client:latest
-        uses: docker/build-push-action@v4
-        with:
-            context: .
-            file: ./packages/pxws-client/Dockerfile
-            push: true
-            tags: ${{ env.container_registry }}/${{ env.repo_owner }}/dx8-trader-pxws-client:latest
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+   
