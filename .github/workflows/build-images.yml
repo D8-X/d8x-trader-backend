@@ -1,10 +1,11 @@
-name: Build imagess
-
+name: Build images
 on:
   push:
     branches: [ "main" ]
 env:
   container_registry: ghcr.io
+  # Lowercase is needed for registries
+  repo_owner: d8-x
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -25,34 +26,30 @@ jobs:
       uses: docker/build-push-action@v4
       with:
         context: .
-        registry: ${{ env.container_registry }}
         file: ./packages/api/Dockerfile
         push: true
-        tags: ${{ env.container_registry }}/${{ github.repository_owner }}/dx8-trader-main:latest
+        tags: ${{ env.container_registry }}/${{ env.repo_owner }}/dx8-trader-main:latest
     -
         name: Build and push referral:latest
         uses: docker/build-push-action@v4
         with:
             context: .
-            registry: ${{ env.container_registry }}
             file: ./packages/referral/Dockerfile
             push: true
-            tags: ${{ env.container_registry }}/${{ github.repository_owner }}/dx8-trader-referral:latest
+            tags: ${{ env.container_registry }}/${{ env.repo_owner }}/dx8-trader-referral:latest
     -
         name: Build and push history:latest
         uses: docker/build-push-action@v4
         with:
             context: .
-            registry: ${{ env.container_registry }}
             file: ./packages/history/Dockerfile
             push: true
-            tags: ${{ env.container_registry }}/${{ github.repository_owner }}/dx8-trader-history:latest
+            tags: ${{ env.container_registry }}/${{ env.repo_owner }}/dx8-trader-history:latest
     -
         name: Build and push pxws-client:latest
         uses: docker/build-push-action@v4
         with:
             context: .
-            registry: ${{ env.container_registry }}
             file: ./packages/pxws-client/Dockerfile
             push: true
-            tags: ${{ env.container_registry }}/${{ github.repository_owner }}/dx8-trader-pxws-client:latest
+            tags: ${{ env.container_registry }}/${{ env.repo_owner }}/dx8-trader-pxws-client:latest
