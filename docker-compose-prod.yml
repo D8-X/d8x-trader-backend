@@ -39,6 +39,10 @@ services:
       options:
         max-size: "5000k"
         max-file: "10"
+    configs:
+      - cfg_rpc
+      - cfg_referral
+      - cfg_wscfg
 
   # Referral component that handles referral/agency/broker/trader rebates
   # Exposes a REST API and uses the postgres DB that the history component mainly fills
@@ -66,6 +70,9 @@ services:
         max-file: "10"
     configs:
       - pg_ca_cert
+      - cfg_rpc
+      - cfg_referral
+      - cfg_wscfg
 
   # stream oracle prices from price service (pyth 'offchain'-network)
   backend_pyth_connection:
@@ -87,6 +94,10 @@ services:
       options:
         max-size: "1k"
         max-file: "10"
+    configs:
+      - cfg_rpc
+      - cfg_referral
+      - cfg_wscfg
 
 volumes:
   pgdb:
@@ -95,3 +106,10 @@ volumes:
 configs:
   pg_ca_cert:
     file: "./pg_ca_cert.ca"
+  configs:
+  cfg_rpc:
+    external: true
+  cfg_referral:
+    external: true
+  cfg_wscfg:
+    external: true
