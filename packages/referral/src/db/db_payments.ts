@@ -441,10 +441,13 @@ export default class DBPayments {
   public async queryOpenPaymentsForTrader(traderAddr: string, brokerAddr: string) {
     // 1) update referral_broker_fees_per_trader
     if (Date.now() / 1000 - this.lastUpdateBrokerFeesTsSec > 15) {
+      this.l.info("updating broker fees db")
       await this.dbBrokerFeeAccumulator.updateBrokerFeesFromAPIAllPools(
         Math.round(Date.now() / 1000 - this.paymentMaxLookBackDays * 86400)
       );
       this.lastUpdateBrokerFeesTsSec = Date.now() / 1000;
+    } else {
+      this.l.info("no update of broker fees db")
     }
 
     // 2) ready to query
