@@ -19,6 +19,7 @@ export default class DBPayments {
   constructor(
     private dbBrokerFeeAccumulator: DBBrokerFeeAccumulator,
     private dbHandler: Kysely<Database>,
+    private paymentMaxLookBackDays: number,
     public l: Logger
   ) {}
 
@@ -438,6 +439,15 @@ export default class DBPayments {
   }
 
   public async queryOpenPaymentsForTrader(traderAddr: string, brokerAddr: string) {
+    // 1) update referral_broker_fees_per_trader
+    if (Date.now() / 1000 - this.lastUpdateBrokerFeesTsSec > 15) {
+      await this.dbBrokerFeeAccumulator.updateBrokerFeesFromAPIAllPools(
+        Math.round(Date.now() / 1000 - this.paymentMaxLookBackDays * 86400)
+      );
+      this.lastUpdateBrokerFeesTsSec = Date.now() / 1000;
+    }
+
+    // 2) ready to query
     const addr = traderAddr.toLowerCase();
     const res = await sql<TraderOpenPayResponse>`
         SELECT 
