@@ -412,10 +412,11 @@ export async function calculateBlockFromTime(
     if (targetTS < earlyTS) {
       latestBN = earlyBN;
       latestTS = earlyTS;
-      earlyBN = 1;
-      earlyTS = TS_MIN;
+      interpolatedBN = Math.round((targetTS / earlyTS) * earlyBN);
+      //   earlyTS = TS_MIN;
+    } else {
+      interpolatedBN = Math.round(earlyBN + ((latestBN - earlyBN) / (latestTS - earlyTS)) * (targetTS - earlyTS));
     }
-    interpolatedBN = Math.round(earlyBN + ((latestBN - earlyBN) / (latestTS - earlyTS)) * (targetTS - earlyTS));
     let { number: bn, timestamp: ts } = await provider.getBlock(interpolatedBN);
     numRPC += 1;
 
