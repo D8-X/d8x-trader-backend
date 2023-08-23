@@ -31,6 +31,9 @@ services:
       - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
       - CHAIN_ID=${CHAIN_ID}
       - CORS_ON=${CORS_ON}
+      - CONFIG_PATH_RPC=/cfg_rpc
+      - CONFIG_PATH_REFERRAL_SETTINGS=/cfg_referral
+      - CONFIG_PATH_WSCFG=/cfg_wscfg
     ports:
       - "127.0.0.1:${PNL_API_PORT:-8888}:${PNL_API_PORT:-8888}"
     restart: on-failure
@@ -60,6 +63,9 @@ services:
       - CHAIN_ID=${CHAIN_ID}
       - CORS_ON=${CORS_ON}
       - HISTORY_API_ENDPOINT="http://backend_history:${PNL_API_PORT:-8888}"
+      - CONFIG_PATH_RPC=/cfg_rpc
+      - CONFIG_PATH_REFERRAL_SETTINGS=/cfg_referral
+      - CONFIG_PATH_WSCFG=/cfg_wscfg
     ports:
       - "127.0.0.1:${REFERRAL_API_PORT}:${REFERRAL_API_PORT}"
     restart: on-failure
@@ -88,6 +94,9 @@ services:
       PORT_REST: ${PORT_REST}
       PORT_WEBSOCKET: ${PORT_WEBSOCKET}
       CHAIN_ID: ${CHAIN_ID}
+      CONFIG_PATH_RPC: /cfg_rpc
+      CONFIG_PATH_REFERRAL_SETTINGS: /cfg_referral
+      CONFIG_PATH_WSCFG: /cfg_wscfg
     restart: on-failure
     logging:
       driver: "json-file"
@@ -106,10 +115,9 @@ volumes:
 configs:
   pg_ca_cert:
     file: "./pg_ca_cert.ca"
-  configs:
   cfg_rpc:
-    external: true
+    file: ./config/live.rpc.json
   cfg_referral:
-    external: true
+    file: ./config/live.referralSettings.json
   cfg_wscfg:
-    external: true
+    file: ./config/live.wsConfig.json
