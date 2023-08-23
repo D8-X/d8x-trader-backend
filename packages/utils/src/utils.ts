@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { WebsocketClientConfig, RPCConfig } from "./wsTypes";
 import dotenv from "dotenv";
 import parser from "cron-parser";
+import fs from "fs";
 
 export interface RedisConfig {
   host: string;
@@ -162,7 +163,7 @@ export function getNextCronDate(pattern: string): Date {
  * @returns configuration of type WebsocketClientConfig
  */
 export function loadConfigJSON(chainId: number): WebsocketClientConfig[] {
-  let file = <WebsocketClientConfig[]>require("../../../config/live.wsConfig.json");
+  let file = <WebsocketClientConfig[]>loadConfigWsConfig();
   let relevantConfigs: WebsocketClientConfig[] = [];
   for (let k = 0; k < file.length; k++) {
     if (file[k].chainId == chainId) {
@@ -546,3 +547,37 @@ export function chooseRandomRPC(ws = false, rpcConfig: RPCConfig[]): string {
   }
   return urls[Math.floor(Math.random() * urls.length)];
 }
+
+export const loadConfigRPC = (): any => loadConfigFile("rpc", "CONFIG_PATH_RPC");
+export const loadConfigReferralSettings = (): any =>
+  loadConfigFile("referralSettings", "CONFIG_PATH_REFERRAL_SETTINGS");
+export const loadConfigWsConfig = (): any => loadConfigFile("wsConfig", "CONFIG_PATH_WSCFG");
+
+/**
+ * Attempt to load config files. Environment variables CONFIG_PATH_RPC,
+ * CONFIG_PATH_REFERRAL_SETTINGS, CONFIG_PATH_WSCFG can be used to provide
+ *
+ * @param cfgName name of config file
+ * @param cfgEnvKey process.env key of config path
+ * @throws Error if config file can not be found
+ */
+export const loadConfigFile = (cfgName: string, cfgEnvKey: string): any => {
+  const envPath = process.env[cfgEnvKey]!;
+  if (envPath !== undefined) {
+    console.log(`[INFO] attempting to load config ${envPath}`);
+    const fileContent = fs.readFileSync(envPath).toString();
+    return JSON.parse(fileContent);
+  } else {
+    console.warn(`[WARNING] ENV variable ${cfgEnvKey} is not set`);
+  }
+
+  // Attempt to load default development path from the root of monorepo.
+  // Assuming the caller is in packages/<svc>/dist/index.js
+  const defaultPath = `../../../config/live.${cfgName}.json`;
+  try {
+    const fileContent = fs.readFileSync(defaultPath).toString();
+    return JSON.parse(fileContent);
+  } catch (e) {
+    throw Error(`Configuration file ${defaultPath} could not be loaded`);
+  }
+};

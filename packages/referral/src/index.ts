@@ -2,7 +2,15 @@ import Redis from "ioredis";
 import { ethers } from "ethers";
 import * as winston from "winston";
 import { ReferralSettings, ReferralCodeData } from "./referralTypes";
-import { constructRedis, sleep, isValidAddress, cronParserCheckExpression, chooseRandomRPC } from "utils";
+import {
+  constructRedis,
+  sleep,
+  isValidAddress,
+  cronParserCheckExpression,
+  chooseRandomRPC,
+  loadConfigRPC,
+  loadConfigReferralSettings,
+} from "utils";
 import dotenv from "dotenv";
 import { APIReferralCodeSelectionPayload } from "@d8x/perpetuals-sdk";
 import DBSettings from "./db/db_settings";
@@ -72,7 +80,7 @@ function checkSettingMinBrokerFeeCCForRebatePerPool(rebate: Array<[number, numbe
 }
 
 function loadSettings() {
-  let file = require("../../../config/live.referralSettings.json") as ReferralSettings;
+  let file = loadConfigReferralSettings() as ReferralSettings;
   // some rudimentary checks
   if (file.permissionedAgencies.length > 0) {
     file.permissionedAgencies.map((a) => {
@@ -220,7 +228,7 @@ async function start() {
     return;
   }
   historyAPIEndpoint = historyAPIEndpoint.replaceAll(`"`, "");
-  const rpcConfig = require("../../../config/live.rpc.json");
+  const rpcConfig = loadConfigRPC();
   let rpcUrl = chooseRandomRPC(false, rpcConfig);
   if (rpcUrl == "") {
     logger.error("Set HTTP RPC in config/live.rpc.json");

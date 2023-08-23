@@ -12,62 +12,67 @@ using `docker-compose-all.yml`. We will be using Linode in this guide.
 Separate and not documented here are (1) a "remote broker server" that hosts the key and signs, (2) candle data.
 
 # Create Servers
-For the setup of the main API that the frontend communicates with, we use 3 servers with Docker Swarm. 
-Make sure you create your servers in the same region. 
+
+For the setup of the main API that the frontend communicates with, we use 3 servers with Docker Swarm.
+Make sure you create your servers in the same region.
 
 - Go ahead and create 3 ubuntu 22.04 boxes in your Linode dashboard. Choose one server to be the "manager" (e.g., name them swarm1, swarm2, swarm3) and
-choose swarm1 to be the manager.
+  choose swarm1 to be the manager.
 - Create an additional server (which we term "server 1" in this document).
-- Add a private IP address for each of the 4 servers created (Linode: Network > Add An IP Address > select Private > allocate) 
+- Add a private IP address for each of the 4 servers created (Linode: Network > Add An IP Address > select Private > allocate)
 
 # Creating Managed Database Service
 
 Go ahead to your dashboard > Databases
-and create a managed database in the same region as the servers. 
+and create a managed database in the same region as the servers.
 We recommend using more than >=4GB RAM for your database server.
 
 Make sure to add and whitelist your servers' private IP addresses which will be used to
 run the services and connect to freshly created postgres db in Access Controls
-section. 
+section.
 
 To run History and Referrals services you will need to use 2 different
-databases. In our proposed setup the tables for history and referral are hosted on the same cluster with 2 schemas. 
+databases. In our proposed setup the tables for history and referral are hosted on the same cluster with 2 schemas.
 
 # Host setup
+
 On the docker-swarm manager and , download the code and prepare .env:
+
 ```
 $ git clone https://<user>:<token>@github.com/D8-X/d8x-trader-backend.git
 $ cd d8x-trader-backend
 ```
+
 It is key to have Docker version >=24.0.5.
 Use the helper script `host_setup.sh` to get the latest version.
 You can use the [host-setup](./host-setup.sh) script to install docker.
 
 Now we configure the environment file.
+
 ```
 $ cp .envExample .env
 $ nano .env
 ```
 
 - Provide the connection strings as `DATABASE_DSN_HISTORY` and
-`DATABASE_DSN_REFERRALS` environment variables in your `.env` file. See
-https://stackoverflow.com/questions/3582552/what-is-the-format-for-the-postgresql-connection-string-url/20722229#20722229
-for more info about DSN structure.
+  `DATABASE_DSN_REFERRALS` environment variables in your `.env` file. See
+  https://stackoverflow.com/questions/3582552/what-is-the-format-for-the-postgresql-connection-string-url/20722229#20722229
+  for more info about DSN structure.
 - Insert a broker key (BROKER_KEY=”abcde0123…” without “0x”).
-    - Option 1: Broker Key on Server
-        - if the broker key is to be hosted on this server, then you also set the broker fee. That is, adjust BROKER_FEE_TBPS. The unit is tenth of a basis point, so 60 = 6 basis points = 0.06%.
-    - Option 2: External Broker Server That Hosts The Broker-Key
-        - You can run an external “broker server” that hosts the key: https://github.com/D8-X/d8x-broker-server
-        - You will still need “BROKER_KEY”, and the address corresponding to your BROKER_KEY has to be whitelisted on the broker-server in the file config/live.chainConfig.json under “allowedExecutors”. (The BROKER_KEY in this case is used for the referral system to sign the payment execution request that is sent to the broker-server).
-        - For the broker-server to be used, set the environment variable `REMOTE_BROKER_HTTP=""` to the http-address of your broker server.
+  - Option 1: Broker Key on Server
+    - if the broker key is to be hosted on this server, then you also set the broker fee. That is, adjust BROKER_FEE_TBPS. The unit is tenth of a basis point, so 60 = 6 basis points = 0.06%.
+  - Option 2: External Broker Server That Hosts The Broker-Key
+    - You can run an external “broker server” that hosts the key: https://github.com/D8-X/d8x-broker-server
+    - You will still need “BROKER_KEY”, and the address corresponding to your BROKER_KEY has to be whitelisted on the broker-server in the file config/live.chainConfig.json under “allowedExecutors”. (The BROKER_KEY in this case is used for the referral system to sign the payment execution request that is sent to the broker-server).
+    - For the broker-server to be used, set the environment variable `REMOTE_BROKER_HTTP=""` to the http-address of your broker server.
 - Specify `CHAIN_ID=80001` for [the chain](https://chainlist.org/) that you are running the backend for (of course only chains where D8X perpetuals are deployed to like Mumbai 80001 or zkEVM testnet 1442)
 - Change passwords for the entries `REDIS_PASSWORD`, and `POSTGRES_PASSWORD`
-  - It is recommended to set a strong password for `REDIS_PASSWORD` variable. This password is needed by both,  and docker swarm.
+  - It is recommended to set a strong password for `REDIS_PASSWORD` variable. This password is needed by both, and docker swarm.
   - Set the host to the private IP of : `REDIS_HOST=<PRIVATEIPOFSERVER1>`
 
 Additional parameters for the backend services on top of .env are found in the `./config` subdirectory at the root level.
 
-Copy the files in  `./config/example.<name>.json` into `./config/live.<name>.json` (i.e., copy and replace prefix "example." with prefix "live.")
+Copy the files in `./config/example.<name>.json` into `./config/live.<name>.json` (i.e., copy and replace prefix "example." with prefix "live.")
 
 - live.rpc.json: A list of RPC URLs used for interacting with the different chains.
   - You may add or remove as many RPCs as you need
@@ -78,15 +83,15 @@ Copy the files in  `./config/example.<name>.json` into `./config/live.<name>.jso
   - See the main API [readme](./packages/api/README.md) for details
 - live.referralSettings.json: Configuration of the referral service.
   - You can turn off the referral system by editing config/live.referralSettings.json and setting `"referralSystemEnabled": false,` — if you choose to turn it on, see below how to configure the system
-  or the referral API [readme](./packages/referral/README.md) for more details.
+    or the referral API [readme](./packages/referral/README.md) for more details.
 
-Ensure you have the same .env and live.* configuration files on  and the Swarm Manager.
+Ensure you have the same .env and live.\* configuration files on and the Swarm Manager.
 
 ## Referral System Configuration
-The referral system is optional and can be disabled by setting the first entry in  config/live.referralSettings.json to false. If you enable the referral system, also make sure there is a broker key entered in the .env-file (see above). 
+
+The referral system is optional and can be disabled by setting the first entry in config/live.referralSettings.json to false. If you enable the referral system, also make sure there is a broker key entered in the .env-file (see above).
 
 Here is how the referral system works in a nutshell.
-
 
 - The system allows referrers to distribute codes to traders. Traders will receive a fee rebate after a given amount of time and accrued fees. Referrers will also receive a portion of the trader fees that they referred
 - The broker can determine the share of the broker imposed trading fee that go to the referrer, and the referrer can re-distribute this fee between a fee rebate for the trader and a portion for themselves. The broker can make the size of the fee share dependent on token holdings of the referrer. The broker can configure the fee, amount, and token.
@@ -94,6 +99,7 @@ Here is how the referral system works in a nutshell.
 - More details here [referral/README_PAYSYS.md](./packages/referral/README_PAYSYS.md)
 
 All of this can be configured as follows.
+
 <details> <summary>How to set live.referralSettings.json Parameters</summary>
   
 - `referralSystemEnabled`
@@ -174,25 +180,36 @@ repository as `pg_ca_cert.ca` file. This file will be provided to
 The first server runs all services except the 'api-service' that is run via
 docker swarm. Server 1 also communicates with the database (ensure to set
 environment variables `DATABASE_DSN_REFERRAL` and `DATABASE_DSN_HISTORY` to your
-external postgres service connection strings for referral and history databases as outlined above).
+external postgres service connection strings for referral and history databases
+as outlined above).
+
+Create the following [configs with docker](https://docs.docker.com/engine/swarm/configs/):
+
+- `cfg_rpc` - for live.rpc.json
+- `cfg_referral` - for live.referralSettings.json
+- `cfg_wscfg` - for live.wsConfig.json
+
+```bash
+cat ./live.rpc.json | docker config cfg_rpc -
+```
 
 Build and start docker-compose:
+
 ```bash
 docker compose -f docker-compose-prod.yml up --build
 ```
 
-
-
 # Deploying With Docker Swarm
+
 The private IP addresses we created above are used for
 communication between the swarm servers.
 
 ## Setting Up Docker Swarm
 
-Take note of the private IP address of the server that you chose to be the Swarm manager (e.g., "swarm1"). 
+Take note of the private IP address of the server that you chose to be the Swarm manager (e.g., "swarm1").
 We will use placeholder `<PRIVATE_IP_ADDR>` as our manager's private IP address.
 
-Again, it's important to have Docker >=24.0.5 installed. 
+Again, it's important to have Docker >=24.0.5 installed.
 Make sure you have Docker your firewall allows Docker Swarm ports. See
 [Docker swarm ports](https://docs.docker.com/engine/swarm/swarm-tutorial/#open-protocols-and-ports-between-the-hosts).
 
@@ -222,7 +239,7 @@ To add a manager to this swarm, run 'docker swarm join-token manager' and follow
 ```
 
 Before joining the swarm on your worker machines, for easier management, change
-the hostnames of your worker machines, e.g, `swarm-1`  to `swarm-3`. 
+the hostnames of your worker machines, e.g, `swarm-1` to `swarm-3`.
 Run this command on all worker machines (with the corresponding 'swarm'-name):
 
 ```bash
@@ -263,7 +280,7 @@ docker node update <MANAGER_NODE_ID> --availability drain
 
 ### Deploying Main API
 
-Now the Swarm is set up and we deploy the application. 
+Now the Swarm is set up and we deploy the application.
 To deploy to swarm, we need to build the images. We will be
 using a local image registry that is running on our docker swarm to host our
 main API image.
@@ -276,7 +293,7 @@ docker service create --name registry --publish 5555:5000 registry:latest
 
 To check the service is running: `sudo docker service ls`
 
-Ensure your `live.*` configuration files in the `config` directory are ready as detailed above. 
+Ensure your `live.*` configuration files in the `config` directory are ready as detailed above.
 Currently they are baked-in in the images at the image build time (this will be adjusted
 in the future):
 
@@ -326,10 +343,12 @@ Websockets ports. If you wish, you can adjust these ports via environment
 variables `PORT_REST` and `PORT_WEBSOCKET`.
 
 Helpful commands are:
+
 - List Docker stack: `docker stack ls`
 - Display status: `docker stack ps <name>`
 - `docker service ls` to get <service_name>
 - inspect logs: `docker service logs -f <service_name>`
+
 ## Security
 
 There are some security considerations that need to be taken care of. If you
@@ -385,6 +404,7 @@ netfilter-persistent save
 ```
 
 ## Access via HTTPS/WSS
+
 The last step is to ensure the service can be accessed via https and wss from the front-end.
 This step involves creating domain names and setting up a reverse proxy.
-We detail this in [Notion](https://repeated-pink-afb.notion.site/D8X-Broker-Howto-b51acf693edb42608098c297e2ce6c98?pvs=4). 
+We detail this in [Notion](https://repeated-pink-afb.notion.site/D8X-Broker-Howto-b51acf693edb42608098c297e2ce6c98?pvs=4).
