@@ -183,7 +183,7 @@ export default class DBBrokerFeeAccumulator {
 
   private async fetchBrokerFeesFromAPIForPool(fromTsSec: number, poolId: number): Promise<boolean> {
     try {
-      const feeData = await this.queryBrokerFeesFromAPI(fromTsSec, poolId);
+      const feeData: BrokerFeePayments[] = await this.queryBrokerFeesFromAPI(fromTsSec, poolId);
       await sleep(10);
       let latestRecordTsSec = Date.now() / 1000 - 86_400 * 30;
       for (let k = 0; k < feeData.length; k++) {
