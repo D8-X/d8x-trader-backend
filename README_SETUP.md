@@ -318,6 +318,14 @@ accessible on worker nodes.
 docker image push 127.0.0.1:5555/main:latest
 ```
 
+Create the docker configs required for main api.
+
+```bash
+docker config create cfg_rpc ./config/live.rpc.json
+docker config create cfg_referral ./config/live.referralSettings.json
+docker config create cfg_wscfg ./config/live.wsConfig.json
+```
+
 Ensure the `.env` file is ready (as detailed above) and `source` it, to make env
 vars available in your current shell session before running the deployment.
 
