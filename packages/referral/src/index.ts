@@ -283,7 +283,7 @@ async function start() {
   await dbBrokerFeeAccumulator.updateBrokerFeesFromAPIAllPools(
     Math.round(Date.now() / 1000 - settings.paymentMaxLookBackDays * 86400)
   );
-  const dbPayment = new DBPayments(dbBrokerFeeAccumulator, dbHandler, logger);
+  const dbPayment = new DBPayments(dbBrokerFeeAccumulator, dbHandler, settings.paymentMaxLookBackDays, logger);
 
   // fetch token balances for referral rebates
   await ta.fetchBalancesFromChain();
