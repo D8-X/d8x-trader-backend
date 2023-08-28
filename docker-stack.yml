@@ -16,6 +16,13 @@ services:
       - CORS_ON=${CORS_ON:-FALSE}
       - PORT_REST=${PORT_REST:-3001}
       - PORT_WEBSOCKET=${PORT_WEBSOCKET:-3002}
+      - CONFIG_PATH_RPC=/cfg_rpc
+      - CONFIG_PATH_REFERRAL_SETTINGS=/cfg_referral
+      - CONFIG_PATH_WSCFG=/cfg_wscfg
+    configs:
+      - cfg_rpc
+      - cfg_referral
+      - cfg_wscfg
     networks:
       - d8x_backend
     deploy:
@@ -24,3 +31,10 @@ networks:
   d8x_backend:
     driver: overlay
     name: d8x_backend
+configs:
+  cfg_rpc:
+    external: true
+  cfg_referral:
+    external: true
+  cfg_wscfg:
+    external: true
