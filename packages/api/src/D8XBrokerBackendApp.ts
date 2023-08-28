@@ -4,7 +4,12 @@ import { IncomingMessage } from "http";
 import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
 import { extractErrorMsg } from "utils";
-import { Order, PerpetualState, NodeSDKConfig, MarginAccount } from "@d8x/perpetuals-sdk";
+import {
+  Order,
+  PerpetualState,
+  NodeSDKConfig,
+  MarginAccount,
+} from "@d8x/perpetuals-sdk";
 import EventListener from "./eventListener";
 import BrokerIntegration from "./brokerIntegration";
 import fs from "fs";
@@ -24,13 +29,19 @@ export default class D8XBrokerBackendApp {
   private CORS_ON: boolean;
   private lastRequestTsMs: number; // last API request, used to inform whether wsRPC should be switched on event-listener
 
-  constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig, wsRPC: string) {
+  constructor(
+    broker: BrokerIntegration,
+    sdkConfig: NodeSDKConfig,
+    wsRPC: string
+  ) {
     dotenv.config();
     this.express = express();
     if (process.env.PORT_REST == undefined) {
       throw Error("define PORT_REST in .env");
     }
-    this.CORS_ON = !(process.env.CORS_ON == undefined || process.env.CORS_ON == "FALSE");
+    this.CORS_ON = !(
+      process.env.CORS_ON == undefined || process.env.CORS_ON == "FALSE"
+    );
     if (process.env.PORT_WEBSOCKET == undefined) {
       throw Error("define PORT_WEBSOCKET in .env");
     }
@@ -62,10 +73,13 @@ export default class D8XBrokerBackendApp {
   public async checkTradeEventListenerHeartbeat(newWsRPC: string) {
     const lastEventTs = this.eventListener.lastBlockchainEventTsMs();
     // last trade event longer than 2 mins ago and recent market order submission (so no execution observed)
-    const checkMktOrderFreq = this.eventListener.doMarketOrderFrequenciesMatch();
+    const checkMktOrderFreq =
+      this.eventListener.doMarketOrderFrequenciesMatch();
     const lastEventTooOld = Date.now() - lastEventTs > 10 * 60_000;
     let [c, d] = this.eventListener.getMarketOrderFrequencies();
-    const msg = `Last event: ${Math.floor((Date.now() - lastEventTs) / 1000 / 6) / 10}mins.`;
+    const msg = `Last event: ${
+      Math.floor((Date.now() - lastEventTs) / 1000 / 6) / 10
+    }mins.`;
     const msgFreq2 = ` Order posted vs executed : ${c}:${d} `;
     console.log();
 
@@ -83,7 +97,11 @@ export default class D8XBrokerBackendApp {
     }
   }
 
-  public static JSONResponse(type: string, msg: string, dataObj: object | string): string {
+  public static JSONResponse(
+    type: string,
+    msg: string,
+    dataObj: object | string
+  ): string {
     if (typeof dataObj == "string") {
       dataObj = JSON.parse(dataObj);
     }
@@ -93,42 +111,57 @@ export default class D8XBrokerBackendApp {
   private initWebSocket() {
     let eventListener = this.eventListener;
     let sdk = this.sdk;
-    this.wss.on("connection", function connection(ws: WebSocket.WebSocket, req: IncomingMessage) {
-      ws.on("error", console.error);
-      ws.on("message", async (data: WebSocket.RawData) => {
-        try {
-          let obj = JSON.parse(data.toString());
-          if (obj.type == "ping") {
-            if (eventListener.isWsKnown(ws)) {
-              ws.send(D8XBrokerBackendApp.JSONResponse("ping", "pong", {}));
+    this.wss.on(
+      "connection",
+      function connection(ws: WebSocket.WebSocket, req: IncomingMessage) {
+        ws.on("error", console.error);
+        ws.on("message", async (data: WebSocket.RawData) => {
+          try {
+            let obj = JSON.parse(data.toString());
+            if (obj.type == "ping") {
+              if (eventListener.isWsKnown(ws)) {
+                ws.send(D8XBrokerBackendApp.JSONResponse("ping", "pong", {}));
+              }
+            } else if (obj.type == "unsubscribe") {
+              eventListener.unsubscribe(ws, req);
+            } else {
+              console.log("received: ", obj);
+              //type = subscription
+              if (
+                typeof obj.traderAddr != "string" ||
+                typeof obj.symbol != "string"
+              ) {
+                throw new Error(
+                  "wrong arguments. Requires traderAddr and symbol"
+                );
+              }
+              let perpState: PerpetualState =
+                await sdk.extractPerpetualStateFromExchangeInfo(obj.symbol);
+              eventListener.subscribe(ws, obj.symbol, obj.traderAddr);
+              ws.send(
+                D8XBrokerBackendApp.JSONResponse(
+                  "subscription",
+                  obj.symbol,
+                  perpState
+                )
+              );
             }
-          } else if (obj.type == "unsubscribe") {
-            eventListener.unsubscribe(ws, req);
-          } else {
-            console.log("received: ", obj);
-            //type = subscription
-            if (typeof obj.traderAddr != "string" || typeof obj.symbol != "string") {
-              throw new Error("wrong arguments. Requires traderAddr and symbol");
-            }
-            let perpState: PerpetualState = await sdk.extractPerpetualStateFromExchangeInfo(obj.symbol);
-            eventListener.subscribe(ws, obj.symbol, obj.traderAddr);
-            ws.send(D8XBrokerBackendApp.JSONResponse("subscription", obj.symbol, perpState));
+          } catch (err: any) {
+            const usage = "{symbol: BTC-USD-MATIC, traderAddr: 0xCAFE...}";
+            ws.send(
+              D8XBrokerBackendApp.JSONResponse("error", "websocket subscribe", {
+                usage: usage,
+                error: extractErrorMsg(err),
+              })
+            );
           }
-        } catch (err: any) {
-          const usage = "{symbol: BTC-USD-MATIC, traderAddr: 0xCAFE...}";
-          ws.send(
-            D8XBrokerBackendApp.JSONResponse("error", "websocket subscribe", {
-              usage: usage,
-              error: extractErrorMsg(err),
-            })
-          );
-        }
-      });
-      ws.on("close", () => {
-        eventListener.unsubscribe(ws, req);
-      });
-      ws.send(D8XBrokerBackendApp.JSONResponse("connect", `success`, {}));
-    });
+        });
+        ws.on("close", () => {
+          eventListener.unsubscribe(ws, req);
+        });
+        ws.send(D8XBrokerBackendApp.JSONResponse("connect", `success`, {}));
+      }
+    );
     console.log(`⚡️[server]: WS is running at ws://localhost:${this.portWS}`);
   }
 
@@ -147,7 +180,12 @@ export default class D8XBrokerBackendApp {
    * @param type endpoint name
    * @param res response object
    */
-  private async priceType(symbol: any, priceType: string, type: string, res: Response) {
+  private async priceType(
+    symbol: any,
+    priceType: string,
+    type: string,
+    res: Response
+  ) {
     try {
       if (typeof symbol != "string") {
         throw new Error("wrong arguments");
@@ -156,17 +194,32 @@ export default class D8XBrokerBackendApp {
       res.send(D8XBrokerBackendApp.JSONResponse(type, "", rsp));
     } catch (err: any) {
       let usg = "symbol=BTC-USD-MATIC";
-      res.send(D8XBrokerBackendApp.JSONResponse("error", type, { error: extractErrorMsg(err), usage: usg }));
+      res.send(
+        D8XBrokerBackendApp.JSONResponse("error", type, {
+          error: extractErrorMsg(err),
+          usage: usg,
+        })
+      );
     }
   }
 
   private routes() {
     this.express.listen(this.port, async () => {
-      console.log(`⚡️[server]: HTTP is running at http://localhost:${this.port}`);
+      console.log(
+        `⚡️[server]: HTTP is running at http://localhost:${this.port}`
+      );
     });
 
     this.express.post("/", (req: Request, res: Response) => {
-      res.status(201).send(D8XBrokerBackendApp.JSONResponse("/", "Express + TypeScript Server", {}));
+      res
+        .status(201)
+        .send(
+          D8XBrokerBackendApp.JSONResponse(
+            "/",
+            "Express + TypeScript Server",
+            {}
+          )
+        );
     });
 
     this.express.get("/exchange-info", async (req: Request, res: Response) => {
@@ -175,14 +228,26 @@ export default class D8XBrokerBackendApp {
         let rsp = await this.sdk.exchangeInfo();
         res.send(D8XBrokerBackendApp.JSONResponse("exchange-info", "", rsp));
       } catch (err: any) {
-        res.send(D8XBrokerBackendApp.JSONResponse("error", "exchange-info", { error: extractErrorMsg(err) }));
+        res.send(
+          D8XBrokerBackendApp.JSONResponse("error", "exchange-info", {
+            error: extractErrorMsg(err),
+          })
+        );
       }
     });
 
-    this.express.get("/perpetual-mid-price", async (req: Request, res: Response) => {
-      this.lastRequestTsMs = Date.now();
-      await this.priceType(req.query.symbol, "mid", "perpetual-mid-price", res);
-    });
+    this.express.get(
+      "/perpetual-mid-price",
+      async (req: Request, res: Response) => {
+        this.lastRequestTsMs = Date.now();
+        await this.priceType(
+          req.query.symbol,
+          "mid",
+          "perpetual-mid-price",
+          res
+        );
+      }
+    );
 
     this.express.get("/mark-price", async (req: Request, res: Response) => {
       this.lastRequestTsMs = Date.now();
@@ -200,39 +265,22 @@ export default class D8XBrokerBackendApp {
       try {
         this.lastRequestTsMs = Date.now();
         let addr: string;
-        let symbol: string;
-        if (typeof req.query.traderAddr != "string" || typeof req.query.symbol != "string") {
+        let symbol: string | undefined;
+        if (
+          typeof req.query.traderAddr != "string" ||
+          (req.query.symbol != undefined && typeof req.query.symbol != "string")
+        ) {
           throw new Error("wrong arguments. Requires traderAddr and symbol");
         } else {
           addr = req.query.traderAddr;
           symbol = req.query.symbol;
-          rsp = await this.sdk.openOrders(addr.toString(), symbol.toString());
+          rsp = await this.sdk.openOrders(addr.toString(), symbol);
         }
         res.send(D8XBrokerBackendApp.JSONResponse("open-orders", "", rsp));
       } catch (err: any) {
         let usg = "open-orders?traderAddr=0xCafee&symbol=BTC-USD-MATIC";
-        res.send(D8XBrokerBackendApp.JSONResponse("error", "open-orders", { error: extractErrorMsg(err), usage: usg }));
-      }
-    });
-
-    this.express.get("/current-trader-volume", async (req: Request, res: Response) => {
-      let rsp;
-      try {
-        this.lastRequestTsMs = Date.now();
-        let traderAddr: string;
-        let poolSymbol: string;
-        if (typeof req.query.traderAddr != "string" || typeof req.query.poolSymbol != "string") {
-          throw new Error("wrong arguments. Requires traderAddr and poolSymbol");
-        } else {
-          traderAddr = req.query.traderAddr;
-          poolSymbol = req.query.poolSymbol;
-          rsp = await this.sdk.getCurrentTraderVolume(traderAddr, poolSymbol);
-          res.send(D8XBrokerBackendApp.JSONResponse("current-trader-volume", "", rsp));
-        }
-      } catch (err: any) {
-        let usg = "current-trader-volume?traderAddr=0xCafee&poolSymbol=MATIC";
         res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "current-trader-volume", {
+          D8XBrokerBackendApp.JSONResponse("error", "open-orders", {
             error: extractErrorMsg(err),
             usage: usg,
           })
@@ -240,13 +288,51 @@ export default class D8XBrokerBackendApp {
       }
     });
 
+    this.express.get(
+      "/current-trader-volume",
+      async (req: Request, res: Response) => {
+        let rsp;
+        try {
+          this.lastRequestTsMs = Date.now();
+          let traderAddr: string;
+          let poolSymbol: string;
+          if (
+            typeof req.query.traderAddr != "string" ||
+            typeof req.query.poolSymbol != "string"
+          ) {
+            throw new Error(
+              "wrong arguments. Requires traderAddr and poolSymbol"
+            );
+          } else {
+            traderAddr = req.query.traderAddr;
+            poolSymbol = req.query.poolSymbol;
+            rsp = await this.sdk.getCurrentTraderVolume(traderAddr, poolSymbol);
+            res.send(
+              D8XBrokerBackendApp.JSONResponse("current-trader-volume", "", rsp)
+            );
+          }
+        } catch (err: any) {
+          let usg = "current-trader-volume?traderAddr=0xCafee&poolSymbol=MATIC";
+          res.send(
+            D8XBrokerBackendApp.JSONResponse("error", "current-trader-volume", {
+              error: extractErrorMsg(err),
+              usage: usg,
+            })
+          );
+        }
+      }
+    );
+
     this.express.get("/order-ids", async (req: Request, res: Response) => {
       let rsp;
       try {
         this.lastRequestTsMs = Date.now();
         let traderAddr: string;
         let symbol: string;
-        if (typeof req.query.traderAddr != "string" || typeof req.query.symbol != "string") {
+        if (
+          typeof req.query.traderAddr != "string" ||
+          typeof req.query.symbol != "string"
+        ) {
           throw new Error("wrong arguments. Requires traderAddr and symbol");
         } else {
           traderAddr = req.query.traderAddr;
@@ -256,7 +342,12 @@ export default class D8XBrokerBackendApp {
         }
       } catch (err: any) {
         const usg = "order-ids?traderAddr=0xCafee&symbol=MATIC-USD-MATIC";
-        res.send(D8XBrokerBackendApp.JSONResponse("error", "order-ids", { error: extractErrorMsg(err), usage: usg }));
+        res.send(
+          D8XBrokerBackendApp.JSONResponse("error", "order-ids", {
+            error: extractErrorMsg(err),
+            usage: usg,
+          })
+        );
       }
     });
 
@@ -266,8 +357,13 @@ export default class D8XBrokerBackendApp {
         this.lastRequestTsMs = Date.now();
         let traderAddr: string;
         let poolSymbol: string;
-        if (typeof req.query.traderAddr != "string" || typeof req.query.poolSymbol != "string") {
-          throw new Error("wrong arguments. Requires traderAddr and poolSymbol");
+        if (
+          typeof req.query.traderAddr != "string" ||
+          typeof req.query.poolSymbol != "string"
+        ) {
+          throw new Error(
+            "wrong arguments. Requires traderAddr and poolSymbol"
+          );
         } else {
           traderAddr = req.query.traderAddr;
           poolSymbol = req.query.poolSymbol;
@@ -276,7 +372,12 @@ export default class D8XBrokerBackendApp {
         }
       } catch (err: any) {
         const usg = "trading-fee?traderAddr=0xCafee&poolSymbol=MATIC";
-        res.send(D8XBrokerBackendApp.JSONResponse("error", "trading-fee", { error: extractErrorMsg(err), usage: usg }));
+        res.send(
+          D8XBrokerBackendApp.JSONResponse("error", "trading-fee", {
+            error: extractErrorMsg(err),
+            usage: usg,
+          })
+        );
       }
     });
 
@@ -287,47 +388,73 @@ export default class D8XBrokerBackendApp {
       try {
         this.lastRequestTsMs = Date.now();
         let addr: string;
-        let symbol: string;
-        if (typeof req.query.traderAddr != "string" || typeof req.query.symbol != "string") {
-          throw new Error("wrong arguments. Requires traderAddr and symbol");
+        let symbol: string | undefined;
+        if (
+          typeof req.query.traderAddr != "string" ||
+          (req.query.symbol != undefined && typeof req.query.symbol != "string")
+        ) {
+          throw new Error("wrong arguments. Requires traderAddr");
         } else {
           addr = req.query.traderAddr;
           symbol = req.query.symbol;
-          rsp = await this.sdk.positionRisk(addr.toString(), symbol.toString());
+          rsp = await this.sdk.positionRisk(addr.toString(), symbol);
           res.send(D8XBrokerBackendApp.JSONResponse("position-risk", "", rsp));
         }
       } catch (err: any) {
         const usg = "position-risk?traderAddr=0xCafee&symbol=MATIC-USD-MATIC";
         res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "position-risk", { error: extractErrorMsg(err), usage: usg })
-        );
-      }
-    });
-
-    this.express.get("/max-order-size-for-trader", async (req: Request, res: Response) => {
-      let rsp: string;
-      try {
-        this.lastRequestTsMs = Date.now();
-        let addr: string;
-        let symbol: string;
-        if (typeof req.query.traderAddr != "string" || typeof req.query.symbol != "string") {
-          throw new Error("wrong arguments. Requires traderAddr and symbol");
-        } else {
-          addr = req.query.traderAddr;
-          symbol = req.query.symbol;
-          rsp = await this.sdk.maxOrderSizeForTrader(addr.toString(), symbol.toString());
-          res.send(D8XBrokerBackendApp.JSONResponse("max-order-size-for-trader", "", rsp));
-        }
-      } catch (err: any) {
-        const usg = "max-order-size-for-trader?traderAddr=0xCafee&symbol=MATIC-USD-MATIC";
-        res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "max-order-size-for-trader", {
+          D8XBrokerBackendApp.JSONResponse("error", "position-risk", {
             error: extractErrorMsg(err),
             usage: usg,
           })
         );
       }
     });
+
+    this.express.get(
+      "/max-order-size-for-trader",
+      async (req: Request, res: Response) => {
+        let rsp: string;
+        try {
+          this.lastRequestTsMs = Date.now();
+          let addr: string;
+          let symbol: string;
+          if (
+            typeof req.query.traderAddr != "string" ||
+            typeof req.query.symbol != "string"
+          ) {
+            throw new Error("wrong arguments. Requires traderAddr and symbol");
+          } else {
+            addr = req.query.traderAddr;
+            symbol = req.query.symbol;
+            rsp = await this.sdk.maxOrderSizeForTrader(
+              addr.toString(),
+              symbol.toString()
+            );
+            res.send(
+              D8XBrokerBackendApp.JSONResponse(
+                "max-order-size-for-trader",
+                "",
+                rsp
+              )
+            );
+          }
+        } catch (err: any) {
+          const usg =
+            "max-order-size-for-trader?traderAddr=0xCafee&symbol=MATIC-USD-MATIC";
+          res.send(
+            D8XBrokerBackendApp.JSONResponse(
+              "error",
+              "max-order-size-for-trader",
+              {
+                error: extractErrorMsg(err),
+                usage: usg,
+              }
+            )
+          );
+        }
+      }
+    );
 
     this.express.get("/trader-loyalty", async (req: Request, res: Response) => {
       let rsp: string;
@@ -344,29 +471,37 @@ export default class D8XBrokerBackendApp {
       } catch (err: any) {
         const usg = "trader-loyalty?traderAddr=0xCafee";
         res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "trader-loyalty", { error: extractErrorMsg(err), usage: usg })
-        );
-      }
-    });
-
-    this.express.get("/perpetual-static-info", async (req: Request, res: Response) => {
-      try {
-        this.lastRequestTsMs = Date.now();
-        if (typeof req.query.symbol != "string") {
-          throw new Error("wrong argument. Requires a symbol.");
-        }
-        let rsp = this.sdk.perpetualStaticInfo(req.query.symbol);
-        res.send(D8XBrokerBackendApp.JSONResponse("perpetual-static-info", "", rsp));
-      } catch (err: any) {
-        const usg = "perpetual-static-info?symbol=BTC-USD-MATIC";
-        res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "perpetual-static-info", {
+          D8XBrokerBackendApp.JSONResponse("error", "trader-loyalty", {
             error: extractErrorMsg(err),
             usage: usg,
           })
         );
       }
     });
+
+    this.express.get(
+      "/perpetual-static-info",
+      async (req: Request, res: Response) => {
+        try {
+          this.lastRequestTsMs = Date.now();
+          if (typeof req.query.symbol != "string") {
+            throw new Error("wrong argument. Requires a symbol.");
+          }
+          let rsp = this.sdk.perpetualStaticInfo(req.query.symbol);
+          res.send(
+            D8XBrokerBackendApp.JSONResponse("perpetual-static-info", "", rsp)
+          );
+        } catch (err: any) {
+          const usg = "perpetual-static-info?symbol=BTC-USD-MATIC";
+          res.send(
+            D8XBrokerBackendApp.JSONResponse("error", "perpetual-static-info", {
+              error: extractErrorMsg(err),
+              usage: usg,
+            })
+          );
+        }
+      }
+    );
 
     // see test/post.test.ts for an example
     this.express.post("/order-digest", async (req, res) => {
@@ -379,7 +514,10 @@ export default class D8XBrokerBackendApp {
       } catch (err: any) {
         const usg = "{orders: <orderstruct>, traderAddr: string}";
         res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "order-digest", { error: extractErrorMsg(err), usage: usg })
+          D8XBrokerBackendApp.JSONResponse("error", "order-digest", {
+            error: extractErrorMsg(err),
+            usage: usg,
+          })
         );
       }
     });
@@ -392,7 +530,9 @@ export default class D8XBrokerBackendApp {
         let order: Order = <Order>req.body.order;
 
         let rsp = await this.sdk.positionRiskOnTrade(order, traderAddr);
-        res.send(D8XBrokerBackendApp.JSONResponse("position-risk-on-trade", "", rsp));
+        res.send(
+          D8XBrokerBackendApp.JSONResponse("position-risk-on-trade", "", rsp)
+        );
       } catch (err: any) {
         const usg = "{order: <orderstruct>, traderAddr: string}";
         res.send(
@@ -404,18 +544,63 @@ export default class D8XBrokerBackendApp {
       }
     });
 
-    this.express.post("/position-risk-on-collateral-action", async (req, res) => {
+    this.express.post(
+      "/position-risk-on-collateral-action",
+      async (req, res) => {
+        try {
+          this.lastRequestTsMs = Date.now();
+          let traderAddr: string = req.body.traderAddr;
+          let deltaCollateral: number = <number>req.body.amount;
+          let curPositionRisk: MarginAccount = <MarginAccount>(
+            req.body.positionRisk
+          );
+          let rsp = await this.sdk.positionRiskOnCollateralAction(
+            traderAddr,
+            deltaCollateral,
+            curPositionRisk
+          );
+          res.send(
+            D8XBrokerBackendApp.JSONResponse(
+              "position-risk-on-collateral-action",
+              "",
+              rsp
+            )
+          );
+        } catch (err: any) {
+          const usg =
+            "{traderAddr: string, amount: number, positionRisk: <MarginAccount struct>}";
+          res.send(
+            D8XBrokerBackendApp.JSONResponse(
+              "error",
+              "position-risk-on-collateral-action",
+              {
+                error: extractErrorMsg(err),
+                usage: usg,
+              }
+            )
+          );
+        }
+      }
+    );
+
+    this.express.get("/add-collateral", async (req: Request, res: Response) => {
       try {
         this.lastRequestTsMs = Date.now();
-        let traderAddr: string = req.body.traderAddr;
-        let deltaCollateral: number = <number>req.body.amount;
-        let curPositionRisk: MarginAccount = <MarginAccount>req.body.positionRisk;
-        let rsp = await this.sdk.positionRiskOnCollateralAction(traderAddr, deltaCollateral, curPositionRisk);
-        res.send(D8XBrokerBackendApp.JSONResponse("position-risk-on-collateral-action", "", rsp));
+        if (
+          typeof req.query.symbol != "string" ||
+          typeof req.query.amount != "string"
+        ) {
+          throw new Error("wrong arguments. Requires a symbol and an amount.");
+        }
+        let rsp = await this.sdk.addCollateral(
+          req.query.symbol,
+          req.query.amount
+        );
+        res.send(D8XBrokerBackendApp.JSONResponse("add-collateral", "", rsp));
       } catch (err: any) {
-        const usg = "{traderAddr: string, amount: number, positionRisk: <MarginAccount struct>}";
+        const usg = "add-collateral?symbol=MATIC-USDC-USDC&amount='110.4'";
         res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "position-risk-on-collateral-action", {
+          D8XBrokerBackendApp.JSONResponse("error", "add-collateral", {
             error: extractErrorMsg(err),
             usage: usg,
           })
@@ -423,66 +608,94 @@ export default class D8XBrokerBackendApp {
       }
     });
 
-    this.express.get("/add-collateral", async (req: Request, res: Response) => {
-      try {
-        this.lastRequestTsMs = Date.now();
-        if (typeof req.query.symbol != "string" || typeof req.query.amount != "string") {
-          throw new Error("wrong arguments. Requires a symbol and an amount.");
+    this.express.get(
+      "/remove-collateral",
+      async (req: Request, res: Response) => {
+        try {
+          this.lastRequestTsMs = Date.now();
+          if (
+            typeof req.query.symbol != "string" ||
+            typeof req.query.amount != "string"
+          ) {
+            throw new Error(
+              "wrong arguments. Requires a symbol and an amount."
+            );
+          }
+          let rsp = await this.sdk.removeCollateral(
+            req.query.symbol,
+            req.query.amount
+          );
+          res.send(
+            D8XBrokerBackendApp.JSONResponse("remove-collateral", "", rsp)
+          );
+        } catch (err: any) {
+          const usg = "remove-collateral?symbol=MATIC&amount='110.4'";
+          res.send(
+            D8XBrokerBackendApp.JSONResponse("error", "remove-collateral", {
+              error: extractErrorMsg(err),
+              usage: usg,
+            })
+          );
         }
-        let rsp = await this.sdk.addCollateral(req.query.symbol, req.query.amount);
-        res.send(D8XBrokerBackendApp.JSONResponse("add-collateral", "", rsp));
-      } catch (err: any) {
-        const usg = "add-collateral?symbol=MATIC-USDC-USDC&amount='110.4'";
-        res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "add-collateral", { error: extractErrorMsg(err), usage: usg })
-        );
       }
-    });
+    );
 
-    this.express.get("/remove-collateral", async (req: Request, res: Response) => {
-      try {
-        this.lastRequestTsMs = Date.now();
-        if (typeof req.query.symbol != "string" || typeof req.query.amount != "string") {
-          throw new Error("wrong arguments. Requires a symbol and an amount.");
+    this.express.get(
+      "/available-margin",
+      async (req: Request, res: Response) => {
+        try {
+          this.lastRequestTsMs = Date.now();
+          if (
+            typeof req.query.symbol != "string" ||
+            typeof req.query.traderAddr != "string"
+          ) {
+            throw new Error(
+              "wrong arguments. Requires a symbol and a trader address."
+            );
+          }
+          let rsp = await this.sdk.getAvailableMargin(
+            req.query.symbol,
+            req.query.traderAddr
+          );
+          res.send(
+            D8XBrokerBackendApp.JSONResponse("available-margin", "", rsp)
+          );
+        } catch (err: any) {
+          const usg =
+            "available-margin?symbol=BTC-USD-MATIC&traderAddr=0xCaffEe";
+          res.send(
+            D8XBrokerBackendApp.JSONResponse("error", "available-margin", {
+              error: extractErrorMsg(err),
+              usage: usg,
+            })
+          );
         }
-        let rsp = await this.sdk.removeCollateral(req.query.symbol, req.query.amount);
-        res.send(D8XBrokerBackendApp.JSONResponse("remove-collateral", "", rsp));
-      } catch (err: any) {
-        const usg = "remove-collateral?symbol=MATIC&amount='110.4'";
-        res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "remove-collateral", { error: extractErrorMsg(err), usage: usg })
-        );
       }
-    });
-
-    this.express.get("/available-margin", async (req: Request, res: Response) => {
-      try {
-        this.lastRequestTsMs = Date.now();
-        if (typeof req.query.symbol != "string" || typeof req.query.traderAddr != "string") {
-          throw new Error("wrong arguments. Requires a symbol and a trader address.");
-        }
-        let rsp = await this.sdk.getAvailableMargin(req.query.symbol, req.query.traderAddr);
-        res.send(D8XBrokerBackendApp.JSONResponse("available-margin", "", rsp));
-      } catch (err: any) {
-        const usg = "available-margin?symbol=BTC-USD-MATIC&traderAddr=0xCaffEe";
-        res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "available-margin", { error: extractErrorMsg(err), usage: usg })
-        );
-      }
-    });
+    );
 
     this.express.get("/cancel-order", async (req: Request, res: Response) => {
       try {
         this.lastRequestTsMs = Date.now();
-        if (typeof req.query.symbol != "string" || typeof req.query.orderId != "string") {
-          throw new Error("wrong arguments. Requires a symbol and an order Id.");
+        if (
+          typeof req.query.symbol != "string" ||
+          typeof req.query.orderId != "string"
+        ) {
+          throw new Error(
+            "wrong arguments. Requires a symbol and an order Id."
+          );
         }
-        let rsp = await this.sdk.cancelOrder(req.query.symbol, req.query.orderId);
+        let rsp = await this.sdk.cancelOrder(
+          req.query.symbol,
+          req.query.orderId
+        );
         res.send(D8XBrokerBackendApp.JSONResponse("cancel-order", "", rsp));
       } catch (err: any) {
         const usg = "cancel-order?symbol=BTC-USD-MATIC&orderId=0xCaffEe";
         res.send(
-          D8XBrokerBackendApp.JSONResponse("error", "cancel-order", { error: extractErrorMsg(err), usage: usg })
+          D8XBrokerBackendApp.JSONResponse("error", "cancel-order", {
+            error: extractErrorMsg(err),
+            usage: usg,
+          })
         );
       }
     });
