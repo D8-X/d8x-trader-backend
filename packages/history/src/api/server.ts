@@ -633,7 +633,7 @@ export class HistoryRestAPI {
 				throw Error("timestamp too old");
 			}
 			const fromDate = new Date(t_from * 1000);
-			const poolId = Number(req.query.pool_id) || 1;
+			const poolId = Number(req.query.poolId);
 			const reqBrokerAddr = req.query.brokerAddr?.toString().toLowerCase();
 			if (reqBrokerAddr == undefined || !isValidAddress(reqBrokerAddr)) {
 				resp.status(400);
