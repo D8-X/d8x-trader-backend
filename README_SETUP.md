@@ -47,6 +47,7 @@ It is key to have Docker version >=24.0.5.
 Use the helper script `host_setup.sh` to get the latest version.
 You can use the [host-setup](./host-setup.sh) script to install docker.
 
+## Backend Env-file Configuration
 Now we configure the environment file.
 
 ```
@@ -70,6 +71,7 @@ $ nano .env
   - It is recommended to set a strong password for `REDIS_PASSWORD` variable. This password is needed by both, and docker swarm.
   - Set the host to the private IP of : `REDIS_HOST=<PRIVATEIPOFSERVER1>`
 
+## Backend JSON-files Configuration
 Additional parameters for the backend services on top of .env are found in the `./config` subdirectory at the root level.
 
 Copy the files in `./config/example.<name>.json` into `./config/live.<name>.json` (i.e., copy and replace prefix "example." with prefix "live.")
