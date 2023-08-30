@@ -33,7 +33,7 @@ RUN echo -e "PORT_WEBSOCKET=${PORT_WEBSOCKET}\n""PORT_WEBSOCKET_CLIENT=${PORT_WE
 RUN npx lerna run build --scope api
 
 #EXPOSED PORTS
-EXPOSE ${PORT_REST}
+EXPOSE ${MAIN_API_PORT_HTTP}
 EXPOSE ${PORT_WEBSOCKET}
 
 CMD ["node", "packages/api/dist/index.js"]
