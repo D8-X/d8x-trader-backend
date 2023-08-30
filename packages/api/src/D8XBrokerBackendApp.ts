@@ -42,11 +42,11 @@ export default class D8XBrokerBackendApp {
     this.CORS_ON = !(
       process.env.CORS_ON == undefined || process.env.CORS_ON == "FALSE"
     );
-    if (process.env.PORT_WEBSOCKET == undefined) {
-      throw Error("define PORT_WEBSOCKET in .env");
+    if (process.env.MAIN_API_PORT_WEBSOCKET == undefined) {
+      throw Error("define MAIN_API_PORT_WEBSOCKET in .env");
     }
     this.port = Number(process.env.MAIN_API_PORT_HTTP);
-    this.portWS = Number(process.env.PORT_WEBSOCKET);
+    this.portWS = Number(process.env.MAIN_API_PORT_WEBSOCKET);
     this.wss = new WebSocketServer({ port: this.portWS });
 
     this.sdkConfig = sdkConfig;
