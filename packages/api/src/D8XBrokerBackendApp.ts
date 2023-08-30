@@ -36,8 +36,8 @@ export default class D8XBrokerBackendApp {
   ) {
     dotenv.config();
     this.express = express();
-    if (process.env.PORT_REST == undefined) {
-      throw Error("define PORT_REST in .env");
+    if (process.env.MAIN_API_PORT_HTTP == undefined) {
+      throw Error("define MAIN_API_PORT_HTTP in .env");
     }
     this.CORS_ON = !(
       process.env.CORS_ON == undefined || process.env.CORS_ON == "FALSE"
@@ -45,7 +45,7 @@ export default class D8XBrokerBackendApp {
     if (process.env.PORT_WEBSOCKET == undefined) {
       throw Error("define PORT_WEBSOCKET in .env");
     }
-    this.port = Number(process.env.PORT_REST);
+    this.port = Number(process.env.MAIN_API_PORT_HTTP);
     this.portWS = Number(process.env.PORT_WEBSOCKET);
     this.wss = new WebSocketServer({ port: this.portWS });
 
