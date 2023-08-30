@@ -33,6 +33,7 @@ async function start() {
 
   if (remoteBrokerAddr != undefined && process.env.REMOTE_BROKER_HTTP != "") {
     const brokerIdName = "1";
+    remoteBrokerAddr = remoteBrokerAddr.replace(/\/+$/, '');// remove trailing slash
     broker = new BrokerRemote(remoteBrokerAddr, brokerIdName, sdkConfig.chainId);
   } else if (
     process.env.BROKER_KEY != undefined &&
