@@ -9,8 +9,8 @@ SDK_CONFIG_NAME=testnet
 # CORS ON: if behind a reverse proxy turn this off (TRUE,FALSE)
 CORS_ON=FALSE
 
-# The port of PNL service API and RPC URLs for historical data (packages/history)
-PNL_API_PORT=8888
+# The port of history service API (packages/history)
+HISTORY_API_PORT_HTTP=8888
 
 # The port for the referral service API (packages/referral)
 REFERRAL_API_PORT=8889
