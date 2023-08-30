@@ -34,13 +34,14 @@ async function start() {
   if (remoteBrokerAddr != undefined && process.env.REMOTE_BROKER_HTTP != "") {
     const brokerIdName = "1";
     remoteBrokerAddr = remoteBrokerAddr.replace(/\/+$/, '');// remove trailing slash
+    console.log("Creating remote broker for order signatures");
     broker = new BrokerRemote(remoteBrokerAddr, brokerIdName, sdkConfig.chainId);
   } else if (
     process.env.BROKER_KEY != undefined &&
     process.env.BROKER_KEY != "" &&
     process.env.BROKER_FEE_TBPS != undefined
   ) {
-    console.log("Initializing broker");
+    console.log("Initializing local broker");
     const feeTbps = process.env.BROKER_FEE_TBPS == undefined ? 0 : Number(process.env.BROKER_FEE_TBPS);
     broker = new BrokerRegular(process.env.BROKER_KEY, feeTbps);
   } else {
