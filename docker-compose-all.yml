@@ -97,7 +97,7 @@ services:
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - DATABASE_DSN_REFERRAL=postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@postgres_referral:5432/${POSTGRES_DB_REFERRAL}?schema=public
-      - REFERRAL_API_PORT=${REFERRAL_API_PORT}
+      - REFERRAL_API_PORT_HTTP=${REFERRAL_API_PORT_HTTP}
       - BROKER_KEY=${BROKER_KEY}
       - CHAIN_ID=${CHAIN_ID}
       - CORS_ON=${CORS_ON}
@@ -106,7 +106,7 @@ services:
       - CONFIG_PATH_REFERRAL_SETTINGS=/cfg_referral
       - CONFIG_PATH_WSCFG=/cfg_wscfg
     ports:
-      - "127.0.0.1:${REFERRAL_API_PORT}:${REFERRAL_API_PORT}"
+      - "127.0.0.1:${REFERRAL_API_PORT_HTTP}:${REFERRAL_API_PORT_HTTP}"
     restart: on-failure
     logging:
       driver: "json-file"

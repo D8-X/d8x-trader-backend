@@ -13,7 +13,7 @@ CORS_ON=FALSE
 PNL_API_PORT=8888
 
 # The port for the referral service API (packages/referral)
-REFERRAL_API_PORT=8889
+REFERRAL_API_PORT_HTTP=8889
 
 
 # Postgres credentials for docker-compose (development only)
