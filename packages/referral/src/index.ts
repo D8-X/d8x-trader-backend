@@ -210,11 +210,11 @@ async function start() {
   }
 
   let port: number;
-  if (process.env.REFERRAL_API_PORT == undefined) {
-    logger.error("Set REFERRAL_API_PORT in .env (e.g. REFERRAL_API_PORT=8889)");
+  if (process.env.REFERRAL_API_PORT_HTTP == undefined) {
+    logger.error("Set REFERRAL_API_PORT_HTTP in .env (e.g. REFERRAL_API_PORT_HTTP=8889)");
     return;
   } else {
-    port = parseInt(process.env.REFERRAL_API_PORT);
+    port = parseInt(process.env.REFERRAL_API_PORT_HTTP);
   }
 
   let chainId: number = Number(<string>process.env.CHAIN_ID || -1);

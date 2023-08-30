@@ -17,7 +17,7 @@ RUN npx lerna run build --scope=referral
 WORKDIR packages/referral
 
 # Expose the provided API_PORT
-EXPOSE ${REFERRAL_API_PORT}
+EXPOSE ${REFERRAL_API_PORT_HTTP}
 RUN echo -e "DATABASE_DSN_REFERRAL\n" > .env
 
 CMD ["yarn", "run-production"]
