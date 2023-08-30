@@ -92,7 +92,7 @@ services:
     environment:
       REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
       MAIN_API_PORT_HTTP: ${MAIN_API_PORT_HTTP}
-      PORT_WEBSOCKET: ${PORT_WEBSOCKET}
+      MAIN_API_PORT_WEBSOCKET: ${MAIN_API_PORT_WEBSOCKET}
       CHAIN_ID: ${CHAIN_ID}
       CONFIG_PATH_RPC: /cfg_rpc
       CONFIG_PATH_REFERRAL_SETTINGS: /cfg_referral

@@ -31,7 +31,7 @@ services:
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - MAIN_API_PORT_HTTP=${MAIN_API_PORT_HTTP}
-      - PORT_WEBSOCKET=${PORT_WEBSOCKET}
+      - MAIN_API_PORT_WEBSOCKET=${MAIN_API_PORT_WEBSOCKET}
       - CHAIN_ID=${CHAIN_ID}
       - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
       - CORS_ON=${CORS_ON}
@@ -41,7 +41,7 @@ services:
       - CONFIG_PATH_REFERRAL_SETTINGS=/cfg_referral
       - CONFIG_PATH_WSCFG=/cfg_wscfg
     ports:
-      - "127.0.0.1:${PORT_WEBSOCKET}:${PORT_WEBSOCKET}"
+      - "127.0.0.1:${MAIN_API_PORT_WEBSOCKET}:${MAIN_API_PORT_WEBSOCKET}"
       - "127.0.0.1:${MAIN_API_PORT_HTTP}:${MAIN_API_PORT_HTTP}"
       - "8880:8880" # historyAPIEndpoint
     restart: on-failure
@@ -130,7 +130,7 @@ services:
     environment:
       - REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379/0"
       - MAIN_API_PORT_HTTP=${MAIN_API_PORT_HTTP}
-      - PORT_WEBSOCKET=${PORT_WEBSOCKET}
+      - MAIN_API_PORT_WEBSOCKET=${MAIN_API_PORT_WEBSOCKET}
       - CHAIN_ID=${CHAIN_ID}
       - CONFIG_PATH_RPC=/cfg_rpc
       - CONFIG_PATH_REFERRAL_SETTINGS=/cfg_referral

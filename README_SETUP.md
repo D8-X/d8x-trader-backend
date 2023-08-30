@@ -352,7 +352,7 @@ docker service create --name main-api --env-file .env --network the-network \
 
 Note that by default ports 3001 and 3002 are used and exposed as API and
 Websockets ports. If you wish, you can adjust these ports via environment
-variables `MAIN_API_PORT_HTTP` and `PORT_WEBSOCKET`.
+variables `MAIN_API_PORT_HTTP` and `MAIN_API_PORT_WEBSOCKET`.
 
 Helpful commands are:
 
