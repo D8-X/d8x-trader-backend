@@ -48,6 +48,7 @@ Use the helper script `host_setup.sh` to get the latest version.
 You can use the [host-setup](./host-setup.sh) script to install docker.
 
 ## Backend Env-file Configuration
+
 Now we configure the environment file.
 
 ```
@@ -72,6 +73,7 @@ $ nano .env
   - Set the host to the private IP of : `REDIS_HOST=<PRIVATEIPOFSERVER1>`
 
 ## Backend JSON-files Configuration
+
 Additional parameters for the backend services on top of .env are found in the `./config` subdirectory at the root level.
 
 Copy the files in `./config/example.<name>.json` into `./config/live.<name>.json` (i.e., copy and replace prefix "example." with prefix "live.")
@@ -350,7 +352,7 @@ docker service create --name main-api --env-file .env --network the-network \
 
 Note that by default ports 3001 and 3002 are used and exposed as API and
 Websockets ports. If you wish, you can adjust these ports via environment
-variables `PORT_REST` and `PORT_WEBSOCKET`.
+variables `MAIN_API_PORT_HTTP` and `MAIN_API_PORT_WEBSOCKET`.
 
 Helpful commands are:
 
