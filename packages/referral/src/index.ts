@@ -246,6 +246,7 @@ async function start() {
   let payExecutor: AbstractPayExecutor;
   let remoteBrokerAddr = process.env.REMOTE_BROKER_HTTP;
   if (remoteBrokerAddr != undefined && process.env.REMOTE_BROKER_HTTP != "") {
+    remoteBrokerAddr = remoteBrokerAddr.replace(/\/+$/, '');// remove trailing slash
     logger.info("Creating remote payment executor");
     const myId = "1";
     payExecutor = new PayExecutorRemote(
