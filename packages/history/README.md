@@ -64,7 +64,7 @@ yarn watch
 
 ```
 DATABASE_DSN_HISTORY - postgres DSN string
-API_PORT - port on which the REST API will be exposed on
+HISTORY_API_PORT_HTTP - port on which the REST API will be exposed on
 CHAIN_ID - corresponding to the apprropriate network
 SDK_CONFIG_NAME=testnet
 ```
