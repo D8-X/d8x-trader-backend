@@ -57,7 +57,7 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 		"DATABASE_DSN_HISTORY",
 		"SDK_CONFIG_NAME",
 		"CHAIN_ID",
-		"API_PORT",
+		"HISTORY_API_PORT_HTTP",
 	];
 	required.forEach((e) => {
 		if (!(e in process.env)) {
@@ -183,7 +183,7 @@ export const main = async () => {
 	// Start the history api
 	const api = new HistoryRestAPI(
 		{
-			port: parseInt(process.env.API_PORT!),
+			port: parseInt(process.env.HISTORY_API_PORT_HTTP!),
 			prisma,
 			db: {
 				fundingRatePayment: dbFundingRatePayments,
