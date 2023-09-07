@@ -23,7 +23,7 @@ These are the services provided in this repository:
 - Historical data service `packages/history` - services that allow showing trade and funding payment historical data to users. See [here](./packages/history/README.md) for API specification.
 - Referral service `packages/referral` - handles a 2-layered KOL referral service. See [here](./packages/referral/README_API.md) for API specification.
 - Pyth price connector service `packages/pxws-client` - provides price feeds from Pyth. See [here](./packages/referral/README.md).
-- 
+
 # Frontend Configuration
 
 The Frontend package is tightly linked to these services, and the way it connects with them is configured entirely via environment variables in that project. Once you know on which URLs these API and Websocket services are hosted, they can be connected to the FE by specifying the following environment variables:
