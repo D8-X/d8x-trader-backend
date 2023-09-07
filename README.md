@@ -15,7 +15,7 @@ There must be one backend per chain-id.
 Here is a [guide on how to set up the backend](README_SETUP.md). See also https://repeated-pink-afb.notion.site/D8X-Broker-Howto-b51acf693edb42608098c297e2ce6c98.
 Click [here](README_DEV.md) for some further comments directed towards developers
 
-# d8x-trader-backend service
+# d8x-trader-backend services
 
 These are the services provided in this repository:
 
