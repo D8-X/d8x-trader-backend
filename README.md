@@ -3,7 +3,7 @@
 The entire backend for the D8X Perpetuals trading frontend package consists of
 
 - this backend code - lerna monorepo consisting of a few services (history; api;
-  pxws-client) read [here](#services) to find out more about the services.
+  pxws-client) read [here](#d8x-trader-backend-services) to find out more about the services.
 - candle stick chart server: https://github.com/D8-X/candleD8
 - a price server that provides Pyth off-chain oracle prices
 
@@ -15,6 +15,15 @@ There must be one backend per chain-id.
 Here is a [guide on how to set up the backend](README_SETUP.md). See also https://repeated-pink-afb.notion.site/D8X-Broker-Howto-b51acf693edb42608098c297e2ce6c98.
 Click [here](README_DEV.md) for some further comments directed towards developers
 
+# d8x-trader-backend services
+
+These are the services provided in this repository:
+
+- Main/Trading service `packages/api`  - handles everything related to trading (getting trade relevant data, posting trade relevant data). See [here](./packages/api/README.md) for API and WS specification.
+- Historical data service `packages/history` - services that allow showing trade and funding payment historical data to users. See [here](./packages/history/README.md) for API specification.
+- Referral service `packages/referral` - handles a 2-layered KOL referral service. See [here](./packages/referral/README_API.md) for API specification.
+- Pyth price connector service `packages/pxws-client` - provides price feeds from Pyth. See [here](./packages/referral/README.md).
+- 
 # Frontend Configuration
 
 The Frontend package is tightly linked to these services, and the way it connects with them is configured entirely via environment variables in that project. Once you know on which URLs these API and Websocket services are hosted, they can be connected to the FE by specifying the following environment variables:
