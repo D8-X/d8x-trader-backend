@@ -21,7 +21,7 @@ These are the services provided in this repository:
 
 - Main/Trading service `packages/api`  - handles everything related to trading (getting trade relevant data, posting trade relevant data). See [here](./packages/api/README.md) for API and WS specification.
 - Historical data service `packages/history` - services that allow showing trade and funding payment historical data to users. See [here](./packages/history/README.md) for API specification.
-- Referral service `packages/referral` - handles a 2-layered KOL referral service. See [here](./packages/referral/referral/README_API.md) for API specification.
+- Referral service `packages/referral` - handles a 2-layered KOL referral service. See [here](./packages/referral/README_API.md) for API specification.
 - Pyth price connector service `packages/pxws-client` - provides price feeds from Pyth. See [here](./packages/referral/README.md).
 
 # Frontend Configuration
