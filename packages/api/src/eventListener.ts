@@ -229,7 +229,6 @@ export default class EventListener extends IndexPriceInterface {
       this.clients.set(ws, new Array<ClientSubscription>());
     }
     let clientSubscriptions = this.clients.get(ws);
-    this._unsubscribe(clientSubscriptions!, Math.floor(id / 1e5), ws); //<----------
 
     // check that not already subscribed
     for (let k = 0; k < clientSubscriptions!.length; k++) {

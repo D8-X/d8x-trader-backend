@@ -47,10 +47,31 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@d8x/perpetuals-sdk@^0.8.33":
-  version "0.8.33"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.8.33.tgz#a8e286518e35338838bb19371b9c68bfe49f0abf"
-  integrity sha512-KTvpG5gCOSJjwznHlNrxpnRA8SLMNN8zdBQSPhBQEKzzJ6ROuYLeWMtEdEq1n7Gu9+wPWbo/b2+vgMSUjl1o+A==
+"@d8x/perpetuals-sdk@^0.8.38":
+  version "0.8.38"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.8.38.tgz#c0ce2d2d3568455e2a4cedcf5ab48fc67012d823"
+  integrity sha512-HItQS8pRVs/Ddt3HB7E1GVHugHPvFZSxK/ixBnZQJzrpZNlkXwLGUAM0ZSVWc8eOgBCtZnqz+1ZQ2fj3F8c7AQ==
+  dependencies:
+    "@ethersproject/abi" "^5.7.0"
+    "@ethersproject/abstract-signer" "^5.7.0"
+    "@ethersproject/bignumber" "^5.7.0"
+    "@ethersproject/bytes" "^5.7.0"
+    "@ethersproject/contracts" "^5.7.0"
+    "@ethersproject/keccak256" "^5.7.0"
+    "@ethersproject/providers" "^5.7.2"
+    "@ethersproject/strings" "^5.7.0"
+    "@ethersproject/units" "^5.7.0"
+    "@ethersproject/wallet" "^5.7.0"
+    "@typechain/ethers-v5" "^11.1.1"
+    buffer "^6.0.3"
+    ethers "^5.7.2"
+    process "^0.11.10"
+    typechain "^8.2.0"
+
+"@d8x/perpetuals-sdk@^0.8.43":
+  version "0.8.43"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.8.43.tgz#ca63a5e4d9a1f903464822f0b11d719eb5b20a78"
+  integrity sha512-A4yd+M3v5NLL0vxWVVrn5VjYL81AG0A31kwaAh2gY0rESjqr+/yapEBDwMzmTRJ5xC4oaZvaQsbjk4CwCOkGXQ==
   dependencies:
     "@ethersproject/abi" "^5.7.0"
     "@ethersproject/abstract-signer" "^5.7.0"

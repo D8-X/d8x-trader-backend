@@ -1,7 +1,7 @@
 import * as winston from "winston";
 import { EventListener } from "../contracts/listeners";
 import * as dotenv from "dotenv";
-import { chooseRandomRPC, executeWithTimeout } from "utils";
+import { chooseRandomRPC, executeWithTimeout, loadConfigRPC } from "utils";
 import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer";
 import {
 	BigNumberish,
@@ -57,7 +57,7 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 		"DATABASE_DSN_HISTORY",
 		"SDK_CONFIG_NAME",
 		"CHAIN_ID",
-		"API_PORT",
+		"HISTORY_API_PORT_HTTP",
 	];
 	required.forEach((e) => {
 		if (!(e in process.env)) {
@@ -79,7 +79,7 @@ export const main = async () => {
 	const prisma = new PrismaClient();
 
 	// Init blockchain provider
-	const rpcConfig = require("../../../../config/live.rpc.json");
+	const rpcConfig = loadConfigRPC();
 	let wsRpcUrl = chooseRandomRPC(true, rpcConfig);
 	let httpRpcUrl = chooseRandomRPC(false, rpcConfig);
 	let chainId = Number(<string>process.env.CHAIN_ID || -1);
@@ -183,7 +183,7 @@ export const main = async () => {
 	// Start the history api
 	const api = new HistoryRestAPI(
 		{
-			port: parseInt(process.env.API_PORT!),
+			port: parseInt(process.env.HISTORY_API_PORT_HTTP!),
 			prisma,
 			db: {
 				fundingRatePayment: dbFundingRatePayments,

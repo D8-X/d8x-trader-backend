@@ -164,17 +164,7 @@ export default class DBBrokerFeeAccumulator {
     try {
       // ensure we have the token information
       await this.updateMarginTokenInfoFromAPI(false);
-      // see what dates we have in our db
-      let datesInDb = await this.getTimeRangeFromBrokerFeesTbl(poolId);
-      let fromTsSecFetch = fromTsSec;
-      // shrink from-time to only query for the time we already have after
-      if (datesInDb != undefined) {
-        const tsDbSec = Math.floor(datesInDb.last_trade.getTime() / 1000);
-        if (tsDbSec > fromTsSecFetch) {
-          fromTsSecFetch = tsDbSec;
-        }
-      }
-      return this.fetchBrokerFeesFromAPIForPool(fromTsSecFetch, poolId);
+      return this.fetchBrokerFeesFromAPIForPool(fromTsSec, poolId);
     } catch (err) {
       this.l.error("updateBrokerFeesFromAPI update/insert failed", err);
       return false;

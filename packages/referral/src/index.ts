@@ -2,7 +2,15 @@ import Redis from "ioredis";
 import { ethers } from "ethers";
 import * as winston from "winston";
 import { ReferralSettings, ReferralCodeData } from "./referralTypes";
-import { constructRedis, sleep, isValidAddress, cronParserCheckExpression, chooseRandomRPC } from "utils";
+import {
+  constructRedis,
+  sleep,
+  isValidAddress,
+  cronParserCheckExpression,
+  chooseRandomRPC,
+  loadConfigRPC,
+  loadConfigReferralSettings,
+} from "utils";
 import dotenv from "dotenv";
 import { APIReferralCodeSelectionPayload } from "@d8x/perpetuals-sdk";
 import DBSettings from "./db/db_settings";
@@ -72,7 +80,7 @@ function checkSettingMinBrokerFeeCCForRebatePerPool(rebate: Array<[number, numbe
 }
 
 function loadSettings() {
-  let file = require("../../../config/live.referralSettings.json") as ReferralSettings;
+  let file = loadConfigReferralSettings() as ReferralSettings;
   // some rudimentary checks
   if (file.permissionedAgencies.length > 0) {
     file.permissionedAgencies.map((a) => {
@@ -202,11 +210,11 @@ async function start() {
   }
 
   let port: number;
-  if (process.env.REFERRAL_API_PORT == undefined) {
-    logger.error("Set REFERRAL_API_PORT in .env (e.g. REFERRAL_API_PORT=8889)");
+  if (process.env.REFERRAL_API_PORT_HTTP == undefined) {
+    logger.error("Set REFERRAL_API_PORT_HTTP in .env (e.g. REFERRAL_API_PORT_HTTP=8889)");
     return;
   } else {
-    port = parseInt(process.env.REFERRAL_API_PORT);
+    port = parseInt(process.env.REFERRAL_API_PORT_HTTP);
   }
 
   let chainId: number = Number(<string>process.env.CHAIN_ID || -1);
@@ -220,7 +228,7 @@ async function start() {
     return;
   }
   historyAPIEndpoint = historyAPIEndpoint.replaceAll(`"`, "");
-  const rpcConfig = require("../../../config/live.rpc.json");
+  const rpcConfig = loadConfigRPC();
   let rpcUrl = chooseRandomRPC(false, rpcConfig);
   if (rpcUrl == "") {
     logger.error("Set HTTP RPC in config/live.rpc.json");
@@ -238,6 +246,7 @@ async function start() {
   let payExecutor: AbstractPayExecutor;
   let remoteBrokerAddr = process.env.REMOTE_BROKER_HTTP;
   if (remoteBrokerAddr != undefined && process.env.REMOTE_BROKER_HTTP != "") {
+    remoteBrokerAddr = remoteBrokerAddr.replace(/\/+$/, '');// remove trailing slash
     logger.info("Creating remote payment executor");
     const myId = "1";
     payExecutor = new PayExecutorRemote(

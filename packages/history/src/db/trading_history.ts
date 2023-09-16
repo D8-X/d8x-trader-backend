@@ -48,6 +48,7 @@ export class TradingHistory {
 		});
 		if (exists === null) {
 			let newTrade: Trade;
+			let orderDigest: string;
 			try {
 				let data: Prisma.TradeCreateInput;
 
@@ -55,9 +56,10 @@ export class TradingHistory {
 					e = e as TradeEvent;
 					//a*2^64 * b*2^64 /2^64 = a*b*2^64 => requires >ES2017
 					let quantityCC = (e.fB2C * e.order.fAmount) / ONE_64x64;
+					orderDigest = e.orderDigest.toString();
 					data = {
 						chain_id: parseInt(this.chainId.toString()),
-						order_digest_hash: e.orderDigest.toString(),
+						order_digest_hash: orderDigest,
 						fee: e.fFeeCC.toString(),
 						broker_fee_tbps: Number(e.order.brokerFeeTbps),
 						broker_addr: e.order.brokerAddr.toLowerCase(),
@@ -78,13 +80,14 @@ export class TradingHistory {
 					};
 				} else {
 					e = e as LiquidateEvent;
+					orderDigest = this._createLiquidationId(e, tradeBlockNumber);
 					data = {
 						chain_id: parseInt(this.chainId.toString()),
 						// create id in case of liquidation event that is unique
-						order_digest_hash: this._createLiquidationId(e, tradeBlockNumber),
+						order_digest_hash: orderDigest,
 						fee: e.fFeeCC.toString(),
 						broker_fee_tbps: 0,
-						perpetual_id: e.perpetualId,
+						perpetual_id: Number(e.perpetualId),
 						price: e.liquidationPrice.toString(),
 						quantity: e.amountLiquidatedBC.toString(),
 						realized_profit: e.fPnlCC.toString(),
@@ -97,14 +100,18 @@ export class TradingHistory {
 						is_collected_by_event: isCollectedByEvent,
 					};
 				}
+				this.l.info(`inserting new ${isLiquidation ? "liquidation" : "trade"}`, {
+					order_digest: data.order_digest_hash,
+				});
 				newTrade = await this.prisma.trade.create({
 					data,
 				});
 			} catch (e) {
-				this.l.error("inserting new trade", { error: e });
+				this.l.error(`inserting new ${isLiquidation ? "liquidation" : "trade"}`, {
+					error: e,
+				});
 				return;
 			}
-			this.l.info("inserted new trade", { trader_addr: newTrade.trader_addr });
 		} else if (isCollectedByEvent) {
 			// record exists, and was collected by event -> update
 			let id = isLiquidation

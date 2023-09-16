@@ -17,7 +17,7 @@ RUN npx lerna run build --scope=history
 WORKDIR packages/history
 
 # Expose the provided API_PORT
-EXPOSE ${API_PORT}
+EXPOSE ${MAIN_API_PORT_HTTP}
 
 # CMD ["yarn", "run-production-reset"]
 CMD ["yarn", "run-production"]
