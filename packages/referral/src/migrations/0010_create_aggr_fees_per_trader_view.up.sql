@@ -23,11 +23,11 @@ join referral_settings rs on rs.property = 'paymentMaxLookBackDays'
 LEFT JOIN referral_last_payment lp
     ON lp.trader_addr=rbfpt.trader_addr
     AND lp.broker_addr=rbfpt.broker_addr
+    and lp.pool_id = rbfpt.pool_id
 LEFT JOIN referral_code_usage codeusg
     ON rbfpt.trader_addr = codeusg.trader_addr
     AND codeusg.valid_to > NOW()
 WHERE ((lp.last_payment_ts IS null and current_date::timestamp - (rs.value || ' days')::interval < rbfpt.trade_timestamp) OR lp.last_payment_ts<rbfpt.trade_timestamp)
-    AND (lp.pool_id IS NULL OR lp.pool_id = rbfpt.pool_id)
     AND (lp.tx_confirmed IS NULL OR lp.tx_confirmed=true)
-GROUP BY rbfpt.pool_id, rbfpt.trader_addr, lp.last_payment_ts, rbfpt.broker_addr, codeusg.code, rs.value
+GROUP BY rbfpt.pool_id, rbfpt.trader_addr, lp.last_payment_ts, rbfpt.broker_addr, codeusg.code, lp.pool_id,rs.value
 ORDER BY rbfpt.trader_addr;
