@@ -93,9 +93,7 @@ services:
       dockerfile: ./packages/referral/Dockerfile
     depends_on:
       - postgres_referral
-      - redis
     environment:
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - DATABASE_DSN_REFERRAL=postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@postgres_referral:5432/${POSTGRES_DB_REFERRAL}?schema=public
       - REFERRAL_API_PORT_HTTP=${REFERRAL_API_PORT_HTTP}
       - BROKER_KEY=${BROKER_KEY}
