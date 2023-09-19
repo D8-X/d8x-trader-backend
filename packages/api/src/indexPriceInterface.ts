@@ -1,4 +1,7 @@
-import { Redis } from "ioredis";
+
+import { createClient,  } from 'redis';
+import type { RedisClientType } from 'redis'
+import * as redis from 'redis'
 import { ExchangeInfo, NodeSDKConfig, PerpetualState } from "@d8x/perpetuals-sdk";
 import { extractErrorMsg, constructRedis } from "utils";
 import SDKInterface from "./sdkInterface";
@@ -11,9 +14,8 @@ import Observer from "./observer";
  * and the subscribers are informed.
  */
 export default abstract class IndexPriceInterface extends Observer {
-  private redisClient: Redis;
-  private redisSubClient: Redis;
-  private redisPubClient: Redis;
+  private redisClient: RedisClientType;
+  private redisSubClient: RedisClientType;
   private idxNamesToPerpetualIds: Map<string, number[]>; //ticker (e.g. BTC-USD) -> [10001, 10021, ..]
   protected idxPrices: Map<string, number>; //ticker -> price
   protected midPremium: Map<number, number>; //perpId -> price (e.g. we can have 2 BTC-USD with different mid-price)
@@ -25,7 +27,6 @@ export default abstract class IndexPriceInterface extends Observer {
     super();
     this.redisClient = constructRedis("PX Interface");
     this.redisSubClient = constructRedis("PX Interface Sub");
-    this.redisPubClient = constructRedis("PX Interface Pub");
     this.idxNamesToPerpetualIds = new Map<string, number[]>();
     this.idxPrices = new Map<string, number>();
     this.midPremium = new Map<number, number>();
@@ -33,10 +34,15 @@ export default abstract class IndexPriceInterface extends Observer {
   }
 
   public async priceInterfaceInitialize(sdkInterface: SDKInterface) {
-    await this.redisSubClient.subscribe("feedHandler");
-    this.redisSubClient.on("message", (channel, message) => {
-      this._onRedisFeedHandlerMsg(message);
-    });
+    if(!this.redisSubClient.isOpen) {
+     await this.redisSubClient.connect();
+    }
+    if(!this.redisClient.isOpen) {
+      await this.redisClient.connect();
+    }
+    
+    await this.redisSubClient.subscribe("px_update",  message => this._onRedisFeedHandlerMsg(message))
+    
     sdkInterface.registerObserver(this);
     this.sdkInterface = sdkInterface;
     // trigger exchange info so we get an "update" message
@@ -92,7 +98,7 @@ export default abstract class IndexPriceInterface extends Observer {
       for (let j = 0; j < pool.perpetuals.length; j++) {
         let perpState: PerpetualState = pool.perpetuals[j];
         let perpId: number = perpState.id;
-        let pxIdxName = perpState.baseCurrency + "-" + perpState.quoteCurrency;
+        let pxIdxName = (perpState.baseCurrency + "-" + perpState.quoteCurrency).toLowerCase();
         let idxs = this.idxNamesToPerpetualIds.get(pxIdxName);
         if (idxs == undefined) {
           let idx: number[] = [perpState.id];
@@ -107,33 +113,22 @@ export default abstract class IndexPriceInterface extends Observer {
         this.midPremium.set(perpId, perpState.midPrice / px - 1);
       }
     }
-    // use the RedisFeedhandler to publish the intent that we want
-    // to subscribe to the indices
-    await this._onRedisFeedHandlerMsg("query-request");
   }
 
   private async _onRedisFeedHandlerMsg(message: string) {
-    if (message == "query-request") {
-      // we need to inform which indices we want to get prices for
-      let indices = "";
-      for (let [key, _] of this.idxNamesToPerpetualIds) {
-        indices = indices + ":" + key;
-      }
-      indices = indices.substring(1); //cut initial colon
-      console.log(`redis publish "feedRequest": ${indices}`);
-      this.redisPubClient.publish("feedRequest", indices);
-    } else {
-      // message must be indices separated by colon
+      // message must be indices separated by semicolon
       // console.log("Received REDIS message" + message);
-      let indices = message.split(":");
+      let indices = message.split(";");
       for (let k = 0; k < indices.length; k++) {
         // get price from redit
-        let px: number = Number(await this.redisClient.get(indices[k]));
-        this.idxPrices.set(indices[k], px);
+        let px_ts = (await this.redisClient.ts.get(indices[k]));
+        let px = px_ts?.value
+        if (px!=undefined) {
+          this.idxPrices.set(indices[k], px);
+        }
         //console.log(indices[k], px);
       }
       this._updatePricesOnIndexPrice(indices);
-    }
   }
 
   /**
