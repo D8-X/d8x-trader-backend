@@ -22,8 +22,6 @@ jobs:
             image: ghcr.io/d8-x/d8x-trader-referral
           - dockerfile: ./packages/history/Dockerfile
             image: ghcr.io/d8-x/d8x-trader-history
-          - dockerfile: ./packages/pxws-client/Dockerfile
-            image: ghcr.io/d8-x/d8x-trader-pxws-client
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
