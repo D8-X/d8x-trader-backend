@@ -27,9 +27,10 @@
   "dependencies": {
     "@d8x/perpetuals-sdk": "^0.8.43",
     "@prisma/client": "^5.1.1",
+    "@redis/time-series": "^1.0.5",
     "cron-parser": "^4.8.1",
     "cron-schedule": "^4.0.0",
-    "ioredis": "^5.3.1",
+    "redis": "^4.6.8",
     "rimraf": "^4.4.1"
   },
   "devDependencies": {
