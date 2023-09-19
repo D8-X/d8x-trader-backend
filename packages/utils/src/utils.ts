@@ -1,4 +1,5 @@
-import Redis from "ioredis";
+import type { RedisClientType } from 'redis'
+import { createClient} from 'redis';
 import { Prisma } from "@prisma/client";
 import { WebsocketClientConfig, RPCConfig } from "./wsTypes";
 import dotenv from "dotenv";
@@ -190,7 +191,7 @@ export function toJson(data: any): string {
   });
 }
 
-export function getRedisConfig(): RedisConfig {
+export function constructRedis(name: string): RedisClientType {
   let originUrl = process.env.REDIS_URL;
   if (originUrl == undefined) {
     throw new Error("REDIS_URL not defined");
@@ -200,19 +201,10 @@ export function getRedisConfig(): RedisConfig {
   const port = parseInt(redisURL.port);
   const redisPassword = redisURL.password;
   let config = { host: host, port: port, password: redisPassword! };
-
-  return config;
+  console.log(`${name} connecting to redis: ${config.host}`);
+  return createClient(config)
 }
 
-export function constructRedis(name: string): Redis {
-  let client;
-  let redisConfig = getRedisConfig();
-  //console.log(redisConfig);
-  console.log(`${name} connecting to redis: ${redisConfig.host}`);
-  client = new Redis(redisConfig);
-  client.on("error", (err) => console.log(`${name} Redis Client Error:` + err));
-  return client;
-}
 export const DECIMALS18 = BigInt(Math.pow(10, 18));
 export const ONE_64x64 = BigInt(Math.pow(2, 64));
 
