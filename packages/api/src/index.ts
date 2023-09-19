@@ -57,7 +57,7 @@ async function start() {
     try {
       console.log(`RPC (HTTP) = ${sdkConfig.nodeURL}`);
       console.log(`RPC (WS)   = ${wsRPC}`);
-      await executeWithTimeout(d8XBackend.initialize(sdkConfig, wsRPC), 20_000, "initialize timeout");
+      await executeWithTimeout(d8XBackend.initialize(sdkConfig, wsRPC), 60_000, "initialize timeout");
       isSuccess = true;
     } catch (error) {
       await sleep(500);
