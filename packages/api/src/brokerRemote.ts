@@ -55,9 +55,16 @@ export default class BrokerRemote extends BrokerIntegration {
   public async signOrder(SCOrder: SmartContractOrder): Promise<string> {
     const reqData = {
       order: {
-        iDeadline: SCOrder.iDeadline,
-        traderAddr: SCOrder.traderAddr,
-        iPerpetualId: SCOrder.iPerpetualId,
+          flags: SCOrder.flags,
+          iPerpetualId: SCOrder.iPerpetualId,
+          traderAddr: SCOrder.traderAddr,
+          brokerAddr: SCOrder.brokerAddr,
+          fAmount: SCOrder.fAmount,
+          fLimitPrice: SCOrder.fLimitPrice,
+          fTriggerPrice: SCOrder.fTriggerPrice,
+          leverageTDR: SCOrder.leverageTDR,
+          iDeadline: SCOrder.iDeadline,
+          executionTimestamp: SCOrder.executionTimestamp,
       },
       chainId: this.chainId,
     };
