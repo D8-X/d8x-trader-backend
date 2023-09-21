@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { chooseRandomRPC, loadConfigJSON, sleep, executeWithTimeout, loadConfigRPC } from "utils";
+import { chooseRandomRPC, sleep, executeWithTimeout, loadConfigRPC } from "utils";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
 import BrokerNone from "./brokerNone";
 import BrokerRegular from "./brokerRegular";
@@ -16,15 +16,9 @@ async function start() {
   console.log(`loading configuration ${configName}`);
   const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig(configName);
   const rpcConfig = loadConfigRPC();
-  const wsConfigs = loadConfigJSON(sdkConfig.chainId);
 
   const priceFeedEndpoints: Array<{ type: string; endpoint: string }> = [];
-  wsConfigs.map((wsConfig) => {
-    const arr = wsConfig.httpEndpoints;
-    if (arr.length > 0) {
-      priceFeedEndpoints.push({ type: wsConfig.type, endpoint: arr[Math.floor(Math.random() * arr.length)] });
-    }
-  });
+ 
   if (priceFeedEndpoints.length > 0) {
     sdkConfig.priceFeedEndpoints = priceFeedEndpoints;
   }

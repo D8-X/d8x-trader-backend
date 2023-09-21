@@ -158,25 +158,6 @@ export function getNextCronDate(pattern: string): Date {
 }
 
 /**
- * Load websocket-client config into object of type WebsocketClientConfig
- * Looks for all entries with given chainId
- * @param chainId chain id for which we want the config
- * @returns configuration of type WebsocketClientConfig
- */
-export function loadConfigJSON(chainId: number): WebsocketClientConfig[] {
-  let file = <WebsocketClientConfig[]>loadConfigWsConfig();
-  let relevantConfigs: WebsocketClientConfig[] = [];
-  for (let k = 0; k < file.length; k++) {
-    if (file[k].chainId == chainId) {
-      relevantConfigs.push(file[k]);
-    }
-  }
-  if (relevantConfigs.length == 0) {
-    throw new Error(`Did not find any entries for chain id ${chainId} in config`);
-  }
-  return relevantConfigs;
-}
-/**
  * Convert arbitrary data to json string
  */
 export function toJson(data: any): string {
