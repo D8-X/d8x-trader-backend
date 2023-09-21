@@ -35,7 +35,9 @@ export default abstract class IndexPriceInterface extends Observer {
 
   public async priceInterfaceInitialize(sdkInterface: SDKInterface) {
     if(!this.redisSubClient.isOpen) {
+     console.log("Connecting to REDIS PUB/SUB...")
      await this.redisSubClient.connect();
+     console.log("done")
     }
     if(!this.redisClient.isOpen) {
       await this.redisClient.connect();
