@@ -17,6 +17,8 @@ export default class BrokerRemote extends BrokerIntegration {
 
   constructor(private apiURL: string, private myId: string, private chainId: number) {
     super();
+    // remove trailing slash
+    this.apiURL = this.apiURL.replace(/\/+$/, '')
   }
 
   public async initialize(config: NodeSDKConfig): Promise<string> {
@@ -55,13 +57,13 @@ export default class BrokerRemote extends BrokerIntegration {
   public async signOrder(SCOrder: SmartContractOrder): Promise<string> {
     const reqData = {
       order: {
-          flags: SCOrder.flags,
+          flags: Number(SCOrder.flags.toString()),
           iPerpetualId: SCOrder.iPerpetualId,
           traderAddr: SCOrder.traderAddr,
           brokerAddr: SCOrder.brokerAddr,
-          fAmount: SCOrder.fAmount,
-          fLimitPrice: SCOrder.fLimitPrice,
-          fTriggerPrice: SCOrder.fTriggerPrice,
+          fAmount: SCOrder.fAmount.toString(),
+          fLimitPrice: SCOrder.fLimitPrice.toString(),
+          fTriggerPrice: SCOrder.fTriggerPrice.toString(),
           leverageTDR: SCOrder.leverageTDR,
           iDeadline: SCOrder.iDeadline,
           executionTimestamp: SCOrder.executionTimestamp,
@@ -69,12 +71,16 @@ export default class BrokerRemote extends BrokerIntegration {
       chainId: this.chainId,
     };
     // send post request to endpoint with r as data
+    const query = this.apiURL + this.endpointSignOrder;
     try {
-      const response = await axios.post(this.apiURL + this.endpointSignOrder, reqData);
+
+      const response = await axios.post(query, reqData);
       const responseData = response.data;
       return responseData.brokerSignature;
     } catch (error) {
-      throw Error("Error signOrder:" + error);
+      const msg = "Error signOrder for URL:"+query;
+      console.log(query+" failed");
+      throw Error(msg + error);
     }
   }
 }
