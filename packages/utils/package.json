@@ -30,7 +30,7 @@
     "@redis/time-series": "^1.0.5",
     "cron-parser": "^4.8.1",
     "cron-schedule": "^4.0.0",
-    "redis": "^4.6.8",
+    "redis": "^4.6.9",
     "rimraf": "^4.4.1"
   },
   "devDependencies": {
