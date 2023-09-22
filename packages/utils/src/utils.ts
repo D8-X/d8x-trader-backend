@@ -183,7 +183,10 @@ export function constructRedis(name: string): RedisClientType {
   const redisPassword = redisURL.password;
   let config = { host: host, port: port, password: redisPassword! };
   console.log(`${name} connecting to redis: ${config.host}`);
-  return createClient(config)
+  let client : RedisClientType = createClient(config);
+  const msg = `Redis Client ${name} Error`;
+  client.on('error', (err) => console.log(msg, err));
+  return client;
 }
 
 export const DECIMALS18 = BigInt(Math.pow(10, 18));
