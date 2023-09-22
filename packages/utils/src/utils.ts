@@ -1,5 +1,5 @@
-import type { RedisClientType } from 'redis'
-import { createClient} from 'redis';
+import type { RedisClientType } from "redis";
+import { createClient } from "redis";
 import { Prisma } from "@prisma/client";
 import { WebsocketClientConfig, RPCConfig } from "./wsTypes";
 import dotenv from "dotenv";
@@ -35,7 +35,10 @@ export function sleep(ms: number) {
  * @param perc
  * @param digits
  */
-export function adjustNDigitPercentagesTo100(perc: number[], digits: number): number[] {
+export function adjustNDigitPercentagesTo100(
+  perc: number[],
+  digits: number
+): number[] {
   // transform to integer, e.g., 55.323 -> 5532 if digits=2
   let percDigits = perc.map((x) => Math.round(x * 10 ** digits));
   // normalize
@@ -61,7 +64,9 @@ export function adjustNDigitPercentagesTo100(perc: number[], digits: number): nu
   }
   let residual = s - hundredPercent;
   percDigits[maxidx] -= residual;
-  let ndigits = percDigits.map((x) => Number((x / 10 ** digits).toFixed(digits)));
+  let ndigits = percDigits.map((x) =>
+    Number((x / 10 ** digits).toFixed(digits))
+  );
   return ndigits;
 }
 
@@ -181,11 +186,11 @@ export function constructRedis(name: string): RedisClientType {
   const host = redisURL.hostname;
   const port = parseInt(redisURL.port);
   const redisPassword = redisURL.password;
-  let config = { host: host, port: port, password: redisPassword! };
-  console.log(`${name} connecting to redis: ${config.host}`);
-  let client : RedisClientType = createClient(config);
+  let config = { url: originUrl };
+  console.log(`${name} connecting to redis: ${originUrl}`);
+  let client: RedisClientType = createClient(config);
   const msg = `Redis Client ${name} Error`;
-  client.on('error', (err) => console.log(msg, err));
+  client.on("error", (err) => console.log(msg, err));
   return client;
 }
 
@@ -369,7 +374,9 @@ export async function calculateBlockFromTime(
   const targetTS = Math.floor(since.getTime() / 1_000);
 
   // latest block: RPC #1
-  let { number: latestBN, timestamp: latestTS } = await provider.getBlock("latest");
+  let { number: latestBN, timestamp: latestTS } = await provider.getBlock(
+    "latest"
+  );
   //   console.log("rpc 1 block #", latestBN, "ts", latestTS);
   const maxBlockNumber = latestBN;
   if (latestTS <= targetTS) {
@@ -380,7 +387,9 @@ export async function calculateBlockFromTime(
   // early, reference block: RPC #2
   let factor = 0.9;
   let interpolatedBN = Math.max(1, Math.round(latestBN * factor));
-  let { number: earlyBN, timestamp: earlyTS } = await provider.getBlock(interpolatedBN);
+  let { number: earlyBN, timestamp: earlyTS } = await provider.getBlock(
+    interpolatedBN
+  );
   //   console.log("rpc 2 block #", earlyBN, "ts", earlyTS);
 
   let numRPC = 2;
@@ -392,7 +401,10 @@ export async function calculateBlockFromTime(
       interpolatedBN = Math.round((targetTS / earlyTS) * earlyBN);
       //   earlyTS = TS_MIN;
     } else {
-      interpolatedBN = Math.round(earlyBN + ((latestBN - earlyBN) / (latestTS - earlyTS)) * (targetTS - earlyTS));
+      interpolatedBN = Math.round(
+        earlyBN +
+          ((latestBN - earlyBN) / (latestTS - earlyTS)) * (targetTS - earlyTS)
+      );
     }
     let { number: bn, timestamp: ts } = await provider.getBlock(interpolatedBN);
     numRPC += 1;
@@ -490,10 +502,14 @@ export async function calculateBlockFromTimeOld(
   let blk = await provider.getBlock(max - numBlocksBack);
   let currTimestamp = blk.timestamp;
   // estimate blocktime for the period between the first and second sampling
-  secPerBlockInSample = Math.abs((blk.timestamp - blk0.timestamp) / (blk.number - blk0.number));
+  secPerBlockInSample = Math.abs(
+    (blk.timestamp - blk0.timestamp) / (blk.number - blk0.number)
+  );
   // linearly step back by number of blocks
   while (currTimestamp > targetTimestamp) {
-    let numBlocks = Math.ceil((currTimestamp - targetTimestamp) / secPerBlockInSample);
+    let numBlocks = Math.ceil(
+      (currTimestamp - targetTimestamp) / secPerBlockInSample
+    );
     blk = await provider.getBlock(blk.number - numBlocks);
     //rpcCount++;
     currTimestamp = blk.timestamp;
@@ -519,15 +535,19 @@ export function chooseRandomRPC(ws = false, rpcConfig: RPCConfig[]): string {
     }
   }
   if (urls.length < 1) {
-    throw new Error(`No ${ws ? "Websocket" : "HTTP"} RPC defined for chain ID ${chainId}`);
+    throw new Error(
+      `No ${ws ? "Websocket" : "HTTP"} RPC defined for chain ID ${chainId}`
+    );
   }
   return urls[Math.floor(Math.random() * urls.length)];
 }
 
-export const loadConfigRPC = (): any => loadConfigFile("rpc", "CONFIG_PATH_RPC");
+export const loadConfigRPC = (): any =>
+  loadConfigFile("rpc", "CONFIG_PATH_RPC");
 export const loadConfigReferralSettings = (): any =>
   loadConfigFile("referralSettings", "CONFIG_PATH_REFERRAL_SETTINGS");
-export const loadConfigWsConfig = (): any => loadConfigFile("wsConfig", "CONFIG_PATH_WSCFG");
+export const loadConfigWsConfig = (): any =>
+  loadConfigFile("wsConfig", "CONFIG_PATH_WSCFG");
 
 /**
  * Attempt to load config files. Environment variables CONFIG_PATH_RPC,
