@@ -1,9 +1,7 @@
-import Redis from "ioredis";
 import { ethers } from "ethers";
 import * as winston from "winston";
 import { ReferralSettings, ReferralCodeData } from "./referralTypes";
 import {
-  constructRedis,
   sleep,
   isValidAddress,
   cronParserCheckExpression,

@@ -82,9 +82,6 @@ Copy the files in `./config/example.<name>.json` into `./config/live.<name>.json
   - You may add or remove as many RPCs as you need
   - It is encouraged to keep multiple HTTP options for best user experience/robustness
   - At least one Websocket RPC must be defined
-- live.wsConfig.json: A list of price IDs and price streaming endpoints
-  - The services should be able to start with the default values provided
-  - See the main API [readme](./packages/api/README.md) for details
 - live.referralSettings.json: Configuration of the referral service.
   - You can turn off the referral system by editing config/live.referralSettings.json and setting `"referralSystemEnabled": false,` — if you choose to turn it on, see below how to configure the system
     or the referral API [readme](./packages/referral/README.md) for more details.
@@ -191,7 +188,6 @@ Create the following [configs with docker](https://docs.docker.com/engine/swarm/
 
 - `cfg_rpc` - for live.rpc.json
 - `cfg_referral` - for live.referralSettings.json
-- `cfg_wscfg` - for live.wsConfig.json
 
 ```bash
 cat ./live.rpc.json | docker config cfg_rpc -
@@ -298,12 +294,9 @@ docker service create --name registry --publish 5555:5000 registry:latest
 To check the service is running: `sudo docker service ls`
 
 Ensure your `live.*` configuration files in the `config` directory are ready as detailed above.
-Currently they are baked-in in the images at the image build time (this will be adjusted
-in the future):
 
 - `live.rpc.json`
 - `live.referralSettings.json`
-- `live.wsConfig.json`
 
 Build the Main API image with the following command:
 
@@ -327,7 +320,6 @@ Create the docker configs required for main api.
 ```bash
 docker config create cfg_rpc ./config/live.rpc.json
 docker config create cfg_referral ./config/live.referralSettings.json
-docker config create cfg_wscfg ./config/live.wsConfig.json
 ```
 
 Ensure the `.env` file is ready (as detailed above) and `source` it, to make env
