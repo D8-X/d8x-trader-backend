@@ -33,7 +33,6 @@ services:
       - CORS_ON=${CORS_ON}
       - CONFIG_PATH_RPC=/cfg_rpc
       - CONFIG_PATH_REFERRAL_SETTINGS=/cfg_referral
-      - CONFIG_PATH_WSCFG=/cfg_wscfg
     ports:
       - "127.0.0.1:${HISTORY_API_PORT_HTTP:-8888}:${HISTORY_API_PORT_HTTP:-8888}"
     restart: on-failure
@@ -45,7 +44,6 @@ services:
     configs:
       - cfg_rpc
       - cfg_referral
-      - cfg_wscfg
 
   # Referral component that handles referral/agency/broker/trader rebates
   # Exposes a REST API and uses the postgres DB that the history component mainly fills
@@ -65,7 +63,6 @@ services:
       - HISTORY_API_ENDPOINT="http://backend_history:${HISTORY_API_PORT_HTTP:-8888}"
       - CONFIG_PATH_RPC=/cfg_rpc
       - CONFIG_PATH_REFERRAL_SETTINGS=/cfg_referral
-      - CONFIG_PATH_WSCFG=/cfg_wscfg
     ports:
       - "127.0.0.1:${REFERRAL_API_PORT_HTTP}:${REFERRAL_API_PORT_HTTP}"
     restart: on-failure
@@ -78,35 +75,7 @@ services:
       - pg_ca_cert
       - cfg_rpc
       - cfg_referral
-      - cfg_wscfg
-
-  # stream oracle prices from price service (pyth 'offchain'-network)
-  backend_pyth_connection:
-    stdin_open: true # docker run -i
-    tty: true # docker run -t
-    build:
-      context: .
-      dockerfile: ./packages/pxws-client/Dockerfile
-    links:
-      - redis
-    environment:
-      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
-      MAIN_API_PORT_HTTP: ${MAIN_API_PORT_HTTP}
-      MAIN_API_PORT_WEBSOCKET: ${MAIN_API_PORT_WEBSOCKET}
-      CHAIN_ID: ${CHAIN_ID}
-      CONFIG_PATH_RPC: /cfg_rpc
-      CONFIG_PATH_REFERRAL_SETTINGS: /cfg_referral
-      CONFIG_PATH_WSCFG: /cfg_wscfg
-    restart: on-failure
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "1k"
-        max-file: "10"
-    configs:
-      - cfg_rpc
-      - cfg_referral
-      - cfg_wscfg
+ 
 
 volumes:
   pgdb:
@@ -119,5 +88,3 @@ configs:
     file: ./config/live.rpc.json
   cfg_referral:
     file: ./config/live.referralSettings.json
-  cfg_wscfg:
-    file: ./config/live.wsConfig.json

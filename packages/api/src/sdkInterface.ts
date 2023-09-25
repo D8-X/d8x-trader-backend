@@ -14,14 +14,14 @@ import {
   ZERO_ADDRESS,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
-import Redis from "ioredis";
 import BrokerIntegration from "./brokerIntegration";
 import Observable from "./observable";
+import type { RedisClientType } from 'redis'
 import { extractErrorMsg, constructRedis } from "utils";
 
 export default class SDKInterface extends Observable {
   private apiInterface: TraderInterface | undefined = undefined;
-  private redisClient: Redis;
+  private redisClient: RedisClientType;
   private broker: BrokerIntegration;
   TIMEOUTSEC = 5 * 60; // timeout for exchange info
   private MUTEX_TS_EXCHANGE_INFO = 0; // mutex for exchange info query
@@ -38,27 +38,30 @@ export default class SDKInterface extends Observable {
     await this.apiInterface.createProxyInstance();
     await this.broker.initialize(sdkConfig);
     const brokerAddress = await this.broker.getBrokerAddress();
+    if(!this.redisClient.isOpen) {
+      await this.redisClient.connect();
+    }
     console.log(`Main API initialized broker address=`, brokerAddress);
     console.log(`SDK v${D8X_SDK_VERSION} API initialized`);
   }
 
   private async cacheExchangeInfo() {
     let tsQuery = Date.now();
-    await this.redisClient.hset("exchangeInfo", ["ts:query", tsQuery]);
+    await this.redisClient.hSet("exchangeInfo", "ts:query", tsQuery);
     let xchInfo = await this.apiInterface!.exchangeInfo();
     let info = JSON.stringify(xchInfo);
-    await this.redisClient.hset("exchangeInfo", [
-      "ts:response",
+    await this.redisClient.hSet("exchangeInfo", 
+      ["ts:response",
       Date.now(),
       "content",
-      info,
-    ]);
+      info]
+    );
     this.notifyObservers("exchangeInfo");
     return info;
   }
 
   public async exchangeInfo(): Promise<string> {
-    let obj = await this.redisClient.hgetall("exchangeInfo");
+    let obj = await this.redisClient.hGetAll("exchangeInfo");
     let info: string = "";
     // console.log("obj=", obj);
     if (!Object.prototype.hasOwnProperty.call(obj, "ts:query")) {
@@ -114,7 +117,7 @@ export default class SDKInterface extends Observable {
     values: number[],
     propertyNames: string[]
   ) {
-    let obj = await this.redisClient.hgetall("exchangeInfo");
+    let obj = await this.redisClient.hGetAll("exchangeInfo");
     let info = <ExchangeInfo>JSON.parse(obj["content"]);
     let [k, j] = SDKInterface.findPoolAndPerpIdx(symbol, info);
     let perpState: PerpetualState = info.pools[k].perpetuals[j];
@@ -146,7 +149,7 @@ export default class SDKInterface extends Observable {
     // store back to redis: we don't update the timestamp "ts:query", so that
     // all information will still be pulled at some time
     let infoStr = JSON.stringify(info);
-    await this.redisClient.hset("exchangeInfo", [
+    await this.redisClient.hSet("exchangeInfo", [
       "ts:response",
       Date.now(),
       "content",
