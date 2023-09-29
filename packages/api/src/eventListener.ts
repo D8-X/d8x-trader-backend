@@ -80,6 +80,7 @@ export default class EventListener extends IndexPriceInterface {
   orderBookContracts: Record<string, Contract> = {};
   wsRPC!: string;
   isInitialized = false;
+  unitAccumulatedFunding: Map<number, number>; // perpetualId -> funding rate
   fundingRate: Map<number, number>; // perpetualId -> funding rate
   openInterest: Map<number, number>; // perpetualId -> openInterest
   lastBlockChainEventTs: number; //here we log the event occurence time to guess whether the connection is alive
@@ -99,6 +100,7 @@ export default class EventListener extends IndexPriceInterface {
     super();
 
     this.lastBlockChainEventTs = Date.now();
+    this.unitAccumulatedFunding = new Map<number, number>();
     this.fundingRate = new Map<number, number>();
     this.openInterest = new Map<number, number>();
     this.subscriptions = new Map<number, Map<string, WebSocket.WebSocket[]>>();
@@ -479,6 +481,11 @@ export default class EventListener extends IndexPriceInterface {
     proxyContract.on("PerpetualLimitOrderCancelled", (perpetualId: number, digest: string) => {
       this.onPerpetualLimitOrderCancelled(perpetualId, digest);
     });
+
+    // event UpdateUnitAccumulatedFunding(uint24 perpetualId, int128 unitAccumulativeFunding);
+    proxyContract.on("UpdateUnitAccumulatedFunding", (perpetualId: number, unitAccumulativeFunding: BigNumber) => {
+      this.onUpdateUnitAccumulatedFunding(perpetualId, unitAccumulativeFunding);
+    });
   }
 
   /**
@@ -709,6 +716,7 @@ export default class EventListener extends IndexPriceInterface {
    */
   protected updateMarkPrice(perpetualId: number, newMidPrice: number, newMarkPrice: number, newIndexPrice: number) {
     let fundingRate = this.fundingRate.get(perpetualId) || 0;
+    let acc = this.unitAccumulatedFunding.get(perpetualId) || 0;
     let oi = this.openInterest.get(perpetualId) || 0;
     let symbol = this.symbolFromPerpetualId(perpetualId);
     let obj: PriceUpdate = {
@@ -719,6 +727,7 @@ export default class EventListener extends IndexPriceInterface {
       indexPrice: newIndexPrice,
       fundingRate: fundingRate * 1e4, // in bps so it matches exchangeInfo
       openInterest: oi,
+      unitAccumulatedFunding: acc,
     };
     let wsMsg: WSMsg = { name: "PriceUpdate", obj: obj };
     let jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onUpdateMarkPrice", "", wsMsg);
@@ -927,5 +936,17 @@ export default class EventListener extends IndexPriceInterface {
     let markPrice = ABK64x64ToFloat(fMarkPrice);
     let indexPrice = ABK64x64ToFloat(fSpotIndexPrice);
     return [midPrice, markPrice, indexPrice];
+  }
+
+  /**
+   * Sets the 'perpetual-wide' unitAccumulativeFunding that
+   * allows to calculate unrealized funding
+   * @param perpetualId id of perpetual
+   * @param unitAccumulativeFunding accumulated rate
+   */
+  private onUpdateUnitAccumulatedFunding(perpetualId: number, unitAccumulativeFunding: BigNumber) {
+    this.lastBlockChainEventTs = Date.now();
+    let acc = ABK64x64ToFloat(unitAccumulativeFunding);
+    this.unitAccumulatedFunding.set(perpetualId, acc);
   }
 }

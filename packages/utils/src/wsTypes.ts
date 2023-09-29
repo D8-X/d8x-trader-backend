@@ -35,6 +35,7 @@ export interface PriceUpdate {
   indexPrice: number;
   fundingRate: number;
   openInterest: number;
+  unitAccumulatedFunding: number;
 }
 
 /**

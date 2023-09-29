@@ -168,7 +168,7 @@ interface WSMsg {
 
 ```
 // broadcasted
-// careful: openInterest and fundingRate might
+// careful: openInterest, unitAccumulatedFunding, and fundingRate might
 // be zero in which case exchangeInfo should not
 // be overwritten with 0.
 interface PriceUpdate {
@@ -178,6 +178,7 @@ interface PriceUpdate {
   indexPrice: number;
   fundingRate: number;
   openInterest: number;
+  unitAccumulatedFunding: number;
 }
 ```
 
