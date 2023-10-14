@@ -9,7 +9,10 @@
 }
 ```
 
-## All GET endpoints (parameter examples):
+## All GET endpoints
+
+<details>
+<summary>List with example parameters</summary>
 
 - `/exchange-info` (no parameters): Exchange information, including all pools and perpetuals
 - `/perpetual-static-info?symbol=ETH-USD-MATIC`: Static data about a perpetual
@@ -26,7 +29,9 @@
 - `/available-margin?symbol=MATIC-USD-MATIC&traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05`: Maximum amount that can be removed from a trader's account
 - `/cancel-order?symbol=MATIC-USD-MATIC&orderId=0x433cd04c5e9703890d5aa72d90980b90bfde5b087075293abd679a067780629d`: Data needed to cancel a given order via direct smrt contract interaction: order book contract address, 'cancelOrder' method ABI, price updates, and digest to sign by the trader who posted this order
 
-## All POST endpoints for Trader:
+</details>
+
+## All POST endpoints
 
 If the frontend wants to submit a trade for a trader, it sends the trade-struct
 to the `/order-digest` endpoint using a POST request. The back-end takes care of
@@ -34,6 +39,8 @@ the broker fee, signature, and address, and responds with an order-struct that i
 to be submitted to the contract. The response also contains the contract address of the
 order-book that accepts this order. The trader needs to sign the data 'digest' and
 then the frontend can submit it.
+
+<details>
 
 - `/order-digest`:
   - parameters `{ orders: [order1, order2], traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05 }`, see test/post.test.ts
@@ -50,9 +57,8 @@ then the frontend can submit it.
     - `orderCost` is the approximate collateral deposit that will be deducted from the trader when the order is executed
 - `/position-risk-on-collateral-action`:
   - parameters `{ traderAddr: 0x9d5aaB428e98678d0E645ea4AeBd25f744341a05, amount: -100, positionRisk: 'Margin account struct' }`, see test/post.test.ts
-  - returns `{newPositionRisk: 'MarginAccount type', availableMargin: number}`
-    - `newPositionRisk` is what the given trader's positionRisk would look like if the given order is executed
-    - `availableMargin` is the maximum amount of margin that can be withdrawn from this account
+  - returns `{newPositionRisk: 'MarginAccount type', availableMargin: number}` - `newPositionRisk` is what the given trader's positionRisk would look like if the given order is executed - `availableMargin` is the maximum amount of margin that can be withdrawn from this account
+  </details>
 
 # Websocket
 
