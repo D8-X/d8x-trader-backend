@@ -34,8 +34,6 @@ services:
       - CHAIN_ID=${CHAIN_ID}
       - SDK_CONFIG_NAME=${SDK_CONFIG_NAME}
       - CORS_ON=${CORS_ON}
-      - BROKER_KEY=${BROKER_KEY}
-      - BROKER_FEE_TBPS=${BROKER_FEE_TBPS}
       - CONFIG_PATH_RPC=/cfg_rpc
       - CONFIG_PATH_REFERRAL_SETTINGS=/cfg_referral
     ports:
@@ -70,35 +68,6 @@ services:
       - CONFIG_PATH_REFERRAL_SETTINGS=/cfg_referral
     ports:
       - "127.0.0.1:${HISTORY_API_PORT_HTTP}:${HISTORY_API_PORT_HTTP}"
-    restart: on-failure
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5000k"
-        max-file: "10"
-    configs:
-      - cfg_rpc
-      - cfg_referral
-
-  # Referral component that handles referral/agency/broker/trader rebates
-  # Exposes a REST API and uses the postgres DB that the history component mainly fills
-  backend_referral:
-    build:
-      context: .
-      dockerfile: ./packages/referral/Dockerfile
-    depends_on:
-      - postgres_referral
-    environment:
-      - DATABASE_DSN_REFERRAL=postgres://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@postgres_referral:5432/${POSTGRES_DB_REFERRAL}?schema=public
-      - REFERRAL_API_PORT_HTTP=${REFERRAL_API_PORT_HTTP}
-      - BROKER_KEY=${BROKER_KEY}
-      - CHAIN_ID=${CHAIN_ID}
-      - CORS_ON=${CORS_ON}
-      - HISTORY_API_ENDPOINT=http://backend_history:${HISTORY_API_PORT_HTTP}
-      - CONFIG_PATH_RPC=/cfg_rpc
-      - CONFIG_PATH_REFERRAL_SETTINGS=/cfg_referral
-    ports:
-      - "127.0.0.1:${REFERRAL_API_PORT_HTTP}:${REFERRAL_API_PORT_HTTP}"
     restart: on-failure
     logging:
       driver: "json-file"

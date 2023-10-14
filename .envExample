@@ -1,42 +1,51 @@
-MAIN_API_PORT_HTTP=3001
-MAIN_API_PORT_WEBSOCKET=8080
-REDIS_PASSWORD="thisismypassword"
-REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
-CHAIN_ID=80001
-SDK_CONFIG_NAME=testnet
+###
+### Environment variables listed below should be changed
+###
 
-# CORS ON: if behind a reverse proxy turn this off (TRUE,FALSE)
-CORS_ON=FALSE
+# zkEVM testnet
+CHAIN_ID=1442
+SDK_CONFIG_NAME=zkevmTestnet
 
-# The port of history service API (packages/history)
-HISTORY_API_PORT_HTTP=8888
+# MUMBAI
+# CHAIN_ID=80001
+# SDK_CONFIG_NAME=testnet
 
-# The port for the referral service API (packages/referral)
-REFERRAL_API_PORT_HTTP=8889
+# Redis password. Sets password for redis instance in docker-stack.yml
+REDIS_PASSWORD="60bssxCuEjfn2b1kgUuhim07I7YSbBzD"
 
+# Main postgres database dsn string
+DATABASE_DSN="postgresql://user:password@host:5432/history"
 
-# Postgres credentials for docker-compose (development only)
-POSTGRES_USER=user
-POSTGRES_PASSWORD=password
-POSTGRES_DB=db
-POSTGRES_PORT_HISTORY=5432
-# History database postgres connection string (production)
-DATABASE_DSN_HISTORY="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT_HISTORY}/${POSTGRES_DB}?sslmode=allow&schema=history"
-
-POSTGRES_USER_REFERRAL=user
-POSTGRES_PASSWORD_REFERRAL=password
-POSTGRES_DB_REFERRAL=db_referral
-POSTGRES_PORT_REFERRAL=5433
-# Referral database postgres connection string (production)
-DATABASE_DSN_REFERRAL="postgresql://${POSTGRES_USER_REFERRAL}:${POSTGRES_PASSWORD_REFERRAL}@localhost:${POSTGRES_PORT_REFERRAL}/${POSTGRES_DB_REFERRAL}?sslmode=allow&sslrootcert=/pg_ca_cert&schema=referral"
-
-#--- BROKER SETTINGS (optional) ----
-# Broker key. If remote broker is provided, 
-# this key is used to sign referral payment requests to the remote broker
-BROKER_KEY=""
-# Broker fee in tenth of basis point. Not relevant if REMOTE_BROKER_HTTP provided
-# For example 0.06% = 6 bps = 60 tbps
-BROKER_FEE_TBPS=60
-# Optional Remote Broker, e.g., https://broker.main.yourdomain.com
+#--- BROKER SETTINGS ----
+# Remote Broker, e.g., https://broker.main.yourdomain.com
 REMOTE_BROKER_HTTP=""
+# Broker key: 
+# this key is used to sign referral payment requests to the remote broker
+# Ensure that the remote broker recognizes the corresponding address as "allowedExecutor"
+BROKER_KEY=""
 
+###
+### Environment variables listed below can be left untouched as they have sensible default values.
+###
+
+# Main service's HTTP api port
+MAIN_API_PORT_HTTP=3001
+# Main service's WebSockets api port
+MAIN_API_PORT_WEBSOCKET=3002
+
+# History service's HTTP api port
+HISTORY_API_PORT_HTTP=3003
+# Referral service's HTTP api port
+REFERRAL_API_PORT_HTTP=3004
+
+# Pyth connection service's HTTP api port
+PXWS_API_PORT_HTTP=3005
+# Pyth connection service's Websocket port
+PXWS_API_PORT_WEBSOCKET=3006
+
+# Redis connection string, defaults to redis container instance running in the
+# swarm 
+REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+
+# legacy:
+BROKER_FEE_TBPS=0
