@@ -181,3 +181,17 @@ interface UpdateMarginAccount {
   fundingPaymentCC: number;
 }
 ```
+
+# Development: Run Local Instance
+
+- Copy envExample into .env
+- Redis needs to run with the configured password (.env), for example
+  ```
+  docker run -d --name redis-stack -p 6379:6379 -e REDIS_ARGS="--requirepass myfAncyPassword" redis/redis-stack-server:latest
+  ```
+- Navigate to the code directoy and run the application, for example via ts-node
+
+  ```
+  cd packages/api/src
+  ts-node index.ts
+  ```
