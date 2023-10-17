@@ -18,8 +18,6 @@ jobs:
         include:
           - dockerfile: ./packages/api/Dockerfile
             image: ghcr.io/d8-x/d8x-trader-main
-          - dockerfile: ./packages/referral/Dockerfile
-            image: ghcr.io/d8-x/d8x-trader-referral
           - dockerfile: ./packages/history/Dockerfile
             image: ghcr.io/d8-x/d8x-trader-history
     runs-on: ubuntu-22.04
