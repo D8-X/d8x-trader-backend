@@ -136,10 +136,23 @@ export default class EventListener extends IndexPriceInterface {
 		this.traderInterface = new TraderInterface(sdkConfig);
 		await this.traderInterface.createProxyInstance();
 		this.wsRPC = wsRPC;
-		this.resetRPCWebsocket(this.wsRPC);
+		this.resetRPCWSWithRetry(this.wsRPC);
 		sdkInterface.registerObserver(this);
 		this.lastBlockChainEventTs = Date.now();
 		this.isInitialized = true;
+	}
+
+	public async resetRPCWSWithRetry(newWsRPC: string) {
+		try {
+			this.resetRPCWebsocket(newWsRPC);
+		} catch (e) {
+			console.error(
+				`[ERROR] resetRPCWebsocket, retrying in 5s: ${(e as Error).message}`,
+				e
+			);
+			sleep(5000);
+			this.resetRPCWSWithRetry(newWsRPC);
+		}
 	}
 
 	public async resetRPCWebsocket(newWsRPC: string) {
@@ -150,7 +163,6 @@ export default class EventListener extends IndexPriceInterface {
 			wsConstructor: WebSocket,
 			connectTimeout: 15000,
 		});
-
 		let provider = new providers.WebSocketProvider(wsConn);
 		// On provider error - retry after short cooldown
 		provider.on("error", (error: Error) => () => {
