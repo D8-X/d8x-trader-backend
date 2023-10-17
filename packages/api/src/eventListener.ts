@@ -37,6 +37,7 @@ import {
 	WSMsg,
 } from "utils/src/wsTypes";
 import SturdyWebSocket from "sturdy-websocket";
+import { sleep } from "utils";
 
 /**
  * Class that listens to blockchain events on
@@ -151,7 +152,13 @@ export default class EventListener extends IndexPriceInterface {
 		});
 
 		let provider = new providers.WebSocketProvider(wsConn);
-		provider.on("error", (error: Error) => this.onError(error));
+		// On provider error - retry after short cooldown
+		provider.on("error", (error: Error) => () => {
+			console.error(`[ERROR] resetRPCWebsocket provider errored: ${error.message}`);
+			sleep(5000);
+			provider.destroy();
+			return this.resetRPCWebsocket(newWsRPC);
+		});
 		await provider.ready;
 
 		this.proxyContract = new Contract(
