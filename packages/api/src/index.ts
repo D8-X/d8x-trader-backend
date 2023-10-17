@@ -2,7 +2,6 @@ import dotenv from "dotenv";
 import { chooseRandomRPC, sleep, executeWithTimeout, loadConfigRPC } from "utils";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
 import BrokerNone from "./brokerNone";
-import BrokerRegular from "./brokerRegular";
 import BrokerIntegration from "./brokerIntegration";
 import { PerpetualDataHandler, NodeSDKConfig } from "@d8x/perpetuals-sdk";
 import BrokerRemote from "./brokerRemote";
@@ -30,14 +29,6 @@ async function start() {
     remoteBrokerAddr = remoteBrokerAddr.replace(/\/+$/, '');// remove trailing slash
     console.log("Creating remote broker for order signatures");
     broker = new BrokerRemote(remoteBrokerAddr, brokerIdName, sdkConfig.chainId);
-  } else if (
-    process.env.BROKER_KEY != undefined &&
-    process.env.BROKER_KEY != "" &&
-    process.env.BROKER_FEE_TBPS != undefined
-  ) {
-    console.log("Initializing local broker");
-    const feeTbps = process.env.BROKER_FEE_TBPS == undefined ? 0 : Number(process.env.BROKER_FEE_TBPS);
-    broker = new BrokerRegular(process.env.BROKER_KEY, feeTbps);
   } else {
     console.log("No broker PK/fee or remore broker defined, using empty broker.");
     broker = new BrokerNone();
