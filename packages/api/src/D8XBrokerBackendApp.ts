@@ -60,8 +60,9 @@ export default class D8XBrokerBackendApp {
 	 * Check last event occurrences and determine whether
 	 * to re-connect to RPC or not (and connect)
 	 * @param newWsRPC new rpc address
+	 * @returns true if rest successful
 	 */
-	public async checkTradeEventListenerHeartbeat(newWsRPC: string) {
+	public async checkTradeEventListenerHeartbeat(newWsRPC: string) : Promise<boolean> {
 		const lastEventTs = this.eventListener.lastBlockchainEventTsMs();
 		// last trade event longer than 2 mins ago and recent market order submission (so no execution observed)
 		const checkMktOrderFreq = this.eventListener.doMarketOrderFrequenciesMatch();
@@ -80,11 +81,18 @@ export default class D8XBrokerBackendApp {
 					msgFreq2 +
 					` - restarting event listener. Last event too old? ${lastEventTooOld}; Trade/Post freq match? ${checkMktOrderFreq}`
 			);
-			this.eventListener.resetRPCWSWithRetry(newWsRPC);
+			try {
+				this.eventListener.resetRPCWebsocket(newWsRPC);
+			} catch (error) {
+				console.log("resetRPCWebsocket failed: "+error)
+				return false;
+			}
+			
 			this.lastRequestTsMs = Date.now();
 		} else {
 			console.log(msg + msgFreq2 + ` - no restart`);
 		}
+		return true
 	}
 
 	public static JSONResponse(
@@ -171,31 +179,6 @@ export default class D8XBrokerBackendApp {
 		this.express.use(express.json());
 	}
 
-	/**
-	 * Generic price query
-	 * @param symbol symbol of perpetual (BTC-USD-MATIC)
-	 * @param priceType mid/mark/spot
-	 * @param type endpoint name
-	 * @param res response object
-	 */
-	private async priceType(symbol: any, priceType: string, type: string, res: Response) {
-		try {
-			if (typeof symbol != "string") {
-				throw new Error("wrong arguments");
-			}
-			let rsp = await this.sdk.getPerpetualPriceOfType(symbol, priceType);
-			res.send(D8XBrokerBackendApp.JSONResponse(type, "", rsp));
-		} catch (err: any) {
-			let usg = "symbol=BTC-USD-MATIC";
-			res.send(
-				D8XBrokerBackendApp.JSONResponse("error", type, {
-					error: extractErrorMsg(err),
-					usage: usg,
-				})
-			);
-		}
-	}
-
 	private routes() {
 		this.express.listen(this.port, async () => {
 			console.log(`⚡️[server]: HTTP is running at http://localhost:${this.port}`);
@@ -221,21 +204,6 @@ export default class D8XBrokerBackendApp {
 			}
 		});
 
-		this.express.get("/perpetual-mid-price", async (req: Request, res: Response) => {
-			this.lastRequestTsMs = Date.now();
-			await this.priceType(req.query.symbol, "mid", "perpetual-mid-price", res);
-		});
-
-		this.express.get("/mark-price", async (req: Request, res: Response) => {
-			this.lastRequestTsMs = Date.now();
-			await this.priceType(req.query.symbol, "mark", "mark-price", res);
-		});
-
-		this.express.get("/oracle-price", async (req: Request, res: Response) => {
-			this.lastRequestTsMs = Date.now();
-			await this.priceType(req.query.symbol, "oracle", "oracle-price", res);
-		});
-
 		this.express.get("/open-orders", async (req: Request, res: Response) => {
 			// open-orders?traderAddr=0xCafee&symbol=BTC-USD-MATIC
 			let rsp;
@@ -258,80 +226,6 @@ export default class D8XBrokerBackendApp {
 				let usg = "open-orders?traderAddr=0xCafee&symbol=BTC-USD-MATIC";
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "open-orders", {
-						error: extractErrorMsg(err),
-						usage: usg,
-					})
-				);
-			}
-		});
-
-		this.express.get(
-			"/current-trader-volume",
-			async (req: Request, res: Response) => {
-				let rsp;
-				try {
-					this.lastRequestTsMs = Date.now();
-					let traderAddr: string;
-					let poolSymbol: string;
-					if (
-						typeof req.query.traderAddr != "string" ||
-						typeof req.query.poolSymbol != "string"
-					) {
-						throw new Error(
-							"wrong arguments. Requires traderAddr and poolSymbol"
-						);
-					} else {
-						traderAddr = req.query.traderAddr;
-						poolSymbol = req.query.poolSymbol;
-						rsp = await this.sdk.getCurrentTraderVolume(
-							traderAddr,
-							poolSymbol
-						);
-						res.send(
-							D8XBrokerBackendApp.JSONResponse(
-								"current-trader-volume",
-								"",
-								rsp
-							)
-						);
-					}
-				} catch (err: any) {
-					let usg = "current-trader-volume?traderAddr=0xCafee&poolSymbol=MATIC";
-					res.send(
-						D8XBrokerBackendApp.JSONResponse(
-							"error",
-							"current-trader-volume",
-							{
-								error: extractErrorMsg(err),
-								usage: usg,
-							}
-						)
-					);
-				}
-			}
-		);
-
-		this.express.get("/order-ids", async (req: Request, res: Response) => {
-			let rsp;
-			try {
-				this.lastRequestTsMs = Date.now();
-				let traderAddr: string;
-				let symbol: string;
-				if (
-					typeof req.query.traderAddr != "string" ||
-					typeof req.query.symbol != "string"
-				) {
-					throw new Error("wrong arguments. Requires traderAddr and symbol");
-				} else {
-					traderAddr = req.query.traderAddr;
-					symbol = req.query.symbol;
-					rsp = await this.sdk.getOrderIds(traderAddr, symbol);
-					res.send(D8XBrokerBackendApp.JSONResponse("order-ids", "", rsp));
-				}
-			} catch (err: any) {
-				const usg = "order-ids?traderAddr=0xCafee&symbol=MATIC-USD-MATIC";
-				res.send(
-					D8XBrokerBackendApp.JSONResponse("error", "order-ids", {
 						error: extractErrorMsg(err),
 						usage: usg,
 					})
@@ -509,28 +403,6 @@ export default class D8XBrokerBackendApp {
 				const usg = "{orders: <orderstruct>, traderAddr: string}";
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "order-digest", {
-						error: extractErrorMsg(err),
-						usage: usg,
-					})
-				);
-			}
-		});
-
-		this.express.post("/position-risk-on-trade", async (req, res) => {
-			try {
-				let traderAddr: string = req.body.traderAddr;
-
-				this.lastRequestTsMs = Date.now();
-				let order: Order = <Order>req.body.order;
-
-				let rsp = await this.sdk.positionRiskOnTrade(order, traderAddr);
-				res.send(
-					D8XBrokerBackendApp.JSONResponse("position-risk-on-trade", "", rsp)
-				);
-			} catch (err: any) {
-				const usg = "{order: <orderstruct>, traderAddr: string}";
-				res.send(
-					D8XBrokerBackendApp.JSONResponse("error", "position-risk-on-trade", {
 						error: extractErrorMsg(err),
 						usage: usg,
 					})
