@@ -339,18 +339,29 @@ export default class SDKInterface extends Observable {
     poolSymbol: string
   ): Promise<string> {
     this.checkAPIInitialized();
-    let brokerAddr = await this.broker.getBrokerAddress();
-    let fee = await this.apiInterface?.queryExchangeFee(
-      poolSymbol,
-      traderAddr,
-      brokerAddr
-    );
-    if (fee == undefined) {
-      throw new Error("could not retreive fee");
+    const key = "fee:"+traderAddr+":"+poolSymbol;
+    let fee : number|undefined= 0;
+    let feeStr : string | null = await this.redisClient.get(key)
+    if (feeStr==null) {
+      let brokerAddr = await this.broker.getBrokerAddress();
+      fee = await this.apiInterface?.queryExchangeFee(
+        poolSymbol,
+        traderAddr,
+        brokerAddr
+      );
+      if (fee == undefined) {
+        throw new Error("could not get fee");
+      }
+      fee = Math.round(
+        fee * 1e5 + (await this.broker.getBrokerFeeTBps(traderAddr))
+      );
+      feeStr = fee.toFixed(0);
+      const expirationSec = 86400;
+      this.redisClient.setEx(key, expirationSec, feeStr)
+    } else {
+      fee = parseInt(feeStr)
     }
-    fee = Math.round(
-      fee * 1e5 + (await this.broker.getBrokerFeeTBps(traderAddr))
-    );
+
     return JSON.stringify(fee);
   }
 
