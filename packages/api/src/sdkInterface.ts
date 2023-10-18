@@ -88,13 +88,20 @@ export default class SDKInterface extends Observable {
   }
 
   /**
-   * Get the loyality score of the trader
+   * Get the loyalty score of the trader
    * @param traderAddr address of the trader
-   * @returns loyality score
+   * @returns loyalty score
    */
   public async traderLoyalty(traderAddr: string): Promise<string> {
-    let score = await this.apiInterface!.getTraderLoyalityScore(traderAddr);
-    return score.toString();
+    const key = "loyal:"+traderAddr;
+    let res : string | null = await this.redisClient.get(key)
+    if (res==null) {
+      const expirationSec = 86400;
+      let score = await this.apiInterface!.getTraderLoyalityScore(traderAddr);
+      res = score.toString();
+      this.redisClient.setEx(key, expirationSec, res)
+    }
+    return res;
   }
 
   public perpetualStaticInfo(symbol: string): string {
