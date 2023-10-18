@@ -231,39 +231,6 @@ export default class SDKInterface extends Observable {
     return perpState;
   }
 
-  public async getPerpetualPriceOfType(
-    symbol: string,
-    priceType: string
-  ): Promise<string> {
-    try {
-      let res;
-      switch (priceType) {
-        case "mid": {
-          res = await this.apiInterface?.getPerpetualMidPrice(symbol);
-          break;
-        }
-        case "mark": {
-          res = await this.apiInterface?.getMarkPrice(symbol);
-          break;
-        }
-        case "oracle": {
-          let components = symbol.split("-");
-          res = await this.apiInterface?.getOraclePrice(
-            components[0],
-            components[1]
-          );
-          break;
-        }
-        default: {
-          throw new Error("price type unknown");
-        }
-      }
-      return JSON.stringify(res);
-    } catch (error) {
-      return JSON.stringify({ error: extractErrorMsg(error) });
-    }
-  }
-
   private checkAPIInitialized() {
     if (this.apiInterface == undefined) {
       throw Error("SDKInterface not initialized");
@@ -307,31 +274,6 @@ export default class SDKInterface extends Observable {
     this.checkAPIInitialized();
     const sizes = await this.apiInterface!.maxOrderSizeForTrader(addr, symbol);
     return JSON.stringify({ buy: sizes.buy, sell: sizes.sell });
-  }
-
-  public async getCurrentTraderVolume(
-    traderAddr: string,
-    symbol: string
-  ): Promise<string> {
-    this.checkAPIInitialized();
-    let vol = await this.apiInterface!.getCurrentTraderVolume(
-      symbol,
-      traderAddr
-    );
-    return JSON.stringify(vol);
-  }
-
-  public async getOrderIds(
-    traderAddr: string,
-    symbol: string
-  ): Promise<string> {
-    this.checkAPIInitialized();
-    let orderBookContract = this.apiInterface!.getOrderBookContract(symbol);
-    let ids = await TraderInterface.orderIdsOfTrader(
-      traderAddr,
-      orderBookContract
-    );
-    return JSON.stringify(ids);
   }
 
   public async queryFee(
@@ -411,24 +353,6 @@ export default class SDKInterface extends Observable {
       OrderBookAddr: obAddr,
       abi: postOrderABI,
       SCOrders: SCOrders,
-    });
-  }
-
-  public async positionRiskOnTrade(
-    order: Order,
-    traderAddr: string
-  ): Promise<string> {
-    this.checkAPIInitialized();
-    let positionRisk: MarginAccount[] | undefined =
-      await this.apiInterface!.positionRisk(traderAddr, order.symbol);
-    let res = await this.apiInterface!.positionRiskOnTrade(
-      traderAddr,
-      order,
-      positionRisk[0]
-    );
-    return JSON.stringify({
-      newPositionRisk: res.newPositionRisk,
-      orderCost: res.orderCost,
     });
   }
 
