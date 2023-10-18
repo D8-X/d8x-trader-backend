@@ -63,9 +63,10 @@ export default class SDKInterface extends Observable {
   public async exchangeInfo(): Promise<string> {
     let obj = await this.redisClient.hGetAll("exchangeInfo");
     let info: string = "";
-    // console.log("obj=", obj);
+    this.checkAPIInitialized();// can throw 
     if (!Object.prototype.hasOwnProperty.call(obj, "ts:query")) {
       console.log("first time query");
+      
       info = await this.cacheExchangeInfo();
     } else if (!Object.prototype.hasOwnProperty.call(obj, "content")) {
       console.log("re-query exchange info (latest: invalid)");
