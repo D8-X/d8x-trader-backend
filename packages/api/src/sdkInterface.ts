@@ -63,9 +63,10 @@ export default class SDKInterface extends Observable {
   public async exchangeInfo(): Promise<string> {
     let obj = await this.redisClient.hGetAll("exchangeInfo");
     let info: string = "";
-    // console.log("obj=", obj);
+    this.checkAPIInitialized();// can throw 
     if (!Object.prototype.hasOwnProperty.call(obj, "ts:query")) {
       console.log("first time query");
+      
       info = await this.cacheExchangeInfo();
     } else if (!Object.prototype.hasOwnProperty.call(obj, "content")) {
       console.log("re-query exchange info (latest: invalid)");
@@ -88,13 +89,20 @@ export default class SDKInterface extends Observable {
   }
 
   /**
-   * Get the loyality score of the trader
+   * Get the loyalty score of the trader
    * @param traderAddr address of the trader
-   * @returns loyality score
+   * @returns loyalty score
    */
   public async traderLoyalty(traderAddr: string): Promise<string> {
-    let score = await this.apiInterface!.getTraderLoyalityScore(traderAddr);
-    return score.toString();
+    const key = "loyal:"+traderAddr;
+    let res : string | null = await this.redisClient.get(key)
+    if (res==null) {
+      const expirationSec = 86400;
+      let score = await this.apiInterface!.getTraderLoyalityScore(traderAddr);
+      res = score.toString();
+      this.redisClient.setEx(key, expirationSec, res)
+    }
+    return res;
   }
 
   public perpetualStaticInfo(symbol: string): string {
@@ -224,39 +232,6 @@ export default class SDKInterface extends Observable {
     return perpState;
   }
 
-  public async getPerpetualPriceOfType(
-    symbol: string,
-    priceType: string
-  ): Promise<string> {
-    try {
-      let res;
-      switch (priceType) {
-        case "mid": {
-          res = await this.apiInterface?.getPerpetualMidPrice(symbol);
-          break;
-        }
-        case "mark": {
-          res = await this.apiInterface?.getMarkPrice(symbol);
-          break;
-        }
-        case "oracle": {
-          let components = symbol.split("-");
-          res = await this.apiInterface?.getOraclePrice(
-            components[0],
-            components[1]
-          );
-          break;
-        }
-        default: {
-          throw new Error("price type unknown");
-        }
-      }
-      return JSON.stringify(res);
-    } catch (error) {
-      return JSON.stringify({ error: extractErrorMsg(error) });
-    }
-  }
-
   private checkAPIInitialized() {
     if (this.apiInterface == undefined) {
       throw Error("SDKInterface not initialized");
@@ -302,48 +277,34 @@ export default class SDKInterface extends Observable {
     return JSON.stringify({ buy: sizes.buy, sell: sizes.sell });
   }
 
-  public async getCurrentTraderVolume(
-    traderAddr: string,
-    symbol: string
-  ): Promise<string> {
-    this.checkAPIInitialized();
-    let vol = await this.apiInterface!.getCurrentTraderVolume(
-      symbol,
-      traderAddr
-    );
-    return JSON.stringify(vol);
-  }
-
-  public async getOrderIds(
-    traderAddr: string,
-    symbol: string
-  ): Promise<string> {
-    this.checkAPIInitialized();
-    let orderBookContract = this.apiInterface!.getOrderBookContract(symbol);
-    let ids = await TraderInterface.orderIdsOfTrader(
-      traderAddr,
-      orderBookContract
-    );
-    return JSON.stringify(ids);
-  }
-
   public async queryFee(
     traderAddr: string,
     poolSymbol: string
   ): Promise<string> {
     this.checkAPIInitialized();
-    let brokerAddr = await this.broker.getBrokerAddress();
-    let fee = await this.apiInterface?.queryExchangeFee(
-      poolSymbol,
-      traderAddr,
-      brokerAddr
-    );
-    if (fee == undefined) {
-      throw new Error("could not retreive fee");
+    const key = "fee:"+traderAddr+":"+poolSymbol;
+    let fee : number|undefined= 0;
+    let feeStr : string | null = await this.redisClient.get(key)
+    if (feeStr==null) {
+      let brokerAddr = await this.broker.getBrokerAddress();
+      fee = await this.apiInterface?.queryExchangeFee(
+        poolSymbol,
+        traderAddr,
+        brokerAddr
+      );
+      if (fee == undefined) {
+        throw new Error("could not get fee");
+      }
+      fee = Math.round(
+        fee * 1e5 + (await this.broker.getBrokerFeeTBps(traderAddr))
+      );
+      feeStr = fee.toFixed(0);
+      const expirationSec = 86400;
+      this.redisClient.setEx(key, expirationSec, feeStr)
+    } else {
+      fee = parseInt(feeStr)
     }
-    fee = Math.round(
-      fee * 1e5 + (await this.broker.getBrokerFeeTBps(traderAddr))
-    );
+
     return JSON.stringify(fee);
   }
 
@@ -393,24 +354,6 @@ export default class SDKInterface extends Observable {
       OrderBookAddr: obAddr,
       abi: postOrderABI,
       SCOrders: SCOrders,
-    });
-  }
-
-  public async positionRiskOnTrade(
-    order: Order,
-    traderAddr: string
-  ): Promise<string> {
-    this.checkAPIInitialized();
-    let positionRisk: MarginAccount[] | undefined =
-      await this.apiInterface!.positionRisk(traderAddr, order.symbol);
-    let res = await this.apiInterface!.positionRiskOnTrade(
-      traderAddr,
-      order,
-      positionRisk[0]
-    );
-    return JSON.stringify({
-      newPositionRisk: res.newPositionRisk,
-      orderCost: res.orderCost,
     });
   }
 
