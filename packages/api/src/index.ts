@@ -45,7 +45,7 @@ async function start() {
       await executeWithTimeout(d8XBackend.initialize(sdkConfig, wsRPC), 60_000, "initialize timeout");
       isSuccess = true;
     } catch (error) {
-      await sleep(500);
+      await sleep(1000);
       if (count > 10) {
         throw error;
       }
@@ -56,11 +56,16 @@ async function start() {
     count++;
   }
 
+  let waitTime = 60_000
   while (true) {
-    await sleep(60_000);
+    await sleep(waitTime);
     wsRPC = chooseRandomRPC(true, rpcConfig);
     sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
-    await d8XBackend!.checkTradeEventListenerHeartbeat(wsRPC);
+    if(!await d8XBackend!.checkTradeEventListenerHeartbeat(wsRPC)) {
+      waitTime = 1000;
+    } else {
+      waitTime = 60_000;
+    }
   }
 }
 start();

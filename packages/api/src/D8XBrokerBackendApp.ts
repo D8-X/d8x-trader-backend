@@ -60,8 +60,9 @@ export default class D8XBrokerBackendApp {
 	 * Check last event occurrences and determine whether
 	 * to re-connect to RPC or not (and connect)
 	 * @param newWsRPC new rpc address
+	 * @returns true if rest successful
 	 */
-	public async checkTradeEventListenerHeartbeat(newWsRPC: string) {
+	public async checkTradeEventListenerHeartbeat(newWsRPC: string) : Promise<boolean> {
 		const lastEventTs = this.eventListener.lastBlockchainEventTsMs();
 		// last trade event longer than 2 mins ago and recent market order submission (so no execution observed)
 		const checkMktOrderFreq = this.eventListener.doMarketOrderFrequenciesMatch();
@@ -80,11 +81,18 @@ export default class D8XBrokerBackendApp {
 					msgFreq2 +
 					` - restarting event listener. Last event too old? ${lastEventTooOld}; Trade/Post freq match? ${checkMktOrderFreq}`
 			);
-			this.eventListener.resetRPCWSWithRetry(newWsRPC);
+			try {
+				this.eventListener.resetRPCWebsocket(newWsRPC);
+			} catch (error) {
+				console.log("resetRPCWebsocket failed: "+error)
+				return false;
+			}
+			
 			this.lastRequestTsMs = Date.now();
 		} else {
 			console.log(msg + msgFreq2 + ` - no restart`);
 		}
+		return true
 	}
 
 	public static JSONResponse(
