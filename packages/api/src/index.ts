@@ -6,17 +6,16 @@ import BrokerIntegration from "./brokerIntegration";
 import { PerpetualDataHandler, NodeSDKConfig } from "@d8x/perpetuals-sdk";
 import BrokerRemote from "./brokerRemote";
 import * as winston from "winston";
-
+import { RPCConfig } from "utils/dist/wsTypes";
+import RPCManager from "./rpcManager";
 
 const defaultLogger = () => {
-	return winston.createLogger({
-		level: "info",
-		format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-		defaultMeta: { service: "api" },
-		transports: [
-			new winston.transports.Console(),
-		],
-	});
+  return winston.createLogger({
+    level: "info",
+    format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+    defaultMeta: { service: "api" },
+    transports: [new winston.transports.Console()],
+  });
 };
 export const logger = defaultLogger();
 
@@ -28,10 +27,10 @@ async function start() {
   }
   console.log(`loading configuration ${configName}`);
   const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig(configName);
-  const rpcConfig = loadConfigRPC();
+  const rpcConfig = loadConfigRPC() as RPCConfig[];
 
   const priceFeedEndpoints: Array<{ type: string; endpoint: string }> = [];
- 
+
   if (priceFeedEndpoints.length > 0) {
     sdkConfig.priceFeedEndpoints = priceFeedEndpoints;
   }
@@ -40,15 +39,21 @@ async function start() {
 
   if (remoteBrokerAddr != undefined && process.env.REMOTE_BROKER_HTTP != "") {
     const brokerIdName = "1";
-    remoteBrokerAddr = remoteBrokerAddr.replace(/\/+$/, '');// remove trailing slash
+    remoteBrokerAddr = remoteBrokerAddr.replace(/\/+$/, ""); // remove trailing slash
     console.log("Creating remote broker for order signatures");
     broker = new BrokerRemote(remoteBrokerAddr, brokerIdName, sdkConfig.chainId);
   } else {
     console.log("No broker PK/fee or remore broker defined, using empty broker.");
     broker = new BrokerNone();
   }
-  sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
-  let wsRPC = chooseRandomRPC(true, rpcConfig);
+  const rpcManagerHttp = new RPCManager(
+    rpcConfig.find((config) => config.chainId == sdkConfig.chainId)?.HTTP ?? []
+  );
+  const rpcManagerWs = new RPCManager(
+    rpcConfig.find((config) => config.chainId == sdkConfig.chainId)?.WS ?? []
+  );
+  sdkConfig.nodeURL = await rpcManagerHttp.getRPC();
+  let wsRPC = await rpcManagerWs.getRPC(false);
   let d8XBackend = new D8XBrokerBackendApp(broker!, sdkConfig, logger);
   let count = 0;
   let isSuccess = false;
@@ -56,7 +61,11 @@ async function start() {
     try {
       console.log(`RPC (HTTP) = ${sdkConfig.nodeURL}`);
       console.log(`RPC (WS)   = ${wsRPC}`);
-      await executeWithTimeout(d8XBackend.initialize(sdkConfig, wsRPC), 60_000, "initialize timeout");
+      await executeWithTimeout(
+        d8XBackend.initialize(sdkConfig, rpcManagerHttp, wsRPC),
+        60_000,
+        "initialize timeout"
+      );
       isSuccess = true;
     } catch (error) {
       await sleep(1000);
@@ -64,18 +73,18 @@ async function start() {
         throw error;
       }
       console.log("retrying new rpc...");
-      sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
-      wsRPC = chooseRandomRPC(true, rpcConfig);
+      sdkConfig.nodeURL = await rpcManagerHttp.getRPC();
+      wsRPC = await rpcManagerWs.getRPC(false);
     }
     count++;
   }
 
-  let waitTime = 60_000
+  let waitTime = 60_000;
   while (true) {
     await sleep(waitTime);
-    wsRPC = chooseRandomRPC(true, rpcConfig);
-    sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
-    if(!await d8XBackend!.checkTradeEventListenerHeartbeat(wsRPC)) {
+    wsRPC = await rpcManagerWs.getRPC(false);
+    sdkConfig.nodeURL = await rpcManagerHttp.getRPC();
+    if (!(await d8XBackend!.checkTradeEventListenerHeartbeat(wsRPC))) {
       waitTime = 1000;
     } else {
       waitTime = 60_000;
