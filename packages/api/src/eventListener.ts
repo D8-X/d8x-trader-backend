@@ -196,9 +196,11 @@ export default class EventListener extends IndexPriceInterface {
 	 */
 	private stopListening() {
 		if (this.proxyContract != undefined) {
+			this.logger.info("removing websocket listeners");
 			this.proxyContract.removeAllListeners();
 		}
 		for (const symbol of Object.keys(this.orderBookContracts)) {
+			this.logger.info("removing event listeners");
 			this.removeOrderBookEventHandlers(symbol);
 		}
 	}
