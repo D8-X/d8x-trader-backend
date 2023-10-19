@@ -76,7 +76,7 @@ export default class D8XBrokerBackendApp {
 
 		if (lastEventTooOld || !checkMktOrderFreq) {
 			// no event since timeSeconds, restart listener
-			console.log(
+			this.logger.info(
 				msg +
 					msgFreq2 +
 					` - restarting event listener. Last event too old? ${lastEventTooOld}; Trade/Post freq match? ${checkMktOrderFreq}`
@@ -84,13 +84,13 @@ export default class D8XBrokerBackendApp {
 			try {
 				this.eventListener.resetRPCWebsocket(newWsRPC);
 			} catch (error) {
-				console.log("resetRPCWebsocket failed: "+error)
+				this.logger.error("resetRPCWebsocket failed: "+error)
 				return false;
 			}
 			
 			this.lastRequestTsMs = Date.now();
 		} else {
-			console.log(msg + msgFreq2 + ` - no restart`);
+			this.logger.info(msg + msgFreq2 + ` - no restart`);
 		}
 		return true
 	}
@@ -168,7 +168,7 @@ export default class D8XBrokerBackendApp {
 				ws.send(D8XBrokerBackendApp.JSONResponse("connect", `success`, {}));
 			}
 		);
-		console.log(`⚡️[server]: WS is running at ws://localhost:${this.portWS}`);
+		this.logger.info(`⚡️[server]: WS is running at ws://localhost:${this.portWS}`);
 	}
 
 	private middleWare() {
@@ -181,7 +181,7 @@ export default class D8XBrokerBackendApp {
 
 	private routes() {
 		this.express.listen(this.port, async () => {
-			console.log(`⚡️[server]: HTTP is running at http://localhost:${this.port}`);
+			this.logger.info(`⚡️[server]: HTTP is running at http://localhost:${this.port}`);
 		});
 
 		this.express.post("/", (req: Request, res: Response) => {
