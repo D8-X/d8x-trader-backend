@@ -53,7 +53,7 @@ async function start() {
     rpcConfig.find((config) => config.chainId == sdkConfig.chainId)?.WS ?? []
   );
   sdkConfig.nodeURL = await rpcManagerHttp.getRPC();
-  let wsRPC = await rpcManagerWs.getRPC();
+  let wsRPC = await rpcManagerWs.getRPC(false);
   let d8XBackend = new D8XBrokerBackendApp(broker!, sdkConfig, logger);
   let count = 0;
   let isSuccess = false;
@@ -74,7 +74,7 @@ async function start() {
       }
       console.log("retrying new rpc...");
       sdkConfig.nodeURL = await rpcManagerHttp.getRPC();
-      wsRPC = await rpcManagerWs.getRPC();
+      wsRPC = await rpcManagerWs.getRPC(false);
     }
     count++;
   }
@@ -82,7 +82,7 @@ async function start() {
   let waitTime = 60_000;
   while (true) {
     await sleep(waitTime);
-    wsRPC = await rpcManagerWs.getRPC();
+    wsRPC = await rpcManagerWs.getRPC(false);
     sdkConfig.nodeURL = await rpcManagerHttp.getRPC();
     if (!(await d8XBackend!.checkTradeEventListenerHeartbeat(wsRPC))) {
       waitTime = 1000;

@@ -14,15 +14,18 @@ export default class RPCManager {
   constructor(private rpcURLs: string[]) {}
 
   /**
-   * Finds the next healthy RPC in the queue and returns it.
+   * Finds the next RPC in the queue and returns it. Health check is enabled by default.
    * @returns An RPC URL
    */
-  public async getRPC(): Promise<string> {
+  public async getRPC(healthy: boolean = true): Promise<string> {
+    if (this.rpcURLs.length < 1) {
+      throw new Error("No RPCs in queue");
+    }
     let numTries = 0;
     while (numTries < this.rpcURLs.length) {
       numTries++;
       const rpc = await this.cycleRPCs();
-      if (this.healthy.get(rpc)) {
+      if (!healthy || this.healthy.get(rpc)) {
         return rpc;
       }
     }
@@ -53,7 +56,7 @@ export default class RPCManager {
     ) {
       const provider = new JsonRpcProvider(rpc);
       try {
-        await executeWithTimeout(provider.ready, this.NETWORK_READY_MS);
+        await executeWithTimeout(provider.detectNetwork(), this.NETWORK_READY_MS);
         this.healthy.set(rpc, true);
       } catch (_e) {
         this.healthy.set(rpc, false);
