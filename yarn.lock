@@ -73,6 +73,27 @@
     process "^0.11.10"
     typechain "^8.2.0"
 
+"@d8x/perpetuals-sdk@^0.9.8":
+  version "0.9.8"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.9.8.tgz#4832101d6679f63a806cf2d43b04a3f5e7b3d629"
+  integrity sha512-dS/nAoODGOu2hsPHH6QLmlcgbNFXwXXK5V7sQLW+DpEh3Boshu6vdRgcyqKQ/gzqax+t/klG1Z4i4aOO1mHsgQ==
+  dependencies:
+    "@ethersproject/abi" "^5.7.0"
+    "@ethersproject/abstract-signer" "^5.7.0"
+    "@ethersproject/bignumber" "^5.7.0"
+    "@ethersproject/bytes" "^5.7.0"
+    "@ethersproject/contracts" "^5.7.0"
+    "@ethersproject/keccak256" "^5.7.0"
+    "@ethersproject/providers" "^5.7.2"
+    "@ethersproject/strings" "^5.7.0"
+    "@ethersproject/units" "^5.7.0"
+    "@ethersproject/wallet" "^5.7.0"
+    "@typechain/ethers-v5" "^11.1.1"
+    buffer "^6.0.3"
+    ethers "^5.7.2"
+    process "^0.11.10"
+    typechain "^8.2.0"
+
 "@dabh/diagnostics@^2.0.2":
   version "2.0.3"
   resolved "https://registry.npmjs.org/@dabh/diagnostics/-/diagnostics-2.0.3.tgz"
