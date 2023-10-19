@@ -145,7 +145,11 @@ export default class EventListener extends IndexPriceInterface {
 
 	public async resetRPCWebsocket(newWsRPC: string) {
 		if (this.wsConn!=undefined) {
-			this.wsConn.close()
+			try {
+				this.wsConn.close(undefined, "reset")
+			} catch(error) {
+				console.log("Websocket closing on reset not successful:", error)
+			}
 		}
 		this.stopListening();
 		this.wsRPC = newWsRPC;
