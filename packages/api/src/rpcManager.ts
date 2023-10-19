@@ -6,6 +6,7 @@ export default class RPCManager {
   private lastCheck: Map<string, number> = new Map();
 
   private CHECK_INTERVAL_MS = 1_000 * 60 * 60;
+  private NETWORK_READY_MS = 10_000;
 
   /**
    * @param rpcURLs Array of RPC URLs
@@ -53,7 +54,7 @@ export default class RPCManager {
     ) {
       const provider = new JsonRpcProvider(rpc);
       try {
-        await executeWithTimeout(provider.ready, 10_000);
+        await executeWithTimeout(provider.ready, this.NETWORK_READY_MS);
         this.healthy.set(rpc, true);
       } catch (_e) {
         this.healthy.set(rpc, false);
