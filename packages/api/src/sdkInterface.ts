@@ -191,10 +191,7 @@ export default class SDKInterface extends Observable {
 	): number {
 		let k = 0;
 		while (k < perpetuals.length) {
-			if (
-				perpetuals[k].baseCurrency == base &&
-				perpetuals[k].quoteCurrency == quote
-			) {
+			if (perpetuals[k].baseCurrency == base && perpetuals[k].quoteCurrency == quote) {
 				// perpetual found
 				return k;
 			}
@@ -203,21 +200,14 @@ export default class SDKInterface extends Observable {
 		return -1;
 	}
 
-	public static findPoolAndPerpIdx(
-		symbol: string,
-		info: ExchangeInfo
-	): [number, number] {
+	public static findPoolAndPerpIdx(symbol: string, info: ExchangeInfo): [number, number] {
 		let pools = <PoolState[]>info.pools;
 		let symbols = symbol.split("-");
 		let k = SDKInterface.findPoolIdx(symbols[2], pools);
 		if (k == -1) {
 			throw new Error(`No pool found with symbol ${symbols[2]}`);
 		}
-		let j = SDKInterface.findPerpetualInPool(
-			symbols[0],
-			symbols[1],
-			pools[k].perpetuals
-		);
+		let j = SDKInterface.findPerpetualInPool(symbols[0], symbols[1], pools[k].perpetuals);
 		if (j == -1) {
 			throw new Error(`No perpetual found with symbol ${symbol}`);
 		}
@@ -288,17 +278,11 @@ export default class SDKInterface extends Observable {
 		let feeStr: string | null = await this.redisClient.get(key);
 		if (feeStr == null) {
 			let brokerAddr = await this.broker.getBrokerAddress();
-			fee = await this.apiInterface?.queryExchangeFee(
-				poolSymbol,
-				traderAddr,
-				brokerAddr
-			);
+			fee = await this.apiInterface?.queryExchangeFee(poolSymbol, traderAddr, brokerAddr);
 			if (fee == undefined) {
 				throw new Error("could not get fee");
 			}
-			fee = Math.round(
-				fee * 1e5 + (await this.broker.getBrokerFeeTBps(traderAddr))
-			);
+			fee = Math.round(fee * 1e5 + (await this.broker.getBrokerFeeTBps(traderAddr)));
 			feeStr = fee.toFixed(0);
 			const expirationSec = 86400;
 			this.redisClient.setEx(key, expirationSec, feeStr);
@@ -317,15 +301,9 @@ export default class SDKInterface extends Observable {
 		}
 		let SCOrders = await Promise.all(
 			orders!.map(async (order: Order) => {
-				order.brokerFeeTbps = await this.broker.getBrokerFeeTBps(
-					traderAddr,
-					order
-				);
+				order.brokerFeeTbps = await this.broker.getBrokerFeeTBps(traderAddr, order);
 				order.brokerAddr = await this.broker.getBrokerAddress();
-				let SCOrder = this.apiInterface?.createSmartContractOrder(
-					order,
-					traderAddr
-				);
+				let SCOrder = this.apiInterface?.createSmartContractOrder(order, traderAddr);
 				SCOrder!.brokerSignature = await this.broker.signOrder(SCOrder!);
 				return SCOrder!;
 			})
@@ -393,8 +371,7 @@ export default class SDKInterface extends Observable {
 				updateData: priceUpdate.priceFeedVaas,
 				publishTimes: priceUpdate.timestamps,
 				updateFee:
-					this.apiInterface!.PRICE_UPDATE_FEE_GWEI *
-					priceUpdate.priceFeedVaas.length,
+					this.apiInterface!.PRICE_UPDATE_FEE_GWEI * priceUpdate.priceFeedVaas.length,
 			},
 		});
 	}
@@ -418,8 +395,7 @@ export default class SDKInterface extends Observable {
 				updateData: priceUpdate.priceFeedVaas,
 				publishTimes: priceUpdate.timestamps,
 				updateFee:
-					this.apiInterface!.PRICE_UPDATE_FEE_GWEI *
-					priceUpdate.priceFeedVaas.length,
+					this.apiInterface!.PRICE_UPDATE_FEE_GWEI * priceUpdate.priceFeedVaas.length,
 			},
 		});
 	}
@@ -443,8 +419,7 @@ export default class SDKInterface extends Observable {
 				updateData: priceUpdate.priceFeedVaas,
 				publishTimes: priceUpdate.timestamps,
 				updateFee:
-					this.apiInterface!.PRICE_UPDATE_FEE_GWEI *
-					priceUpdate.priceFeedVaas.length,
+					this.apiInterface!.PRICE_UPDATE_FEE_GWEI * priceUpdate.priceFeedVaas.length,
 			},
 		});
 	}
