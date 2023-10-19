@@ -9,6 +9,7 @@ import EventListener from "./eventListener";
 import BrokerIntegration from "./brokerIntegration";
 import { Logger } from "winston";
 import cors from "cors";
+import RPCManager from "./rpcManager";
 dotenv.config();
 //https://roger13.github.io/SwagDefGen/
 //setAllowance?
@@ -24,7 +25,11 @@ export default class D8XBrokerBackendApp {
 	private CORS_ON: boolean;
 	private lastRequestTsMs: number; // last API request, used to inform whether wsRPC should be switched on event-listener
 
-	constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig, public logger: Logger) {
+	constructor(
+		broker: BrokerIntegration,
+		sdkConfig: NodeSDKConfig,
+		public logger: Logger
+	) {
 		dotenv.config();
 		this.express = express();
 		if (process.env.MAIN_API_PORT_HTTP == undefined) {
@@ -48,9 +53,13 @@ export default class D8XBrokerBackendApp {
 		this.lastRequestTsMs = Date.now();
 	}
 
-	public async initialize(sdkConfig: NodeSDKConfig, wsRPC: string) {
+	public async initialize(
+		sdkConfig: NodeSDKConfig,
+		rpcManager: RPCManager,
+		wsRPC: string
+	) {
 		this.sdkConfig = sdkConfig;
-		await this.sdk.initialize(this.sdkConfig);
+		await this.sdk.initialize(this.sdkConfig, rpcManager);
 		await this.eventListener.initialize(this.sdk, sdkConfig, wsRPC);
 		this.initWebSocket();
 		this.routes();
@@ -62,7 +71,7 @@ export default class D8XBrokerBackendApp {
 	 * @param newWsRPC new rpc address
 	 * @returns true if rest successful
 	 */
-	public async checkTradeEventListenerHeartbeat(newWsRPC: string) : Promise<boolean> {
+	public async checkTradeEventListenerHeartbeat(newWsRPC: string): Promise<boolean> {
 		const lastEventTs = this.eventListener.lastBlockchainEventTsMs();
 		// last trade event longer than 2 mins ago and recent market order submission (so no execution observed)
 		const checkMktOrderFreq = this.eventListener.doMarketOrderFrequenciesMatch();
@@ -84,15 +93,15 @@ export default class D8XBrokerBackendApp {
 			try {
 				this.eventListener.resetRPCWebsocket(newWsRPC);
 			} catch (error) {
-				console.log("resetRPCWebsocket failed: "+error)
+				console.log("resetRPCWebsocket failed: " + error);
 				return false;
 			}
-			
+
 			this.lastRequestTsMs = Date.now();
 		} else {
 			console.log(msg + msgFreq2 + ` - no restart`);
 		}
-		return true
+		return true;
 	}
 
 	public static JSONResponse(
