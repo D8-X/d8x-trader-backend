@@ -147,7 +147,7 @@ export default class EventListener extends IndexPriceInterface {
 		
 		this.stopListening();
 		this.wsRPC = newWsRPC;
-		console.log(`set new ws rpc : ${newWsRPC}`);
+		this.logger.info(`set new ws rpc : ${newWsRPC}`);
 		this.wsConn = new SturdyWebSocket(this.wsRPC, {
 			wsConstructor: WebSocket,
 			connectTimeout: 15000,
@@ -156,7 +156,7 @@ export default class EventListener extends IndexPriceInterface {
 		let provider = new providers.WebSocketProvider(this.wsConn);
 		// On provider error - retry after short cooldown
 		provider.on("error", (error: Error) => () => {
-			console.error(`[ERROR] resetRPCWebsocket provider errored: ${error.message}`);
+			this.logger.error(`[ERROR] resetRPCWebsocket provider error: ${error.message}`);
 			provider.destroy();
 		});
 		await provider.ready;
@@ -205,7 +205,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * @param error error from websocket
 	 */
 	private onError(error: Error) {
-		console.log(`Websocket error:${error.message}`);
+		this.logger.error(`Websocket error:${error.message}`);
 		throw error;
 	}
 

@@ -25,7 +25,7 @@ async function start() {
   if (configName == "") {
     throw new Error("Set SDK_CONFIG_NAME in .env (e.g. SDK_CONFIG_NAME=testnet)");
   }
-  console.log(`loading configuration ${configName}`);
+  logger.info(`loading configuration ${configName}`);
   const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig(configName);
   const rpcConfig = loadConfigRPC() as RPCConfig[];
 
@@ -59,8 +59,8 @@ async function start() {
   let isSuccess = false;
   while (!isSuccess) {
     try {
-      console.log(`RPC (HTTP) = ${sdkConfig.nodeURL}`);
-      console.log(`RPC (WS)   = ${wsRPC}`);
+      logger.info(`RPC (HTTP) = ${sdkConfig.nodeURL}`);
+      logger.info(`RPC (WS)   = ${wsRPC}`);
       await executeWithTimeout(
         d8XBackend.initialize(sdkConfig, rpcManagerHttp, wsRPC),
         60_000,
@@ -72,7 +72,7 @@ async function start() {
       if (count > 10) {
         throw error;
       }
-      console.log("retrying new rpc...");
+      logger.info("retrying new rpc...");
       sdkConfig.nodeURL = await rpcManagerHttp.getRPC();
       wsRPC = await rpcManagerWs.getRPC(false);
     }
