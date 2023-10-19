@@ -144,13 +144,7 @@ export default class EventListener extends IndexPriceInterface {
 	}
 
 	public async resetRPCWebsocket(newWsRPC: string) {
-		if (this.wsConn!=undefined) {
-			try {
-				this.wsConn.close(undefined, "reset")
-			} catch(error) {
-				this.logger.error("Websocket closing on reset not successful");
-			}
-		}
+		
 		this.stopListening();
 		this.wsRPC = newWsRPC;
 		console.log(`set new ws rpc : ${newWsRPC}`);
@@ -158,6 +152,7 @@ export default class EventListener extends IndexPriceInterface {
 			wsConstructor: WebSocket,
 			connectTimeout: 15000,
 		});
+
 		let provider = new providers.WebSocketProvider(this.wsConn);
 		// On provider error - retry after short cooldown
 		provider.on("error", (error: Error) => () => {
