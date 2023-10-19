@@ -37,7 +37,7 @@ import {
 	WSMsg,
 } from "utils/src/wsTypes";
 import SturdyWebSocket from "sturdy-websocket";
-import { sleep } from "utils";
+import { Logger } from "winston";
 
 /**
  * Class that listens to blockchain events on
@@ -110,7 +110,7 @@ export default class EventListener extends IndexPriceInterface {
 		{ hash: string[]; pointer: number }
 	>;
 
-	constructor() {
+	constructor(public logger: Logger) {
 		super();
 
 		this.lastBlockChainEventTs = Date.now();
@@ -148,7 +148,7 @@ export default class EventListener extends IndexPriceInterface {
 			try {
 				this.wsConn.close(undefined, "reset")
 			} catch(error) {
-				console.log("Websocket closing on reset not successful:", error)
+				this.logger.error("Websocket closing on reset not successful");
 			}
 		}
 		this.stopListening();
