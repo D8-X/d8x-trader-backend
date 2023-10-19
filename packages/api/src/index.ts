@@ -5,6 +5,20 @@ import BrokerNone from "./brokerNone";
 import BrokerIntegration from "./brokerIntegration";
 import { PerpetualDataHandler, NodeSDKConfig } from "@d8x/perpetuals-sdk";
 import BrokerRemote from "./brokerRemote";
+import * as winston from "winston";
+
+
+const defaultLogger = () => {
+	return winston.createLogger({
+		level: "info",
+		format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+		defaultMeta: { service: "api" },
+		transports: [
+			new winston.transports.Console(),
+		],
+	});
+};
+export const logger = defaultLogger();
 
 async function start() {
   dotenv.config();
@@ -35,7 +49,7 @@ async function start() {
   }
   sdkConfig.nodeURL = chooseRandomRPC(false, rpcConfig);
   let wsRPC = chooseRandomRPC(true, rpcConfig);
-  let d8XBackend = new D8XBrokerBackendApp(broker!, sdkConfig, wsRPC);
+  let d8XBackend = new D8XBrokerBackendApp(broker!, sdkConfig, logger);
   let count = 0;
   let isSuccess = false;
   while (!isSuccess) {

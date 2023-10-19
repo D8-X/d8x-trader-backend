@@ -7,7 +7,7 @@ import { extractErrorMsg } from "utils";
 import { Order, PerpetualState, NodeSDKConfig, MarginAccount } from "@d8x/perpetuals-sdk";
 import EventListener from "./eventListener";
 import BrokerIntegration from "./brokerIntegration";
-import fs from "fs";
+import { Logger } from "winston";
 import cors from "cors";
 dotenv.config();
 //https://roger13.github.io/SwagDefGen/
@@ -24,7 +24,7 @@ export default class D8XBrokerBackendApp {
 	private CORS_ON: boolean;
 	private lastRequestTsMs: number; // last API request, used to inform whether wsRPC should be switched on event-listener
 
-	constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig, wsRPC: string) {
+	constructor(broker: BrokerIntegration, sdkConfig: NodeSDKConfig, public logger: Logger) {
 		dotenv.config();
 		this.express = express();
 		if (process.env.MAIN_API_PORT_HTTP == undefined) {
@@ -41,7 +41,7 @@ export default class D8XBrokerBackendApp {
 		this.wss = new WebSocketServer({ port: this.portWS });
 
 		this.sdkConfig = sdkConfig;
-		this.eventListener = new EventListener();
+		this.eventListener = new EventListener(this.logger);
 		this.sdk = new SDKInterface(broker);
 
 		this.middleWare();
