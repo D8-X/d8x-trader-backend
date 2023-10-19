@@ -5,7 +5,7 @@ export default class RPCManager {
   private healthy: Map<string, boolean> = new Map();
   private lastCheck: Map<string, number> = new Map();
 
-  private CHECK_INTERVAL_MS = 1_000 * 60 * 60;
+  private CHECK_INTERVAL_MS = 60_000;
   private NETWORK_READY_MS = 10_000;
 
   /**
@@ -15,8 +15,7 @@ export default class RPCManager {
 
   /**
    * Finds the next healthy RPC in the queue and returns it.
-   * Health of each RPCs is checked at most once an hour
-   * @returns A healthy RPC URL
+   * @returns An RPC URL
    */
   public async getRPC(): Promise<string> {
     let numTries = 0;
@@ -39,7 +38,7 @@ export default class RPCManager {
   }
 
   /**
-   * Cycles through the list of RPC URLs and returns the next one,
+   * Cycles the list of RPC URLs and returns the next in line,
    * updaing its health status if necessary
    * @returns The next RPC URL
    */
