@@ -4,8 +4,6 @@ ARG PORT
 ARG MAIN_API_PORT_WEBSOCKET
 ARG CHAIN_ID
 ARG REDIS_URL
-ARG BROKER_KEY
-ARG BROKER_FEE_TBPS
 
 WORKDIR /app
 
@@ -25,7 +23,7 @@ RUN yarn install
 # COPY . .
 
 #Appended arguments need the below structure of the command to be work
-RUN echo -e "MAIN_API_PORT_WEBSOCKET=${MAIN_API_PORT_WEBSOCKET}\n""PORT=${PORT}\n""REDIS_URL=${REDIS_URL}\n""CHAIN_ID=${CHAIN_ID}\n""SDK_CONFIG_NAME=${SDK_CONFIG_NAME}\n""BROKER_KEY=${BROKER_KEY}\n""BROKER_FEE_TBPS=${BROKER_FEE_TBPS}\n" > .env
+RUN echo -e "MAIN_API_PORT_WEBSOCKET=${MAIN_API_PORT_WEBSOCKET}\n""PORT=${PORT}\n""REDIS_URL=${REDIS_URL}\n""CHAIN_ID=${CHAIN_ID}\n""SDK_CONFIG_NAME=${SDK_CONFIG_NAME}\n" > .env
 
 # Build the api project
 RUN npx lerna run build --scope api
