@@ -103,7 +103,6 @@ export class HistoryRestAPI {
 		app.get("/apy", this.apyCalculation.bind(this));
 		app.get("/earnings", this.earnings.bind(this));
 		app.get("/open-withdrawals", this.withdrawals.bind(this));
-		app.get("/broker-fee-payments", this.brokerFeePayments.bind(this));
 		app.get("/margin-token-info", this.marginTokenInfo.bind(this));
 		app.get("/trading-volume", this.tradingVolume.bind(this));
 		app.get("/trades-history", this.historicalTrades.bind(this)); //<- to be phased out
@@ -616,68 +615,4 @@ export class HistoryRestAPI {
 		}
 	}
 
-	private async brokerFeePayments(req: Request, resp: Response) {
-		const usage = "query parameters: brokerAddr, poolId, [fromTimestamp (seconds)]";
-		try {
-			let t_from;
-			if (req.query.fromTimestamp != undefined) {
-				t_from = Number(req.query.fromTimestamp);
-			} else {
-				t_from = Date.now() / 1000 - 86400 * 14;
-			}
-
-			if (t_from > Date.now() / 1000) {
-				throw Error("timestamp must be in seconds and in near past.");
-			}
-			if (t_from < Date.now() / 1000 - 86_400 * 15) {
-				throw Error("timestamp too old");
-			}
-			const fromDate = new Date(t_from * 1000);
-			const poolId = Number(req.query.poolId);
-            if (poolId == undefined || poolId<=0) {
-				resp.status(400);
-				throw Error("invalid poolId");
-			}
-			const reqBrokerAddr = req.query.brokerAddr?.toString().toLowerCase();
-			if (reqBrokerAddr == undefined || !isValidAddress(reqBrokerAddr)) {
-				resp.status(400);
-				throw Error("invalid address");
-			}
-
-			interface FeeRes {
-				trader_addr: string;
-				quantity_cc: string;
-				broker_fee_cc: string;
-				trade_ts: Date;
-			}
-			const queryResponse = await this.opts.prisma.$queryRaw<FeeRes[]>`
-                SELECT 
-                    th.trader_addr,
-                    TO_CHAR(sum(ABS(th.quantity_cc)),  ${DECIMAL40_FORMAT_STRING}) as quantity_cc, -- ABDK 64x64 format
-                    TO_CHAR(sum(th.broker_fee_tbps * ABS(th.quantity_cc)/100000), ${DECIMAL40_FORMAT_STRING}) as broker_fee_cc, -- ABDK 64x64 format
-                    th.trade_timestamp as trade_ts
-                FROM trades_history th
-                    WHERE th.trade_timestamp > ${fromDate}::timestamp
-                    AND LOWER(th.broker_addr)=${reqBrokerAddr}
-                    AND FLOOR(th.perpetual_id/100000) = ${poolId}
-                GROUP BY th.trader_addr, th.perpetual_id/100000, th.trade_timestamp
-                ORDER BY th.trader_addr;
-            `;
-
-			const response = queryResponse.map((x) => {
-				return {
-					traderAddr: x.trader_addr,
-					quantityCcAbdk: x.quantity_cc,
-					brokerFeeCcAbdk: x.broker_fee_cc,
-					tradeTimestamp: x.trade_ts,
-				};
-			});
-			resp.send(toJson(response));
-		} catch (err: any) {
-			if (resp.statusCode == 200) {
-				resp.statusCode = 400;
-			}
-			resp.send(errorResp(extractErrorMsg(err), usage));
-		}
-	}
 }
