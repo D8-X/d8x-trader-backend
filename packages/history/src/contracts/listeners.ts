@@ -87,18 +87,6 @@ export class EventListener {
 			}
 		);
 
-		setTimeout(async () => {
-			if (this.blockNumber == 0) {
-				// provider is not sending new blocks -> stop
-				this.l.error(
-					`${this.listeningMode} provider connection could not be established`
-				);
-				process.exit(1);
-			} else {
-				this.l.info(`${this.listeningMode} provider connected`);
-			}
-		}, 30_000);
-
 		provider.on("block", (blockNumber) => {
 			this.lastEventTs = Date.now();
 			this.blockNumber = blockNumber;
