@@ -158,21 +158,20 @@ export const main = async () => {
 
 	// check heartbeat of RPC connection
 	setInterval(async () => {
+		if (eventsListener.checkHeartbeat(30)) {
+			return;
+		}
+		// provider is down - switch
 		if (eventsListener.listeningMode === ListeningMode.WS) {
-			// currently on WS
-			if (!eventsListener.checkHeartbeat(30)) {
-				// WS is not working, switch to HTTP
-				logger.info(`switching to HTTP provider`);
-				eventsListener.listen(
-					new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
-						staticNetwork: network,
-						batchMaxCount: 25,
-						polling: true,
-					})
-				);
-				// re-fetch in case some events were missed
-				runHistoricalDataFilterers(hdOpts);
-			}
+			// WS is not working, switch to HTTP
+			logger.info(`switching to HTTP provider`);
+			eventsListener.listen(
+				new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
+					staticNetwork: network,
+					batchMaxCount: 25,
+					polling: true,
+				})
+			);
 		} else {
 			// currently on HTTP - check if can switch back to WS
 			const newWSProvider = new WebSocketProvider(
@@ -191,7 +190,16 @@ export const main = async () => {
 					// WS works, switch providers
 					logger.info(`switching to WS provider`);
 					eventsListener.listen(newWSProvider);
-					runHistoricalDataFilterers(hdOpts);
+				} else {
+					// WS didn't work, stay on HTTP
+					logger.info(`switching HTTP providers`);
+					eventsListener.listen(
+						new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
+							staticNetwork: network,
+							batchMaxCount: 25,
+							polling: true,
+						})
+					);
 				}
 			}, 30_000);
 		}
