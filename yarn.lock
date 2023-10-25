@@ -73,10 +73,10 @@
     process "^0.11.10"
     typechain "^8.2.0"
 
-"@d8x/perpetuals-sdk@^0.9.8":
-  version "0.9.8"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.9.8.tgz#4832101d6679f63a806cf2d43b04a3f5e7b3d629"
-  integrity sha512-dS/nAoODGOu2hsPHH6QLmlcgbNFXwXXK5V7sQLW+DpEh3Boshu6vdRgcyqKQ/gzqax+t/klG1Z4i4aOO1mHsgQ==
+"@d8x/perpetuals-sdk@^0.9.13":
+  version "0.9.13"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.9.13.tgz#dd784fe8eeac700f85a07926d423ad5ac30f3d2d"
+  integrity sha512-W7S2qd/5uGp2BYX2H/nfALp/YRh4TRXlalJthNWWS8PuCxD7Vf18gawcMA0dN4ND1eYJsq2mco7n+tv1Gh/OWw==
   dependencies:
     "@ethersproject/abi" "^5.7.0"
     "@ethersproject/abstract-signer" "^5.7.0"
