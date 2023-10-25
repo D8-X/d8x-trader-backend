@@ -19,6 +19,18 @@ const defaultLogger = () => {
 };
 export const logger = defaultLogger();
 
+function loadVAAEndpoints(filename : string) : string[] {
+  let f = require(filename)
+  let ep = f.priceServiceWSEndpoints as string[]
+  // replace wss endpoints with https analogue
+  for(let k=0; k<ep.length; k++) {
+    ep[k] = ep[k].replace(/\/$/, "")
+    ep[k] = ep[k].replace(/\/ws$/, "")
+    ep[k] = ep[k].replace(/^wss/, "https")
+  }
+  return ep
+}
+
 async function start() {
   dotenv.config();
   let configName: string = <string>process.env.SDK_CONFIG_NAME || "";
@@ -27,13 +39,18 @@ async function start() {
   }
   console.log(`loading configuration ${configName}`);
   const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig(configName);
-  const rpcConfig = loadConfigRPC() as RPCConfig[];
 
-  const priceFeedEndpoints: Array<{ type: string; endpoint: string }> = [];
-
-  if (priceFeedEndpoints.length > 0) {
-    sdkConfig.priceFeedEndpoints = priceFeedEndpoints;
+  let configPricesName: string = <string>process.env.CONFIG_PATH_PRICES || "";
+  if (configPricesName == "") {
+    throw new Error("Set CONFIG_PATH_PRICES in .env (e.g. CONFIG_PATH_PRICES=./config/prices.config.json)");
   }
+  console.log(`extracting price VAA endpoints ${configPricesName}`);
+  let endpoints = loadVAAEndpoints(configPricesName)
+  sdkConfig.priceFeedEndpoints = [
+    { type: "pyth", endpoints: endpoints},
+  ];
+
+  const rpcConfig = loadConfigRPC() as RPCConfig[];
   let broker: BrokerIntegration;
   let remoteBrokerAddr = process.env.REMOTE_BROKER_HTTP;
 
