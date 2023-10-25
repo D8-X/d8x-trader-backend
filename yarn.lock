@@ -73,10 +73,10 @@
     process "^0.11.10"
     typechain "^8.2.0"
 
-"@d8x/perpetuals-sdk@^0.9.8":
-  version "0.9.8"
-  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.9.8.tgz#4832101d6679f63a806cf2d43b04a3f5e7b3d629"
-  integrity sha512-dS/nAoODGOu2hsPHH6QLmlcgbNFXwXXK5V7sQLW+DpEh3Boshu6vdRgcyqKQ/gzqax+t/klG1Z4i4aOO1mHsgQ==
+"@d8x/perpetuals-sdk@^0.9.13":
+  version "0.9.13"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-0.9.13.tgz#dd784fe8eeac700f85a07926d423ad5ac30f3d2d"
+  integrity sha512-W7S2qd/5uGp2BYX2H/nfALp/YRh4TRXlalJthNWWS8PuCxD7Vf18gawcMA0dN4ND1eYJsq2mco7n+tv1Gh/OWw==
   dependencies:
     "@ethersproject/abi" "^5.7.0"
     "@ethersproject/abstract-signer" "^5.7.0"
@@ -2406,6 +2406,19 @@ etag@~1.8.1:
   resolved "https://registry.npmjs.org/etag/-/etag-1.8.1.tgz"
   integrity sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==
 
+ethers@6.7.0:
+  version "6.7.0"
+  resolved "https://registry.yarnpkg.com/ethers/-/ethers-6.7.0.tgz#0f772c31a9450de28aa518b181c8cb269bbe7fd1"
+  integrity sha512-pxt5hK82RNwcTX2gOZP81t6qVPVspnkpeivwEgQuK9XUvbNtghBnT8GNIb/gPh+WnVSfi8cXC9XlfT8sqc6D6w==
+  dependencies:
+    "@adraffy/ens-normalize" "1.9.2"
+    "@noble/hashes" "1.1.2"
+    "@noble/secp256k1" "1.7.1"
+    "@types/node" "18.15.13"
+    aes-js "4.0.0-beta.5"
+    tslib "2.4.0"
+    ws "8.5.0"
+
 ethers@^5.7.2:
   version "5.7.2"
   resolved "https://registry.npmjs.org/ethers/-/ethers-5.7.2.tgz"
@@ -2441,19 +2454,6 @@ ethers@^5.7.2:
     "@ethersproject/wallet" "5.7.0"
     "@ethersproject/web" "5.7.1"
     "@ethersproject/wordlists" "5.7.0"
-
-ethers@^6.6.5:
-  version "6.7.0"
-  resolved "https://registry.npmjs.org/ethers/-/ethers-6.7.0.tgz"
-  integrity sha512-pxt5hK82RNwcTX2gOZP81t6qVPVspnkpeivwEgQuK9XUvbNtghBnT8GNIb/gPh+WnVSfi8cXC9XlfT8sqc6D6w==
-  dependencies:
-    "@adraffy/ens-normalize" "1.9.2"
-    "@noble/hashes" "1.1.2"
-    "@noble/secp256k1" "1.7.1"
-    "@types/node" "18.15.13"
-    aes-js "4.0.0-beta.5"
-    tslib "2.4.0"
-    ws "8.5.0"
 
 event-target-shim@^5.0.0:
   version "5.0.1"
