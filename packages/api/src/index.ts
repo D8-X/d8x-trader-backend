@@ -25,7 +25,7 @@ function loadVAAEndpoints(filename : string) : string[] {
   // replace wss endpoints with https analogue
   for(let k=0; k<ep.length; k++) {
     ep[k] = ep[k].replace(/\/$/, "")
-    ep[k] = ep[k].replace(/\/ws$/, "")
+    ep[k] = ep[k].replace(/\/ws$/, "/api")
     ep[k] = ep[k].replace(/^wss/, "https")
   }
   return ep
