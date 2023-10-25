@@ -101,3 +101,8 @@ export interface LiquidityWithdrawalInitiatedEvent {
 }
 export type LiquidityWithdrawalInitiatedFilteredCb =
 	EventCallback<LiquidityWithdrawalInitiatedEvent>;
+
+export enum ListeningMode {
+	HTTP = "HTTP",
+	WS = "WS",
+}

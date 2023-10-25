@@ -6,6 +6,10 @@
 CHAIN_ID=1442
 SDK_CONFIG_NAME=zkevmTestnet
 
+# zkEVM mainnet
+# CHAIN_ID=1101
+# SDK_CONFIG_NAME=zkevm
+
 # MUMBAI
 # CHAIN_ID=80001
 # SDK_CONFIG_NAME=testnet
@@ -15,6 +19,11 @@ REDIS_PASSWORD="60bssxCuEjfn2b1kgUuhim07I7YSbBzD"
 
 # Main postgres database dsn string
 DATABASE_DSN="postgresql://user:password@host:5432/history"
+
+# configs
+CONFIG_PATH_PRICES="./config/prices.config.json"
+CONFIG_PATH_RPC="./config/live.rpc.json"
+
 
 #--- BROKER SETTINGS ----
 # Remote Broker, e.g., https://broker.main.yourdomain.com
