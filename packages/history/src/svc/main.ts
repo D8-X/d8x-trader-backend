@@ -16,6 +16,7 @@ import {
 	TradeEvent,
 	LiquidateEvent,
 	UpdateMarginAccountEvent,
+	ListeningMode,
 } from "../contracts/types";
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { TradingHistory } from "../db/trading_history";
@@ -99,6 +100,7 @@ export const main = async () => {
 	let httpProvider: ethers.JsonRpcProvider = new JsonRpcProvider(httpRpcUrl, network, {
 		staticNetwork: network,
 		batchMaxCount: 25,
+		polling: true,
 	});
 
 	logger.info("initialized rpc provider", { wsRpcUrl, httpRpcUrl });
@@ -153,24 +155,55 @@ export const main = async () => {
 	runHistoricalDataFilterers(hdOpts);
 
 	eventsListener.listen(wsProvider);
-	// re-start listeners with new WS provider periodically
-	// 2.5 hours - typically the connection should stay alive longer, so this ensures no gaps
+
+	// check heartbeat of RPC connection
 	setInterval(async () => {
-		eventsListener.listen(
-			new WebSocketProvider(
+		if (eventsListener.checkHeartbeat(30)) {
+			return;
+		}
+		// provider is down - switch
+		if (eventsListener.listeningMode === ListeningMode.WS) {
+			// WS is not working, switch to HTTP
+			logger.info(`switching to HTTP provider`);
+			eventsListener.listen(
+				new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
+					staticNetwork: network,
+					batchMaxCount: 25,
+					polling: true,
+				})
+			);
+		} else {
+			// currently on HTTP - check if can switch back to WS
+			const newWSProvider = new WebSocketProvider(
 				() =>
 					new SturdyWebSocket(chooseRandomRPC(true, rpcConfig), {
 						wsConstructor: WebSocket,
 					}),
 				network
-			)
-		);
-	}, 9_000_000); // 2.5 * 60 * 60 * 1000 miliseconds
-
-	// check heartbeat of RPC connection every 5 minutes - cheap (one eth_call)
-	setInterval(async () => {
-		eventsListener.checkHeartbeat(await httpProvider.getBlockNumber());
-	}, 300_000);
+			);
+			let alive = false;
+			newWSProvider.once("block", () => {
+				alive = true;
+			});
+			setTimeout(() => {
+				if (alive) {
+					// WS works, switch providers
+					logger.info(`switching to WS provider`);
+					eventsListener.listen(newWSProvider);
+				} else {
+					// WS didn't work, stay on HTTP
+					logger.info(`switching HTTP providers`);
+					eventsListener.listen(
+						new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
+							staticNetwork: network,
+							batchMaxCount: 25,
+							polling: true,
+						})
+					);
+				}
+			}, 30_000);
+		}
+	}, 60_000);
 
 	// Re fetch  periodically for redundancy. This will ensure that any lost events will eventually be stored in db
 	// every 4 hours poll (5 hours would leave us just under 10_000 blocks, so the call typically covers as many blocks as possible for a fixed RPC cost)

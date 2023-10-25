@@ -1,4 +1,4 @@
-import { BytesLike, Contract, WebSocketProvider, ethers } from "ethers";
+import { BytesLike, Contract, JsonRpcProvider, WebSocketProvider, ethers } from "ethers";
 import { Logger } from "winston";
 import {
 	LiquidateEvent,
@@ -9,6 +9,7 @@ import {
 	Order,
 	UpdateMarginAccountEvent,
 	P2PTransferEvent,
+	ListeningMode,
 } from "./types";
 import { TradingHistory } from "../db/trading_history";
 import { FundingRatePayments } from "../db/funding_rate";
@@ -32,8 +33,10 @@ export interface EventListenerOptions {
 export class EventListener {
 	private l: Logger;
 	private blockNumber: number = Infinity;
-	private provider: WebSocketProvider | undefined;
+	private provider: WebSocketProvider | JsonRpcProvider | undefined;
 	private opts: EventListenerOptions;
+	private lastEventTs: number;
+	public listeningMode: ListeningMode;
 
 	constructor(
 		opts: EventListenerOptions,
@@ -46,21 +49,21 @@ export class EventListener {
 	) {
 		this.l = opts.logger;
 		this.opts = opts;
+		this.lastEventTs = Date.now();
+		this.listeningMode = ListeningMode.WS;
 	}
 
-	public checkHeartbeat(latestBlock: number) {
-		const isAlive = this.blockNumber + 1 >= latestBlock; // allow one block behind
+	public checkHeartbeat(maxDelaySec: number) {
+		const nowTs = Date.now();
+		const secSinceEvt = Math.round((nowTs - this.lastEventTs) / 1000);
+		const isAlive = secSinceEvt < maxDelaySec;
 
 		this.l.info(
-			`${new Date(Date.now()).toISOString()}: ws=${
-				this.blockNumber
-			}, http=${latestBlock}`
+			`last ${this.listeningMode} block=${this.blockNumber}, seconds since last event =${secSinceEvt}`
 		);
 		if (!isAlive) {
-			this.l.error(
-				`${new Date(Date.now()).toISOString()}: websocket connection ended`
-			);
-			process.exit(1);
+			this.l.info(`${this.listeningMode} connection ended`);
+			return false;
 		}
 		return true;
 	}
@@ -68,18 +71,24 @@ export class EventListener {
 	/**
 	 * listen starts all event listeners
 	 */
-	public async listen(provider: WebSocketProvider) {
+	public async listen(provider: WebSocketProvider | JsonRpcProvider) {
 		if (this.provider) {
 			await this.provider.removeAllListeners();
 		}
 		const IS_COLLECTED_BY_EVENT = true;
 		this.provider = provider;
+		this.listeningMode =
+			provider instanceof WebSocketProvider ? ListeningMode.WS : ListeningMode.HTTP;
 
-		this.l.info("starting smart contract event listeners", {
-			contract_address: this.opts.contractAddresses.perpetualManagerProxy,
-		});
+		this.l.info(
+			`starting smart contract event listeners on ${this.listeningMode} provider`,
+			{
+				contract_address: this.opts.contractAddresses.perpetualManagerProxy,
+			}
+		);
 
 		provider.on("block", (blockNumber) => {
+			this.lastEventTs = Date.now();
 			this.blockNumber = blockNumber;
 		});
 
@@ -106,7 +115,8 @@ export class EventListener {
 				fB2C: bigint,
 				event: ethers.ContractEventPayload
 			) => {
-				this.l.info("got trade event", { perpetualId, trader });
+				const topic = event.log.topics[0];
+				this.l.info("got trade event", { perpetualId, trader, topic });
 				this.onTradeEvent(
 					{
 						perpetualId: perpetualId,
@@ -260,9 +270,12 @@ export class EventListener {
 			const c = new Contract(shareTokenContracts[i], abi, provider);
 			const poolId = i + 1;
 
-			this.l.info("starting share token P2PTransfer listener", {
-				share_token_contract: shareTokenContracts[i],
-			});
+			this.l.info(
+				`starting share token P2PTransfer listener on ${this.listeningMode} provider`,
+				{
+					share_token_contract: shareTokenContracts[i],
+				}
+			);
 			c.on(
 				"P2PTransfer",
 				(
@@ -283,7 +296,9 @@ export class EventListener {
 			);
 		}
 
-		this.l.info("starting liquidity withdrawal initiated events listener");
+		this.l.info(
+			`starting liquidity withdrawal initiated events listener on ${this.listeningMode} provider`
+		);
 		proxy.on(
 			"LiquidityWithdrawalInitiated",
 			(
