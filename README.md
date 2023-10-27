@@ -2,7 +2,7 @@
 
 The entire backend for the D8X Perpetuals trading frontend package consists of
 
-- this backend code - lerna monorepo consisting of two services (history; api;)
+- this backend code - lerna monorepo consisting of two services (history and api)
 - a PostgreSQL database
 - candle stick chart server: [https://github.com/D8-X/d8x-candles](https://github.com/D8-X/d8x-candles)
 - broker server: [https://github.com/D8-X/d8x-broker-server](https://github.com/D8-X/d8x-broker-server)
