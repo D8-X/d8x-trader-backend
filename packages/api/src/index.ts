@@ -8,6 +8,7 @@ import BrokerRemote from "./brokerRemote";
 import * as winston from "winston";
 import { RPCConfig } from "utils/dist/wsTypes";
 import RPCManager from "./rpcManager";
+import fs from "fs";
 
 const defaultLogger = () => {
   return winston.createLogger({
@@ -20,7 +21,8 @@ const defaultLogger = () => {
 export const logger = defaultLogger();
 
 function loadVAAEndpoints(filename : string) : string[] {
-  let f = require(filename)
+  const fileContent = fs.readFileSync(filename).toString();
+  let f = JSON.parse(fileContent);
   let ep = f.priceServiceWSEndpoints as string[]
   // replace wss endpoints with https analogue
   for(let k=0; k<ep.length; k++) {
@@ -37,14 +39,14 @@ async function start() {
   if (configName == "") {
     throw new Error("Set SDK_CONFIG_NAME in .env (e.g. SDK_CONFIG_NAME=testnet)");
   }
-  console.log(`loading configuration ${configName}`);
+  logger.info(`loading configuration ${configName}`);
   const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig(configName);
 
   let configPricesName: string = <string>process.env.CONFIG_PATH_PRICES || "";
   if (configPricesName == "") {
     throw new Error("Set CONFIG_PATH_PRICES in .env (e.g. CONFIG_PATH_PRICES=./config/prices.config.json)");
   }
-  console.log(`extracting price VAA endpoints ${configPricesName}`);
+  logger.info(`extracting price VAA endpoints ${configPricesName}`);
   let endpoints = loadVAAEndpoints(configPricesName)
   sdkConfig.priceFeedEndpoints = [
     { type: "pyth", endpoints: endpoints},
@@ -57,7 +59,7 @@ async function start() {
   if (remoteBrokerAddr != undefined && process.env.REMOTE_BROKER_HTTP != "") {
     const brokerIdName = "1";
     remoteBrokerAddr = remoteBrokerAddr.replace(/\/+$/, ""); // remove trailing slash
-    console.log("Creating remote broker for order signatures");
+    logger.info("Creating remote broker for order signatures");
     broker = new BrokerRemote(remoteBrokerAddr, brokerIdName, sdkConfig.chainId);
   } else {
     console.log("No broker PK/fee or remore broker defined, using empty broker.");
