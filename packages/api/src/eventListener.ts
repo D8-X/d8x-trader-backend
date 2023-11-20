@@ -91,11 +91,21 @@ export default class EventListener extends IndexPriceInterface {
 	fundingRate: Map<number, number>; // perpetualId -> funding rate
 	openInterest: Map<number, number>; // perpetualId -> openInterest
 	lastBlockChainEventTs: number; //here we log the event occurence time to guess whether the connection is alive
-	wsConn : SturdyWebSocket | undefined;
+	wsConn: SturdyWebSocket | undefined;
 	// subscription for perpetualId and trader address. Multiple websocket-clients can subscribe
 	// (hence array of websockets)
 	subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>; // perpetualId -> traderAddr -> ws[]
 	clients: Map<WebSocket.WebSocket, Array<ClientSubscription>>;
+
+	// Current active websocket provider
+	public currentWSRpcProvider: providers.WebSocketProvider | undefined = undefined;
+	// Whether resetRPCWebsocket is currently running
+	public rpcResetting = false;
+	// After how many calls to resetRPCWebsocket service will be restarted. This
+	// is to prevent memory leaks from provider.WebsocketProvider
+	public restartServiceAfter = 100 + Math.floor(Math.random() * 100);
+	// Current counter, how many times resetRPCWebsocket was called
+	private currentRestartCount = 0;
 
 	private mktOrderFrequency: EventFrequencyCount = {
 		createdCount: 0,
@@ -144,27 +154,60 @@ export default class EventListener extends IndexPriceInterface {
 	}
 
 	public async resetRPCWebsocket(newWsRPC: string) {
-		
+		if (this.rpcResetting) {
+			this.logger.warn("resetRPCWebsocket is already running, not resetting...");
+			return;
+		}
+		this.rpcResetting = true;
+
 		this.stopListening();
 		this.wsRPC = newWsRPC;
-		this.logger.info(`set new ws rpc : ${newWsRPC}`);
+		this.logger.info("resetting WS RPC", { newWsRPC });
+
+		if (this.currentWSRpcProvider !== undefined) {
+			// do not call this.currentWSRpcProvider.destroy(); since it messes
+			// up ws state and causes panic
+			this.currentWSRpcProvider.removeAllListeners();
+			this.logger.info("old rpc provider destroyed");
+		}
+
 		this.wsConn = new SturdyWebSocket(this.wsRPC, {
 			wsConstructor: WebSocket,
-			connectTimeout: 15000,
+			connectTimeout: 10000,
+			maxReconnectAttempts: 3,
 		});
 
-		let provider = new providers.WebSocketProvider(this.wsConn);
+		// Attempt to establish a ws connection to new RPC
+		this.logger.info("creating new websocket rpc provider");
+		this.currentWSRpcProvider = new providers.WebSocketProvider(this.wsConn!);
+
 		// On provider error - retry after short cooldown
-		provider.on("error", (error: Error) => () => {
-			this.logger.error(`[ERROR] resetRPCWebsocket provider error: ${error.message}`);
-			provider.destroy();
+		this.currentWSRpcProvider.on("error", (error: Error) => () => {
+			this.logger.error(
+				`[ERROR] resetRPCWebsocket provider error: ${error.message}`
+			);
+			this.currentWSRpcProvider!.destroy();
 		});
-		await provider.ready;
+
+		this.logger.info("waiting for provider to be ready");
+		// Attempt to wait 20 seconds for provider to be ready.
+		try {
+			await new Promise((resolve, reject) => {
+				setTimeout(() => reject("timeout"), 1000 * 20);
+				this.currentWSRpcProvider!.ready.then(resolve);
+			});
+		} catch (e) {
+			this.logger.error("provider ready wait timeout");
+			this.currentRestartCount++;
+			this.rpcResetting = false;
+			return false;
+		}
+		this.logger.info("provider is ready");
 
 		this.proxyContract = new Contract(
 			this.traderInterface.getProxyAddress(),
 			this.traderInterface.getABI("proxy")!,
-			provider
+			this.currentWSRpcProvider
 		);
 
 		this.addProxyEventHandlers();
@@ -173,6 +216,23 @@ export default class EventListener extends IndexPriceInterface {
 		}
 		this.lastBlockChainEventTs = Date.now();
 		this.resetEventFrequencies(this.mktOrderFrequency);
+
+		this.rpcResetting = false;
+		this.currentRestartCount++;
+		this.logger.info("resetRPCWebsocket done");
+
+		// Check whether we should exit current process
+		if (this.currentRestartCount >= this.restartServiceAfter) {
+			this.logger.info(
+				"restartServiceAfter counter reached, restarting service..."
+			);
+			process.exit(0);
+		} else {
+			const diff = this.restartServiceAfter - this.currentRestartCount;
+			this.logger.info("service not restarting", {
+				resetRPCWebsocket_calls_until_restart: diff,
+			});
+		}
 	}
 
 	/**
