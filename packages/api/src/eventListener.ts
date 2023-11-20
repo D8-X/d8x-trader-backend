@@ -154,6 +154,17 @@ export default class EventListener extends IndexPriceInterface {
 	}
 
 	public async resetRPCWebsocket(newWsRPC: string) {
+		try {
+			return await this.resetRPCWebsocketInner(newWsRPC);
+		} catch (e) {
+			this.rpcResetting = false;
+			this.logger.error("resetRPCWebsocket failed", { error: e });
+		}
+		return false;
+	}
+
+	// Perform the RPC reset
+	private async resetRPCWebsocketInner(newWsRPC: string) {
 		if (this.rpcResetting) {
 			this.logger.warn("resetRPCWebsocket is already running, not resetting...");
 			return;
