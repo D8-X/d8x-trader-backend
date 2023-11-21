@@ -133,7 +133,7 @@ export class EventListener {
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
 					Math.round(new Date().getTime() / 1000),
-					this.blockNumber
+					event.log.blockNumber
 				);
 			}
 		);
@@ -168,7 +168,7 @@ export class EventListener {
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
 					Math.round(new Date().getTime() / 1000),
-					this.blockNumber
+					event.log.blockNumber
 				);
 			}
 		);
