@@ -156,52 +156,89 @@ export const main = async () => {
 
 	eventsListener.listen(wsProvider);
 
-	// check heartbeat of RPC connection
-	setInterval(async () => {
+	// Websocket provider leaks memory, therefore as in main api, we will
+	// exit the service for a restart after maxWsResetCounter is reached
+	let wsResetCounter = 0;
+	const maxWsResetCounter = 100 + Math.floor(Math.random() * 100);
+	let resetRpcRunning = false;
+	const resetRpcFunc = async () => {
 		if (eventsListener.checkHeartbeat(30)) {
 			return;
 		}
+		if (resetRpcRunning) {
+			logger.info("resetRpcFunc is already running, not running again...");
+			return;
+		}
+		resetRpcRunning = true;
+
+		const makeJsonProvider = () =>
+			new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
+				staticNetwork: network,
+				batchMaxCount: 25,
+				polling: true,
+			});
+
 		// provider is down - switch
 		if (eventsListener.listeningMode === ListeningMode.WS) {
 			// WS is not working, switch to HTTP
 			logger.info(`switching to HTTP provider`);
-			eventsListener.listen(
-				new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
-					staticNetwork: network,
-					batchMaxCount: 25,
-					polling: true,
-				})
-			);
+			eventsListener.listen(makeJsonProvider());
 		} else {
+			wsProvider.removeAllListeners();
+
 			// currently on HTTP - check if can switch back to WS
-			const newWSProvider = new WebSocketProvider(
+			const wsUrl = chooseRandomRPC(true, rpcConfig);
+			logger.info("creating new WebsocketProvider", { wsUrl });
+
+			wsProvider = new WebSocketProvider(
 				() =>
-					new SturdyWebSocket(chooseRandomRPC(true, rpcConfig), {
+					new SturdyWebSocket(wsUrl, {
 						wsConstructor: WebSocket,
 					}),
 				network
 			);
-			let alive = false;
-			newWSProvider.once("block", () => {
-				alive = true;
+			wsResetCounter++;
+
+			// Wait for block event to happen on ws provider (~8sec), othwerwise
+			// switch back to HTTP
+			const wsAlive = await new Promise((resolve, reject) => {
+				wsProvider.once("block", () => {
+					resolve(true);
+				});
+				setTimeout(() => {
+					resolve(false);
+				}, 30_000);
 			});
-			setTimeout(() => {
-				if (alive) {
-					// WS works, switch providers
-					logger.info(`switching to WS provider`);
-					eventsListener.listen(newWSProvider);
-				} else {
-					// WS didn't work, stay on HTTP
-					logger.info(`switching HTTP providers`);
-					eventsListener.listen(
-						new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
-							staticNetwork: network,
-							batchMaxCount: 25,
-							polling: true,
-						})
-					);
-				}
-			}, 30_000);
+			// WS works, switch providers
+			if (wsAlive) {
+				logger.info(`switching to WS provider`);
+				eventsListener.listen(wsProvider!);
+			} else {
+				// WS didn't work, stay on HTTP
+				logger.info(`switching HTTP providers`);
+				eventsListener.listen(makeJsonProvider());
+			}
+		}
+
+		resetRpcRunning = false;
+		// Once reset limit is reached - restart
+		if (wsResetCounter >= maxWsResetCounter) {
+			logger.warn(
+				"wsResetCounter reached maxWsResetCounter, restarting history service",
+				{ maxWsResetCounter, wsResetCounter }
+			);
+			process.exit(0);
+		} else {
+			logger.info("resetRpcFunc finished", { wsResetCounter, maxWsResetCounter });
+		}
+	};
+
+	// check heartbeat of RPC connection
+	setInterval(async () => {
+		try {
+			await resetRpcFunc();
+		} catch (e) {
+			resetRpcRunning = false;
 		}
 	}, 60_000);
 
