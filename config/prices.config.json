@@ -2,6 +2,7 @@
 {
     "pythAPIEndpoint": "https://benchmarks.pyth.network/",
     "priceServiceWSEndpoints": ["wss://hermes-beta.pyth.network/ws", "wss://pyth-hermes.rpcpool.com:40080/ws"],
+    "priceServiceHttpsEndpoints": ["https://odin.quantena.tech/api"],
     "priceFeeds": [
       {
         "symbol": "btc-usd",
