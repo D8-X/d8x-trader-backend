@@ -25,7 +25,7 @@
 		"url": "https://github.com/D8-X/d8x-trader-backend/issues"
 	},
 	"dependencies": {
-		"@d8x/perpetuals-sdk": "^1.0.3",
+		"@d8x/perpetuals-sdk": "^1.0.4",
 		"@ethersproject/providers": "^5.7.2",
 		"ethers": "^5.7.2",
 		"redis": "^4.6.9",
