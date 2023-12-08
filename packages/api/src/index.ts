@@ -23,8 +23,8 @@ export const logger = defaultLogger();
 function loadVAAEndpoints(filename : string) : string[] {
   const fileContent = fs.readFileSync(filename).toString();
   let f = JSON.parse(fileContent);
-  if (f.priceServiceHttpsEndpoints.length>0) {
-    return f.priceServiceHttpsEndpoints
+  if (f.priceServiceHTTPSEndpoints.length>0) {
+    return f.priceServiceHTTPSEndpoints
   }
   let ep = f.priceServiceWSEndpoints as string[]
   // replace wss endpoints with https analogue
