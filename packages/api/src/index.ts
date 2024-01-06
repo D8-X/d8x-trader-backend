@@ -23,7 +23,7 @@ export const logger = defaultLogger();
 function loadVAAEndpoints(filename : string) : string[] {
   const fileContent = fs.readFileSync(filename).toString();
   let f = JSON.parse(fileContent);
-  if (f.priceServiceHTTPSEndpoints.length>0) {
+  if ("priceServiceHTTPSEndpoints" in f && f.priceServiceHTTPSEndpoints.length>0) {
     return f.priceServiceHTTPSEndpoints
   }
   let ep = f.priceServiceWSEndpoints as string[]
