@@ -23,6 +23,9 @@ export const logger = defaultLogger();
 function loadVAAEndpoints(filename : string) : string[] {
   const fileContent = fs.readFileSync(filename).toString();
   let f = JSON.parse(fileContent);
+  if ("priceServiceHTTPSEndpoints" in f && f.priceServiceHTTPSEndpoints.length>0) {
+    return f.priceServiceHTTPSEndpoints
+  }
   let ep = f.priceServiceWSEndpoints as string[]
   // replace wss endpoints with https analogue
   for(let k=0; k<ep.length; k++) {
@@ -48,8 +51,12 @@ async function start() {
   }
   logger.info(`extracting price VAA endpoints ${configPricesName}`);
   let endpoints = loadVAAEndpoints(configPricesName)
+  let type = "pyth";
+  if(endpoints[0].includes("odin")) {
+    type = "odin";
+  }
   sdkConfig.priceFeedEndpoints = [
-    { type: "pyth", endpoints: endpoints},
+    { type: type, endpoints: endpoints},
   ];
 
   const rpcConfig = loadConfigRPC() as RPCConfig[];
@@ -82,7 +89,7 @@ async function start() {
       logger.info(`RPC (WS)   = ${wsRPC}`);
       await executeWithTimeout(
         d8XBackend.initialize(sdkConfig, rpcManagerHttp, wsRPC),
-        60_000,
+        160_000,
         "initialize timeout"
       );
       isSuccess = true;
