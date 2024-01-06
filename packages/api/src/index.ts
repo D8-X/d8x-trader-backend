@@ -51,8 +51,12 @@ async function start() {
   }
   logger.info(`extracting price VAA endpoints ${configPricesName}`);
   let endpoints = loadVAAEndpoints(configPricesName)
+  let type = "pyth";
+  if(endpoints[0].includes("odin")) {
+    type = "odin";
+  }
   sdkConfig.priceFeedEndpoints = [
-    { type: sdkConfig.priceFeedConfigNetwork, endpoints: endpoints},
+    { type: type, endpoints: endpoints},
   ];
 
   const rpcConfig = loadConfigRPC() as RPCConfig[];
