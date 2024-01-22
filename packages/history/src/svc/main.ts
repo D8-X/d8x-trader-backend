@@ -300,13 +300,15 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	let promises: Array<Promise<void>> = [];
 	const IS_COLLECTED_BY_EVENT = false;
 
-	let ts = [
+	let tsArr = [
 		(await dbLPWithdrawals.getLatestTimestampInitiation()) ?? defaultDate,
 		(await dbTrades.getLatestTradeTimestamp()) ?? defaultDate,
 		(await dbTrades.getLatestLiquidateTimestamp()) ?? defaultDate,
 		(await dbFundingRatePayments.getLatestTimestamp()) ?? defaultDate,
-	].reduce(function (a, b) {
-		return a > b ? a : b;
+	];
+	// Use the smallest timestamp for the start of the filter
+	let ts = tsArr.reduce(function (a, b) {
+		return a < b ? a : b;
 	});
 
 	promises.push(
