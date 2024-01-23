@@ -99,6 +99,15 @@ export class EventListener {
 			provider
 		);
 
+		// Order book, oracle factory changes
+		proxy.on(
+			"TransferAddressTo",
+			(module: string, oldAddress: string, newAddress: string) => {
+				this.l.info("restart", { module, oldAddress, newAddress });
+				process.exit(1);
+			}
+		);
+
 		// Trade event
 		proxy.on(
 			"Trade",
