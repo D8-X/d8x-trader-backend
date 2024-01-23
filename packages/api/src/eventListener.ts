@@ -525,6 +525,14 @@ export default class EventListener extends IndexPriceInterface {
 		const proxyContract = this.proxyContract;
 
 		proxyContract.on(
+			"TransferAddressTo",
+			(module: string, oldAddress: string, newAddress: string) => {
+				console.log("restart", { module, oldAddress, newAddress });
+				process.exit(1);
+			}
+		);
+
+		proxyContract.on(
 			"UpdateMarkPrice",
 			(perpetualId, fMidPricePremium, fMarkPricePremium, fSpotIndexPrice) => {
 				this.onUpdateMarkPrice(
