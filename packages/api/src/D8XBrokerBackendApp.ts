@@ -144,6 +144,12 @@ export default class D8XBrokerBackendApp {
 									"wrong arguments. Requires traderAddr and symbol"
 								);
 							}
+
+							// Make sure the client provided symbol is
+							// in uppercase, since SDK provides uppercase
+							// symbols for perpetuals.
+							obj.symbol = obj.symbol.toUpperCase();
+
 							let perpState: PerpetualState =
 								await sdk.extractPerpetualStateFromExchangeInfo(
 									obj.symbol
@@ -190,7 +196,9 @@ export default class D8XBrokerBackendApp {
 
 	private routes() {
 		this.express.listen(this.port, async () => {
-			this.logger.info(`⚡️[server]: HTTP is running at http://localhost:${this.port}`);
+			this.logger.info(
+				`⚡️[server]: HTTP is running at http://localhost:${this.port}`
+			);
 		});
 
 		this.express.post("/", (req: Request, res: Response) => {
