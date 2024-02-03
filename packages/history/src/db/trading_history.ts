@@ -12,7 +12,7 @@ export class TradingHistory {
 	constructor(
 		public chainId: BigNumberish,
 		public prisma: PrismaClient,
-		public l: Logger
+		public l: Logger,
 	) {}
 
 	/**
@@ -31,7 +31,7 @@ export class TradingHistory {
 		txHash: string,
 		isCollectedByEvent: boolean,
 		tradeBlockTimestamp: number,
-		tradeBlockNumber: number
+		tradeBlockNumber: number,
 	) {
 		const tx_hash = txHash.toLowerCase();
 		const trader = e.trader.toLowerCase();
@@ -55,7 +55,7 @@ export class TradingHistory {
 				if (!isLiquidation) {
 					e = e as TradeEvent;
 					//a*2^64 * b*2^64 /2^64 = a*b*2^64 => requires >ES2017
-					let quantityCC = (e.fB2C * e.order.fAmount) / ONE_64x64;
+					const quantityCC = (e.fB2C * e.order.fAmount) / ONE_64x64;
 					orderDigest = e.orderDigest.toString();
 					data = {
 						chain_id: parseInt(this.chainId.toString()),
@@ -114,7 +114,7 @@ export class TradingHistory {
 			}
 		} else if (isCollectedByEvent) {
 			// record exists, and was collected by event -> update
-			let id = isLiquidation
+			const id = isLiquidation
 				? this._createLiquidationId(e as LiquidateEvent, tradeBlockNumber)
 				: (e as TradeEvent).orderDigest.toString();
 			console.log(`tradingHistory: tradevent = ${e}`);

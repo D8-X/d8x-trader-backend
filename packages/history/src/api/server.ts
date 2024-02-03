@@ -63,7 +63,10 @@ export class HistoryRestAPI {
 	 * @param opts
 	 * @param l
 	 */
-	constructor(private opts: RestAPIOptions, public l: Logger) {
+	constructor(
+		private opts: RestAPIOptions,
+		public l: Logger,
+	) {
 		dotenv.config();
 		this.CORS_ON = !(
 			process.env.CORS_ON == undefined || process.env.CORS_ON == "FALSE"
@@ -82,7 +85,7 @@ export class HistoryRestAPI {
 	 */
 	public async init(httpRpcUrl: string) {
 		// Init marked data
-		let config = getSDKConfigFromEnv();
+		const config = getSDKConfigFromEnv();
 		config.nodeURL = httpRpcUrl;
 		const md = new MarketData(config);
 		await md.createProxyInstance();
@@ -142,7 +145,7 @@ export class HistoryRestAPI {
 	 */
 	private async withdrawals(
 		req: Request<any, any, any, { lpAddr: string; poolSymbol: string }>,
-		resp: Response
+		resp: Response,
 	) {
 		const usage = "required query parameters: lpAddr, poolSymbol";
 		try {
@@ -156,7 +159,7 @@ export class HistoryRestAPI {
 				resp.status(400);
 				throw Error("invalid address");
 			}
-			const poolIdNum = this.md?.getPoolIdFromSymbol(req.query.poolSymbol)!;
+			const poolIdNum = this.md!.getPoolIdFromSymbol(req.query.poolSymbol)!;
 
 			const withdrawals = await this.opts.prisma.liquidityWithdrawal.findMany({
 				where: {
@@ -184,7 +187,7 @@ export class HistoryRestAPI {
 				take: 1,
 			});
 
-			let withdrawalsData: {
+			const withdrawalsData: {
 				share_amount: string | number;
 				time_elapsed_sec: number;
 			}[] = [];
@@ -197,7 +200,7 @@ export class HistoryRestAPI {
 					withdrawalsData.push({
 						share_amount: dec18ToFloat(BigInt(w.amount.toFixed())),
 						time_elapsed_sec: Math.floor(
-							new Date().getTime() / 1000 - w.timestamp.getTime() / 1000
+							new Date().getTime() / 1000 - w.timestamp.getTime() / 1000,
 						),
 					});
 				}
@@ -209,7 +212,7 @@ export class HistoryRestAPI {
 						shareAmount: w.share_amount,
 						timeElapsedSec: w.time_elapsed_sec,
 					})),
-				})
+				}),
 			);
 		} catch (err: any) {
 			resp.send(errorResp(extractErrorMsg(err), usage));
@@ -225,7 +228,7 @@ export class HistoryRestAPI {
 	 */
 	private async earnings(
 		req: Request<any, any, any, { lpAddr: string; poolSymbol: string }>,
-		resp: Response
+		resp: Response,
 	) {
 		const usage = "required query parameters: lpAddr, poolSymbol";
 		try {
@@ -238,8 +241,7 @@ export class HistoryRestAPI {
 				resp.status(400);
 				throw Error("invalid address");
 			}
-			let poolIdNum: number;
-			poolIdNum = this.md!.getPoolIdFromSymbol(req.query.poolSymbol)!;
+			const poolIdNum = this.md!.getPoolIdFromSymbol(req.query.poolSymbol)!;
 
 			interface EstEarningTokenSum {
 				tkn: string;
@@ -253,11 +255,11 @@ export class HistoryRestAPI {
 
 			let earningsTokensSum = decNToFloat(
 				BigInt(sumTokenAmount[0].tkn),
-				decimalConvention
+				decimalConvention,
 			);
 			const participationValue = await this.md?.getParticipationValue(
 				user_wallet,
-				poolIdNum
+				poolIdNum,
 			);
 			// Value is shareTokenBalance * latest price from contract
 			if (earningsTokensSum != 0) {
@@ -270,7 +272,7 @@ export class HistoryRestAPI {
 			resp.send(
 				toJson({
 					earnings: earningsTokensSum,
-				})
+				}),
 			);
 		} catch (err: any) {
 			resp.send(errorResp(extractErrorMsg(err), usage));
@@ -284,7 +286,7 @@ export class HistoryRestAPI {
 	 */
 	private async fundingRatePayments(
 		req: Request<any, any, any, { traderAddr: string }>,
-		resp: Response
+		resp: Response,
 	) {
 		const usage = "required query parameters: traderAddr";
 		try {
@@ -302,7 +304,7 @@ export class HistoryRestAPI {
 				throw Error("invalid wallet address");
 			}
 
-			let d = await this.opts.prisma.$queryRaw<FundingRatePayment[]>`
+			const d = await this.opts.prisma.$queryRaw<FundingRatePayment[]>`
                 select 
                     perpetual_id, 
                     TO_CHAR(payment_amount, ${DECIMAL40_FORMAT_STRING}) AS payment_amount, 
@@ -319,8 +321,8 @@ export class HistoryRestAPI {
 						amount: ABK64x64ToFloat(BigInt(f.payment_amount.toString())),
 						timestamp: f.payment_timestamp,
 						transactionHash: f.tx_hash,
-					}))
-				)
+					})),
+				),
 			);
 		} catch (err: any) {
 			resp.send(errorResp(extractErrorMsg(err), usage));
@@ -334,7 +336,7 @@ export class HistoryRestAPI {
 	 */
 	private async historicalTrades(
 		req: Request<any, any, any, { traderAddr: string }>,
-		resp: Response
+		resp: Response,
 	) {
 		const usage = "required query parameters: traderAddr";
 		try {
@@ -380,8 +382,8 @@ export class HistoryRestAPI {
 
 						transactionHash: t.tx_hash,
 						timestamp: t.trade_timestamp,
-					}))
-				)
+					})),
+				),
 			);
 		} catch (err: any) {
 			resp.send(errorResp(extractErrorMsg(err), usage));
@@ -399,7 +401,7 @@ export class HistoryRestAPI {
 	 * @param poolSymbol
 	 */
 	private async fetchAndStoreLatestPriceForPool(poolId: number) {
-		let lastTsSec = this.lastPriceFetchCacheTimestampSec.get(poolId);
+		const lastTsSec = this.lastPriceFetchCacheTimestampSec.get(poolId);
 		if (lastTsSec != undefined) {
 			const secondsSinceUpdate = Date.now() / 1000 - lastTsSec;
 			if (secondsSinceUpdate < 3600) {
@@ -422,8 +424,8 @@ export class HistoryRestAPI {
 		const usage =
 			"required query parameters: poolSymbol, optional: fromTimestamp (seconds), toTimestamp (seconds) ";
 		try {
-			let t1 = typeof req.query.fromTimestamp;
-			let t2 = typeof req.query.toTimestamp;
+			const t1 = typeof req.query.fromTimestamp;
+			const t2 = typeof req.query.toTimestamp;
 			if (typeof req.query.poolSymbol != "string") {
 				resp.status(400);
 				throw Error("please provide correct query parameters");
@@ -436,11 +438,11 @@ export class HistoryRestAPI {
 				resp.status(400);
 				throw Error(`no pool found for symbol ${symbol}`);
 			}
-			let toTimestamp: number =
+			const toTimestamp: number =
 				req.query.toTimestamp != undefined
 					? Number(req.query.toTimestamp)
 					: Math.round(Date.now() / 1000);
-			let fromTimestamp: number =
+			const fromTimestamp: number =
 				req.query.fromTimestamp != undefined
 					? Number(req.query.fromTimestamp)
 					: toTimestamp - 86_400 * 7;
@@ -449,12 +451,14 @@ export class HistoryRestAPI {
 				throw Error("please provide timestamps");
 			}
 			// Check if provided timestamps in seconds are ok
-			let [t_from, t_to] = this.extractSecondTimestamps(fromTimestamp, toTimestamp);
+			const [t_from, t_to] = this.extractSecondTimestamps(
+				fromTimestamp,
+				toTimestamp,
+			);
 
 			// Retrieve the dates
-			let from: Date, to: Date;
-			from = new Date(t_from * 1000);
-			to = new Date(t_to * 1000);
+			const from = new Date(t_from * 1000);
+			const to = new Date(t_to * 1000);
 			const poolId = BigInt(pool_id!);
 
 			// Immitate the price fetched cron job. Periodically (atm every 1 hour)
@@ -494,7 +498,7 @@ export class HistoryRestAPI {
 			const end_timestamp = toPriceInfo[0].timestamp.getTime() / 1000;
 
 			// Now - Old timestamp
-			let t_diff = end_timestamp - start_timestamp;
+			const t_diff = end_timestamp - start_timestamp;
 
 			const year = new Date().getUTCFullYear();
 			const secondsInYear =
@@ -510,7 +514,7 @@ export class HistoryRestAPI {
 			if (t_diff === 0) {
 				resp.status(503);
 				throw Error(
-					"not enough price data for the given time range to calculate APY"
+					"not enough price data for the given time range to calculate APY",
 				);
 			}
 			const apy = (rawReturn * secondsInYear) / t_diff;
@@ -579,9 +583,9 @@ export class HistoryRestAPI {
 				resp.statusCode = 400;
 				throw Error("invalid timestamp");
 			}
-			let [t_from, t_to] = this.extractSecondTimestamps(
+			const [t_from, t_to] = this.extractSecondTimestamps(
 				Number(req.query.fromTimestamp),
-				Number(req.query.toTimestamp)
+				Number(req.query.toTimestamp),
 			);
 			const reqTraderAddr = req.query.traderAddr?.toString().toLowerCase();
 			if (reqTraderAddr == undefined || !isValidAddress(reqTraderAddr)) {
@@ -614,5 +618,4 @@ export class HistoryRestAPI {
 			resp.send(errorResp(extractErrorMsg(err), usage));
 		}
 	}
-
 }
