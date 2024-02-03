@@ -17,7 +17,7 @@ export class EstimatedEarnings {
 	constructor(
 		public chainId: BigNumberish,
 		public prisma: PrismaClient,
-		public l: Logger
+		public l: Logger,
 	) {}
 
 	/**
@@ -38,7 +38,7 @@ export class EstimatedEarnings {
 		txHash: string,
 		type: estimated_earnings_event_type,
 		isCollectedByEvent: boolean,
-		blockTimestamp?: number
+		blockTimestamp?: number,
 	): Promise<void> {
 		const exists = await this.prisma.estimatedEarningTokens.findFirst({
 			where: {
@@ -102,7 +102,7 @@ export class EstimatedEarnings {
 		eventData: LiquidityAddedEvent,
 		txHash: string,
 		isCollectedByEvent: boolean,
-		blockTimestamp: number
+		blockTimestamp: number,
 	) {
 		const poolIdNum = Number(eventData.poolId.toString());
 		return this.insert(
@@ -113,7 +113,7 @@ export class EstimatedEarnings {
 			txHash,
 			estimated_earnings_event_type.liquidity_added,
 			isCollectedByEvent,
-			blockTimestamp
+			blockTimestamp,
 		);
 	}
 
@@ -121,7 +121,7 @@ export class EstimatedEarnings {
 		eventData: LiquidityRemovedEvent,
 		txHash: string,
 		isCollectedByEvent: boolean,
-		blockTimestamp: number
+		blockTimestamp: number,
 	) {
 		const poolIdNum = Number(eventData.poolId.toString());
 		return this.insert(
@@ -132,7 +132,7 @@ export class EstimatedEarnings {
 			txHash,
 			estimated_earnings_event_type.liquidity_removed,
 			isCollectedByEvent,
-			blockTimestamp
+			blockTimestamp,
 		);
 	}
 
@@ -148,7 +148,7 @@ export class EstimatedEarnings {
 		poolId: number,
 		txHash: string,
 		isCollectedByEvent: boolean,
-		blockTimestamp: number
+		blockTimestamp: number,
 	) {
 		const shareTokenAmount = dec18ToFloat(eventData.amountD18);
 		const price = dec18ToFloat(eventData.priceD18);
@@ -163,7 +163,7 @@ export class EstimatedEarnings {
 			txHash,
 			estimated_earnings_event_type.share_token_p2p_transfer,
 			isCollectedByEvent,
-			blockTimestamp
+			blockTimestamp,
 		);
 
 		// receiver amount sign is - (minus)
@@ -174,7 +174,7 @@ export class EstimatedEarnings {
 			txHash,
 			estimated_earnings_event_type.share_token_p2p_transfer,
 			isCollectedByEvent,
-			blockTimestamp
+			blockTimestamp,
 		);
 	}
 
@@ -183,7 +183,7 @@ export class EstimatedEarnings {
 	 * @returns date or undefined
 	 */
 	public async getLatestTimestamp(
-		eventType: estimated_earnings_event_type
+		eventType: estimated_earnings_event_type,
 	): Promise<Date | undefined> {
 		const res = await this.prisma.estimatedEarningTokens.findFirst({
 			select: {
@@ -208,7 +208,7 @@ export class EstimatedEarnings {
 	 * @returns
 	 */
 	public async getLatestTimestampsP2PTransfer(
-		nShareTokens: number
+		nShareTokens: number,
 	): Promise<Array<Date | undefined>> {
 		const res = await this.prisma.$queryRaw<{ pool_id: bigint; created_at: Date }[]>`
         select pool_id, max(created_at) as created_at from estimated_earnings_tokens 
@@ -219,7 +219,7 @@ export class EstimatedEarnings {
 		const poolDates: Array<Date | undefined> = new Array(nShareTokens).fill(
 			undefined,
 			0,
-			nShareTokens
+			nShareTokens,
 		);
 
 		// Set the last date for each pool (pool id is the index of return array)
