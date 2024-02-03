@@ -3,7 +3,7 @@ export type EventCallback<Event, Params = any> = (
 	txHash: string,
 	blockNumber: number,
 	blockTimestamp: number,
-	params?: Params
+	params?: Params,
 ) => void;
 
 // Trade event shape as retrieved from logs

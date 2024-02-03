@@ -16,7 +16,7 @@ export class FundingRatePayments {
 	constructor(
 		public chainId: BigNumberish,
 		public prisma: PrismaClient,
-		public l: Logger
+		public l: Logger,
 	) {}
 
 	/**
@@ -33,7 +33,7 @@ export class FundingRatePayments {
 		e: UpdateMarginAccountEvent,
 		txHash: string,
 		isCollectedByEvent: boolean,
-		blockTimestamp: number
+		blockTimestamp: number,
 	): Promise<void> {
 		// Only insert those UpdateMarginAccount events which have payment
 		// amount not 0
@@ -57,7 +57,7 @@ export class FundingRatePayments {
 		if (exists === null) {
 			let fundingRatePayment: FundingRatePayment;
 			try {
-				let data: Prisma.FundingRatePaymentCreateInput = {
+				const data: Prisma.FundingRatePaymentCreateInput = {
 					payment_amount: e.fFundingPaymentCC.toString(),
 					trader_addr: trader,
 					perpetual_id: Number(e.perpetualId),

@@ -5,8 +5,8 @@ import { NodeSDKConfig } from "@d8x/perpetuals-sdk";
  * fee, address, and key management
  */
 export default abstract class BrokerIntegration {
-  abstract getBrokerAddress(): Promise<string>;
-  abstract getBrokerFeeTBps(traderAddr: string, order?: Order): Promise<number>;
-  abstract signOrder(SCOrder: SmartContractOrder): Promise<string>;
-  abstract initialize(config: NodeSDKConfig): Promise<string>; // returns the broker address
+	abstract getBrokerAddress(): Promise<string>;
+	abstract getBrokerFeeTBps(traderAddr: string, order?: Order): Promise<number>;
+	abstract signOrder(SCOrder: SmartContractOrder): Promise<string>;
+	abstract initialize(config: NodeSDKConfig): Promise<string>; // returns the broker address
 }

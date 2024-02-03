@@ -45,7 +45,7 @@ export class EventListener {
 		private dbFundingRates: FundingRatePayments,
 		private dbEstimatedEarnings: EstimatedEarnings,
 		private dbPriceInfos: PriceInfo,
-		private dbLPWithdrawals: LiquidityWithdrawals
+		private dbLPWithdrawals: LiquidityWithdrawals,
 	) {
 		this.l = opts.logger;
 		this.opts = opts;
@@ -59,7 +59,7 @@ export class EventListener {
 		const isAlive = secSinceEvt < maxDelaySec;
 
 		this.l.info(
-			`last ${this.listeningMode} block=${this.blockNumber}, seconds since last event =${secSinceEvt}`
+			`last ${this.listeningMode} block=${this.blockNumber}, seconds since last event =${secSinceEvt}`,
 		);
 		if (!isAlive) {
 			this.l.info(`${this.listeningMode} connection ended`);
@@ -84,7 +84,7 @@ export class EventListener {
 			`starting smart contract event listeners on ${this.listeningMode} provider`,
 			{
 				contract_address: this.opts.contractAddresses.perpetualManagerProxy,
-			}
+			},
 		);
 
 		provider.on("block", (blockNumber) => {
@@ -96,7 +96,7 @@ export class EventListener {
 		const proxy = new ethers.Contract(
 			this.opts.contractAddresses.perpetualManagerProxy,
 			getPerpetualManagerABI(),
-			provider
+			provider,
 		);
 
 		// Order book, oracle factory changes
@@ -105,7 +105,7 @@ export class EventListener {
 			(module: string, oldAddress: string, newAddress: string) => {
 				this.l.info("restart", { module, oldAddress, newAddress });
 				process.exit(1);
-			}
+			},
 		);
 
 		// Trade event
@@ -122,7 +122,7 @@ export class EventListener {
 				fFeeCC: bigint,
 				fPnlCC: bigint,
 				fB2C: bigint,
-				event: ethers.ContractEventPayload
+				event: ethers.ContractEventPayload,
 			) => {
 				const topic = event.log.topics[0];
 				this.l.info("got trade event", { perpetualId, trader, topic });
@@ -142,9 +142,9 @@ export class EventListener {
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
 					Math.round(new Date().getTime() / 1000),
-					event.log.blockNumber
+					event.log.blockNumber,
 				);
-			}
+			},
 		);
 
 		proxy.on(
@@ -159,7 +159,7 @@ export class EventListener {
 				newPositionSizeBC: bigint,
 				fFeeCC: bigint,
 				fPnlCC: bigint,
-				event: ethers.ContractEventPayload
+				event: ethers.ContractEventPayload,
 			) => {
 				this.l.info("got liquidate event", { perpetualId, trader, liquidator });
 				this.onLiquidate(
@@ -177,9 +177,9 @@ export class EventListener {
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
 					Math.round(new Date().getTime() / 1000),
-					event.log.blockNumber
+					event.log.blockNumber,
 				);
-			}
+			},
 		);
 
 		proxy.on(
@@ -193,7 +193,7 @@ export class EventListener {
 				fLockedInValueQC: bigint,
 				fFundingPaymentCC: bigint,
 				fOpenInterestBC: bigint,
-				event: ethers.ContractEventPayload
+				event: ethers.ContractEventPayload,
 			) => {
 				this.l.info("got update margin account event", {
 					perpetualId,
@@ -213,9 +213,9 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000)
+					Math.round(new Date().getTime() / 1000),
 				);
-			}
+			},
 		);
 
 		proxy.on(
@@ -225,7 +225,7 @@ export class EventListener {
 				user: string,
 				tokenAmount: bigint,
 				shareAmount: bigint,
-				event: ethers.ContractEventPayload
+				event: ethers.ContractEventPayload,
 			) => {
 				this.l.info("got liquidity added event", {
 					poolId,
@@ -240,9 +240,9 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000)
+					Math.round(new Date().getTime() / 1000),
 				);
-			}
+			},
 		);
 
 		proxy.on(
@@ -252,7 +252,7 @@ export class EventListener {
 				user: string,
 				tokenAmount: bigint,
 				shareAmount: bigint,
-				event: ethers.ContractEventPayload
+				event: ethers.ContractEventPayload,
 			) => {
 				this.l.info("got liquidity removed event", {
 					poolId,
@@ -267,9 +267,9 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000)
+					Math.round(new Date().getTime() / 1000),
 				);
-			}
+			},
 		);
 
 		// List to token transfers for all share token contracts
@@ -283,7 +283,7 @@ export class EventListener {
 				`starting share token P2PTransfer listener on ${this.listeningMode} provider`,
 				{
 					share_token_contract: shareTokenContracts[i],
-				}
+				},
 			);
 			c.on(
 				"P2PTransfer",
@@ -292,21 +292,21 @@ export class EventListener {
 					to: string,
 					amountD18: bigint,
 					priceD18: bigint,
-					event: ethers.ContractEventPayload
+					event: ethers.ContractEventPayload,
 				) => {
 					this.onP2PTransfer(
 						{ from: from, to: to, amountD18: amountD18, priceD18: priceD18 },
 						poolId,
 						event.log.transactionHash,
 						IS_COLLECTED_BY_EVENT,
-						Math.round(new Date().getTime() / 1000)
+						Math.round(new Date().getTime() / 1000),
 					);
-				}
+				},
 			);
 		}
 
 		this.l.info(
-			`starting liquidity withdrawal initiated events listener on ${this.listeningMode} provider`
+			`starting liquidity withdrawal initiated events listener on ${this.listeningMode} provider`,
 		);
 		proxy.on(
 			"LiquidityWithdrawalInitiated",
@@ -314,7 +314,7 @@ export class EventListener {
 				poolId: number,
 				user: string,
 				shareAmount: bigint,
-				event: ethers.ContractEventPayload
+				event: ethers.ContractEventPayload,
 			) =>
 				this.onLiquidityWithdrawalInitiated(
 					{
@@ -324,8 +324,8 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000)
-				)
+					Math.round(new Date().getTime() / 1000),
+				),
 		);
 	}
 
@@ -334,14 +334,14 @@ export class EventListener {
 		poolId: number,
 		txHash: string,
 		isCollectedByEvent: boolean,
-		timestampSec: number
+		timestampSec: number,
 	) {
 		this.dbEstimatedEarnings.insertShareTokenP2PTransfer(
 			eventData,
 			poolId,
 			txHash,
 			isCollectedByEvent,
-			timestampSec
+			timestampSec,
 		);
 	}
 
@@ -350,14 +350,14 @@ export class EventListener {
 		txHash: string,
 		isCollectedByEvent: boolean,
 		timestampSec: number,
-		blockNumber: number
+		blockNumber: number,
 	) {
 		this.dbTrades.insertTradeHistoryRecord(
 			eventData,
 			txHash,
 			isCollectedByEvent,
 			timestampSec,
-			blockNumber
+			blockNumber,
 		);
 	}
 
@@ -366,14 +366,14 @@ export class EventListener {
 		txHash: string,
 		isCollectedByEvent: boolean,
 		timestampSec: number,
-		blockNumber: number
+		blockNumber: number,
 	) {
 		this.dbTrades.insertTradeHistoryRecord(
 			eventData,
 			txHash,
 			isCollectedByEvent,
 			timestampSec,
-			blockNumber
+			blockNumber,
 		);
 	}
 
@@ -381,13 +381,13 @@ export class EventListener {
 		eventData: UpdateMarginAccountEvent,
 		txHash: string,
 		isCollectedByEvent: boolean,
-		timestampSec: number
+		timestampSec: number,
 	) {
 		this.dbFundingRates.insertFundingRatePayment(
 			eventData,
 			txHash,
 			isCollectedByEvent,
-			timestampSec
+			timestampSec,
 		);
 	}
 
@@ -403,14 +403,14 @@ export class EventListener {
 		eventData: LiquidityWithdrawalInitiatedEvent,
 		txHash: string,
 		isCollectedByEvent: boolean,
-		timestampSec: number
+		timestampSec: number,
 	) {
 		this.dbLPWithdrawals.insert(
 			eventData,
 			false,
 			txHash,
 			isCollectedByEvent,
-			timestampSec
+			timestampSec,
 		);
 	}
 
@@ -418,14 +418,14 @@ export class EventListener {
 		eventData: LiquidityRemovedEvent,
 		txHash: string,
 		isCollectedByEvent: boolean,
-		timestampSec: number
+		timestampSec: number,
 	) {
 		const poolIdNum: number = Number(eventData.poolId.toString());
 		this.dbEstimatedEarnings.insertLiquidityRemoved(
 			eventData,
 			txHash,
 			isCollectedByEvent,
-			timestampSec
+			timestampSec,
 		);
 
 		// Insert price info
@@ -433,7 +433,7 @@ export class EventListener {
 			Number(eventData.poolId.toString()),
 			eventData.tokenAmount,
 			eventData.shareAmount,
-			timestampSec
+			timestampSec,
 		);
 
 		// Attempt to finalize lp withdrawal
@@ -442,7 +442,7 @@ export class EventListener {
 			true,
 			txHash,
 			isCollectedByEvent,
-			timestampSec
+			timestampSec,
 		);
 	}
 
@@ -450,20 +450,20 @@ export class EventListener {
 		eventData: LiquidityAddedEvent,
 		txHash: string,
 		isCollectedByEvent: boolean,
-		timestampSec: number
+		timestampSec: number,
 	) {
 		this.dbEstimatedEarnings.insertLiquidityAdded(
 			eventData,
 			txHash,
 			isCollectedByEvent,
-			timestampSec
+			timestampSec,
 		);
 		// Insert price info
 		await this._updateSharePoolTokenPriceInfo(
 			Number(eventData.poolId.toString()),
 			eventData.tokenAmount,
 			eventData.shareAmount,
-			timestampSec
+			timestampSec,
 		);
 	}
 
@@ -471,7 +471,7 @@ export class EventListener {
 		poolId: number,
 		tokenAmount: bigint,
 		shareAmount: bigint,
-		timestampSec: number
+		timestampSec: number,
 	) {
 		// Insert price info. Pool tokens are decimal-18
 		const decimals = this.opts.staticInfo.getMarginTokenDecimals(poolId);

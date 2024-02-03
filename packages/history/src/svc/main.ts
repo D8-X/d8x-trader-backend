@@ -51,7 +51,7 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 	const config = dotenv.config({
 		path: ".env",
 	});
-	let configNotFound = config.error || config.parsed === undefined;
+	const configNotFound = config.error || config.parsed === undefined;
 
 	// Check if required env variables were provided
 	const required = wantEnvs ?? [
@@ -81,9 +81,9 @@ export const main = async () => {
 
 	// Init blockchain provider
 	const rpcConfig = loadConfigRPC();
-	let wsRpcUrl = chooseRandomRPC(true, rpcConfig);
+	const wsRpcUrl = chooseRandomRPC(true, rpcConfig);
 	let httpRpcUrl = chooseRandomRPC(false, rpcConfig);
-	let chainId = Number(<string>process.env.CHAIN_ID || -1);
+	const chainId = Number(<string>process.env.CHAIN_ID || -1);
 	if (httpRpcUrl == "") {
 		httpRpcUrl = getDefaultRPC();
 		const msg = `no rpc provider specified, using default ${httpRpcUrl}`;
@@ -95,13 +95,17 @@ export const main = async () => {
 			new SturdyWebSocket(chooseRandomRPC(true, rpcConfig), {
 				wsConstructor: WebSocket,
 			}),
-		network
+		network,
 	);
-	let httpProvider: ethers.JsonRpcProvider = new JsonRpcProvider(httpRpcUrl, network, {
-		staticNetwork: network,
-		batchMaxCount: 25,
-		polling: true,
-	});
+	const httpProvider: ethers.JsonRpcProvider = new JsonRpcProvider(
+		httpRpcUrl,
+		network,
+		{
+			staticNetwork: network,
+			batchMaxCount: 25,
+			polling: true,
+		},
+	);
 
 	logger.info("initialized rpc provider", { wsRpcUrl, httpRpcUrl });
 
@@ -119,7 +123,7 @@ export const main = async () => {
 	await executeWithTimeout(
 		staticInfo.initialize(httpProvider, httpRpcUrl),
 		10_000,
-		"RPC call timeout"
+		"RPC call timeout",
 	);
 	// store margin token info and perpetual info to DB
 	await staticInfo.checkAndWriteMarginTokenInfoToDB(dbMarginTokenInfo);
@@ -137,7 +141,7 @@ export const main = async () => {
 		dbFundingRatePayments,
 		dbEstimatedEarnings,
 		dbPriceInfo,
-		dbLPWithdrawals
+		dbLPWithdrawals,
 	);
 
 	// Start the historical data filterers on serivice start...
@@ -195,7 +199,7 @@ export const main = async () => {
 					new SturdyWebSocket(wsUrl, {
 						wsConstructor: WebSocket,
 					}),
-				network
+				network,
 			);
 			wsResetCounter++;
 
@@ -225,7 +229,7 @@ export const main = async () => {
 		if (wsResetCounter >= maxWsResetCounter) {
 			logger.warn(
 				"wsResetCounter reached maxWsResetCounter, restarting history service",
-				{ maxWsResetCounter, wsResetCounter }
+				{ maxWsResetCounter, wsResetCounter },
 			);
 			process.exit(0);
 		} else {
@@ -262,7 +266,7 @@ export const main = async () => {
 			},
 			staticInfo: staticInfo,
 		},
-		logger
+		logger,
 	);
 	api.start(httpRpcUrl);
 };
@@ -297,17 +301,17 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 	// Share token contracts
 	const shareTokenAddresses = await staticInfo.retrieveShareTokenContracts();
 
-	let promises: Array<Promise<void>> = [];
+	const promises: Array<Promise<void>> = [];
 	const IS_COLLECTED_BY_EVENT = false;
 
-	let tsArr = [
+	const tsArr = [
 		(await dbLPWithdrawals.getLatestTimestampInitiation()) ?? defaultDate,
 		(await dbTrades.getLatestTradeTimestamp()) ?? defaultDate,
 		(await dbTrades.getLatestLiquidateTimestamp()) ?? defaultDate,
 		(await dbFundingRatePayments.getLatestTimestamp()) ?? defaultDate,
 	];
 	// Use the smallest timestamp for the start of the filter
-	let ts = tsArr.reduce(function (a, b) {
+	const ts = tsArr.reduce(function (a, b) {
 		return a < b ? a : b;
 	});
 
@@ -317,67 +321,67 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 				eventData: TradeEvent,
 				txHash: string,
 				blockNum: BigNumberish,
-				blockTimestamp: number
+				blockTimestamp: number,
 			) => {
 				await eventListener.onTradeEvent(
 					eventData,
 					txHash,
 					IS_COLLECTED_BY_EVENT,
 					blockTimestamp,
-					Number(blockNum.toString())
+					Number(blockNum.toString()),
 				);
 			},
 			Liquidate: async (
 				eventData: LiquidateEvent,
 				txHash: string,
 				blockNum: BigNumberish,
-				blockTimestamp: number
+				blockTimestamp: number,
 			) => {
 				await eventListener.onLiquidate(
 					eventData,
 					txHash,
 					IS_COLLECTED_BY_EVENT,
 					blockTimestamp,
-					Number(blockNum.toString())
+					Number(blockNum.toString()),
 				);
 			},
 			UpdateMarginAccount: async (
 				eventData: UpdateMarginAccountEvent,
 				txHash: string,
 				_blockNum: BigNumberish,
-				blockTimestamp: number
+				blockTimestamp: number,
 			) => {
 				await eventListener.onUpdateMarginAccount(
 					eventData,
 					txHash,
 					IS_COLLECTED_BY_EVENT,
-					blockTimestamp
+					blockTimestamp,
 				);
 			},
 			LiquidityAdded: async (
 				eventData: LiquidityAddedEvent,
 				txHash: string,
 				_blockNum: BigNumberish,
-				blockTimestamp: number
+				blockTimestamp: number,
 			) => {
 				await eventListener.onLiquidityAdded(
 					eventData,
 					txHash,
 					IS_COLLECTED_BY_EVENT,
-					blockTimestamp
+					blockTimestamp,
 				);
 			},
 			LiquidityRemoved: async (
 				eventData: LiquidityRemovedEvent,
 				txHash: string,
 				_blockNum: BigNumberish,
-				blockTimestamp: number
+				blockTimestamp: number,
 			) => {
 				await eventListener.onLiquidityRemoved(
 					eventData,
 					txHash,
 					IS_COLLECTED_BY_EVENT,
-					blockTimestamp
+					blockTimestamp,
 				);
 			},
 			LiquidityWithdrawalInitiated: async (
@@ -385,23 +389,23 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 				txHash,
 				_blockNumber,
 				blockTimeStamp,
-				_params
+				_params,
 			) => {
 				await eventListener.onLiquidityWithdrawalInitiated(
 					eventData,
 					txHash,
 					IS_COLLECTED_BY_EVENT,
-					blockTimeStamp
+					blockTimeStamp,
 				);
 			},
 			// TODO: add the rest
-		})
+		}),
 	);
 	// Share tokens p2p transfers
-	let p2pTimestamps = await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
-		shareTokenAddresses.length
+	const p2pTimestamps = await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
+		shareTokenAddresses.length,
 	);
-	let p2pTs: Date[] = [];
+	const p2pTs: Date[] = [];
 	for (let k = 0; k < shareTokenAddresses.length; k++) {
 		if (p2pTimestamps[k] == undefined) {
 			p2pTs.push(defaultDate);
@@ -419,10 +423,10 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 					params?.poolId as unknown as number,
 					txHash,
 					IS_COLLECTED_BY_EVENT,
-					blockTimeStamp
+					blockTimeStamp,
 				);
-			}
-		)
+			},
+		),
 	);
 	await Promise.all(promises);
 }

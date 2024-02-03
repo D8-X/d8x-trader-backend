@@ -8,7 +8,10 @@ import { LiquidityProviderTool } from "@d8x/perpetuals-sdk";
 import { lastDayOfWeek } from "date-fns";
 
 export class LiquidityWithdrawals {
-	constructor(public prisma: PrismaClient, public l: Logger) {}
+	constructor(
+		public prisma: PrismaClient,
+		public l: Logger,
+	) {}
 
 	/**
 	 * Create new lp withdrawal initation record from lp withdrawal event data
@@ -23,7 +26,7 @@ export class LiquidityWithdrawals {
 		isLiquidityRemovedEvent: boolean,
 		txHash: string,
 		isCollectedByEvent: boolean,
-		blockTimestamp: number
+		blockTimestamp: number,
 	) {
 		const user_wallet = e.user.toLowerCase();
 		const tx_hash = txHash.toLowerCase();
