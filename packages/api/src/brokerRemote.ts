@@ -51,7 +51,7 @@ export default class BrokerRemote extends BrokerIntegration {
 	}
 
 	public async getBrokerFeeTBps(traderAddr: string, order?: Order): Promise<number> {
-		const arg = "?id=" + this.myId;
+		const arg = "?addr="+traderAddr+"&id=" + this.myId;
 		const endpoint = this.apiURL + this.endpointGetBrokerFee + arg;
 		try {
 			const response = await fetch(endpoint);
