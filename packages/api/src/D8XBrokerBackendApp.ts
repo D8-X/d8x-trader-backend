@@ -134,7 +134,6 @@ export default class D8XBrokerBackendApp {
 						} else if (obj.type == "unsubscribe") {
 							eventListener.unsubscribe(ws, req);
 						} else {
-							console.log("received: ", obj);
 							//type = subscription
 							if (
 								typeof obj.traderAddr != "string" ||
@@ -144,6 +143,12 @@ export default class D8XBrokerBackendApp {
 									"wrong arguments. Requires traderAddr and symbol",
 								);
 							}
+
+							// Make sure the client provided symbol is
+							// in uppercase, since SDK provides uppercase
+							// symbols for perpetuals.
+							obj.symbol = obj.symbol.toUpperCase();
+
 							const perpState: PerpetualState =
 								await sdk.extractPerpetualStateFromExchangeInfo(
 									obj.symbol,
