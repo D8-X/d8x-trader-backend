@@ -101,11 +101,9 @@ export default abstract class IndexPriceInterface extends Observer {
 			for (let j = 0; j < pool.perpetuals.length; j++) {
 				const perpState: PerpetualState = pool.perpetuals[j];
 				const perpId: number = perpState.id;
-				const pxIdxName = (
-					perpState.baseCurrency +
-					"-" +
-					perpState.quoteCurrency
-				).toLowerCase();
+				// Use letter-case as it comes from the exchange info. Symbols should be
+				// in uppercase by default.
+				const pxIdxName = perpState.baseCurrency + "-" + perpState.quoteCurrency;
 				const idxs = this.idxNamesToPerpetualIds.get(pxIdxName);
 				if (idxs == undefined) {
 					const idx: number[] = [perpState.id];
