@@ -41,14 +41,14 @@ export class HistoricalDataFilterer {
 	constructor(
 		public provider: Provider,
 		public perpetualManagerProxyAddress: string,
-		public l: Logger
+		public l: Logger,
 	) {
-		let pmpAbi = getPerpetualManagerABI();
+		const pmpAbi = getPerpetualManagerABI();
 		// Init the contract binding
 		this.PerpManagerProxy = new Contract(
 			perpetualManagerProxyAddress,
 			pmpAbi,
-			provider
+			provider,
 		);
 	}
 
@@ -62,7 +62,7 @@ export class HistoricalDataFilterer {
 	public async filterP2Ptransfers(
 		shareTokenContracts: string[],
 		since: Array<Date>,
-		cb: P2PTransferFilteredCb
+		cb: P2PTransferFilteredCb,
 	) {
 		const shareTokenAbi = await getShareTokenContractABI();
 		for (let i = 0; i < shareTokenContracts.length; i++) {
@@ -74,7 +74,11 @@ export class HistoricalDataFilterer {
 			const poolId = i + 1;
 			const c = new Contract(currentAddress, shareTokenAbi, this.provider);
 			const filter = c.filters.P2PTransfer();
-            let sinceBlocks: [number, number] = await executeWithTimeout(calculateBlockFromTime(this.provider, since[i]), 10_000, "RPC call timeout");
+			const sinceBlocks: [number, number] = await executeWithTimeout(
+				calculateBlockFromTime(this.provider, since[i]),
+				10_000,
+				"RPC call timeout",
+			);
 			this.genericFilterer(
 				filter,
 				sinceBlocks[0],
@@ -83,17 +87,17 @@ export class HistoricalDataFilterer {
 				(
 					decodedTradeEvent: Record<string, any>,
 					e: ethers.EventLog,
-					blockTimestamp: number
+					blockTimestamp: number,
 				) => {
 					cb(
 						decodedTradeEvent as P2PTransferEvent,
 						e.transactionHash,
 						e.blockNumber,
 						blockTimestamp,
-						{ poolId }
+						{ poolId },
 					);
 				},
-                sinceBlocks[1]
+				sinceBlocks[1],
 			);
 		}
 	}
@@ -105,7 +109,7 @@ export class HistoricalDataFilterer {
 	 */
 	public async filterProxyEvents(
 		since: Date,
-		callbacks: Record<string, EventCallback<any>>
+		callbacks: Record<string, EventCallback<any>>,
 	) {
 		// events in scope
 		const eventNames = [
@@ -129,11 +133,10 @@ export class HistoricalDataFilterer {
 		}
 
 		// topic filters
-		let topicFilterList: TopicFilter[] = [];
+		const topicFilterList: TopicFilter[] = [];
 		for (const eventName of eventNames) {
-			const newFilter = await this.PerpManagerProxy.filters[
-				eventName
-			]().getTopicFilter();
+			const newFilter =
+				await this.PerpManagerProxy.filters[eventName]().getTopicFilter();
 			topicFilterList.push(newFilter);
 		}
 		const topicFilters = [
@@ -141,14 +144,14 @@ export class HistoricalDataFilterer {
 		] as TopicFilter;
 		// topic signature hashes
 		const topicHashes = eventNames.map(
-			(eventName) => this.PerpManagerProxy.filters[eventName]().fragment.topicHash
+			(eventName) => this.PerpManagerProxy.filters[eventName]().fragment.topicHash,
 		);
 
 		// callbacks
 		const cb = async (
 			decodedEvent: Record<string, any>,
 			e: ethers.EventLog,
-			blockTimestamp: number
+			blockTimestamp: number,
 		) => {
 			const eventName = this.PerpManagerProxy.interface.getEventName(e.topics[0]);
 			// TODO: can't do this because of the casting below ... not necessarily better, but would be shorter code
@@ -164,7 +167,7 @@ export class HistoricalDataFilterer {
 						decodedEvent as TradeEvent,
 						e.transactionHash,
 						e.blockNumber,
-						blockTimestamp
+						blockTimestamp,
 					);
 					break;
 				case "Liquidate":
@@ -172,7 +175,7 @@ export class HistoricalDataFilterer {
 						decodedEvent as LiquidateEvent,
 						e.transactionHash,
 						e.blockNumber,
-						blockTimestamp
+						blockTimestamp,
 					);
 					break;
 				case "UpdateMarginAccount":
@@ -180,7 +183,7 @@ export class HistoricalDataFilterer {
 						decodedEvent as UpdateMarginAccountEvent,
 						e.transactionHash,
 						e.blockNumber,
-						blockTimestamp
+						blockTimestamp,
 					);
 					break;
 				case "LiquidityAdded":
@@ -188,7 +191,7 @@ export class HistoricalDataFilterer {
 						decodedEvent as LiquidityAddedEvent,
 						e.transactionHash,
 						e.blockNumber,
-						blockTimestamp
+						blockTimestamp,
 					);
 					break;
 				case "LiquidityWithdrawalInitiated":
@@ -196,7 +199,7 @@ export class HistoricalDataFilterer {
 						decodedEvent as LiquidityWithdrawalInitiatedEvent,
 						e.transactionHash,
 						e.blockNumber,
-						blockTimestamp
+						blockTimestamp,
 					);
 					break;
 				case "LiquidityRemoved":
@@ -204,32 +207,36 @@ export class HistoricalDataFilterer {
 						decodedEvent as LiquidityRemovedEvent,
 						e.transactionHash,
 						e.blockNumber,
-						blockTimestamp
+						blockTimestamp,
 					);
 					break;
 				default:
 					break;
 			}
 		};
-		let sinceBlocks: [number, number] = await executeWithTimeout(calculateBlockFromTime(this.provider, since), 10_000, "RPC call timeout");
+		const sinceBlocks: [number, number] = await executeWithTimeout(
+			calculateBlockFromTime(this.provider, since),
+			10_000,
+			"RPC call timeout",
+		);
 		await this.genericFilterer(
 			topicFilters!,
 			sinceBlocks[0],
 			topicHashes,
 			this.PerpManagerProxy,
 			cb,
-            sinceBlocks[1]
+			sinceBlocks[1],
 		);
 	}
 
 	/**
 	 * Filter event logs based on provided parameters.
 	 *
-	 * @param filter        
+	 * @param filter
 	 * @param fromBlock    first block to scan
 	 * @param eventName    name of the event we filter
-	 * @param cb           
-     * @param currentBlock current block number
+	 * @param cb
+	 * @param currentBlock current block number
 	 */
 	private async genericFilterer(
 		filter: ContractEventName,
@@ -239,13 +246,13 @@ export class HistoricalDataFilterer {
 		cb: (
 			decodedEvent: Record<string, any>,
 			event: ethers.EventLog,
-			blockTimestamp: number
+			blockTimestamp: number,
 		) => void,
-        currentBlock: number
+		currentBlock: number,
 	) {
 		// limit: 10_000 blocks in one eth_getLogs call
 		const deltaBlocks = 9_999;
-		const endBlock : number = currentBlock;
+		const endBlock: number = currentBlock;
 		const eventNames = topicHashes.map((topic0) => c.interface.getEventName(topic0));
 
 		this.l.info("querying historical logs", {
@@ -258,8 +265,8 @@ export class HistoricalDataFilterer {
 		let numRequests = 0;
 		let events: ethers.EventLog[] = [];
 		let lastWaitSeconds = 2;
-		let maxWaitSeconds = 32;
-		let blockTimestamp = new Map<Number, number>();
+		const maxWaitSeconds = 32;
+		const blockTimestamp = new Map<Number, number>();
 
 		for (let i = Number(fromBlock); i < endBlock; ) {
 			const _startBlock = i;
@@ -269,7 +276,7 @@ export class HistoricalDataFilterer {
 				const _events = (await c.queryFilter(
 					filter,
 					_startBlock,
-					_endBlock
+					_endBlock,
 				)) as ethers.EventLog[];
 				events = [...events, ..._events];
 				// limit: 25 requests per second
@@ -287,18 +294,18 @@ export class HistoricalDataFilterer {
 					c,
 					blockTimestamp,
 					numRequests,
-					cb
+					cb,
 				);
 			} catch (error) {
 				this.l.info("seconds", { maxWaitSeconds, lastWaitSeconds });
 				if (maxWaitSeconds > lastWaitSeconds) {
 					this.l.warn(
 						"attempted to make too many requests to node, performing a wait",
-						{ wait_seconds: lastWaitSeconds }
+						{ wait_seconds: lastWaitSeconds },
 					);
 					// rate limited: wait before re-trying
 					await new Promise((resolve) =>
-						setTimeout(resolve, lastWaitSeconds * 1000)
+						setTimeout(resolve, lastWaitSeconds * 1000),
 					);
 					numRequests = 0;
 					lastWaitSeconds *= 2;
@@ -322,15 +329,15 @@ export class HistoricalDataFilterer {
 		cb: (
 			decodedEvent: Record<string, any>,
 			event: ethers.EventLog,
-			blockTimestamp: number
-		) => void
+			blockTimestamp: number,
+		) => void,
 	) {
 		if (events.length < 1) {
 			return;
 		}
 
 		const eventFragments = topicHashes.map(
-			(topic0) => c.interface.getEvent(topic0) as EventFragment
+			(topic0) => c.interface.getEvent(topic0) as EventFragment,
 		);
 		// let blockTimestamp = new Map<Number, number>();
 		for (let i = 0; i < events.length; i++) {
@@ -338,19 +345,19 @@ export class HistoricalDataFilterer {
 			for (let j = 0; j < topicHashes.length; j++) {
 				if (topicHashes[j] == event.topics[0]) {
 					// found event
-					let log = c.interface.decodeEventLog(
+					const log = c.interface.decodeEventLog(
 						eventFragments[j],
 						event.data,
-						event.topics
+						event.topics,
 					);
 					// one call per block with event
 					if (blockTimestamp.get(event.blockNumber) == undefined) {
 						blockTimestamp.set(
 							event.blockNumber,
-							(await event.getBlock()).timestamp
+							(await event.getBlock()).timestamp,
 						);
 					}
-					let ts = blockTimestamp.get(event.blockNumber)!;
+					const ts = blockTimestamp.get(event.blockNumber)!;
 					// do work
 					cb(log, event, ts);
 
