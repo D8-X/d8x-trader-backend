@@ -3,7 +3,10 @@ import { timeStamp } from "console";
 import { Logger } from "winston";
 
 export class PriceInfo {
-	constructor(public prisma: PrismaClient, public l: Logger) {}
+	constructor(
+		public prisma: PrismaClient,
+		public l: Logger,
+	) {}
 
 	/**
 	 * Insert new price info
@@ -20,7 +23,7 @@ export class PriceInfo {
 			return;
 		}
 		try {
-			let dt = new Date(timestampSec * 1000);
+			const dt = new Date(timestampSec * 1000);
 			await this.prisma.price.upsert({
 				where: {
 					pool_id_timestamp: { pool_id: pool_id, timestamp: dt },
@@ -54,10 +57,10 @@ export class PriceInfo {
 	private async passOutlierCheck(
 		new_price: number,
 		pool_id: number,
-		timestampSec: number
+		timestampSec: number,
 	): Promise<boolean> {
-		let dt = new Date(timestampSec * 1000);
-		let priceTs = await this.prisma.price.findFirst({
+		const dt = new Date(timestampSec * 1000);
+		const priceTs = await this.prisma.price.findFirst({
 			where: {
 				pool_id: pool_id,
 				timestamp: { lt: dt },

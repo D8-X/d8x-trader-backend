@@ -8,7 +8,10 @@ export interface MarginTokenData {
 	tokenName: string;
 }
 export class MarginTokenInfo {
-	constructor(public prisma: PrismaClient, public l: Logger) {}
+	constructor(
+		public prisma: PrismaClient,
+		public l: Logger,
+	) {}
 
 	/**
 	 * Insert new pool margin token
@@ -44,9 +47,9 @@ export class MarginTokenInfo {
 	}
 
 	public async getMarginTokenInfo(
-		poolId: number
+		poolId: number,
 	): Promise<undefined | MarginTokenData> {
-		let res = await this.prisma.marginTokenInfo.findFirst({
+		const res = await this.prisma.marginTokenInfo.findFirst({
 			where: {
 				pool_id: {
 					equals: poolId,

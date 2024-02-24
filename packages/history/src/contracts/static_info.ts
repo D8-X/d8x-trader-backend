@@ -45,7 +45,7 @@ export default class StaticInfo {
 
 		for (let j = 0; j < info.pools.length; j++) {
 			const c = new Contract(info.pools[j].marginTokenAddr, tknAbi, provider);
-			let dec = await c.decimals();
+			const dec = await c.decimals();
 			this.retrievedMarginTokenInfo.set(j + 1, {
 				poolId: j + 1,
 				tokenAddr: info.pools[j].marginTokenAddr,
@@ -60,9 +60,8 @@ export default class StaticInfo {
 					console.log(`No symbol found for perpetual id=${perpId}`);
 					continue;
 				}
-				let perpInfo: PerpetualStaticInfo = await md.getPerpetualStaticInfo(
-					perpSymbol
-				);
+				const perpInfo: PerpetualStaticInfo =
+					await md.getPerpetualStaticInfo(perpSymbol);
 			}
 		}
 	}
@@ -74,7 +73,7 @@ export default class StaticInfo {
 	 * @returns token decimals for the margin token of this pool
 	 */
 	public getMarginTokenDecimals(poolId: number): number {
-		let val = this.retrievedMarginTokenInfo.get(poolId);
+		const val = this.retrievedMarginTokenInfo.get(poolId);
 		if (val == undefined) {
 			throw Error("margin token decimals not defined");
 		}
@@ -87,13 +86,13 @@ export default class StaticInfo {
 		}
 		// check db
 		for (let j = 0; j < this.retrievedMarginTokenInfo.size; j++) {
-			let poolId = j + 1;
-			let dbEntry = await dbHandler.getMarginTokenInfo(poolId);
+			const poolId = j + 1;
+			const dbEntry = await dbHandler.getMarginTokenInfo(poolId);
 			if (dbEntry == undefined) {
 				await dbHandler.insert(this.retrievedMarginTokenInfo.get(poolId)!);
 			} else {
 				// check data
-				let el = this.retrievedMarginTokenInfo.get(poolId)!;
+				const el = this.retrievedMarginTokenInfo.get(poolId)!;
 				if (
 					dbEntry.poolId != poolId ||
 					dbEntry.tokenAddr != el.tokenAddr ||

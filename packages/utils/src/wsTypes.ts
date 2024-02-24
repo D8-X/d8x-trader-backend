@@ -7,16 +7,16 @@ import { MarginAccount } from "@d8x/perpetuals-sdk";
  *  "traderAddress": "0x9d5a..41a05"}
  */
 export interface SubscriptionInterface {
-  symbol: string;
-  traderAddr: string;
+	symbol: string;
+	traderAddr: string;
 }
 
 /**
  * General response message layout
  */
 export interface WSMsg {
-  name: string;
-  obj: Object;
+	name: string;
+	obj: Object;
 }
 
 /**
@@ -28,13 +28,13 @@ export interface WSMsg {
  * has not been collected yet)
  */
 export interface PriceUpdate {
-  perpetualId: number;
-  symbol: string;
-  midPrice: number;
-  markPrice: number;
-  indexPrice: number;
-  fundingRate: number;
-  openInterest: number;
+	perpetualId: number;
+	symbol: string;
+	midPrice: number;
+	markPrice: number;
+	indexPrice: number;
+	fundingRate: number;
+	openInterest: number;
 }
 
 /**
@@ -43,11 +43,11 @@ export interface PriceUpdate {
  * message is issued
  */
 export interface LimitOrderCreated {
-  perpetualId: number;
-  symbol: string;
-  traderAddr: string;
-  brokerAddr: string;
-  orderId: string;
+	perpetualId: number;
+	symbol: string;
+	traderAddr: string;
+	brokerAddr: string;
+	orderId: string;
 }
 
 /**
@@ -55,26 +55,26 @@ export interface LimitOrderCreated {
  * subscribers
  */
 export interface Trade {
-  perpetualId: number;
-  symbol: string;
-  traderAddr: string;
-  // each position has a unique id
-  positionId: string;
-  // each order has a unique id
-  orderId: string;
-  // position size in base currency
-  newPositionSizeBC: number;
-  // execution price in quote currency
-  executionPrice: number;
+	perpetualId: number;
+	symbol: string;
+	traderAddr: string;
+	// each position has a unique id
+	positionId: string;
+	// each order has a unique id
+	orderId: string;
+	// position size in base currency
+	newPositionSizeBC: number;
+	// execution price in quote currency
+	executionPrice: number;
 }
 
 // not active
 // see issue #75
 export interface PerpetualLimitOrderCancelled {
-  perpetualId: number;
-  symbol: string;
-  traderAddr: string;
-  orderId: string;
+	perpetualId: number;
+	symbol: string;
+	traderAddr: string;
+	orderId: string;
 }
 
 /**
@@ -82,11 +82,11 @@ export interface PerpetualLimitOrderCancelled {
  * ExecutionFailed
  */
 export interface ExecutionFailed {
-  perpetualId: number;
-  symbol: string;
-  traderAddr: string;
-  orderId: string;
-  reason: string;
+	perpetualId: number;
+	symbol: string;
+	traderAddr: string;
+	orderId: string;
+	reason: string;
 }
 
 /**
@@ -113,15 +113,15 @@ export interface MarginAccount {
  * after this event was executed
  */
 export interface UpdateMarginAccount extends MarginAccount {
-  // id of the perpetual
-  perpetualId: number;
-  // address of the trader
-  traderAddr: string;
-  // id of position
-  positionId: string;
-  // funding payment paid when
-  // margin account was changed
-  fundingPaymentCC: number;
+	// id of the perpetual
+	perpetualId: number;
+	// address of the trader
+	traderAddr: string;
+	// id of position
+	positionId: string;
+	// funding payment paid when
+	// margin account was changed
+	fundingPaymentCC: number;
 }
 
 /**
@@ -132,17 +132,17 @@ export interface UpdateMarginAccount extends MarginAccount {
  * Per stream we can have several potential websockets
  */
 export interface WebsocketClientConfig {
-  chainId: number;
-  streamName: string; //chainId & name must be unique
-  type: string; // source used by the underlying price service, usually "pyth"
-  tickers: string[]; // tickers that we can get from all endpoints below
-  feedIds: Array<[string, string]>; //tickername tickerid
-  httpEndpoints: string[]; // array of endpoints of the form "http://<ip>:<port>"
-  wsEndpoints: string[]; // array of endpoints of the form "ws://<ip>:<port>"
+	chainId: number;
+	streamName: string; //chainId & name must be unique
+	type: string; // source used by the underlying price service, usually "pyth"
+	tickers: string[]; // tickers that we can get from all endpoints below
+	feedIds: Array<[string, string]>; //tickername tickerid
+	httpEndpoints: string[]; // array of endpoints of the form "http://<ip>:<port>"
+	wsEndpoints: string[]; // array of endpoints of the form "ws://<ip>:<port>"
 }
 
 export interface RPCConfig {
-  chainId: number;
-  HTTP: string[];
-  WS: string[];
+	chainId: number;
+	HTTP: string[];
+	WS: string[];
 }
