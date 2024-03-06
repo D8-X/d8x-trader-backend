@@ -59,7 +59,8 @@ export interface Trade {
 	symbol: string;
 	traderAddr: string;
 	// each position has a unique id
-	positionId: string;
+	// positionId: string;
+
 	// each order has a unique id
 	orderId: string;
 	// position size in base currency
