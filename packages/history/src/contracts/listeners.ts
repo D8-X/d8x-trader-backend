@@ -165,7 +165,6 @@ export class EventListener {
 						perpetualId: perpetualId,
 						liquidator: liquidator,
 						trader: trader,
-						positionId: positionId,
 						amountLiquidatedBC: amountLiquidatedBC,
 						liquidationPrice: liquidationPrice,
 						newPositionSizeBC: newPositionSizeBC,
