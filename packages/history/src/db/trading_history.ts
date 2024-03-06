@@ -1,5 +1,5 @@
 import { PrismaClient, Trade, trade_side, Prisma } from "@prisma/client";
-import { BigNumberish, Numeric, Result } from "ethers";
+import { BigNumberish, Numeric, Result, keccak256 } from "ethers";
 import { TradeEvent } from "../contracts/types";
 import { Logger } from "winston";
 import { LiquidateEvent } from "../contracts/types";
@@ -131,10 +131,11 @@ export class TradingHistory {
 	}
 
 	private _createLiquidationId(event: LiquidateEvent, blockNumber: number): string {
-		return (
-			event.positionId +
-			blockNumber.toString() +
-			event.newPositionSizeBC.toString().slice(-2)
+		return keccak256(
+			event.trader +
+				event.perpetualId.toString() +
+				blockNumber.toString() +
+				event.newPositionSizeBC.toString().slice(-2),
 		);
 	}
 
