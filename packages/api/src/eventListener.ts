@@ -604,14 +604,10 @@ export default class EventListener extends IndexPriceInterface {
 			(
 				perpetualId: number,
 				trader: string,
-				positionId: string,
 				order: SmartContractOrder,
 				orderDigest: string,
 				newPositionSizeBC: BigNumber,
 				price: BigNumber,
-				fFeeCC: BigNumber,
-				fPnlCC: BigNumber,
-				fB2C: BigNumber,
 			) => {
 				/**
      *  event Trade(
@@ -631,13 +627,10 @@ export default class EventListener extends IndexPriceInterface {
 				this.onTrade(
 					perpetualId,
 					trader,
-					positionId,
 					order,
 					orderDigest,
 					newPositionSizeBC,
 					price,
-					fFeeCC,
-					fPnlCC,
 				);
 			},
 		);
@@ -967,13 +960,10 @@ export default class EventListener extends IndexPriceInterface {
 	private onTrade(
 		perpetualId: number,
 		trader: string,
-		positionId: string,
 		order: SmartContractOrder,
 		orderDigest: string,
 		newPositionSizeBC: BigNumber,
 		price: BigNumber,
-		fFeeCC: BigNumber,
-		fPnlCC: BigNumber,
 	) {
 		const isMarketOrder = this.containsFlag(
 			BigNumber.from(order.flags),
@@ -1001,7 +991,6 @@ export default class EventListener extends IndexPriceInterface {
 			symbol: symbol,
 			perpetualId: perpetualId,
 			traderAddr: trader,
-			positionId: positionId,
 			orderId: orderDigest,
 			newPositionSizeBC: ABK64x64ToFloat(newPositionSizeBC),
 			executionPrice: ABK64x64ToFloat(price),
