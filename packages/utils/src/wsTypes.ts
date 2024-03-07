@@ -130,19 +130,19 @@ export interface UpdateMarginAccount extends MarginAccount {
  * frontend. Frontend collects most of the additional data it needs.
  */
 export interface UpdateMarginAccountTrimmed {
-	// id of the perpetual
-	perpetualId: number;
-	// perpetual symbol
-	symbol: string;
-	// address of the trader
+	// address of the trader - the only required field
 	traderAddr: string;
+	// id of the perpetual
+	perpetualId?: number;
+	// perpetual symbol
+	symbol?: string;
 	// funding payment paid when
 	// margin account was changed
-	fundingPaymentCC: number;
+	fundingPaymentCC?: number;
 
-	markPrice: number;
-	unrealizedFundingCollateralCCY: number;
-	collToQuoteConversion: number;
+	markPrice?: number;
+	unrealizedFundingCollateralCCY?: number;
+	collToQuoteConversion?: number;
 }
 
 /**
