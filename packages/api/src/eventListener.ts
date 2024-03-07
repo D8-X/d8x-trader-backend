@@ -674,41 +674,19 @@ export default class EventListener extends IndexPriceInterface {
 	}
 
 	/**
-	 * This function is async
-	 * We store open interest locally and send it with other events to the price subscriber
+	 * Relay the MarginAccount event to the websocket subscribers. Only trader
+	 * address is needed for frontend clients.
 	 * @param perpetualId id of the perpetual
 	 * @param trader trader address
-	 * @param positionId position id
-	 * @param fPositionBC position size in base currency
-	 * @param fCashCC margin collateral in margin account
-	 * @param fLockedInValueQC pos*average opening price
 	 * @param fFundingPaymentCC funding payment made
-	 * @param fOpenInterestBC open interest
 	 */
 	public async onUpdateMarginAccount(
 		perpetualId: number,
 		trader: string,
 		fFundingPaymentCC: BigNumber,
 	): Promise<void> {
-		const symbol = this.symbolFromPerpetualId(perpetualId);
-		const state =
-			await this.sdkInterface!.extractPerpetualStateFromExchangeInfo(symbol);
-		this.lastBlockChainEventTs = Date.now();
-
-		// Set the open interest from perpetual state, since it is not being
-		// sent via event anymore
-		this.openInterest.set(perpetualId, state.openInterestBC);
-
 		const obj: UpdateMarginAccountTrimmed = {
-			// positionRisk
-			symbol: symbol,
-			markPrice: state.markPrice,
-			unrealizedFundingCollateralCCY: 0,
-			collToQuoteConversion: state.collToQuoteIndexPrice,
-			// extra info
-			perpetualId: perpetualId,
 			traderAddr: trader,
-			fundingPaymentCC: ABK64x64ToFloat(fFundingPaymentCC),
 		};
 		// send data to subscriber
 		const wsMsg: WSMsg = { name: "UpdateMarginAccount", obj: obj };
