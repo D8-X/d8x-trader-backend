@@ -34,10 +34,11 @@ import {
 	PriceUpdate,
 	Trade,
 	UpdateMarginAccount,
+	UpdateMarginAccountTrimmed,
 	WSMsg,
 } from "utils/src/wsTypes";
 import SturdyWebSocket from "sturdy-websocket";
-import { Logger } from "winston";
+import { log, Logger } from "winston";
 
 /**
  * Class that listens to blockchain events on
@@ -554,36 +555,13 @@ export default class EventListener extends IndexPriceInterface {
         event UpdateMarginAccount(
             uint24 indexed perpetualId,
             address indexed trader,
-            bytes16 indexed positionId,
-            int128 fPositionBC,
-            int128 fCashCC,
-            int128 fLockedInValueQC,
             int128 fFundingPaymentCC,
-            int128 fOpenInterestBC
         );
     */
 		proxyContract.on(
 			"UpdateMarginAccount",
-			(
-				perpetualId: number,
-				trader: string,
-				positionId: string,
-				fPositionBC: BigNumber,
-				fCashCC: BigNumber,
-				fLockedInValueQC: BigNumber,
-				fFundingPaymentCC: BigNumber,
-				fOpenInterestBC: BigNumber,
-			) => {
-				this.onUpdateMarginAccount(
-					perpetualId,
-					trader,
-					positionId,
-					fPositionBC,
-					fCashCC,
-					fLockedInValueQC,
-					fFundingPaymentCC,
-					fOpenInterestBC,
-				);
+			(perpetualId: number, trader: string, fFundingPaymentCC: BigNumber) => {
+				this.onUpdateMarginAccount(perpetualId, trader, fFundingPaymentCC);
 			},
 		);
 		proxyContract.on(
@@ -710,82 +688,26 @@ export default class EventListener extends IndexPriceInterface {
 	public async onUpdateMarginAccount(
 		perpetualId: number,
 		trader: string,
-		positionId: string,
-		fPositionBC: BigNumber,
-		fCashCC: BigNumber,
-		fLockedInValueQC: BigNumber,
 		fFundingPaymentCC: BigNumber,
-		fOpenInterestBC: BigNumber,
 	): Promise<void> {
-		this.lastBlockChainEventTs = Date.now();
-		this.openInterest.set(perpetualId, ABK64x64ToFloat(fOpenInterestBC));
-
 		const symbol = this.symbolFromPerpetualId(perpetualId);
 		const state =
 			await this.sdkInterface!.extractPerpetualStateFromExchangeInfo(symbol);
-		const info = <PerpetualStaticInfo>(
-			JSON.parse(this.sdkInterface!.perpetualStaticInfo(symbol))
-		);
-		// margin account
-		const posBC = ABK64x64ToFloat(fPositionBC);
-		const lockedInQC = ABK64x64ToFloat(fLockedInValueQC);
-		const cashCC = ABK64x64ToFloat(fCashCC);
-		const lvg = getNewPositionLeverage(
-			0,
-			cashCC,
-			posBC,
-			lockedInQC,
-			state.indexPrice,
-			state.collToQuoteIndexPrice,
-			state.markPrice,
-		);
-		let S2Liq, S3Liq;
-		if (info.collateralCurrencyType == COLLATERAL_CURRENCY_BASE) {
-			S2Liq = calculateLiquidationPriceCollateralBase(
-				lockedInQC,
-				posBC,
-				cashCC,
-				info.maintenanceMarginRate,
-			);
-			S3Liq = S2Liq;
-		} else if (info.collateralCurrencyType == COLLATERAL_CURRENCY_QUOTE) {
-			S2Liq = calculateLiquidationPriceCollateralQuote(
-				lockedInQC,
-				posBC,
-				cashCC,
-				info.maintenanceMarginRate,
-			);
-			S3Liq = state.collToQuoteIndexPrice;
-		} else {
-			S2Liq = calculateLiquidationPriceCollateralQuanto(
-				lockedInQC,
-				posBC,
-				cashCC,
-				info.maintenanceMarginRate,
-				state.collToQuoteIndexPrice,
-				state.markPrice,
-			);
-			S3Liq = S2Liq;
-		}
+		this.lastBlockChainEventTs = Date.now();
 
-		const obj: UpdateMarginAccount = {
+		// Set the open interest from perpetual state, since it is not being
+		// sent via event anymore
+		this.openInterest.set(perpetualId, state.openInterestBC);
+
+		const obj: UpdateMarginAccountTrimmed = {
 			// positionRisk
 			symbol: symbol,
-			positionNotionalBaseCCY: Math.abs(posBC),
-			side: posBC > 0 ? BUY_SIDE : posBC < 0 ? SELL_SIDE : CLOSED_SIDE,
-			entryPrice: posBC == 0 ? 0 : Math.abs(lockedInQC / posBC),
-			leverage: lvg,
 			markPrice: state.markPrice,
-			unrealizedPnlQuoteCCY: posBC * state.markPrice - lockedInQC,
 			unrealizedFundingCollateralCCY: 0,
-			collateralCC: cashCC,
-			liquidationPrice: [S2Liq, S3Liq],
-			liquidationLvg: posBC == 0 ? 0 : 1 / info.maintenanceMarginRate,
 			collToQuoteConversion: state.collToQuoteIndexPrice,
 			// extra info
 			perpetualId: perpetualId,
 			traderAddr: trader,
-			positionId: positionId,
 			fundingPaymentCC: ABK64x64ToFloat(fFundingPaymentCC),
 		};
 		// send data to subscriber

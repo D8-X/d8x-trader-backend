@@ -126,6 +126,26 @@ export interface UpdateMarginAccount extends MarginAccount {
 }
 
 /**
+ * Trimmed down version of UpdateMarginAccount for relaying the event to
+ * frontend. Frontend collects most of the additional data it needs.
+ */
+export interface UpdateMarginAccountTrimmed {
+	// id of the perpetual
+	perpetualId: number;
+	// perpetual symbol
+	symbol: string;
+	// address of the trader
+	traderAddr: string;
+	// funding payment paid when
+	// margin account was changed
+	fundingPaymentCC: number;
+
+	markPrice: number;
+	unrealizedFundingCollateralCCY: number;
+	collToQuoteConversion: number;
+}
+
+/**
  * Interface for websocket client to stream
  * oracle price data to this backend
  * The application will stream WebsocketClientConfig[]
