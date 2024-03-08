@@ -38,7 +38,7 @@ import {
 	WSMsg,
 } from "utils/src/wsTypes";
 import SturdyWebSocket from "sturdy-websocket";
-import { log, Logger } from "winston";
+import { Logger } from "winston";
 
 /**
  * Class that listens to blockchain events on
