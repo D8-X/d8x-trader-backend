@@ -1,4 +1,4 @@
 {
 	"pythAPIEndpoint": "https://benchmarks.pyth.network/",
-	"priceServiceWSEndpoints": ["wss://hermes.pyth.network/ws"]
+	"priceServiceWSEndpoints": ["wss://hermes-beta.pyth.network/ws"]
 }
