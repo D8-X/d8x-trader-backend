@@ -449,4 +449,22 @@ export default class SDKInterface extends Observable {
 			},
 		});
 	}
+
+	public async findPerpetualById(
+		perpetualId: number,
+	): Promise<PerpetualState | undefined> {
+		const ei = await this.exchangeInfo();
+		const info = <ExchangeInfo>JSON.parse(ei);
+
+		let perp: PerpetualState | undefined = undefined;
+		info.pools.forEach((pool) => {
+			pool.perpetuals.forEach((p) => {
+				if (p.id === perpetualId) {
+					perp = p;
+				}
+			});
+		});
+
+		return perp;
+	}
 }

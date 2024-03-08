@@ -59,7 +59,8 @@ export interface Trade {
 	symbol: string;
 	traderAddr: string;
 	// each position has a unique id
-	positionId: string;
+	// positionId: string;
+
 	// each order has a unique id
 	orderId: string;
 	// position size in base currency
@@ -122,6 +123,26 @@ export interface UpdateMarginAccount extends MarginAccount {
 	// funding payment paid when
 	// margin account was changed
 	fundingPaymentCC: number;
+}
+
+/**
+ * Trimmed down version of UpdateMarginAccount for relaying the event to
+ * frontend. Frontend collects most of the additional data it needs.
+ */
+export interface UpdateMarginAccountTrimmed {
+	// address of the trader - the only required field
+	traderAddr: string;
+	// id of the perpetual
+	perpetualId?: number;
+	// perpetual symbol
+	symbol?: string;
+	// funding payment paid when
+	// margin account was changed
+	fundingPaymentCC?: number;
+
+	markPrice?: number;
+	unrealizedFundingCollateralCCY?: number;
+	collToQuoteConversion?: number;
 }
 
 /**

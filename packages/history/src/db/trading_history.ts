@@ -1,9 +1,10 @@
 import { PrismaClient, Trade, trade_side, Prisma } from "@prisma/client";
-import { BigNumberish, Numeric, Result } from "ethers";
+import { BigNumberish, Numeric, Result, keccak256 } from "ethers";
 import { TradeEvent } from "../contracts/types";
 import { Logger } from "winston";
 import { LiquidateEvent } from "../contracts/types";
 import { ONE_64x64, ABK64x64ToFloat } from "utils";
+import { createHash } from "crypto";
 
 type TradeHistoryEvent = TradeEvent | LiquidateEvent;
 
@@ -131,11 +132,14 @@ export class TradingHistory {
 	}
 
 	private _createLiquidationId(event: LiquidateEvent, blockNumber: number): string {
-		return (
-			event.positionId +
+		const H = createHash("sha256");
+		const compositeIdString =
+			event.trader +
+			event.perpetualId.toString() +
 			blockNumber.toString() +
-			event.newPositionSizeBC.toString().slice(-2)
-		);
+			event.newPositionSizeBC.toString().slice(-2);
+		H.update(compositeIdString);
+		return H.digest("hex");
 	}
 
 	/**

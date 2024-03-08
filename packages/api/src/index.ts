@@ -94,6 +94,7 @@ async function start() {
 			);
 			isSuccess = true;
 		} catch (error) {
+			logger.error("initializing d8xBackend", { error });
 			await sleep(1000);
 			if (count > 10) {
 				throw error;
