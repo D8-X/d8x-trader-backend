@@ -685,6 +685,12 @@ export default class EventListener extends IndexPriceInterface {
 		trader: string,
 		fFundingPaymentCC: BigNumber,
 	): Promise<void> {
+		// Set the open interest from exchange info (1 min delay at max)
+		const symbol = this.symbolFromPerpetualId(perpetualId);
+		const state =
+			await this.sdkInterface!.extractPerpetualStateFromExchangeInfo(symbol);
+		this.openInterest.set(perpetualId, state.openInterestBC);
+
 		const obj: UpdateMarginAccountTrimmed = {
 			traderAddr: trader,
 		};
@@ -695,7 +701,9 @@ export default class EventListener extends IndexPriceInterface {
 			"",
 			wsMsg,
 		);
-		// send to subscribers of trader/perpetual
+
+		this.logger.info("received UpdateMarginAccount", { perpetualId, trader });
+
 		this.sendToSubscribers(perpetualId, jsonMsg, trader);
 	}
 
