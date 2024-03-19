@@ -151,7 +151,6 @@ export class EventListener {
 				perpetualId: number,
 				liquidator: string,
 				trader: string,
-				positionId: string,
 				amountLiquidatedBC: bigint,
 				liquidationPrice: bigint,
 				newPositionSizeBC: bigint,
@@ -184,18 +183,12 @@ export class EventListener {
 			(
 				perpetualId: number,
 				trader: string,
-				positionId: string,
-				fPositionBC: bigint,
-				fCashCC: bigint,
-				fLockedInValueQC: bigint,
 				fFundingPaymentCC: bigint,
-				fOpenInterestBC: bigint,
 				event: ethers.ContractEventPayload,
 			) => {
 				this.l.info("got update margin account event", {
 					perpetualId,
 					trader,
-					positionId,
 				});
 				this.onUpdateMarginAccount(
 					{
