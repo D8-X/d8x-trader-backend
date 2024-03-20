@@ -587,21 +587,6 @@ export default class EventListener extends IndexPriceInterface {
 				newPositionSizeBC: BigNumber,
 				price: BigNumber,
 			) => {
-				/**
-     *  event Trade(
-        uint24 indexed perpetualId,
-        address indexed trader,
-        bytes16 indexed positionId,
-        IPerpetualOrder.Order order,
-        bytes32 orderDigest,
-        int128 newPositionSizeBC,
-        int128 price,
-        int128 fFeeCC,
-        int128 fPnlCC,
-        int128 fB2C
-    );
-    );
-     */
 				this.onTrade(
 					perpetualId,
 					trader,
@@ -739,7 +724,6 @@ export default class EventListener extends IndexPriceInterface {
 			// extra info
 			perpetualId: perpetualId,
 			traderAddr: trader,
-			positionId: "", // not used in the front-end
 			fundingPaymentCC: 0,
 		};
 		// send data to subscriber
@@ -859,7 +843,6 @@ export default class EventListener extends IndexPriceInterface {
 	/**
 	 * @param perpetualId perpetual id
 	 * @param trader trader address
-	 * @param positionId position id
 	 * @param order order struct
 	 * @param orderDigest order id
 	 * @param newPositionSizeBC new pos size in base currency ABDK
