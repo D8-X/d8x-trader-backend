@@ -114,7 +114,6 @@ export class EventListener {
 			(
 				perpetualId: number,
 				trader: string,
-				positionId: string,
 				order: Order,
 				orderDigest: string,
 				newPositionSizeBC: bigint,
@@ -130,7 +129,6 @@ export class EventListener {
 					{
 						perpetualId: perpetualId,
 						trader: trader,
-						positionId: positionId,
 						order: order,
 						orderDigest: orderDigest,
 						newPositionSizeBC: newPositionSizeBC,
@@ -153,7 +151,6 @@ export class EventListener {
 				perpetualId: number,
 				liquidator: string,
 				trader: string,
-				positionId: string,
 				amountLiquidatedBC: bigint,
 				liquidationPrice: bigint,
 				newPositionSizeBC: bigint,
@@ -167,7 +164,6 @@ export class EventListener {
 						perpetualId: perpetualId,
 						liquidator: liquidator,
 						trader: trader,
-						positionId: positionId,
 						amountLiquidatedBC: amountLiquidatedBC,
 						liquidationPrice: liquidationPrice,
 						newPositionSizeBC: newPositionSizeBC,
@@ -187,29 +183,18 @@ export class EventListener {
 			(
 				perpetualId: number,
 				trader: string,
-				positionId: string,
-				fPositionBC: bigint,
-				fCashCC: bigint,
-				fLockedInValueQC: bigint,
 				fFundingPaymentCC: bigint,
-				fOpenInterestBC: bigint,
 				event: ethers.ContractEventPayload,
 			) => {
 				this.l.info("got update margin account event", {
 					perpetualId,
 					trader,
-					positionId,
 				});
 				this.onUpdateMarginAccount(
 					{
 						perpetualId: perpetualId,
 						trader: trader,
-						positionId: positionId,
-						fPositionBC: fPositionBC,
-						fCashCC: fCashCC,
-						fLockedInValueQC: fLockedInValueQC,
 						fFundingPaymentCC: fFundingPaymentCC,
-						fOpenInterestBC: fOpenInterestBC,
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
