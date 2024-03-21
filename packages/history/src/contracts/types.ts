@@ -11,7 +11,6 @@ export type EventCallback<Event, Params = any> = (
 export interface TradeEvent {
 	perpetualId: number;
 	trader: string;
-	positionId: string;
 	order: Order;
 	orderDigest: string;
 	newPositionSizeBC: bigint;
@@ -45,7 +44,6 @@ export interface LiquidateEvent {
 	perpetualId: number; //unique perpetual id
 	liquidator: string;
 	trader: string;
-	positionId: string;
 	amountLiquidatedBC: bigint; //amount liquidated in base currency, ABDK
 	liquidationPrice: bigint; //liquidation price in quote currency, ABDK
 	newPositionSizeBC: bigint; //size after liq in base currency, ABDK
@@ -58,12 +56,7 @@ export type LiquidationsFilteredCb = EventCallback<LiquidateEvent>;
 export interface UpdateMarginAccountEvent {
 	perpetualId: number;
 	trader: string;
-	positionId: string;
-	fPositionBC: bigint;
-	fCashCC: bigint;
-	fLockedInValueQC: bigint;
 	fFundingPaymentCC: bigint;
-	fOpenInterestBC: bigint;
 }
 
 export type UpdateMarginAccountFilteredCb = EventCallback<UpdateMarginAccountEvent>;

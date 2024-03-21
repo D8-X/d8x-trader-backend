@@ -34,6 +34,7 @@ import {
 	PriceUpdate,
 	Trade,
 	UpdateMarginAccount,
+	UpdateMarginAccountTrimmed,
 	WSMsg,
 } from "utils/src/wsTypes";
 import SturdyWebSocket from "sturdy-websocket";
@@ -554,36 +555,13 @@ export default class EventListener extends IndexPriceInterface {
         event UpdateMarginAccount(
             uint24 indexed perpetualId,
             address indexed trader,
-            bytes16 indexed positionId,
-            int128 fPositionBC,
-            int128 fCashCC,
-            int128 fLockedInValueQC,
             int128 fFundingPaymentCC,
-            int128 fOpenInterestBC
         );
     */
 		proxyContract.on(
 			"UpdateMarginAccount",
-			(
-				perpetualId: number,
-				trader: string,
-				positionId: string,
-				fPositionBC: BigNumber,
-				fCashCC: BigNumber,
-				fLockedInValueQC: BigNumber,
-				fFundingPaymentCC: BigNumber,
-				fOpenInterestBC: BigNumber,
-			) => {
-				this.onUpdateMarginAccount(
-					perpetualId,
-					trader,
-					positionId,
-					fPositionBC,
-					fCashCC,
-					fLockedInValueQC,
-					fFundingPaymentCC,
-					fOpenInterestBC,
-				);
+			(perpetualId: number, trader: string, fFundingPaymentCC: BigNumber) => {
+				this.onUpdateMarginAccount(perpetualId, trader, fFundingPaymentCC);
 			},
 		);
 		proxyContract.on(
@@ -604,40 +582,18 @@ export default class EventListener extends IndexPriceInterface {
 			(
 				perpetualId: number,
 				trader: string,
-				positionId: string,
 				order: SmartContractOrder,
 				orderDigest: string,
 				newPositionSizeBC: BigNumber,
 				price: BigNumber,
-				fFeeCC: BigNumber,
-				fPnlCC: BigNumber,
-				fB2C: BigNumber,
 			) => {
-				/**
-     *  event Trade(
-        uint24 indexed perpetualId,
-        address indexed trader,
-        bytes16 indexed positionId,
-        IPerpetualOrder.Order order,
-        bytes32 orderDigest,
-        int128 newPositionSizeBC,
-        int128 price,
-        int128 fFeeCC,
-        int128 fPnlCC,
-        int128 fB2C
-    );
-    );
-     */
 				this.onTrade(
 					perpetualId,
 					trader,
-					positionId,
 					order,
 					orderDigest,
 					newPositionSizeBC,
 					price,
-					fFeeCC,
-					fPnlCC,
 				);
 			},
 		);
@@ -703,97 +659,25 @@ export default class EventListener extends IndexPriceInterface {
 	}
 
 	/**
-	 * This function is async
-	 * We store open interest locally and send it with other events to the price subscriber
+	 * Relay the MarginAccount event to the websocket subscribers. Only trader
+	 * address is needed for frontend clients.
 	 * @param perpetualId id of the perpetual
 	 * @param trader trader address
-	 * @param positionId position id
-	 * @param fPositionBC position size in base currency
-	 * @param fCashCC margin collateral in margin account
-	 * @param fLockedInValueQC pos*average opening price
 	 * @param fFundingPaymentCC funding payment made
-	 * @param fOpenInterestBC open interest
 	 */
 	public async onUpdateMarginAccount(
 		perpetualId: number,
 		trader: string,
-		positionId: string,
-		fPositionBC: BigNumber,
-		fCashCC: BigNumber,
-		fLockedInValueQC: BigNumber,
 		fFundingPaymentCC: BigNumber,
-		fOpenInterestBC: BigNumber,
 	): Promise<void> {
-		this.lastBlockChainEventTs = Date.now();
-		this.openInterest.set(perpetualId, ABK64x64ToFloat(fOpenInterestBC));
-
+		// Set the open interest from exchange info (1 min delay at max)
 		const symbol = this.symbolFromPerpetualId(perpetualId);
 		const state =
 			await this.sdkInterface!.extractPerpetualStateFromExchangeInfo(symbol);
-		const info = <PerpetualStaticInfo>(
-			JSON.parse(this.sdkInterface!.perpetualStaticInfo(symbol))
-		);
-		// margin account
-		const posBC = ABK64x64ToFloat(fPositionBC);
-		const lockedInQC = ABK64x64ToFloat(fLockedInValueQC);
-		const cashCC = ABK64x64ToFloat(fCashCC);
-		const lvg = getNewPositionLeverage(
-			0,
-			cashCC,
-			posBC,
-			lockedInQC,
-			state.indexPrice,
-			state.collToQuoteIndexPrice,
-			state.markPrice,
-		);
-		let S2Liq, S3Liq;
-		if (info.collateralCurrencyType == COLLATERAL_CURRENCY_BASE) {
-			S2Liq = calculateLiquidationPriceCollateralBase(
-				lockedInQC,
-				posBC,
-				cashCC,
-				info.maintenanceMarginRate,
-			);
-			S3Liq = S2Liq;
-		} else if (info.collateralCurrencyType == COLLATERAL_CURRENCY_QUOTE) {
-			S2Liq = calculateLiquidationPriceCollateralQuote(
-				lockedInQC,
-				posBC,
-				cashCC,
-				info.maintenanceMarginRate,
-			);
-			S3Liq = state.collToQuoteIndexPrice;
-		} else {
-			S2Liq = calculateLiquidationPriceCollateralQuanto(
-				lockedInQC,
-				posBC,
-				cashCC,
-				info.maintenanceMarginRate,
-				state.collToQuoteIndexPrice,
-				state.markPrice,
-			);
-			S3Liq = S2Liq;
-		}
+		this.openInterest.set(perpetualId, state.openInterestBC);
 
-		const obj: UpdateMarginAccount = {
-			// positionRisk
-			symbol: symbol,
-			positionNotionalBaseCCY: Math.abs(posBC),
-			side: posBC > 0 ? BUY_SIDE : posBC < 0 ? SELL_SIDE : CLOSED_SIDE,
-			entryPrice: posBC == 0 ? 0 : Math.abs(lockedInQC / posBC),
-			leverage: lvg,
-			markPrice: state.markPrice,
-			unrealizedPnlQuoteCCY: posBC * state.markPrice - lockedInQC,
-			unrealizedFundingCollateralCCY: 0,
-			collateralCC: cashCC,
-			liquidationPrice: [S2Liq, S3Liq],
-			liquidationLvg: posBC == 0 ? 0 : 1 / info.maintenanceMarginRate,
-			collToQuoteConversion: state.collToQuoteIndexPrice,
-			// extra info
-			perpetualId: perpetualId,
+		const obj: UpdateMarginAccountTrimmed = {
 			traderAddr: trader,
-			positionId: positionId,
-			fundingPaymentCC: ABK64x64ToFloat(fFundingPaymentCC),
 		};
 		// send data to subscriber
 		const wsMsg: WSMsg = { name: "UpdateMarginAccount", obj: obj };
@@ -802,7 +686,9 @@ export default class EventListener extends IndexPriceInterface {
 			"",
 			wsMsg,
 		);
-		// send to subscribers of trader/perpetual
+
+		this.logger.info("received UpdateMarginAccount", { perpetualId, trader });
+
 		this.sendToSubscribers(perpetualId, jsonMsg, trader);
 	}
 
@@ -838,7 +724,6 @@ export default class EventListener extends IndexPriceInterface {
 			// extra info
 			perpetualId: perpetualId,
 			traderAddr: trader,
-			positionId: "", // not used in the front-end
 			fundingPaymentCC: 0,
 		};
 		// send data to subscriber
@@ -958,7 +843,6 @@ export default class EventListener extends IndexPriceInterface {
 	/**
 	 * @param perpetualId perpetual id
 	 * @param trader trader address
-	 * @param positionId position id
 	 * @param order order struct
 	 * @param orderDigest order id
 	 * @param newPositionSizeBC new pos size in base currency ABDK
@@ -967,13 +851,10 @@ export default class EventListener extends IndexPriceInterface {
 	private onTrade(
 		perpetualId: number,
 		trader: string,
-		positionId: string,
 		order: SmartContractOrder,
 		orderDigest: string,
 		newPositionSizeBC: BigNumber,
 		price: BigNumber,
-		fFeeCC: BigNumber,
-		fPnlCC: BigNumber,
 	) {
 		const isMarketOrder = this.containsFlag(
 			BigNumber.from(order.flags),
@@ -1001,7 +882,6 @@ export default class EventListener extends IndexPriceInterface {
 			symbol: symbol,
 			perpetualId: perpetualId,
 			traderAddr: trader,
-			positionId: positionId,
 			orderId: orderDigest,
 			newPositionSizeBC: ABK64x64ToFloat(newPositionSizeBC),
 			executionPrice: ABK64x64ToFloat(price),
