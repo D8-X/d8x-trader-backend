@@ -25,7 +25,7 @@
 	},
 	"homepage": "https://github.com/D8-X/d8x-trader-backend#readme",
 	"dependencies": {
-		"@d8x/perpetuals-sdk": "^1.1.14",
+		"@d8x/perpetuals-sdk": "^1.1.15",
 		"@prisma/client": "^5.1.1",
 		"@redis/time-series": "^1.0.5",
 		"cron-parser": "^4.8.1",
