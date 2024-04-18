@@ -89,7 +89,7 @@ async function start() {
 			logger.info(`RPC (WS)   = ${wsRPC}`);
 			await executeWithTimeout(
 				d8XBackend.initialize(sdkConfig, rpcManagerHttp, wsRPC),
-				160_000,
+				(count + 1) * 160_000,
 				"initialize timeout",
 			);
 			isSuccess = true;
