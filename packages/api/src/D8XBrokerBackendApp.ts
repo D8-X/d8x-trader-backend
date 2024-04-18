@@ -3,7 +3,7 @@ import WebSocket, { WebSocketServer } from "ws";
 import { IncomingMessage } from "http";
 import dotenv from "dotenv";
 import SDKInterface from "./sdkInterface";
-import { extractErrorMsg } from "utils";
+import { extractErrorMsg, isValidAddress,isValidPerpSymbol } from "utils";
 import { Order, PerpetualState, NodeSDKConfig, MarginAccount } from "@d8x/perpetuals-sdk";
 import EventListener from "./eventListener";
 import BrokerIntegration from "./brokerIntegration";
@@ -137,7 +137,9 @@ export default class D8XBrokerBackendApp {
 							//type = subscription
 							if (
 								typeof obj.traderAddr != "string" ||
-								typeof obj.symbol != "string"
+								typeof obj.symbol != "string" ||
+								!isValidAddress(obj.traderAddr) ||
+								!isValidPerpSymbol(obj.symbol)
 							) {
 								throw new Error(
 									"wrong arguments. Requires traderAddr and symbol",

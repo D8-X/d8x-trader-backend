@@ -69,6 +69,11 @@ export function isValidAddress(addr: string): boolean {
 	return /^(0x){1}([a-f]|[A-F]|[0-9]){40}/.test(addr);
 }
 
+export function isValidPerpSymbol(input: string): boolean {
+	const regex = /^[a-zA-Z]+-[a-zA-Z]+-[a-zA-Z]+$/;
+	return regex.test(input);
+}
+
 export function cronParserCheckExpression(pattern: string): boolean {
 	const splitPattern = pattern.split("-");
 	if (splitPattern.length != 4) {
