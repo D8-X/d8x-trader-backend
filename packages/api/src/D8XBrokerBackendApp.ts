@@ -214,9 +214,11 @@ export default class D8XBrokerBackendApp {
 				const rsp = await this.sdk.exchangeInfo();
 				res.send(D8XBrokerBackendApp.JSONResponse("exchange-info", "", rsp));
 			} catch (err: any) {
+				console.log("Error in /exchange-info")
+				console.log(err);
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "exchange-info", {
-						error: extractErrorMsg(err),
+						error: "exchange info failed",
 					}),
 				);
 			}
@@ -230,8 +232,9 @@ export default class D8XBrokerBackendApp {
 				let addr: string;
 				let symbol: string | undefined;
 				if (
-					typeof req.query.traderAddr != "string" ||
-					(req.query.symbol != undefined && typeof req.query.symbol != "string")
+					typeof req.query.traderAddr != "string" || !isValidAddress(req.query.traderAddr) ||
+					(req.query.symbol != undefined && typeof req.query.symbol != "string") ||
+					(req.query.symbol!=undefined && !isValidPerpSymbol(req.query.symbol))
 				) {
 					throw new Error("wrong arguments. Requires traderAddr and symbol");
 				} else {
@@ -242,9 +245,11 @@ export default class D8XBrokerBackendApp {
 				res.send(D8XBrokerBackendApp.JSONResponse("open-orders", "", rsp));
 			} catch (err: any) {
 				const usg = "open-orders?traderAddr=0xCafee&symbol=BTC-USD-MATIC";
+				console.log("error open-orders");
+				console.log(err);
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "open-orders", {
-						error: extractErrorMsg(err),
+						error: "error for open-orders",
 						usage: usg,
 					}),
 				);
@@ -272,9 +277,10 @@ export default class D8XBrokerBackendApp {
 				}
 			} catch (err: any) {
 				const usg = "trading-fee?traderAddr=0xCafee&poolSymbol=MATIC";
+				console.log("error trading-fee", extractErrorMsg(err));
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "trading-fee", {
-						error: extractErrorMsg(err),
+						error: "error for trading-fee",
 						usage: usg,
 					}),
 				);
@@ -302,9 +308,10 @@ export default class D8XBrokerBackendApp {
 				}
 			} catch (err: any) {
 				const usg = "position-risk?traderAddr=0xCafee&symbol=MATIC-USD-MATIC";
+				console.log("error for position-risk:", extractErrorMsg(err))
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "position-risk", {
-						error: extractErrorMsg(err),
+						error: "error for position risk",
 						usage: usg,
 					}),
 				);
