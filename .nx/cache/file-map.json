@@ -3,11 +3,15 @@
   "nxVersion": "18.3.1",
   "deps": {
     "@d8x/perpetuals-sdk": "^1.1.19",
-    "axios": "1.6.0",
+    "axios": "^1.6.0",
     "body-parser": "1.20.1",
     "cors": "^2.8.5",
     "dotenv": "16.0.3",
-    "express": "4.19.2",
+    "express": "^4.19.2",
+    "follow-redirects": "^1.15.6",
+    "ip": "^2.0.1",
+    "semver": "^7.5.2",
+    "tar": "^6.2.1",
     "tslib": "^2.5.0",
     "ws": "8.12.0",
     "@types/cors": "^2.8.13",
@@ -32,234 +36,127 @@
   "fileMap": {
     "nonProjectFiles": [
       {
-        "file": ".dockerignore",
-        "hash": "9397456632868551781"
-      },
-      {
-        "file": ".envExample",
-        "hash": "12835313901717395075"
-      },
-      {
-        "file": ".eslintrc.json",
-        "hash": "2147955411260809767"
-      },
-      {
-        "file": ".github/CODEOWNERS",
-        "hash": "15375959774674935850"
+        "file": "docs/Backend.drawio.xml",
+        "hash": "13706896146071993657"
       },
       {
         "file": ".github/workflows/build-images.yml",
         "hash": "11764715379342166642"
       },
       {
-        "file": ".gitignore",
-        "hash": "12181201162189926710"
-      },
-      {
-        "file": ".husky/pre-commit",
-        "hash": "16022652953160474944"
-      },
-      {
-        "file": ".lintstagedrc.json",
-        "hash": "1089767009447965920"
-      },
-      {
-        "file": ".prettierrc",
-        "hash": "7365023934432409257"
-      },
-      {
-        "file": "CHANGELOG.md",
-        "hash": "3024519230283194328"
-      },
-      {
         "file": "LICENSE",
         "hash": "5692176878583686371"
       },
       {
-        "file": "README.md",
-        "hash": "16978482943587541794"
-      },
-      {
-        "file": "config/example.rpc.json",
-        "hash": "5860004028018167727"
-      },
-      {
-        "file": "config/prices.config.json",
-        "hash": "18315706452844264756"
-      },
-      {
-        "file": "docker-compose-all.yml",
-        "hash": "10269112764276168858"
+        "file": ".gitignore",
+        "hash": "16222900327562298991"
       },
       {
         "file": "docker-compose-prod.yml",
         "hash": "6413536209850301136"
       },
       {
-        "file": "docker-compose.yml",
-        "hash": "11235638584024050345"
+        "file": "config/example.rpc.json",
+        "hash": "5860004028018167727"
       },
       {
-        "file": "docker-stack.yml",
-        "hash": "4215919023935609698"
+        "file": ".dockerignore",
+        "hash": "9397456632868551781"
       },
       {
-        "file": "docs/Backend.drawio.xml",
-        "hash": "13706896146071993657"
+        "file": ".husky/pre-commit",
+        "hash": "16022652953160474944"
       },
       {
-        "file": "lerna.json",
-        "hash": "18365029533465575682"
+        "file": "docker-compose-all.yml",
+        "hash": "10269112764276168858"
       },
       {
-        "file": "nx.json",
-        "hash": "478541333935915187"
+        "file": ".eslintrc.json",
+        "hash": "2147955411260809767"
       },
       {
-        "file": "package.json",
-        "hash": "4478000266213817717"
-      },
-      {
-        "file": "patches/@ethersproject+providers+5.7.2.patch",
-        "hash": "2318712328498382690"
+        "file": "config/prices.config.json",
+        "hash": "18315706452844264756"
       },
       {
         "file": "test/performance.test.ts",
         "hash": "3285692697489379846"
       },
       {
-        "file": "test/post.test.ts",
-        "hash": "11352802834378484623"
-      },
-      {
-        "file": "test/referral.test.ts",
-        "hash": "10274368071165833782"
-      },
-      {
         "file": "test/testdata.txt",
         "hash": "16359682354385340063"
+      },
+      {
+        "file": "docker-stack.yml",
+        "hash": "4215919023935609698"
+      },
+      {
+        "file": ".lintstagedrc.json",
+        "hash": "1089767009447965920"
+      },
+      {
+        "file": ".envExample",
+        "hash": "12835313901717395075"
+      },
+      {
+        "file": ".github/CODEOWNERS",
+        "hash": "15375959774674935850"
+      },
+      {
+        "file": "nx.json",
+        "hash": "478541333935915187"
+      },
+      {
+        "file": "patches/@ethersproject+providers+5.7.2.patch",
+        "hash": "2318712328498382690"
+      },
+      {
+        "file": "yarn.lock",
+        "hash": "12866610880717910965"
+      },
+      {
+        "file": "lerna.json",
+        "hash": "18365029533465575682"
+      },
+      {
+        "file": "README.md",
+        "hash": "16978482943587541794"
+      },
+      {
+        "file": "docker-compose.yml",
+        "hash": "11235638584024050345"
+      },
+      {
+        "file": ".prettierrc",
+        "hash": "7365023934432409257"
       },
       {
         "file": "test/utils.test.ts",
         "hash": "13625632413353210765"
       },
       {
+        "file": "CHANGELOG.md",
+        "hash": "3024519230283194328"
+      },
+      {
+        "file": "package.json",
+        "hash": "10205456989963401052"
+      },
+      {
+        "file": "test/post.test.ts",
+        "hash": "11352802834378484623"
+      },
+      {
         "file": "test/xchinfo.test.ts",
         "hash": "14722307217055809953"
       },
       {
-        "file": "yarn.lock",
-        "hash": "1755522924643064559"
+        "file": "test/referral.test.ts",
+        "hash": "10274368071165833782"
       }
     ],
     "projectFileMap": {
-      "utils": [
-        {
-          "file": "packages/utils/README.md",
-          "hash": "5602604732144358470"
-        },
-        {
-          "file": "packages/utils/package.json",
-          "hash": "14061391141106007807",
-          "deps": [
-            "npm:@d8x/perpetuals-sdk"
-          ]
-        },
-        {
-          "file": "packages/utils/prisma/migrations/20230726181019_reorg/migration.sql",
-          "hash": "4614934065337621558"
-        },
-        {
-          "file": "packages/utils/prisma/migrations/migration_lock.toml",
-          "hash": "11493296588214560035"
-        },
-        {
-          "file": "packages/utils/prisma/schema.prisma",
-          "hash": "17551244801046810789"
-        },
-        {
-          "file": "packages/utils/prisma/viewsbackup.sql",
-          "hash": "18319350687704138420"
-        },
-        {
-          "file": "packages/utils/src/utils.ts",
-          "hash": "383624759846190722"
-        },
-        {
-          "file": "packages/utils/src/wsTypes.ts",
-          "hash": "6566695165030437591"
-        },
-        {
-          "file": "packages/utils/tsconfig.json",
-          "hash": "16863561752494637983"
-        }
-      ],
-      "api": [
-        {
-          "file": "packages/api/Dockerfile",
-          "hash": "5247493576212961454"
-        },
-        {
-          "file": "packages/api/README.md",
-          "hash": "3452357889846468893"
-        },
-        {
-          "file": "packages/api/package.json",
-          "hash": "6714151791702654442",
-          "deps": [
-            "npm:@d8x/perpetuals-sdk",
-            "utils"
-          ]
-        },
-        {
-          "file": "packages/api/src/D8XBrokerBackendApp.ts",
-          "hash": "6826106531305793456"
-        },
-        {
-          "file": "packages/api/src/brokerIntegration.ts",
-          "hash": "11079645459662873593"
-        },
-        {
-          "file": "packages/api/src/brokerNone.ts",
-          "hash": "3309981850148440923"
-        },
-        {
-          "file": "packages/api/src/brokerRemote.ts",
-          "hash": "845436084664443277"
-        },
-        {
-          "file": "packages/api/src/eventListener.ts",
-          "hash": "11320759032863469038"
-        },
-        {
-          "file": "packages/api/src/index.ts",
-          "hash": "1396975066477934532"
-        },
-        {
-          "file": "packages/api/src/indexPriceInterface.ts",
-          "hash": "17002659116961481293"
-        },
-        {
-          "file": "packages/api/src/observable.ts",
-          "hash": "13034378048443745383"
-        },
-        {
-          "file": "packages/api/src/observer.ts",
-          "hash": "10507777312996947684"
-        },
-        {
-          "file": "packages/api/src/rpcManager.ts",
-          "hash": "18005106172917166924"
-        },
-        {
-          "file": "packages/api/src/sdkInterface.ts",
-          "hash": "3263811179210953812"
-        },
-        {
-          "file": "packages/api/tsconfig.json",
-          "hash": "1151973598573905181"
-        }
-      ],
       "history": [
         {
           "file": "packages/history/.gitignore",
@@ -363,6 +260,113 @@
         {
           "file": "packages/history/tsconfig.json",
           "hash": "9558835668723738050"
+        }
+      ],
+      "api": [
+        {
+          "file": "packages/api/Dockerfile",
+          "hash": "5247493576212961454"
+        },
+        {
+          "file": "packages/api/README.md",
+          "hash": "3452357889846468893"
+        },
+        {
+          "file": "packages/api/package.json",
+          "hash": "6714151791702654442",
+          "deps": [
+            "npm:@d8x/perpetuals-sdk",
+            "utils"
+          ]
+        },
+        {
+          "file": "packages/api/src/D8XBrokerBackendApp.ts",
+          "hash": "6826106531305793456"
+        },
+        {
+          "file": "packages/api/src/brokerIntegration.ts",
+          "hash": "11079645459662873593"
+        },
+        {
+          "file": "packages/api/src/brokerNone.ts",
+          "hash": "3309981850148440923"
+        },
+        {
+          "file": "packages/api/src/brokerRemote.ts",
+          "hash": "845436084664443277"
+        },
+        {
+          "file": "packages/api/src/eventListener.ts",
+          "hash": "11320759032863469038"
+        },
+        {
+          "file": "packages/api/src/index.ts",
+          "hash": "1396975066477934532"
+        },
+        {
+          "file": "packages/api/src/indexPriceInterface.ts",
+          "hash": "17002659116961481293"
+        },
+        {
+          "file": "packages/api/src/observable.ts",
+          "hash": "13034378048443745383"
+        },
+        {
+          "file": "packages/api/src/observer.ts",
+          "hash": "10507777312996947684"
+        },
+        {
+          "file": "packages/api/src/rpcManager.ts",
+          "hash": "18005106172917166924"
+        },
+        {
+          "file": "packages/api/src/sdkInterface.ts",
+          "hash": "3263811179210953812"
+        },
+        {
+          "file": "packages/api/tsconfig.json",
+          "hash": "1151973598573905181"
+        }
+      ],
+      "utils": [
+        {
+          "file": "packages/utils/README.md",
+          "hash": "5602604732144358470"
+        },
+        {
+          "file": "packages/utils/package.json",
+          "hash": "14061391141106007807",
+          "deps": [
+            "npm:@d8x/perpetuals-sdk"
+          ]
+        },
+        {
+          "file": "packages/utils/prisma/migrations/20230726181019_reorg/migration.sql",
+          "hash": "4614934065337621558"
+        },
+        {
+          "file": "packages/utils/prisma/migrations/migration_lock.toml",
+          "hash": "11493296588214560035"
+        },
+        {
+          "file": "packages/utils/prisma/schema.prisma",
+          "hash": "17551244801046810789"
+        },
+        {
+          "file": "packages/utils/prisma/viewsbackup.sql",
+          "hash": "18319350687704138420"
+        },
+        {
+          "file": "packages/utils/src/utils.ts",
+          "hash": "383624759846190722"
+        },
+        {
+          "file": "packages/utils/src/wsTypes.ts",
+          "hash": "6566695165030437591"
+        },
+        {
+          "file": "packages/utils/tsconfig.json",
+          "hash": "16863561752494637983"
         }
       ]
     }

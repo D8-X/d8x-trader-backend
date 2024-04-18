@@ -121,3 +121,6 @@ live.*
 *.dmp
 
 shared.*.json
+
+# nx cache
+.nx/

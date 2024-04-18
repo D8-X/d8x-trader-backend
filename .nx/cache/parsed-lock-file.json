@@ -1903,15 +1903,6 @@
       "type": "npm",
       "name": "npm:axios",
       "data": {
-        "version": "1.3.2",
-        "packageName": "axios",
-        "hash": "sha512-1M3O703bYqYuPhbHeya5bnhpYVsDDRyQSabNja04mZtboLNSuZ4YrltestrLXfHgmzua4TpUqRiVKbiQuo2epw=="
-      }
-    },
-    "npm:axios@1.6.8": {
-      "type": "npm",
-      "name": "npm:axios@1.6.8",
-      "data": {
         "version": "1.6.8",
         "packageName": "axios",
         "hash": "sha512-v/ZHtJDU39mDpyBoFVkETcd/uNdxrWRrg3bKpOKzXFA6Bvqopts6ALSMU3y6ijYxbw2B+wPrIv46egTzJXCLGQ=="
@@ -3595,15 +3586,6 @@
       "type": "npm",
       "name": "npm:follow-redirects",
       "data": {
-        "version": "1.15.5",
-        "packageName": "follow-redirects",
-        "hash": "sha512-vSFWUON1B+yAw1VN4xMfxgn5fTUiaOzAJCKBwIIgT/+7CuGy9+r+5gITvP62j3RmaD5Ph65UaERdOSRGUzZtgw=="
-      }
-    },
-    "npm:follow-redirects@1.15.6": {
-      "type": "npm",
-      "name": "npm:follow-redirects@1.15.6",
-      "data": {
         "version": "1.15.6",
         "packageName": "follow-redirects",
         "hash": "sha512-wWN62YITEaOpSK584EZXJafH1AGpO8RVgElfkuXbTOrPX4fIfOyEpW/CsiNd8JdYrAoOvafRTOEnvsO++qCqFA=="
@@ -3699,18 +3681,18 @@
         "hash": "sha512-hcg3ZmepS30/7BSFqRvoo3DOMQu7IjqxO5nCDt+zM9XWjb33Wg7ziNT+Qvqbuc3+gWpzO02JubVyk2G4Zvo1OQ=="
       }
     },
-    "npm:fs-minipass@2.1.0": {
+    "npm:fs-minipass": {
       "type": "npm",
-      "name": "npm:fs-minipass@2.1.0",
+      "name": "npm:fs-minipass",
       "data": {
         "version": "2.1.0",
         "packageName": "fs-minipass",
         "hash": "sha512-V/JgOLFCS+R6Vcq0slCuaeWEdNC3ouDlJMNIsacH2VtALiu9mV4LPrHc5cDl8k5aw6J8jwgWWpiTo5RYhmIzvg=="
       }
     },
-    "npm:fs-minipass": {
+    "npm:fs-minipass@3.0.3": {
       "type": "npm",
-      "name": "npm:fs-minipass",
+      "name": "npm:fs-minipass@3.0.3",
       "data": {
         "version": "3.0.3",
         "packageName": "fs-minipass",
@@ -4455,13 +4437,22 @@
         "hash": "sha512-zHtQzGojZXTwZTHQqra+ETKd4Sn3vgi7uBmlPoXVWZqYvuKmtI0l/VZTjqGmJY9x88GGOaZ9+G9ES8hC4T4X8g=="
       }
     },
-    "npm:ip": {
+    "npm:ip@2.0.0": {
       "type": "npm",
-      "name": "npm:ip",
+      "name": "npm:ip@2.0.0",
       "data": {
         "version": "2.0.0",
         "packageName": "ip",
         "hash": "sha512-WKa+XuLG1A1R0UWhl2+1XQSi+fZWMsYKffMZTTYsiZaUD8k2yDAj5atimTUD2TZkyCkNEeYE5NhFZmupOGtjYQ=="
+      }
+    },
+    "npm:ip": {
+      "type": "npm",
+      "name": "npm:ip",
+      "data": {
+        "version": "2.0.1",
+        "packageName": "ip",
+        "hash": "sha512-lJUL9imLTNi1ZfXT+DU6rBBdbiKGBuay9B6xGSPVjUeQwaH1RIGqef8RZkUtHioLmSNpPR5M4HVKJGm1j8FWVQ=="
       }
     },
     "npm:ipaddr.js": {
@@ -7236,13 +7227,22 @@
         "hash": "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="
       }
     },
-    "npm:semver": {
+    "npm:semver@7.5.4": {
       "type": "npm",
-      "name": "npm:semver",
+      "name": "npm:semver@7.5.4",
       "data": {
         "version": "7.5.4",
         "packageName": "semver",
         "hash": "sha512-1bCSESV6Pv+i21Hvpxp3Dx+pSD8lIPt8uVjRrxAUt/nbswYc+tK6Y2btiULjd4+fnq15PX+nqQDC7Oft7WkwcA=="
+      }
+    },
+    "npm:semver": {
+      "type": "npm",
+      "name": "npm:semver",
+      "data": {
+        "version": "7.6.0",
+        "packageName": "semver",
+        "hash": "sha512-EnwXhrlwXMk9gKu5/flx5sv/an57AkRplG3hTK68W7FRDN+k+OWBj65M7719OkA82XLBxrcX0KSHj+X5COhOVg=="
       }
     },
     "npm:semver@7.0.0": {
@@ -7866,13 +7866,22 @@
         "hash": "sha512-an/KZQzQUkZCkuoAA64hM92X0Urb6VpRhAFllDzz44U2mcD5scmT3zBc4VgVpkugF580+DQn8eAFSyoQt0tznA=="
       }
     },
-    "npm:tar": {
+    "npm:tar@6.2.0": {
       "type": "npm",
-      "name": "npm:tar",
+      "name": "npm:tar@6.2.0",
       "data": {
         "version": "6.2.0",
         "packageName": "tar",
         "hash": "sha512-/Wo7DcT0u5HUV486xg675HtjNd3BXZ6xDbzsCUZPt5iw8bTQ63bP0Raut3mvro9u+CUyq7YQd8Cx55fsZXxqLQ=="
+      }
+    },
+    "npm:tar": {
+      "type": "npm",
+      "name": "npm:tar",
+      "data": {
+        "version": "6.2.1",
+        "packageName": "tar",
+        "hash": "sha512-DZ4yORTwrbTj/7MZYq2w+/ZFdI6OZ/f9SFHR+71gIVUZhOQPHzVCLpvRnPgyaMpfWxxk/4ONva3GQSyNIKRv6A=="
       }
     },
     "npm:temp-dir": {
@@ -8568,9 +8577,9 @@
         "hash": "sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q=="
       }
     },
-    "npm:wrap-ansi@7.0.0": {
+    "npm:wrap-ansi": {
       "type": "npm",
-      "name": "npm:wrap-ansi@7.0.0",
+      "name": "npm:wrap-ansi",
       "data": {
         "version": "7.0.0",
         "packageName": "wrap-ansi",
@@ -8595,9 +8604,9 @@
         "hash": "sha512-si7QWI6zUMq56bESFvagtmzMdGOtoxfR+Sez11Mobfc7tm+VkUckk9bW2UeffTGVUbOksxmSw0AA2gs8g71NCQ=="
       }
     },
-    "npm:wrap-ansi": {
+    "npm:wrap-ansi@9.0.0": {
       "type": "npm",
-      "name": "npm:wrap-ansi",
+      "name": "npm:wrap-ansi@9.0.0",
       "data": {
         "version": "9.0.0",
         "packageName": "wrap-ansi",
@@ -10855,7 +10864,7 @@
     },
     {
       "source": "npm:@lerna/create",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -10990,7 +10999,7 @@
     },
     {
       "source": "npm:@npmcli/fs",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -11025,7 +11034,7 @@
     },
     {
       "source": "npm:@npmcli/git",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -11075,7 +11084,7 @@
     },
     {
       "source": "npm:@npmcli/package-json",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -11170,7 +11179,7 @@
     },
     {
       "source": "npm:@nx/devkit",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -11210,7 +11219,7 @@
     },
     {
       "source": "npm:@nx/devkit",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -11665,7 +11674,7 @@
     },
     {
       "source": "npm:@typescript-eslint/eslint-plugin",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -11760,7 +11769,7 @@
     },
     {
       "source": "npm:@typescript-eslint/typescript-estree",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -11800,7 +11809,7 @@
     },
     {
       "source": "npm:@typescript-eslint/utils",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -12109,21 +12118,6 @@
       "type": "static"
     },
     {
-      "source": "npm:axios@1.6.8",
-      "target": "npm:follow-redirects@1.15.6",
-      "type": "static"
-    },
-    {
-      "source": "npm:axios@1.6.8",
-      "target": "npm:form-data",
-      "type": "static"
-    },
-    {
-      "source": "npm:axios@1.6.8",
-      "target": "npm:proxy-from-env",
-      "type": "static"
-    },
-    {
       "source": "npm:bl",
       "target": "npm:buffer@5.7.1",
       "type": "static"
@@ -12320,7 +12314,7 @@
     },
     {
       "source": "npm:builtins",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -12330,7 +12324,7 @@
     },
     {
       "source": "npm:cacache@17.1.4",
-      "target": "npm:fs-minipass",
+      "target": "npm:fs-minipass@3.0.3",
       "type": "static"
     },
     {
@@ -12375,7 +12369,7 @@
     },
     {
       "source": "npm:cacache@17.1.4",
-      "target": "npm:tar",
+      "target": "npm:tar@6.2.0",
       "type": "static"
     },
     {
@@ -12390,7 +12384,7 @@
     },
     {
       "source": "npm:cacache",
-      "target": "npm:fs-minipass",
+      "target": "npm:fs-minipass@3.0.3",
       "type": "static"
     },
     {
@@ -12435,7 +12429,7 @@
     },
     {
       "source": "npm:cacache",
-      "target": "npm:tar",
+      "target": "npm:tar@6.2.0",
       "type": "static"
     },
     {
@@ -12655,7 +12649,7 @@
     },
     {
       "source": "npm:cliui@7.0.4",
-      "target": "npm:wrap-ansi@7.0.0",
+      "target": "npm:wrap-ansi",
       "type": "static"
     },
     {
@@ -12670,7 +12664,7 @@
     },
     {
       "source": "npm:cliui",
-      "target": "npm:wrap-ansi@7.0.0",
+      "target": "npm:wrap-ansi",
       "type": "static"
     },
     {
@@ -12910,7 +12904,7 @@
     },
     {
       "source": "npm:conventional-changelog-writer",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -14294,161 +14288,6 @@
       "type": "static"
     },
     {
-      "source": "npm:express",
-      "target": "npm:accepts",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:array-flatten",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:body-parser@1.20.2",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:content-disposition",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:content-type",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:cookie",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:cookie-signature",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:debug@2.6.9",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:depd",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:encodeurl",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:escape-html",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:etag",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:finalhandler",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:fresh",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:http-errors",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:merge-descriptors",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:methods",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:on-finished",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:parseurl",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:path-to-regexp",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:proxy-addr",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:qs",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:range-parser",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:safe-buffer",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:send",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:serve-static",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:setprototypeof",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:statuses",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:type-is",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:utils-merge",
-      "type": "static"
-    },
-    {
-      "source": "npm:express",
-      "target": "npm:vary",
-      "type": "static"
-    },
-    {
       "source": "npm:external-editor",
       "target": "npm:chardet",
       "type": "static"
@@ -14734,12 +14573,12 @@
       "type": "static"
     },
     {
-      "source": "npm:fs-minipass@2.1.0",
+      "source": "npm:fs-minipass",
       "target": "npm:minipass@3.3.6",
       "type": "static"
     },
     {
-      "source": "npm:fs-minipass",
+      "source": "npm:fs-minipass@3.0.3",
       "target": "npm:minipass",
       "type": "static"
     },
@@ -14965,7 +14804,7 @@
     },
     {
       "source": "npm:git-semver-tags",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -15520,7 +15359,7 @@
     },
     {
       "source": "npm:init-package-json",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -16235,7 +16074,7 @@
     },
     {
       "source": "npm:lerna",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -16360,7 +16199,7 @@
     },
     {
       "source": "npm:libnpmpublish",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -16450,7 +16289,7 @@
     },
     {
       "source": "npm:listr2",
-      "target": "npm:wrap-ansi",
+      "target": "npm:wrap-ansi@9.0.0",
       "type": "static"
     },
     {
@@ -16555,7 +16394,7 @@
     },
     {
       "source": "npm:log-update",
-      "target": "npm:wrap-ansi",
+      "target": "npm:wrap-ansi@9.0.0",
       "type": "static"
     },
     {
@@ -16625,7 +16464,7 @@
     },
     {
       "source": "npm:make-dir",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -17260,12 +17099,12 @@
     },
     {
       "source": "npm:node-gyp",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
       "source": "npm:node-gyp",
-      "target": "npm:tar",
+      "target": "npm:tar@6.2.0",
       "type": "static"
     },
     {
@@ -17385,7 +17224,7 @@
     },
     {
       "source": "npm:normalize-package-data@3.0.3",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -17405,7 +17244,7 @@
     },
     {
       "source": "npm:normalize-package-data@3.0.3",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -17425,7 +17264,7 @@
     },
     {
       "source": "npm:normalize-package-data@5.0.0",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -17445,7 +17284,7 @@
     },
     {
       "source": "npm:normalize-package-data@6.0.0",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -17465,7 +17304,7 @@
     },
     {
       "source": "npm:npm-install-checks",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -17475,7 +17314,7 @@
     },
     {
       "source": "npm:npm-package-arg@8.1.1",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -17495,7 +17334,7 @@
     },
     {
       "source": "npm:npm-package-arg",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -17515,7 +17354,7 @@
     },
     {
       "source": "npm:npm-package-arg",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -17535,7 +17374,7 @@
     },
     {
       "source": "npm:npm-package-arg@11.0.2",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -17585,7 +17424,7 @@
     },
     {
       "source": "npm:npm-pick-manifest",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -17750,7 +17589,7 @@
     },
     {
       "source": "npm:nx",
-      "target": "npm:axios@1.6.8",
+      "target": "npm:axios",
       "type": "static"
     },
     {
@@ -17855,7 +17694,7 @@
     },
     {
       "source": "npm:nx",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -17970,7 +17809,7 @@
     },
     {
       "source": "npm:nx",
-      "target": "npm:axios@1.6.8",
+      "target": "npm:axios",
       "type": "static"
     },
     {
@@ -18075,7 +17914,7 @@
     },
     {
       "source": "npm:nx",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -18500,7 +18339,7 @@
     },
     {
       "source": "npm:pacote",
-      "target": "npm:fs-minipass",
+      "target": "npm:fs-minipass@3.0.3",
       "type": "static"
     },
     {
@@ -18560,7 +18399,7 @@
     },
     {
       "source": "npm:pacote",
-      "target": "npm:tar",
+      "target": "npm:tar@6.2.0",
       "type": "static"
     },
     {
@@ -18680,7 +18519,7 @@
     },
     {
       "source": "npm:patch-package",
-      "target": "npm:semver",
+      "target": "npm:semver@7.5.4",
       "type": "static"
     },
     {
@@ -19259,37 +19098,42 @@
       "type": "static"
     },
     {
-      "source": "npm:semver",
+      "source": "npm:semver@7.5.4",
       "target": "npm:lru-cache@6.0.0",
       "type": "static"
     },
     {
-      "source": "npm:semver",
+      "source": "npm:semver@7.5.4",
       "target": "npm:lru-cache@6.0.0",
       "type": "static"
     },
     {
-      "source": "npm:semver",
+      "source": "npm:semver@7.5.4",
       "target": "npm:lru-cache@6.0.0",
       "type": "static"
     },
     {
-      "source": "npm:semver",
+      "source": "npm:semver@7.5.4",
       "target": "npm:lru-cache@6.0.0",
       "type": "static"
     },
     {
-      "source": "npm:semver",
+      "source": "npm:semver@7.5.4",
       "target": "npm:lru-cache@6.0.0",
       "type": "static"
     },
     {
-      "source": "npm:semver",
+      "source": "npm:semver@7.5.4",
       "target": "npm:lru-cache@6.0.0",
       "type": "static"
     },
     {
-      "source": "npm:semver",
+      "source": "npm:semver@7.5.4",
+      "target": "npm:lru-cache@6.0.0",
+      "type": "static"
+    },
+    {
+      "source": "npm:semver@7.5.4",
       "target": "npm:lru-cache@6.0.0",
       "type": "static"
     },
@@ -19565,7 +19409,7 @@
     },
     {
       "source": "npm:socks",
-      "target": "npm:ip",
+      "target": "npm:ip@2.0.0",
       "type": "static"
     },
     {
@@ -19945,7 +19789,7 @@
     },
     {
       "source": "npm:tar@6.1.11",
-      "target": "npm:fs-minipass@2.1.0",
+      "target": "npm:fs-minipass",
       "type": "static"
     },
     {
@@ -19969,32 +19813,62 @@
       "type": "static"
     },
     {
-      "source": "npm:tar",
+      "source": "npm:tar@6.2.0",
       "target": "npm:chownr",
       "type": "static"
     },
     {
-      "source": "npm:tar",
-      "target": "npm:fs-minipass@2.1.0",
+      "source": "npm:tar@6.2.0",
+      "target": "npm:fs-minipass",
       "type": "static"
     },
     {
-      "source": "npm:tar",
+      "source": "npm:tar@6.2.0",
       "target": "npm:minipass@5.0.0",
       "type": "static"
     },
     {
-      "source": "npm:tar",
+      "source": "npm:tar@6.2.0",
       "target": "npm:minizlib",
       "type": "static"
     },
     {
-      "source": "npm:tar",
+      "source": "npm:tar@6.2.0",
       "target": "npm:mkdirp",
       "type": "static"
     },
     {
-      "source": "npm:tar",
+      "source": "npm:tar@6.2.0",
+      "target": "npm:yallist",
+      "type": "static"
+    },
+    {
+      "source": "npm:tar@6.2.0",
+      "target": "npm:chownr",
+      "type": "static"
+    },
+    {
+      "source": "npm:tar@6.2.0",
+      "target": "npm:fs-minipass",
+      "type": "static"
+    },
+    {
+      "source": "npm:tar@6.2.0",
+      "target": "npm:minipass@5.0.0",
+      "type": "static"
+    },
+    {
+      "source": "npm:tar@6.2.0",
+      "target": "npm:minizlib",
+      "type": "static"
+    },
+    {
+      "source": "npm:tar@6.2.0",
+      "target": "npm:mkdirp",
+      "type": "static"
+    },
+    {
+      "source": "npm:tar@6.2.0",
       "target": "npm:yallist",
       "type": "static"
     },
@@ -20005,7 +19879,7 @@
     },
     {
       "source": "npm:tar",
-      "target": "npm:fs-minipass@2.1.0",
+      "target": "npm:fs-minipass",
       "type": "static"
     },
     {
@@ -20694,17 +20568,17 @@
       "type": "static"
     },
     {
-      "source": "npm:wrap-ansi@7.0.0",
+      "source": "npm:wrap-ansi",
       "target": "npm:ansi-styles",
       "type": "static"
     },
     {
-      "source": "npm:wrap-ansi@7.0.0",
+      "source": "npm:wrap-ansi",
       "target": "npm:string-width",
       "type": "static"
     },
     {
-      "source": "npm:wrap-ansi@7.0.0",
+      "source": "npm:wrap-ansi",
       "target": "npm:strip-ansi",
       "type": "static"
     },
@@ -20739,17 +20613,17 @@
       "type": "static"
     },
     {
-      "source": "npm:wrap-ansi",
+      "source": "npm:wrap-ansi@9.0.0",
       "target": "npm:ansi-styles@6.2.1",
       "type": "static"
     },
     {
-      "source": "npm:wrap-ansi",
+      "source": "npm:wrap-ansi@9.0.0",
       "target": "npm:string-width@7.1.0",
       "type": "static"
     },
     {
-      "source": "npm:wrap-ansi",
+      "source": "npm:wrap-ansi@9.0.0",
       "target": "npm:strip-ansi@7.1.0",
       "type": "static"
     },
