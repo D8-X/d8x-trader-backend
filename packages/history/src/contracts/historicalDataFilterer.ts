@@ -31,6 +31,11 @@ import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
 
 global.Error.stackTraceLimit = Infinity;
 
+function formatErrorMessage(error: unknown) {
+	if (error instanceof Error) return error.message
+	return String(error)
+}
+
 /**
  * HistoricalDataFilterer retrieves historical data for trades, liquidations and
  * other events from perpetual manager proxy contract
@@ -251,7 +256,7 @@ export class HistoricalDataFilterer {
 		currentBlock: number,
 	) {
 		// limit: 10_000 blocks in one eth_getLogs call
-		const deltaBlocks = 9_999;
+		let deltaBlocks = 9_999;
 		const endBlock: number = currentBlock;
 		const eventNames = topicHashes.map((topic0) => c.interface.getEventName(topic0));
 
@@ -297,6 +302,15 @@ export class HistoricalDataFilterer {
 					cb,
 				);
 			} catch (error) {
+				const errMsg = formatErrorMessage(error)
+				this.l.warn("Caught error in genericFilterer:"+errMsg);
+				if (errMsg.includes("413")) {
+					// 413 Payload Too Large
+					deltaBlocks = Math.max(100, Math.round(deltaBlocks*0.75));
+					this.l.info("reduced deltaBlocks to "+String(deltaBlocks))
+					return;
+				}
+				// probably too many requests to node
 				this.l.info("seconds", { maxWaitSeconds, lastWaitSeconds });
 				if (maxWaitSeconds > lastWaitSeconds) {
 					this.l.warn(
@@ -310,6 +324,7 @@ export class HistoricalDataFilterer {
 					numRequests = 0;
 					lastWaitSeconds *= 2;
 				} else {
+					this.l.warn("throwing error in genericFilterer");
 					throw new Error(error as string | undefined);
 				}
 			}
