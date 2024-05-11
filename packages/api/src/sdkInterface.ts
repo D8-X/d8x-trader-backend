@@ -20,6 +20,14 @@ import type { RedisClientType } from "redis";
 import { extractErrorMsg, constructRedis } from "utils";
 import RPCManager from "./rpcManager";
 
+export interface OrderBook {
+	poolId: number,
+	perpId: number,
+	sym: string;
+	numOrders: number;
+	orders : Order[];
+}
+
 export default class SDKInterface extends Observable {
 	private apiInterface: TraderInterface | undefined = undefined;
 	private redisClient: RedisClientType;
@@ -466,5 +474,22 @@ export default class SDKInterface extends Observable {
 		});
 
 		return perp;
+	}
+
+	public async queryOrderBooks(sym: string) : Promise<OrderBook> {
+		let orders = await this.apiInterface!.getAllOpenOrders(sym);
+		const perpId = this.apiInterface!.getPerpIdFromSymbol(sym);
+		const poolId = Math.floor(perpId/1e5)
+		for(let k=0; k<orders[0].length; k++) {
+			orders[0][k].brokerSignature =  orders[0][k].brokerSignature?.toString().substring(0, 5)+"...";
+		}
+		const OB : OrderBook = {
+			poolId: poolId,
+			perpId: perpId,
+			sym: sym,
+			numOrders: orders[0].length,
+			orders : orders[0],
+		  }
+		return OB;
 	}
 }
