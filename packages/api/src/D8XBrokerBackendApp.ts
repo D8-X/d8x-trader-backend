@@ -209,6 +209,7 @@ export default class D8XBrokerBackendApp {
 		});
 
 		this.express.get("/exchange-info", async (req: Request, res: Response) => {
+			res.setHeader('Content-Type', 'application/json');
 			try {
 				this.lastRequestTsMs = Date.now();
 				const rsp = await this.sdk.exchangeInfo();
@@ -227,6 +228,7 @@ export default class D8XBrokerBackendApp {
 		this.express.get("/open-orders", async (req: Request, res: Response) => {
 			// open-orders?traderAddr=0xCafee&symbol=BTC-USD-MATIC
 			let rsp;
+			res.setHeader('Content-Type', 'application/json');
 			try {
 				this.lastRequestTsMs = Date.now();
 				let addr: string;
@@ -258,6 +260,7 @@ export default class D8XBrokerBackendApp {
 
 		this.express.get("/trading-fee", async (req: Request, res: Response) => {
 			let rsp;
+			res.setHeader('Content-Type', 'application/json');
 			try {
 				this.lastRequestTsMs = Date.now();
 				let traderAddr: string;
@@ -292,6 +295,7 @@ export default class D8XBrokerBackendApp {
 			// http://localhost:3001/position-risk?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=BTC-USD-MATIC
 			// http://localhost:3001/position-risk?traderAddr=0x9d5aaB428e98678d0E645ea4AeBd25f744341a05&symbol=MATIC
 			let rsp;
+			res.setHeader('Content-Type', 'application/json');
 			try {
 				this.lastRequestTsMs = Date.now();
 				let addr: string;
@@ -323,6 +327,7 @@ export default class D8XBrokerBackendApp {
 			"/max-order-size-for-trader",
 			async (req: Request, res: Response) => {
 				let rsp: string;
+				res.setHeader('Content-Type', 'application/json');
 				try {
 					this.lastRequestTsMs = Date.now();
 					let addr: string;
@@ -370,6 +375,7 @@ export default class D8XBrokerBackendApp {
 		this.express.get(
 			"/perpetual-static-info",
 			async (req: Request, res: Response) => {
+				res.setHeader('Content-Type', 'application/json');
 				try {
 					this.lastRequestTsMs = Date.now();
 					if (typeof req.query.symbol != "string") {
@@ -402,6 +408,7 @@ export default class D8XBrokerBackendApp {
 
 		// see test/post.test.ts for an example
 		this.express.post("/order-digest", async (req, res) => {
+			res.setHeader('Content-Type', 'application/json');
 			try {
 				this.lastRequestTsMs = Date.now();
 				const orders: Order[] = <Order[]>req.body.orders;
@@ -421,6 +428,7 @@ export default class D8XBrokerBackendApp {
 		});
 
 		this.express.post("/position-risk-on-collateral-action", async (req, res) => {
+			res.setHeader('Content-Type', 'application/json');
 			try {
 				this.lastRequestTsMs = Date.now();
 				const traderAddr: string = req.body.traderAddr;
@@ -444,6 +452,7 @@ export default class D8XBrokerBackendApp {
 				const usg =
 					"{traderAddr: string, amount: number, positionRisk: <MarginAccount struct>}";
 				console.log("error for position-risk-on-collateral-action:", extractErrorMsg(err));
+				res.setHeader('Content-Type', 'application/json');
 				res.send(
 					D8XBrokerBackendApp.JSONResponse(
 						"error",
@@ -458,6 +467,7 @@ export default class D8XBrokerBackendApp {
 		});
 
 		this.express.get("/add-collateral", async (req: Request, res: Response) => {
+			res.setHeader('Content-Type', 'application/json');
 			try {
 				this.lastRequestTsMs = Date.now();
 				if (
@@ -474,6 +484,7 @@ export default class D8XBrokerBackendApp {
 			} catch (err: any) {
 				const usg = "add-collateral?symbol=MATIC-USDC-USDC&amount='110.4'";
 				console.log("error for add-collateral:", extractErrorMsg(err));
+				res.setHeader('Content-Type', 'application/json');
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "add-collateral", {
 						error: "error for add-collateral",
@@ -483,7 +494,32 @@ export default class D8XBrokerBackendApp {
 			}
 		});
 
+		this.express.get("/order-book", async (req: Request, res: Response) => {
+			res.setHeader('Content-Type', 'application/json');
+			try {
+				if (
+					typeof req.query.symbol != "string"
+				) {
+					throw new Error("wrong arguments. Requires a symbol of the form WOKB-USD-WOKB.");
+				}
+				const rsp = await this.sdk.queryOrderBooks(
+					req.query.symbol,
+				);
+				res.send(D8XBrokerBackendApp.JSONResponse("order-books", "", rsp));
+			} catch (err: any) {
+				const usg = "order-book?symbol=WOKB-USD-WOKB";
+				console.log("order-book:", extractErrorMsg(err));
+				res.send(
+					D8XBrokerBackendApp.JSONResponse("error", "order-book", {
+						error: "error",
+						usage: usg,
+					}),
+				);
+			}
+		});
+
 		this.express.get("/remove-collateral", async (req: Request, res: Response) => {
+			res.setHeader('Content-Type', 'application/json');
 			try {
 				this.lastRequestTsMs = Date.now();
 				if (
@@ -510,6 +546,8 @@ export default class D8XBrokerBackendApp {
 		});
 
 		this.express.get("/available-margin", async (req: Request, res: Response) => {
+			res.setHeader('Content-Type', 'application/json');
+
 			try {
 				this.lastRequestTsMs = Date.now();
 				if (
@@ -538,6 +576,7 @@ export default class D8XBrokerBackendApp {
 		});
 
 		this.express.get("/cancel-order", async (req: Request, res: Response) => {
+			res.setHeader('Content-Type', 'application/json');
 			try {
 				this.lastRequestTsMs = Date.now();
 				if (
