@@ -23,7 +23,8 @@ export class EstimatedEarnings {
 	/**
 	 * Insert new estimated earning
 	 * @param wallet address that performed the action
-	 * @param amount amount of collateral tokens, or in case of p2p transfer share tokens
+	 * @param amount amount of collateral tokens
+	 * @param shAmount amount of share tokens
 	 * @param pool_id pool id where action happens
 	 * @param txHash hash of the transaction
 	 * @param type estimated_earnings_event_type
@@ -34,6 +35,7 @@ export class EstimatedEarnings {
 	public async insert(
 		wallet: string,
 		amount: bigint,
+		shAmount: bigint,
 		pool_id: number,
 		txHash: string,
 		type: estimated_earnings_event_type,
@@ -60,6 +62,7 @@ export class EstimatedEarnings {
 					data: {
 						pool_id: Number(pool_id),
 						token_amount: amount.toString(),
+						share_amount: shAmount.toString(),
 						tx_hash: txHash,
 						liq_provider_addr: wallet.toLowerCase(),
 						created_at: blockTimestamp
@@ -88,6 +91,7 @@ export class EstimatedEarnings {
 					},
 					data: {
 						is_collected_by_event: false,
+						share_amount: shAmount.toString(),
 					},
 				});
 			} catch (e) {
@@ -109,6 +113,7 @@ export class EstimatedEarnings {
 			eventData.user,
 			// Liquidity Added goes with - sign
 			eventData.tokenAmount * BigInt(-1),
+			eventData.shareAmount * BigInt(-1),
 			poolIdNum,
 			txHash,
 			estimated_earnings_event_type.liquidity_added,
@@ -128,6 +133,7 @@ export class EstimatedEarnings {
 			eventData.user,
 			// Liquidity Removed  goes with + sign so we leave it as it is
 			eventData.tokenAmount,
+			eventData.shareAmount,
 			poolIdNum,
 			txHash,
 			estimated_earnings_event_type.liquidity_removed,
@@ -159,6 +165,7 @@ export class EstimatedEarnings {
 		await this.insert(
 			eventData.from,
 			BigInt(Math.floor(estimatedEarningsTokensAmnt)),
+			eventData.amountD18,
 			poolId,
 			txHash,
 			estimated_earnings_event_type.share_token_p2p_transfer,
@@ -170,6 +177,7 @@ export class EstimatedEarnings {
 		this.insert(
 			eventData.to,
 			BigInt(Math.floor(estimatedEarningsTokensAmnt)) * BigInt(-1),
+			eventData.amountD18 * BigInt(-1),
 			poolId,
 			txHash,
 			estimated_earnings_event_type.share_token_p2p_transfer,

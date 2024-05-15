@@ -89,7 +89,8 @@ model EstimatedEarningTokens{
     liq_provider_addr String @db.VarChar(42)
     // liquidity pool id
     pool_id Int
-    tx_hash String @db.Text    
+    tx_hash String @db.Text 
+    share_amount Decimal? @db.Decimal(40,0)
     token_amount Decimal @db.Decimal(40,0)
     created_at DateTime @db.Timestamptz @default(now())
 
