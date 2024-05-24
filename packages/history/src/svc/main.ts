@@ -309,6 +309,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		(await dbTrades.getLatestTradeTimestamp()) ?? defaultDate,
 		(await dbTrades.getLatestLiquidateTimestamp()) ?? defaultDate,
 		(await dbFundingRatePayments.getLatestTimestamp()) ?? defaultDate,
+		(await dbEstimatedEarnings.getLatestTimestamp("liquidity_added")) ?? defaultDate,
 	];
 	// Use the smallest timestamp for the start of the filter
 	const ts = tsArr.reduce(function (a, b) {
