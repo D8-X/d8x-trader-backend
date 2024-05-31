@@ -20,12 +20,14 @@ import type { RedisClientType } from "redis";
 import { extractErrorMsg, constructRedis } from "utils";
 import RPCManager from "./rpcManager";
 
+export type OrderWithTraderAndId = Order & { orderId: string; trader: string };
+
 export interface OrderBook {
-	poolId: number,
-	perpId: number,
+	poolId: number;
+	perpId: number;
 	sym: string;
 	numOrders: number;
-	orders : Order[];
+	orders: OrderWithTraderAndId[];
 }
 
 export default class SDKInterface extends Observable {
@@ -476,20 +478,32 @@ export default class SDKInterface extends Observable {
 		return perp;
 	}
 
-	public async queryOrderBooks(sym: string) : Promise<OrderBook> {
-		let orders = await this.apiInterface!.getAllOpenOrders(sym);
+	public async queryOrderBooks(sym: string): Promise<OrderBook> {
+		const [orders, orderIds, traderAddresses] =
+			await this.apiInterface!.getAllOpenOrders(sym);
 		const perpId = this.apiInterface!.getPerpIdFromSymbol(sym);
-		const poolId = Math.floor(perpId/1e5)
-		for(let k=0; k<orders[0].length; k++) {
-			orders[0][k].brokerSignature =  orders[0][k].brokerSignature?.toString().substring(0, 5)+"...";
+		const poolId = Math.floor(perpId / 1e5);
+
+		const ordersWithTraderAndId: OrderWithTraderAndId[] = [];
+
+		for (let k = 0; k < orders.length; k++) {
+			orders[k].brokerSignature =
+				orders[k].brokerSignature?.toString().substring(0, 5) + "...";
+
+			const orderWithTraderAndId: OrderWithTraderAndId = {
+				...orders[k],
+				orderId: orderIds[k],
+				trader: traderAddresses[k],
+			};
+			ordersWithTraderAndId.push(orderWithTraderAndId);
 		}
-		const OB : OrderBook = {
+		const OB: OrderBook = {
 			poolId: poolId,
 			perpId: perpId,
 			sym: sym,
-			numOrders: orders[0].length,
-			orders : orders[0],
-		  }
+			numOrders: orders.length,
+			orders: ordersWithTraderAndId,
+		};
 		return OB;
 	}
 }
