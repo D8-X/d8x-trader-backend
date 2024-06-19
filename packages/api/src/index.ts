@@ -26,14 +26,8 @@ function loadVAAEndpoints(filename: string): string[] {
 	if ("priceServiceHTTPSEndpoints" in f && f.priceServiceHTTPSEndpoints.length > 0) {
 		return f.priceServiceHTTPSEndpoints;
 	}
-	const ep = f.priceServiceWSEndpoints as string[];
-	// replace wss endpoints with https analogue
-	for (let k = 0; k < ep.length; k++) {
-		ep[k] = ep[k].replace(/\/$/, "");
-		ep[k] = ep[k].replace(/\/ws$/, "/api");
-		ep[k] = ep[k].replace(/^wss/, "https");
-	}
-	return ep;
+
+	throw Error("priceServiceHTTPSEndpoints not found in prices config");
 }
 
 async function start() {
