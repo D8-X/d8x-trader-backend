@@ -48,7 +48,11 @@ export default abstract class IndexPriceInterface extends Observer {
 
 		sdkInterface.registerObserver(this);
 		this.sdkInterface = sdkInterface;
-		// trigger exchange info so we get an "update" message
+		// trigger exchange info so we get an "update" message.
+		//
+		// 2024-07-02: this exchangeInfo call does not actually issue the
+		// "update" call, since initialization is not yet done in
+		// EventListener when priceInterfaceInitialize is called.
 		const info = await this.sdkInterface.exchangeInfo();
 		await this._initIdxNamesToPerpetualIds(<ExchangeInfo>JSON.parse(info));
 	}
@@ -124,6 +128,10 @@ export default abstract class IndexPriceInterface extends Observer {
 		// message must be indices separated by semicolon
 		// console.log("Received REDIS message" + message);
 		const indices = message.split(";");
+
+		// Create new updated indices and only send those that were updated.
+		const updatedIndices: string[] = [];
+
 		for (let k = 0; k < indices.length; k++) {
 			// get price from redit
 			try {
@@ -132,6 +140,7 @@ export default abstract class IndexPriceInterface extends Observer {
 				if (px != undefined) {
 					this.idxPrices.set(indices[k], px);
 				}
+				updatedIndices.push(indices[k]);
 			} catch (error) {
 				console.log("[Error in _onRedisFeedHandlerMsg]", {
 					error: extractErrorMsg(error),
@@ -139,7 +148,7 @@ export default abstract class IndexPriceInterface extends Observer {
 				});
 			}
 		}
-		this._updatePricesOnIndexPrice(indices);
+		this._updatePricesOnIndexPrice(updatedIndices);
 	}
 
 	/**

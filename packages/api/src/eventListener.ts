@@ -152,6 +152,11 @@ export default class EventListener extends IndexPriceInterface {
 		sdkInterface.registerObserver(this);
 		this.lastBlockChainEventTs = Date.now();
 		this.isInitialized = true;
+
+		// run _update only after initialization, otherwise the update does not
+		// get called in priceInterfaceInitialize and fundingRate info is net
+		// initialized on startup. @see _update
+		await this._update("Initial Update Call");
 	}
 
 	public async resetRPCWebsocket(newWsRPC: string) {
