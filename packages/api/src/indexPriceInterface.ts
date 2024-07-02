@@ -120,18 +120,24 @@ export default abstract class IndexPriceInterface extends Observer {
 		}
 	}
 
-	private async _onRedisFeedHandlerMsg(message: string) {
+	public async _onRedisFeedHandlerMsg(message: string) {
 		// message must be indices separated by semicolon
 		// console.log("Received REDIS message" + message);
 		const indices = message.split(";");
 		for (let k = 0; k < indices.length; k++) {
 			// get price from redit
-			const px_ts = await this.redisClient.ts.get(indices[k]);
-			const px = px_ts?.value;
-			if (px != undefined) {
-				this.idxPrices.set(indices[k], px);
+			try {
+				const px_ts = await this.redisClient.ts.get(indices[k]);
+				const px = px_ts?.value;
+				if (px != undefined) {
+					this.idxPrices.set(indices[k], px);
+				}
+			} catch (error) {
+				console.log("[Error in _onRedisFeedHandlerMsg]", {
+					error: extractErrorMsg(error),
+					index: indices[k],
+				});
 			}
-			//console.log(indices[k], px);
 		}
 		this._updatePricesOnIndexPrice(indices);
 	}
