@@ -151,6 +151,12 @@ export default class EventListener extends IndexPriceInterface {
 		this.resetRPCWebsocket(this.wsRPC);
 		sdkInterface.registerObserver(this);
 		this.lastBlockChainEventTs = Date.now();
+
+		// run _update only for the first time to set fundingRates and
+		// openInterest
+		await this._update("Initial Update Call", true);
+
+		// Set to initialized only after all initializations are done
 		this.isInitialized = true;
 	}
 
@@ -446,12 +452,17 @@ export default class EventListener extends IndexPriceInterface {
 
 	/**
 	 * Handles updates from sdk interface
-	 * @param msg from observable
+	 * @param msg
+	 * @param firstTimeUpdate - if true, allow to run the _update even if not
+	 * initialized
+	 * @returns
 	 */
-	protected async _update(msg: String) {
-		// we receive a message from the observable sdk
-		// on update exchange info; we update price info and inform subscribers
-		if (!this.isInitialized) {
+	protected async _update(msg: String, firstTimeUpdate: boolean = false) {
+		// we receive a message from the observable sdk on update exchange info;
+		// we update price info and inform subscribers. Whenever this is a first
+		// time update - allow it to pass through to initialize the funding rate
+		// and openInterest
+		if (!this.isInitialized && !firstTimeUpdate) {
 			return;
 		}
 		console.log("received update from sdkInterface", msg);
@@ -471,6 +482,12 @@ export default class EventListener extends IndexPriceInterface {
 					perp.markPrice,
 					perp.indexPrice,
 				);
+
+				console.log(`[_update] setting fundingRate and openInterest`, {
+					fundingRate: perp.currentFundingRateBps / 1e4,
+					openInterest: perp.openInterestBC,
+					perpetualId: perp.id,
+				});
 			}
 		}
 	}
@@ -750,6 +767,11 @@ export default class EventListener extends IndexPriceInterface {
 		fMarkPricePremium: BigNumber,
 		fSpotIndexPrice: BigNumber,
 	): void {
+		if (!this.isInitialized) {
+			console.log("onUpdateMarkPrice: eventListener not initialized");
+			return;
+		}
+
 		this.lastBlockChainEventTs = Date.now();
 
 		const hash =
@@ -780,6 +802,12 @@ export default class EventListener extends IndexPriceInterface {
 
 		// update data in sdkInterface's exchangeInfo
 		const fundingRate = this.fundingRate.get(perpetualId) || 0;
+		// Do not allow 0 funding rate to be sent out
+		if (fundingRate === 0) {
+			console.log(`[onUpdateMarkPrice] funding rate is 0 for ${perpetualId}`);
+			return;
+		}
+
 		const oi = this.openInterest.get(perpetualId) || 0;
 		const symbol = this.symbolFromPerpetualId(perpetualId);
 
@@ -818,7 +846,18 @@ export default class EventListener extends IndexPriceInterface {
 		newMarkPrice: number,
 		newIndexPrice: number,
 	) {
+		if (!this.isInitialized) {
+			console.log("updateMarkPrice: eventListener not initialized");
+			return;
+		}
+
 		const fundingRate = this.fundingRate.get(perpetualId) || 0;
+		// Do not allow 0 funding rate to be sent out
+		if (fundingRate === 0) {
+			console.log(`[updateMarkPrice] funding rate is 0 for ${perpetualId}`);
+			return;
+		}
+
 		const oi = this.openInterest.get(perpetualId) || 0;
 		const symbol = this.symbolFromPerpetualId(perpetualId);
 		const obj: PriceUpdate = {
