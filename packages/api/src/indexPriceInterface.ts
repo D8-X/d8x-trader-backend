@@ -48,7 +48,10 @@ export default abstract class IndexPriceInterface extends Observer {
 
 		sdkInterface.registerObserver(this);
 		this.sdkInterface = sdkInterface;
-		// trigger exchange info so we get an "update" message
+		// note: this exchangeInfo call does not actually issue the "update"
+		// call, since initialization is not yet done in EventListener when
+		// priceInterfaceInitialize is called. Initial _update is called in the
+		// eventListener initialization.
 		const info = await this.sdkInterface.exchangeInfo();
 		await this._initIdxNamesToPerpetualIds(<ExchangeInfo>JSON.parse(info));
 	}
@@ -120,20 +123,30 @@ export default abstract class IndexPriceInterface extends Observer {
 		}
 	}
 
-	private async _onRedisFeedHandlerMsg(message: string) {
+	public async _onRedisFeedHandlerMsg(message: string) {
 		// message must be indices separated by semicolon
 		// console.log("Received REDIS message" + message);
 		const indices = message.split(";");
+
+		// Create new updated indices and only send those that were updated.
+		const updatedIndices: string[] = [];
+
 		for (let k = 0; k < indices.length; k++) {
 			// get price from redit
-			const px_ts = await this.redisClient.ts.get(indices[k]);
-			const px = px_ts?.value;
-			if (px != undefined) {
-				this.idxPrices.set(indices[k], px);
+			try {
+				const px_ts = await this.redisClient.ts.get(indices[k]);
+				if (px_ts !== null) {
+					this.idxPrices.set(indices[k], px_ts.value);
+					updatedIndices.push(indices[k]);
+				}
+			} catch (error) {
+				console.log("[Error in _onRedisFeedHandlerMsg]", {
+					error: extractErrorMsg(error),
+					index: indices[k],
+				});
 			}
-			//console.log(indices[k], px);
 		}
-		this._updatePricesOnIndexPrice(indices);
+		this._updatePricesOnIndexPrice(updatedIndices);
 	}
 
 	/**
