@@ -482,6 +482,12 @@ export default class EventListener extends IndexPriceInterface {
 					perp.markPrice,
 					perp.indexPrice,
 				);
+
+				console.log(`[_update] setting fundingRate and openInterest`, {
+					fundingRate: perp.currentFundingRateBps / 1e4,
+					openInterest: perp.openInterestBC,
+					perpetualId: perp.id,
+				});
 			}
 		}
 	}
