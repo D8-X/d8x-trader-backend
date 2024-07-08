@@ -804,7 +804,8 @@ export default class EventListener extends IndexPriceInterface {
 		const fundingRate = this.fundingRate.get(perpetualId) || 0;
 		// Do not allow 0 funding rate to be sent out
 		if (fundingRate === 0) {
-			throw new Error(`[onUpdateMarkPrice] funding rate is 0 for ${perpetualId}`);
+			console.log(`[onUpdateMarkPrice] funding rate is 0 for ${perpetualId}`);
+			return;
 		}
 
 		const oi = this.openInterest.get(perpetualId) || 0;
@@ -853,7 +854,8 @@ export default class EventListener extends IndexPriceInterface {
 		const fundingRate = this.fundingRate.get(perpetualId) || 0;
 		// Do not allow 0 funding rate to be sent out
 		if (fundingRate === 0) {
-			throw new Error(`[updateMarkPrice] funding rate is 0 for ${perpetualId}`);
+			console.log(`[updateMarkPrice] funding rate is 0 for ${perpetualId}`);
+			return;
 		}
 
 		const oi = this.openInterest.get(perpetualId) || 0;
