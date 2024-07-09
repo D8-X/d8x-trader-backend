@@ -9,6 +9,7 @@ import * as winston from "winston";
 import { RPCConfig } from "utils/dist/wsTypes";
 import RPCManager from "./rpcManager";
 import fs from "fs";
+import { JsonRpcEthCalls, ProvidersEthCallsStartTime, WssEthCalls } from "./providers";
 
 const defaultLogger = () => {
 	return winston.createLogger({
@@ -112,6 +113,22 @@ async function start() {
 		} else {
 			waitTime = 60_000;
 		}
+
+		// Print out eth calls statistics
+		const currentTime = new Date();
+		console.log("statistics of eth_ calls", {
+			JsonRpcEthCalls: JsonRpcEthCalls,
+			WssEthCalls: WssEthCalls,
+			CurrentTime: currentTime.toISOString(),
+			StartTime: ProvidersEthCallsStartTime.toISOString(),
+			RunningFor:
+				(currentTime.getTime() - ProvidersEthCallsStartTime.getTime()) /
+					1000 /
+					60 +
+				" minutes",
+			NumJsonRpcProviders,
+			NumWssProviders,
+		});
 	}
 }
 start();
