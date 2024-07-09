@@ -1,5 +1,6 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { executeWithTimeout } from "utils";
+import { TrackedJsonRpcProvider } from "./providers";
 
 export default class RPCManager {
 	private healthy: Map<string, boolean> = new Map();
@@ -54,7 +55,7 @@ export default class RPCManager {
 			this.healthy.get(rpc) === undefined ||
 			(this.lastCheck.get(rpc) ?? 0) + this.CHECK_INTERVAL_MS < Date.now()
 		) {
-			const provider = new JsonRpcProvider(rpc);
+			const provider = new TrackedJsonRpcProvider(rpc);
 			try {
 				await executeWithTimeout(provider.detectNetwork(), this.NETWORK_READY_MS);
 				this.healthy.set(rpc, true);

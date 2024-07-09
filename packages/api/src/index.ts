@@ -9,7 +9,13 @@ import * as winston from "winston";
 import { RPCConfig } from "utils/dist/wsTypes";
 import RPCManager from "./rpcManager";
 import fs from "fs";
-import { JsonRpcEthCalls, ProvidersEthCallsStartTime, WssEthCalls } from "./providers";
+import {
+	JsonRpcEthCalls,
+	NumJsonRpcProviders,
+	NumWssProviders,
+	ProvidersEthCallsStartTime,
+	WssEthCalls,
+} from "./providers";
 
 const defaultLogger = () => {
 	return winston.createLogger({

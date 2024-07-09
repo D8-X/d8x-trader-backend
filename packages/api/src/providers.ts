@@ -15,9 +15,13 @@ export const JsonRpcEthCalls = new Map<string, number>();
  */
 export const WssEthCalls = new Map<string, number>();
 
+export let NumJsonRpcProviders = 0;
+export let NumWssProviders = 0;
+
 export class TrackedWebsocketsProvider extends providers.WebSocketProvider {
 	constructor(url: string | WebSocketLike, network?: Networkish) {
 		super(url, network);
+		NumWssProviders++;
 	}
 
 	send(method: string, params?: Array<any>): Promise<any> {
@@ -33,6 +37,7 @@ export class TrackedWebsocketsProvider extends providers.WebSocketProvider {
 export class TrackedJsonRpcProvider extends providers.StaticJsonRpcProvider {
 	constructor(url?: ConnectionInfo | string, network?: Networkish) {
 		super(url, network);
+		NumJsonRpcProviders++;
 	}
 
 	send(method: string, params: Array<any>): Promise<any> {
