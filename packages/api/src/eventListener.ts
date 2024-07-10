@@ -178,14 +178,18 @@ export default class EventListener extends IndexPriceInterface {
 		}
 		this.rpcResetting = true;
 
-		this.stopListening();
 		this.wsRPC = newWsRPC;
 		this.logger.info("resetting WS RPC", { newWsRPC });
 
+		// Close the underlying websockets connection without issuing
+		// eth_unsubscribe calls. We do this because ethers implementation has a
+		// bug where it sends async eth_unsubscribe requests from within
+		// synchronous WebsocketProvider._stopEvent call. Therefore if we
+		// attempt to remove event listeners before closing the websocket
+		// connection, it will crash the service with unhandled promise error
+		// while attempting to send(eth_unsubscribe) on a closed connection.
 		if (this.currentWSRpcProvider !== undefined) {
-			// do not call this.currentWSRpcProvider.destroy(); since it messes
-			// up ws state and causes panic
-			this.currentWSRpcProvider.removeAllListeners();
+			this.currentWSRpcProvider.destroy();
 			this.logger.info("old rpc provider destroyed");
 		}
 
