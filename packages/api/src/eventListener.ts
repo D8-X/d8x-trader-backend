@@ -807,11 +807,6 @@ export default class EventListener extends IndexPriceInterface {
 
 		// update data in sdkInterface's exchangeInfo
 		const fundingRate = this.fundingRate.get(perpetualId) || 0;
-		// Do not allow 0 funding rate to be sent out
-		if (fundingRate === 0) {
-			console.log(`[onUpdateMarkPrice] funding rate is 0 for ${perpetualId}`);
-			return;
-		}
 
 		const oi = this.openInterest.get(perpetualId) || 0;
 		const symbol = this.symbolFromPerpetualId(perpetualId);
@@ -857,11 +852,6 @@ export default class EventListener extends IndexPriceInterface {
 		}
 
 		const fundingRate = this.fundingRate.get(perpetualId) || 0;
-		// Do not allow 0 funding rate to be sent out
-		if (fundingRate === 0) {
-			console.log(`[updateMarkPrice] funding rate is 0 for ${perpetualId}`);
-			return;
-		}
 
 		const oi = this.openInterest.get(perpetualId) || 0;
 		const symbol = this.symbolFromPerpetualId(perpetualId);
