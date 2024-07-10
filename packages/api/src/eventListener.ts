@@ -39,6 +39,7 @@ import {
 } from "utils/src/wsTypes";
 import SturdyWebSocket from "sturdy-websocket";
 import { Logger } from "winston";
+import { TrackedWebsocketsProvider } from "./providers";
 
 /**
  * Class that listens to blockchain events on
@@ -201,7 +202,7 @@ export default class EventListener extends IndexPriceInterface {
 
 		// Attempt to establish a ws connection to new RPC
 		this.logger.info("creating new websocket rpc provider");
-		this.currentWSRpcProvider = new providers.WebSocketProvider(this.wsConn!);
+		this.currentWSRpcProvider = new TrackedWebsocketsProvider(this.wsConn!);
 
 		// On provider error - retry after short cooldown
 		this.currentWSRpcProvider.on("error", (error: Error) => () => {
@@ -632,7 +633,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * @param symbol order book symbol
 	 */
 	private addOrderBookEventHandlers(symbol: string) {
-		const provider = new providers.WebSocketProvider(this.wsRPC);
+		const provider = this.currentWSRpcProvider!;
 		this.orderBookContracts[symbol] = new Contract(
 			this.traderInterface.getOrderBookAddress(symbol),
 			this.traderInterface.getABI("lob")!,
