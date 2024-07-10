@@ -39,6 +39,7 @@ import {
 } from "utils/src/wsTypes";
 import SturdyWebSocket from "sturdy-websocket";
 import { Logger } from "winston";
+import { TrackedWebsocketsProvider } from "./providers";
 
 /**
  * Class that listens to blockchain events on
@@ -151,6 +152,12 @@ export default class EventListener extends IndexPriceInterface {
 		this.resetRPCWebsocket(this.wsRPC);
 		sdkInterface.registerObserver(this);
 		this.lastBlockChainEventTs = Date.now();
+
+		// run _update only for the first time to set fundingRates and
+		// openInterest
+		await this._update("Initial Update Call", true);
+
+		// Set to initialized only after all initializations are done
 		this.isInitialized = true;
 	}
 
@@ -172,14 +179,18 @@ export default class EventListener extends IndexPriceInterface {
 		}
 		this.rpcResetting = true;
 
-		this.stopListening();
 		this.wsRPC = newWsRPC;
 		this.logger.info("resetting WS RPC", { newWsRPC });
 
+		// Close the underlying websockets connection without issuing
+		// eth_unsubscribe calls. We do this because ethers implementation has a
+		// bug where it sends async eth_unsubscribe requests from within
+		// synchronous WebsocketProvider._stopEvent call. Therefore if we
+		// attempt to remove event listeners before closing the websocket
+		// connection, it will crash the service with unhandled promise error
+		// while attempting to send(eth_unsubscribe) on a closed connection.
 		if (this.currentWSRpcProvider !== undefined) {
-			// do not call this.currentWSRpcProvider.destroy(); since it messes
-			// up ws state and causes panic
-			this.currentWSRpcProvider.removeAllListeners();
+			this.currentWSRpcProvider.destroy();
 			this.logger.info("old rpc provider destroyed");
 		}
 
@@ -191,7 +202,7 @@ export default class EventListener extends IndexPriceInterface {
 
 		// Attempt to establish a ws connection to new RPC
 		this.logger.info("creating new websocket rpc provider");
-		this.currentWSRpcProvider = new providers.WebSocketProvider(this.wsConn!);
+		this.currentWSRpcProvider = new TrackedWebsocketsProvider(this.wsConn!);
 
 		// On provider error - retry after short cooldown
 		this.currentWSRpcProvider.on("error", (error: Error) => () => {
@@ -446,12 +457,17 @@ export default class EventListener extends IndexPriceInterface {
 
 	/**
 	 * Handles updates from sdk interface
-	 * @param msg from observable
+	 * @param msg
+	 * @param firstTimeUpdate - if true, allow to run the _update even if not
+	 * initialized
+	 * @returns
 	 */
-	protected async _update(msg: String) {
-		// we receive a message from the observable sdk
-		// on update exchange info; we update price info and inform subscribers
-		if (!this.isInitialized) {
+	protected async _update(msg: String, firstTimeUpdate: boolean = false) {
+		// we receive a message from the observable sdk on update exchange info;
+		// we update price info and inform subscribers. Whenever this is a first
+		// time update - allow it to pass through to initialize the funding rate
+		// and openInterest
+		if (!this.isInitialized && !firstTimeUpdate) {
 			return;
 		}
 		console.log("received update from sdkInterface", msg);
@@ -471,6 +487,12 @@ export default class EventListener extends IndexPriceInterface {
 					perp.markPrice,
 					perp.indexPrice,
 				);
+
+				console.log(`[_update] setting fundingRate and openInterest`, {
+					fundingRate: perp.currentFundingRateBps / 1e4,
+					openInterest: perp.openInterestBC,
+					perpetualId: perp.id,
+				});
 			}
 		}
 	}
@@ -611,7 +633,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * @param symbol order book symbol
 	 */
 	private addOrderBookEventHandlers(symbol: string) {
-		const provider = new providers.WebSocketProvider(this.wsRPC);
+		const provider = this.currentWSRpcProvider!;
 		this.orderBookContracts[symbol] = new Contract(
 			this.traderInterface.getOrderBookAddress(symbol),
 			this.traderInterface.getABI("lob")!,
@@ -750,6 +772,11 @@ export default class EventListener extends IndexPriceInterface {
 		fMarkPricePremium: BigNumber,
 		fSpotIndexPrice: BigNumber,
 	): void {
+		if (!this.isInitialized) {
+			console.log("onUpdateMarkPrice: eventListener not initialized");
+			return;
+		}
+
 		this.lastBlockChainEventTs = Date.now();
 
 		const hash =
@@ -780,6 +807,7 @@ export default class EventListener extends IndexPriceInterface {
 
 		// update data in sdkInterface's exchangeInfo
 		const fundingRate = this.fundingRate.get(perpetualId) || 0;
+
 		const oi = this.openInterest.get(perpetualId) || 0;
 		const symbol = this.symbolFromPerpetualId(perpetualId);
 
@@ -818,7 +846,13 @@ export default class EventListener extends IndexPriceInterface {
 		newMarkPrice: number,
 		newIndexPrice: number,
 	) {
+		if (!this.isInitialized) {
+			console.log("updateMarkPrice: eventListener not initialized");
+			return;
+		}
+
 		const fundingRate = this.fundingRate.get(perpetualId) || 0;
+
 		const oi = this.openInterest.get(perpetualId) || 0;
 		const symbol = this.symbolFromPerpetualId(perpetualId);
 		const obj: PriceUpdate = {

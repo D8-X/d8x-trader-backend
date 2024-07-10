@@ -19,6 +19,7 @@ import Observable from "./observable";
 import type { RedisClientType } from "redis";
 import { extractErrorMsg, constructRedis } from "utils";
 import RPCManager from "./rpcManager";
+import { TrackedJsonRpcProvider } from "./providers";
 
 export type OrderWithTraderAndId = Order & { orderId: string; trader: string };
 
@@ -48,7 +49,9 @@ export default class SDKInterface extends Observable {
 	public async initialize(sdkConfig: NodeSDKConfig, rpcManager: RPCManager) {
 		this.apiInterface = new TraderInterface(sdkConfig);
 		this.rpcManager = rpcManager;
-		await this.apiInterface.createProxyInstance();
+		await this.apiInterface.createProxyInstance(
+			new TrackedJsonRpcProvider(sdkConfig.nodeURL),
+		);
 		await this.broker.initialize(sdkConfig);
 		const brokerAddress = await this.broker.getBrokerAddress();
 		if (!this.redisClient.isOpen) {
