@@ -1,27 +1,20 @@
 import { Logger } from "winston";
 import { calculateBlockFromTime, executeWithTimeout } from "utils";
 import {
-	LiquidationsFilteredCb,
 	LiquidityAddedEvent,
-	LiquidityAddedFilteredCb,
 	LiquidityRemovedEvent,
-	LiquidityRemovedFilteredCb,
 	LiquidityWithdrawalInitiatedEvent,
-	LiquidityWithdrawalInitiatedFilteredCb,
 	P2PTransferEvent,
 	P2PTransferFilteredCb,
 	TradeEvent,
 	LiquidateEvent,
-	TradesFilteredCb,
 	UpdateMarginAccountEvent,
-	UpdateMarginAccountFilteredCb,
 	EventCallback,
 } from "./types";
 import {
 	Contract,
 	Provider,
 	ethers,
-	Interface,
 	BigNumberish,
 	TopicFilter,
 	ContractEventName,
@@ -32,8 +25,8 @@ import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
 global.Error.stackTraceLimit = Infinity;
 
 function formatErrorMessage(error: unknown) {
-	if (error instanceof Error) return error.message
-	return String(error)
+	if (error instanceof Error) return error.message;
+	return String(error);
 }
 
 /**
@@ -302,12 +295,12 @@ export class HistoricalDataFilterer {
 					cb,
 				);
 			} catch (error) {
-				const errMsg = formatErrorMessage(error)
-				this.l.warn("Caught error in genericFilterer:"+errMsg);
+				const errMsg = formatErrorMessage(error);
+				this.l.warn("Caught error in genericFilterer:" + errMsg);
 				if (errMsg.includes("413")) {
 					// 413 Payload Too Large
-					deltaBlocks = Math.max(100, Math.round(deltaBlocks*0.75));
-					this.l.info("reduced deltaBlocks to "+String(deltaBlocks))
+					deltaBlocks = Math.max(100, Math.round(deltaBlocks * 0.75));
+					this.l.info("reduced deltaBlocks to " + String(deltaBlocks));
 					return;
 				}
 				// probably too many requests to node

@@ -20,6 +20,7 @@ import type { RedisClientType } from "redis";
 import { extractErrorMsg, constructRedis } from "utils";
 import RPCManager from "./rpcManager";
 import { TrackedJsonRpcProvider } from "./providers";
+import { toQuantity } from "ethers";
 
 export type OrderWithTraderAndId = Order & { orderId: string; trader: string };
 
@@ -396,7 +397,7 @@ export default class SDKInterface extends Observable {
 		// call data
 		const perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
 		// the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
-		const amountHex = floatToABK64x64(Number(amount)).toHexString();
+		const amountHex = toQuantity(floatToABK64x64(Number(amount)));
 		const priceUpdate = await this.apiInterface!.fetchLatestFeedPriceInfo(symbol);
 		return JSON.stringify({
 			perpId: perpId,
@@ -421,7 +422,7 @@ export default class SDKInterface extends Observable {
 		// call data
 		const perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
 		// the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
-		const amountHex = floatToABK64x64(Number(amount)).toHexString();
+		const amountHex = toQuantity(floatToABK64x64(Number(amount)));
 		const priceUpdate = await this.apiInterface!.fetchLatestFeedPriceInfo(symbol);
 		return JSON.stringify({
 			perpId: perpId,

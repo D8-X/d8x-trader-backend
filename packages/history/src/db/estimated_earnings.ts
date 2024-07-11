@@ -3,8 +3,7 @@ import {
 	EstimatedEarningTokens,
 	estimated_earnings_event_type,
 } from "@prisma/client";
-import { BigNumberish, ethers, Numeric, Result } from "ethers";
-import * as eth from "ethers";
+import { BigNumberish } from "ethers";
 import { Logger } from "winston";
 import {
 	LiquidityAddedEvent,
