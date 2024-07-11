@@ -1,4 +1,4 @@
-import { ethers, providers } from "ethers";
+import { JsonRpcProvider } from "ethers";
 import {
 	getPreviousCronDate,
 	cronParserCheckExpression,
@@ -9,12 +9,11 @@ import {
 	chooseRandomRPC,
 	calculateBlockFromTimeOld2,
 } from "../packages/utils/src/utils";
-import { error } from "console";
 
 async function testCalculateBlockFromTime() {
 	const rpcConfig = require("../config/example.rpc.json");
 	const rpcURL = chooseRandomRPC(false, rpcConfig);
-	const provider = new providers.StaticJsonRpcProvider(rpcURL);
+	const provider = new JsonRpcProvider(rpcURL);
 	let R = (Math.random() - 0.5) / 0.5;
 	let sinceTs =
 		new Date("2023-07-01T01:01:00.000Z").getTime() +
@@ -24,7 +23,7 @@ async function testCalculateBlockFromTime() {
 
 	console.log("\nBinary search version");
 	let [from1, to1] = await calculateBlockFromTime(provider, sinceDate, true);
-	let ts1 = (await provider.getBlock(from1)).timestamp;
+	let ts1 = (await provider.getBlock(from1))?.timestamp ?? 0;
 	let from1Timestamp = new Date(ts1 * 1000);
 	console.log("error sec=", ts1 - sinceDate.getTime() / 1000);
 	console.log("got timestamp=", from1Timestamp);
@@ -32,7 +31,7 @@ async function testCalculateBlockFromTime() {
 
 	console.log("\nReduced RPC call version");
 	let [from2, to2] = await calculateBlockFromTimeOld2(provider, sinceDate, true);
-	let ts2 = (await provider.getBlock(from2)).timestamp;
+	let ts2 = (await provider.getBlock(from2))?.timestamp ?? 0;
 	let from2Timestamp = new Date(ts2 * 1000);
 	console.log("error sec=", ts2 - sinceDate.getTime() / 1000);
 	console.log("got timestamp=", from2Timestamp);
@@ -40,7 +39,7 @@ async function testCalculateBlockFromTime() {
 
 	console.log("\nOld version");
 	let [from0, to0] = await calculateBlockFromTimeOld(provider, sinceDate, true);
-	let ts0 = (await provider.getBlock(from0)).timestamp;
+	let ts0 = (await provider.getBlock(from0))?.timestamp ?? 0;
 	let from0Timestamp = new Date(ts0 * 1000);
 	console.log("error sec=", ts0 - sinceDate.getTime() / 1000);
 	console.log("got timestamp=", from0Timestamp);

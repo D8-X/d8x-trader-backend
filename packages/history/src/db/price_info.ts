@@ -1,5 +1,4 @@
 import { PrismaClient } from "@prisma/client";
-import { timeStamp } from "console";
 import { Logger } from "winston";
 
 export class PriceInfo {
