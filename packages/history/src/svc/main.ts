@@ -188,7 +188,9 @@ export const main = async () => {
 			logger.info(`switching to HTTP provider`);
 			eventsListener.listen(makeJsonProvider());
 		} else {
-			wsProvider.removeAllListeners();
+			if (wsProvider) {
+				await wsProvider.destroy();
+			}
 
 			// currently on HTTP - check if can switch back to WS
 			const wsUrl = chooseRandomRPC(true, rpcConfig);
