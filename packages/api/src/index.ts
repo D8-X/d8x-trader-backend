@@ -27,14 +27,31 @@ const defaultLogger = () => {
 };
 export const logger = defaultLogger();
 
-function loadVAAEndpoints(filename: string): string[] {
+function loadVAAEndpoints(filename: string): [string[], string[]] {
 	const fileContent = fs.readFileSync(filename).toString();
 	const f = JSON.parse(fileContent);
+
+	// read write price feed endpoints
+	let [read, write]: [string[], string[]] = [[], []];
+
+	// Extract read endpoints
 	if ("priceServiceHTTPSEndpoints" in f && f.priceServiceHTTPSEndpoints.length > 0) {
-		return f.priceServiceHTTPSEndpoints;
+		read = f.priceServiceHTTPSEndpoints;
+	} else {
+		throw Error("priceServiceHTTPSEndpoints not found in prices config");
 	}
 
-	throw Error("priceServiceHTTPSEndpoints not found in prices config");
+	// Extract write endpoints (optional)
+	if (
+		"priceServiceHTTPSWriteEndpoints" in f &&
+		f.priceServiceHTTPSWriteEndpoints.length > 0
+	) {
+		write = f.priceServiceHTTPSWriteEndpoints;
+	} else {
+		console.warn(`priceServiceHTTPSWriteEndpoints not defined in ${filename}`);
+	}
+
+	return [read, write];
 }
 
 async function start() {
@@ -53,12 +70,16 @@ async function start() {
 		);
 	}
 	logger.info(`extracting price VAA endpoints ${configPricesName}`);
-	const endpoints = loadVAAEndpoints(configPricesName);
+	const [endpoints, writeEndpoints] = loadVAAEndpoints(configPricesName);
 	let type = "pyth";
-	if (endpoints[0].includes("odin")) {
+	if (
+		endpoints[0].includes("odin") ||
+		(writeEndpoints.length > 0 && writeEndpoints[0].includes("odin"))
+	) {
 		type = "odin";
 	}
-	sdkConfig.priceFeedEndpoints = [{ type: type, endpoints: endpoints }];
+	sdkConfig.priceFeedEndpoints = [{ type: type, endpoints: endpoints, writeEndpoints }];
+	console.log("Using price feed endpoints", sdkConfig.priceFeedEndpoints);
 
 	const rpcConfig = loadConfigRPC() as RPCConfig[];
 	let broker: BrokerIntegration;
