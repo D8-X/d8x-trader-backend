@@ -329,13 +329,12 @@ export default class SDKInterface extends Observable {
 		if (!orders.every((order: Order) => order.symbol == orders[0].symbol)) {
 			throw Error("orders must have the same symbol");
 		}
+
+		// Note that order field is not used in remote broker integration
+		const brokerFeeTbps = await this.broker.getBrokerFeeTBps(traderAddr, undefined);
+		const brokerAddr = await this.broker.getBrokerAddress();
 		const SCOrders = await Promise.all(
 			orders!.map(async (order: Order) => {
-				order.brokerFeeTbps = await this.broker.getBrokerFeeTBps(
-					traderAddr,
-					order,
-				);
-				order.brokerAddr = await this.broker.getBrokerAddress();
 				const SCOrder = this.apiInterface?.createSmartContractOrder(
 					order,
 					traderAddr,
@@ -357,15 +356,13 @@ export default class SDKInterface extends Observable {
 		);
 		// also return the order book address and postOrder ABI
 		const obAddr = this.apiInterface!.getOrderBookAddress(orders[0].symbol);
-		const postOrderABI = [
-			this.apiInterface!.getOrderBookABI(orders[0].symbol, "postOrders"),
-		];
 		return JSON.stringify({
 			digests: digests,
 			orderIds: ids,
 			OrderBookAddr: obAddr,
-			abi: postOrderABI,
-			SCOrders: SCOrders,
+			brokerAddr,
+			brokerFeeTbps,
+			brokerSignatures: SCOrders.map(({ brokerSignature }) => brokerSignature),
 		});
 	}
 
@@ -389,21 +386,16 @@ export default class SDKInterface extends Observable {
 		});
 	}
 
-	public async addCollateral(symbol: string, amount: string): Promise<string> {
+	public async addCollateral(symbol: string): Promise<string> {
 		this.checkAPIInitialized();
 		// contract data
 		const proxyAddr = this.apiInterface!.getProxyAddress();
-		const proxyABI = this.apiInterface!.getProxyABI("deposit");
 		// call data
 		const perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
-		// the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
-		const amountHex = toQuantity(floatToABK64x64(Number(amount)));
 		const priceUpdate = await this.apiInterface!.fetchLatestFeedPriceInfo(symbol);
 		return JSON.stringify({
 			perpId: perpId,
 			proxyAddr: proxyAddr,
-			abi: proxyABI,
-			amountHex: amountHex,
 			priceUpdate: {
 				updateData: priceUpdate.priceFeedVaas,
 				publishTimes: priceUpdate.timestamps,
@@ -414,21 +406,16 @@ export default class SDKInterface extends Observable {
 		});
 	}
 
-	public async removeCollateral(symbol: string, amount: string): Promise<string> {
+	public async removeCollateral(symbol: string): Promise<string> {
 		this.checkAPIInitialized();
 		// contract data
 		const proxyAddr = this.apiInterface!.getProxyAddress();
-		const proxyABI = this.apiInterface!.getProxyABI("withdraw");
 		// call data
 		const perpId = this.apiInterface!.getPerpetualStaticInfo(symbol).id;
-		// the amount as a Hex string, such that BigNumber.from(amountHex) == floatToABK64(amount)
-		const amountHex = toQuantity(floatToABK64x64(Number(amount)));
 		const priceUpdate = await this.apiInterface!.fetchLatestFeedPriceInfo(symbol);
 		return JSON.stringify({
 			perpId: perpId,
 			proxyAddr: proxyAddr,
-			abi: proxyABI,
-			amountHex: amountHex,
 			priceUpdate: {
 				updateData: priceUpdate.priceFeedVaas,
 				publishTimes: priceUpdate.timestamps,
