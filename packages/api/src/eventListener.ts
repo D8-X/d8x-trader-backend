@@ -771,9 +771,7 @@ export default class EventListener extends IndexPriceInterface {
 		this.lastBlockChainEventTs = Date.now();
 
 		const hash =
-			fMidPricePremium +
-			fMarkPricePremium +
-			fSpotIndexPrice.toString() +
+			(fMidPricePremium + fMarkPricePremium + fSpotIndexPrice).toString() +
 			perpetualId.toString();
 		if (!this.grantEventControlPassage(hash, "onUpdateMarkPrice")) {
 			console.log("onUpdateMarkPrice duplicate");
