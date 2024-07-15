@@ -14,6 +14,14 @@ dotenv.config();
 //https://roger13.github.io/SwagDefGen/
 //setAllowance?
 
+// Make sure bigint is serialized to string when stringifying. Without this we
+// get "unable to serialize bigint" error.
+//
+//@ts-ignore
+BigInt.prototype.toJSON = function () {
+	return this.toString();
+};
+
 export default class D8XBrokerBackendApp {
 	public express: express.Application;
 	private sdk: SDKInterface;
@@ -484,19 +492,13 @@ export default class D8XBrokerBackendApp {
 			res.setHeader("Content-Type", "application/json");
 			try {
 				this.lastRequestTsMs = Date.now();
-				if (
-					typeof req.query.symbol != "string" ||
-					typeof req.query.amount != "string"
-				) {
-					throw new Error("wrong arguments. Requires a symbol and an amount.");
+				if (typeof req.query.symbol != "string") {
+					throw new Error("wrong arguments. Requires a symbol.");
 				}
-				const rsp = await this.sdk.addCollateral(
-					req.query.symbol,
-					req.query.amount,
-				);
+				const rsp = await this.sdk.addCollateral(req.query.symbol);
 				res.send(D8XBrokerBackendApp.JSONResponse("add-collateral", "", rsp));
 			} catch (err: any) {
-				const usg = "add-collateral?symbol=MATIC-USDC-USDC&amount='110.4'";
+				const usg = "add-collateral?symbol=MATIC-USDC-USDC";
 				console.log("error for add-collateral:", extractErrorMsg(err));
 				res.setHeader("Content-Type", "application/json");
 				res.send(
@@ -534,19 +536,13 @@ export default class D8XBrokerBackendApp {
 			res.setHeader("Content-Type", "application/json");
 			try {
 				this.lastRequestTsMs = Date.now();
-				if (
-					typeof req.query.symbol != "string" ||
-					typeof req.query.amount != "string"
-				) {
-					throw new Error("wrong arguments. Requires a symbol and an amount.");
+				if (typeof req.query.symbol != "string") {
+					throw new Error("wrong arguments. Requires a symbol.");
 				}
-				const rsp = await this.sdk.removeCollateral(
-					req.query.symbol,
-					req.query.amount,
-				);
+				const rsp = await this.sdk.removeCollateral(req.query.symbol);
 				res.send(D8XBrokerBackendApp.JSONResponse("remove-collateral", "", rsp));
 			} catch (err: any) {
-				const usg = "remove-collateral?symbol=MATIC&amount='110.4'";
+				const usg = "remove-collateral?symbol=MATIC";
 				console.log("error for remove-collateral:", extractErrorMsg(err));
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "remove-collateral", {
