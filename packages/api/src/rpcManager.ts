@@ -1,4 +1,3 @@
-import { JsonRpcProvider } from "@ethersproject/providers";
 import { executeWithTimeout } from "utils";
 import { TrackedJsonRpcProvider } from "./providers";
 
