@@ -130,6 +130,10 @@ export default class SDKInterface extends Observable {
 		return info;
 	}
 
+	public isPredictionMarket(symbol: string): boolean {
+		return this.apiInterface!.isPredictionMarket(symbol);
+	}
+
 	/**
 	 * Get perpetual symbol from perpetual id
 	 * @param perpId id of perpetual
