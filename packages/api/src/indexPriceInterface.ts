@@ -1,7 +1,12 @@
 import { createClient } from "redis";
 import type { RedisClientType } from "redis";
 import * as redis from "redis";
-import { ExchangeInfo, NodeSDKConfig, PerpetualState } from "@d8x/perpetuals-sdk";
+import {
+	ExchangeInfo,
+	NodeSDKConfig,
+	PerpetualState,
+	probToPrice,
+} from "@d8x/perpetuals-sdk";
 import { extractErrorMsg, constructRedis } from "utils";
 import SDKInterface from "./sdkInterface";
 import Observer from "./observer";
@@ -20,6 +25,7 @@ export default abstract class IndexPriceInterface extends Observer {
 	protected midPremium: Map<number, number>; //perpId -> price (e.g. we can have 2 BTC-USD with different mid-price)
 	protected mrkPremium: Map<number, number>; //perpId -> mark premium
 
+	protected isPredictionMkt: Map<number, boolean>; //perpId -> true if index is probability and needs exp(x) transformation
 	protected sdkInterface: SDKInterface | undefined;
 
 	constructor() {
@@ -30,6 +36,7 @@ export default abstract class IndexPriceInterface extends Observer {
 		this.idxPrices = new Map<string, number>();
 		this.midPremium = new Map<number, number>();
 		this.mrkPremium = new Map<number, number>();
+		this.isPredictionMkt = new Map<number, boolean>();
 	}
 
 	public async priceInterfaceInitialize(sdkInterface: SDKInterface) {
@@ -91,9 +98,10 @@ export default abstract class IndexPriceInterface extends Observer {
 
 	/**
 	 * We store the names of the indices that we want to get
-	 * from the oracle-websocket client and register what perpetuals
+	 * from the candles service via REDIS and register what perpetuals
 	 * the indices are used for (e.g., BTC-USD can be used in the MATIC pool and USDC pool)
 	 * We also set initial values for idx/mark/mid prices
+	 * We also set isPredictionMkt
 	 * @param info exchange-info
 	 */
 	private async _initIdxNamesToPerpetualIds(info: ExchangeInfo) {
@@ -119,6 +127,11 @@ export default abstract class IndexPriceInterface extends Observer {
 				this.idxPrices.set(pxIdxName, px);
 				this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
 				this.midPremium.set(perpId, perpState.midPrice / px - 1);
+
+				const isPred = this.sdkInterface!.isPredictionMarket(
+					pxIdxName + "-" + pool.poolSymbol,
+				);
+				this.isPredictionMkt.set(perpId, isPred);
 			}
 		}
 	}
@@ -162,7 +175,7 @@ export default abstract class IndexPriceInterface extends Observer {
 			if (perpetualIds == undefined) {
 				continue;
 			}
-			const px = this.idxPrices.get(indices[k]);
+			let px = this.idxPrices.get(indices[k]);
 			for (let j = 0; j < perpetualIds.length; j++) {
 				const markPremium = this.mrkPremium.get(perpetualIds[j]);
 				const midPremium = this.midPremium.get(perpetualIds[j]);
@@ -172,6 +185,11 @@ export default abstract class IndexPriceInterface extends Observer {
 					midPremium == undefined
 				) {
 					continue;
+				}
+				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
+				if (isPred) {
+					// transform price
+					px = probToPrice(px);
 				}
 				const midPx = px * (1 + midPremium);
 				const markPx = px * (1 + markPremium);
