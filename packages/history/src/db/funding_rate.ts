@@ -1,15 +1,7 @@
-import {
-	PrismaClient,
-	Trade,
-	trade_side,
-	Prisma,
-	FundingRatePayment,
-} from "@prisma/client";
-import { BigNumberish, Numeric, Result } from "ethers";
-import { TradeEvent } from "../contracts/types";
+import { PrismaClient, Prisma, FundingRatePayment } from "@prisma/client";
+import { BigNumberish } from "ethers";
 import { Logger } from "winston";
 import { UpdateMarginAccountEvent } from "../contracts/types";
-import { LiquidateEvent } from "../contracts/types";
 
 //
 export class FundingRatePayments {

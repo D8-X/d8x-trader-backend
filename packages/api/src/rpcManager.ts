@@ -1,4 +1,3 @@
-import { JsonRpcProvider } from "@ethersproject/providers";
 import { executeWithTimeout } from "utils";
 import { TrackedJsonRpcProvider } from "./providers";
 
@@ -57,7 +56,10 @@ export default class RPCManager {
 		) {
 			const provider = new TrackedJsonRpcProvider(rpc);
 			try {
-				await executeWithTimeout(provider.detectNetwork(), this.NETWORK_READY_MS);
+				await executeWithTimeout(
+					provider._detectNetwork(),
+					this.NETWORK_READY_MS,
+				);
 				this.healthy.set(rpc, true);
 			} catch (_e) {
 				this.healthy.set(rpc, false);

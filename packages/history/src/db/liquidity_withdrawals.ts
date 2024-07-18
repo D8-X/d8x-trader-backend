@@ -4,8 +4,6 @@ import {
 	LiquidityRemovedEvent,
 	LiquidityWithdrawalInitiatedEvent,
 } from "../contracts/types";
-import { LiquidityProviderTool } from "@d8x/perpetuals-sdk";
-import { lastDayOfWeek } from "date-fns";
 
 export class LiquidityWithdrawals {
 	constructor(
