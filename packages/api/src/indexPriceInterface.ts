@@ -25,7 +25,7 @@ export default abstract class IndexPriceInterface extends Observer {
 	protected midPremium: Map<number, number>; //perpId -> price (e.g. we can have 2 BTC-USD with different mid-price)
 	protected mrkPremium: Map<number, number>; //perpId -> mark premium
 
-	protected isPredictionMkt: Map<number, boolean>; //perpId -> true if index is probability and needs exp(x) transformation
+	protected isPredictionMkt: Map<number, boolean>; //perpId -> true if index is probability and needs 1+x transformation
 	protected sdkInterface: SDKInterface | undefined;
 
 	constructor() {
