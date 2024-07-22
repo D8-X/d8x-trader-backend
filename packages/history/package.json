@@ -8,7 +8,7 @@
 	],
 	"license": "MIT",
 	"scripts": {
-		"build": "npx prisma generate && rimraf ./dist && tsc",
+		"build": "npx prisma generate --schema ../utils/prisma/schema.prisma && rimraf ./dist && tsc",
 		"prisma-reset": "npx prisma migrate reset --force",
 		"prisma-dev": "npx prisma migrate dev",
 		"prisma-prod": "npx prisma migrate deploy",
@@ -19,7 +19,8 @@
 	},
 	"dependencies": {
 		"@d8x/perpetuals-sdk": "^2.0.7-alpha",
-		"@prisma/client": "^5.1.1",
+		"@prisma/client": "^5.17.0",
+		"prisma": "^5.17.0",
 		"@types/ws": "^8.5.5",
 		"cors": "^2.8.5",
 		"cron-schedule": "^4.0.0",
