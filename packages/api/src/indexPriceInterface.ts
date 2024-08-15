@@ -24,6 +24,7 @@ export default abstract class IndexPriceInterface extends Observer {
 	protected idxPrices: Map<string, number>; //ticker -> price
 	protected midPremium: Map<number, number>; //perpId -> price (e.g. we can have 2 BTC-USD with different mid-price)
 	protected mrkPremium: Map<number, number>; //perpId -> mark premium
+	protected emaPrices: Map<number, number>; //perpId -> ema price
 
 	protected isPredictionMkt: Map<number, boolean>; //perpId -> true if index is probability and needs 1+x transformation
 	protected sdkInterface: SDKInterface | undefined;
@@ -34,6 +35,7 @@ export default abstract class IndexPriceInterface extends Observer {
 		this.redisSubClient = constructRedis("PX Interface Sub");
 		this.idxNamesToPerpetualIds = new Map<string, number[]>();
 		this.idxPrices = new Map<string, number>();
+		this.emaPrices = new Map<number, number>(); // store ema of index for prediction markets
 		this.midPremium = new Map<number, number>();
 		this.mrkPremium = new Map<number, number>();
 		this.isPredictionMkt = new Map<number, boolean>();
@@ -122,16 +124,16 @@ export default abstract class IndexPriceInterface extends Observer {
 				} else {
 					idxs!.push(perpId);
 				}
-				this.idxNamesToPerpetualIds.get(pxIdxName);
-				const px = perpState.indexPrice;
-				this.idxPrices.set(pxIdxName, px);
-				this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
-				this.midPremium.set(perpId, perpState.midPrice / px - 1);
 
 				const isPred = this.sdkInterface!.isPredictionMarket(
 					pxIdxName + "-" + pool.poolSymbol,
 				);
 				this.isPredictionMkt.set(perpId, isPred);
+
+				const px = perpState.indexPrice;
+				this.idxPrices.set(pxIdxName, px);
+				this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
+				this.midPremium.set(perpId, perpState.midPrice / px - 1);
 			}
 		}
 	}
@@ -187,12 +189,15 @@ export default abstract class IndexPriceInterface extends Observer {
 					continue;
 				}
 				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
+				let midPx, markPx;
 				if (isPred) {
 					// transform price
 					px = probToPrice(px);
+				} else {
+					midPx = px * (1 + midPremium);
+					markPx = px * (1 + markPremium);
 				}
-				const midPx = px * (1 + midPremium);
-				const markPx = px * (1 + markPremium);
+
 				// call update to inform websocket
 				this.updateMarkPrice(perpetualIds[j], midPx, markPx!, px!);
 			}
@@ -216,6 +221,10 @@ export default abstract class IndexPriceInterface extends Observer {
 		newMarkPrice: number,
 		newIndexPrice: number,
 	) {
+		const isPred = this.isPredictionMkt.get(perpetualId);
+		if (isPred) {
+			return;
+		}
 		const midPrem = newMidPrice / newIndexPrice - 1;
 		this.midPremium.set(perpetualId, midPrem);
 		const markPrem = newMarkPrice / newIndexPrice - 1;
