@@ -472,6 +472,9 @@ export default class EventListener extends IndexPriceInterface {
 				const perp: PerpetualState = pool.perpetuals[j];
 				this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
 				this.openInterest.set(perp.id, perp.openInterestBC);
+				if (this.isPredictionMkt.get(perp.id)) {
+					this.emaPrices.set(perp.id, perp.markPrice - perp.markPremium);
+				}
 				this.updateMarkPrice(
 					perp.id,
 					perp.midPrice,
@@ -754,47 +757,56 @@ export default class EventListener extends IndexPriceInterface {
 	 * Handle the event UpdateMarkPrice and update relevant
 	 * data
 	 * @param perpetualId perpetual Id
+	 * @param fMidPricePremium premium for spot price in ABDK
 	 * @param fMarkPricePremium premium rate in ABDK format
-	 * @param fSpotIndexPrice spot index price in ABDK format
+	 * @param fMarkIndexPrice spot index price or ema used for mark price in ABDK format
 	 */
 	public onUpdateMarkPrice(
 		perpetualId: number,
 		fMidPricePremium: bigint,
 		fMarkPricePremium: bigint,
-		fSpotIndexPrice: bigint,
+		fMarkIndexPrice: bigint,
 	): void {
 		if (!this.isInitialized) {
 			console.log("onUpdateMarkPrice: eventListener not initialized");
 			return;
 		}
+		const isPred = this.isPredictionMkt.get(perpetualId)!;
 
 		this.lastBlockChainEventTs = Date.now();
 
 		const hash =
-			(fMidPricePremium + fMarkPricePremium + fSpotIndexPrice).toString() +
+			(fMidPricePremium + fMarkPricePremium + fMarkIndexPrice).toString() +
 			perpetualId.toString();
 		if (!this.grantEventControlPassage(hash, "onUpdateMarkPrice")) {
 			console.log("onUpdateMarkPrice duplicate");
 			return;
 		}
+		const pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
+		const currIdx = this.idxPrices.get(pxIdxName)!;
 
-		let [newMidPrice, newMarkPrice, newIndexPrice] =
-			EventListener.ConvertUpdateMarkPrice(
-				fMidPricePremium,
-				fMarkPricePremium,
-				fSpotIndexPrice,
-			);
+		let newMarkPrice, newMidPrice: number;
+		const midPrem = ABK64x64ToFloat(fMidPricePremium);
+		const mrkPrem = ABK64x64ToFloat(fMarkPricePremium);
+		this.midPremium.set(perpetualId, midPrem);
+		this.mrkPremium.set(perpetualId, mrkPrem);
+		if (isPred) {
+			// set ema price for prediction markets.
+			// we don't set the index price for regular markets as this
+			// would be outdated
+			const ema = ABK64x64ToFloat(fMarkIndexPrice);
+			this.emaPrices.set(perpetualId, ema);
+
+			newMarkPrice = ema + mrkPrem;
+			newMidPrice = currIdx + midPrem;
+		} else {
+			newMarkPrice = currIdx * (1 + mrkPrem);
+			newMidPrice = currIdx * (1 + midPrem);
+		}
 		console.log("eventListener: onUpdateMarkPrice");
-		// update internal storage that is streamed to websocket
-		// and adjust mid/idx price based on newest index
-		[newMidPrice, newMarkPrice, newIndexPrice] = this.updatePricesOnMarkPriceEvent(
-			perpetualId,
-			newMidPrice,
-			newMarkPrice,
-			newIndexPrice,
-		);
+
 		// notify websocket listeners (using prices based on most recent websocket price)
-		this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, newIndexPrice);
+		this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, currIdx);
 
 		// update data in sdkInterface's exchangeInfo
 		const fundingRate = this.fundingRate.get(perpetualId) || 0;
@@ -805,7 +817,7 @@ export default class EventListener extends IndexPriceInterface {
 		if (this.sdkInterface != undefined && symbol != undefined) {
 			this.sdkInterface.updateExchangeInfoNumbersOfPerpetual(
 				symbol,
-				[newMidPrice, newMarkPrice, newIndexPrice, oi, fundingRate * 1e4],
+				[newMidPrice, newMarkPrice, currIdx, oi, fundingRate * 1e4],
 				[
 					"midPrice",
 					"markPrice",
@@ -825,7 +837,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * Called either by blockchain event handler (onUpdateMarkPrice),
 	 * or on update of the observable sdkInterface (after exchangeInfo update),
 	 * or from parent class on websocket update.
-	 * Informs websocket subsribers
+	 * Informs websocket subscribers
 	 * @param perpetualId id of the perpetual for which prices are being updated
 	 * @param newMidPrice mid price in decimals
 	 * @param newMarkPrice mark price
@@ -1059,28 +1071,5 @@ export default class EventListener extends IndexPriceInterface {
 		);
 		// send to subscribers
 		this.sendToSubscribers(perpetualId, jsonMsg, trader);
-	}
-
-	/**
-	 * UpdateMarkPrice(
-	 *  uint24 indexed perpetualId,
-	 *  int128 fMarkPricePremium,
-	 *  int128 fSpotIndexPrice
-	 * )
-	 * @param fMarkPricePremium premium rate in ABDK format
-	 * @param fSpotIndexPrice spot index price in ABDK format
-	 * @returns mark price and spot index in float
-	 */
-	private static ConvertUpdateMarkPrice(
-		fMidPricePremium: bigint,
-		fMarkPricePremium: bigint,
-		fSpotIndexPrice: bigint,
-	): [number, number, number] {
-		const fMarkPrice = mul64x64(fSpotIndexPrice, ONE_64x64 + fMarkPricePremium);
-		const fMidPrice = mul64x64(fSpotIndexPrice, ONE_64x64 + fMidPricePremium);
-		const midPrice = ABK64x64ToFloat(fMidPrice);
-		const markPrice = ABK64x64ToFloat(fMarkPrice);
-		const indexPrice = ABK64x64ToFloat(fSpotIndexPrice);
-		return [midPrice, markPrice, indexPrice];
 	}
 }
