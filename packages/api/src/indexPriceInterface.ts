@@ -22,6 +22,7 @@ export default abstract class IndexPriceInterface extends Observer {
 	private redisSubClient: RedisClientType;
 	private idxNamesToPerpetualIds: Map<string, number[]>; //ticker (e.g. BTC-USD) -> [10001, 10021, ..]
 	protected idxPrices: Map<string, number>; //ticker -> price
+	protected emaPrices: Map<number, number>; //perpId -> ema of s2 index price
 	protected midPremium: Map<number, number>; //perpId -> price (e.g. we can have 2 BTC-USD with different mid-price)
 	protected mrkPremium: Map<number, number>; //perpId -> mark premium
 
@@ -36,6 +37,7 @@ export default abstract class IndexPriceInterface extends Observer {
 		this.idxPrices = new Map<string, number>();
 		this.midPremium = new Map<number, number>();
 		this.mrkPremium = new Map<number, number>();
+		this.emaPrices = new Map<number, number>();
 		this.isPredictionMkt = new Map<number, boolean>();
 	}
 
@@ -187,46 +189,26 @@ export default abstract class IndexPriceInterface extends Observer {
 					continue;
 				}
 				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
+				let midPx, markPx: number;
 				if (isPred) {
-					// transform price
+					// transform price from probability
 					px = probToPrice(px);
+					midPx = px + midPremium;
+					// mark price is left unchanged
+					if (!this.emaPrices.has(perpetualIds[j])) {
+						// no mark price yet, continue
+						continue;
+					}
+					markPx = this.emaPrices.get(perpetualIds[j])!;
+					markPx = markPx + markPremium;
+				} else {
+					midPx = px * (1 + midPremium);
+					markPx = px * (1 + markPremium);
 				}
-				const midPx = px * (1 + midPremium);
-				const markPx = px * (1 + markPremium);
+
 				// call update to inform websocket
 				this.updateMarkPrice(perpetualIds[j], midPx, markPx!, px!);
 			}
 		}
-	}
-
-	/**
-	 * Upon receipt of new mark-price from the blockchain event,
-	 * we update mark-price and mid-price premium. No update of
-	 * index price because the index price is generally ahead in time.
-	 * @param perpetualId: perpetual id
-	 * @param newMidPrice: new mid price from onchain
-	 * @param newMarkPrice: new mark price from onchain
-	 * @param newIndexPrice: new index price from onchain
-	 * @returns midprice, markprice, index-price; index and mid price are adjusted by
-	 * newest index price
-	 */
-	protected updatePricesOnMarkPriceEvent(
-		perpetualId: number,
-		newMidPrice: number,
-		newMarkPrice: number,
-		newIndexPrice: number,
-	) {
-		const midPrem = newMidPrice / newIndexPrice - 1;
-		this.midPremium.set(perpetualId, midPrem);
-		const markPrem = newMarkPrice / newIndexPrice - 1;
-		this.mrkPremium.set(perpetualId, markPrem);
-		const pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId);
-		const px = this.idxPrices.get(pxIdxName!);
-		if (px == undefined) {
-			return [newMidPrice, newMarkPrice, newIndexPrice];
-		}
-		newMidPrice = px * (1 + midPrem);
-		newIndexPrice = px;
-		return [newMidPrice, newMarkPrice, newIndexPrice];
 	}
 }
