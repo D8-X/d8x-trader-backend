@@ -754,14 +754,13 @@ export default class EventListener extends IndexPriceInterface {
 	 * Handle the event UpdateMarkPrice and update relevant
 	 * data
 	 * @param perpetualId perpetual Id
-	 * @param fCurrentPremiumRate premium rate/mark price in ABDK format
-	 * @param fMark mark price or premium rate in ABDK format
+	 * @param fMarkPricePremium premium rate in ABDK format
 	 * @param fSpotIndexPrice spot index price in ABDK format
 	 */
 	public onUpdateMarkPrice(
 		perpetualId: number,
-		fCurrentPremiumRate: bigint,
-		fMark: bigint,
+		fMidPricePremium: bigint,
+		fMarkPricePremium: bigint,
 		fSpotIndexPrice: bigint,
 	): void {
 		if (!this.isInitialized) {
@@ -772,19 +771,18 @@ export default class EventListener extends IndexPriceInterface {
 		this.lastBlockChainEventTs = Date.now();
 
 		const hash =
-			(fCurrentPremiumRate + fMark + fSpotIndexPrice).toString() +
+			(fMidPricePremium + fMarkPricePremium + fSpotIndexPrice).toString() +
 			perpetualId.toString();
 		if (!this.grantEventControlPassage(hash, "onUpdateMarkPrice")) {
 			console.log("onUpdateMarkPrice duplicate");
 			return;
 		}
-		const isPred = this.isPredictionMkt.get(perpetualId)!;
+
 		let [newMidPrice, newMarkPrice, newIndexPrice] =
 			EventListener.ConvertUpdateMarkPrice(
-				fCurrentPremiumRate,
-				fMark,
+				fMidPricePremium,
+				fMarkPricePremium,
 				fSpotIndexPrice,
-				isPred,
 			);
 		console.log("eventListener: onUpdateMarkPrice");
 		// update internal storage that is streamed to websocket
@@ -794,7 +792,6 @@ export default class EventListener extends IndexPriceInterface {
 			newMidPrice,
 			newMarkPrice,
 			newIndexPrice,
-			isPred,
 		);
 		// notify websocket listeners (using prices based on most recent websocket price)
 		this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, newIndexPrice);
@@ -1067,34 +1064,23 @@ export default class EventListener extends IndexPriceInterface {
 	/**
 	 * UpdateMarkPrice(
 	 *  uint24 indexed perpetualId,
-	 *  int128 fCurrentMarkPremium, // additive premium for pred. markets, multiplicative otherwise
-	 *  int128 fMark, // Mark Price for pred. markets, ema mark premium otherwise
+	 *  int128 fMarkPricePremium,
 	 *  int128 fSpotIndexPrice
 	 * )
-	 * @param perpetualId id
-	 * @param fCurrentMarkPremium current additive premium for pred. markets, multiplicative otherwise
-	 * @param fMark ema premium rate in ABDK format or mark price
+	 * @param fMarkPricePremium premium rate in ABDK format
 	 * @param fSpotIndexPrice spot index price in ABDK format
 	 * @returns mark price and spot index in float
 	 */
 	private static ConvertUpdateMarkPrice(
-		fCurrentPremiumRate: bigint,
-		fMark: bigint,
+		fMidPricePremium: bigint,
+		fMarkPricePremium: bigint,
 		fSpotIndexPrice: bigint,
-		isPredMarket: boolean,
 	): [number, number, number] {
+		const fMarkPrice = mul64x64(fSpotIndexPrice, ONE_64x64 + fMarkPricePremium);
+		const fMidPrice = mul64x64(fSpotIndexPrice, ONE_64x64 + fMidPricePremium);
+		const midPrice = ABK64x64ToFloat(fMidPrice);
+		const markPrice = ABK64x64ToFloat(fMarkPrice);
 		const indexPrice = ABK64x64ToFloat(fSpotIndexPrice);
-		if (!isPredMarket) {
-			const fMarkPrice = mul64x64(fSpotIndexPrice, ONE_64x64 + fMark);
-			const fMidPrice = mul64x64(fSpotIndexPrice, ONE_64x64 + fCurrentPremiumRate);
-			const midPrice = ABK64x64ToFloat(fMidPrice);
-			const markPrice = ABK64x64ToFloat(fMarkPrice);
-
-			return [midPrice, markPrice, indexPrice];
-		}
-		// prediction markets
-		const markPrice = ABK64x64ToFloat(fMark);
-		const midPrice = ABK64x64ToFloat(fSpotIndexPrice + fCurrentPremiumRate);
 		return [midPrice, markPrice, indexPrice];
 	}
 }
