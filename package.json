@@ -1,6 +1,6 @@
 {
 	"dependencies": {
-		"@d8x/perpetuals-sdk": "git+https://github.com/D8-X/d8x-futures-node-sdk#pred-mkts",
+		"@d8x/perpetuals-sdk": "^2.1.1-alpha2",
 		"axios": "^1.6.0",
 		"body-parser": "1.20.1",
 		"cors": "^2.8.5",
