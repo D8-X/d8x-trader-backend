@@ -60,6 +60,17 @@
     process "0.11.10"
     typechain "^8.3.2"
 
+"@d8x/perpetuals-sdk@^2.1.5-alpha2":
+  version "2.1.5-alpha2"
+  resolved "https://registry.yarnpkg.com/@d8x/perpetuals-sdk/-/perpetuals-sdk-2.1.5-alpha2.tgz#3bfb2c7e46236f8b42e7d0a55dce0502b6d6590c"
+  integrity sha512-mNMKliBN8zBKUf1Sr5anvWUZ2IxlhPALaeIkvJ63SLPAlfLWuS86QvOnqPJH1QCQTHBJ/CkuLDIEkFZdnWG6fQ==
+  dependencies:
+    "@typechain/ethers-v6" "^0.5.1"
+    buffer "6.0.3"
+    ethers "^6.13.1"
+    process "0.11.10"
+    typechain "^8.3.2"
+
 "@dabh/diagnostics@^2.0.2":
   version "2.0.3"
   resolved "https://registry.yarnpkg.com/@dabh/diagnostics/-/diagnostics-2.0.3.tgz#7f7e97ee9a725dffc7808d93668cc984e1dc477a"
