@@ -200,7 +200,7 @@ export default abstract class IndexPriceInterface extends Observer {
 						continue;
 					}
 					markPx = this.emaPrices.get(perpetualIds[j])!;
-					markPx = markPx + markPremium;
+					markPx = Math.min(Math.max(1, markPx + markPremium), 2); //clamp
 				} else {
 					midPx = px * (1 + midPremium);
 					markPx = px * (1 + markPremium);

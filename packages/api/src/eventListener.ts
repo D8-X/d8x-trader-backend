@@ -796,8 +796,7 @@ export default class EventListener extends IndexPriceInterface {
 			// would be outdated
 			const ema = ABK64x64ToFloat(fMarkIndexPrice);
 			this.emaPrices.set(perpetualId, ema);
-
-			newMarkPrice = ema + mrkPrem;
+			newMarkPrice = Math.max(Math.min(ema + mrkPrem, 2), 1); //clamp
 			newMidPrice = currIdx + midPrem;
 		} else {
 			newMarkPrice = currIdx * (1 + mrkPrem);
