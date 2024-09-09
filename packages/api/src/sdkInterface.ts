@@ -229,7 +229,7 @@ export default class SDKInterface extends Observable {
 		const symbols = symbol.split("-");
 		const k = SDKInterface.findPoolIdx(symbols[2], pools);
 		if (k == -1) {
-			throw new Error(`No pool found with symbol ${symbols[2]}`);
+			throw new Error(`No pool found with symbol ${symbol}`);
 		}
 		const j = SDKInterface.findPerpetualInPool(
 			symbols[0],
