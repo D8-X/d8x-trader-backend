@@ -1,26 +1,16 @@
 import {
 	ABK64x64ToFloat,
-	BUY_SIDE,
-	calculateLiquidationPriceCollateralBase,
-	calculateLiquidationPriceCollateralQuanto,
-	calculateLiquidationPriceCollateralQuote,
-	CLOSED_SIDE,
-	COLLATERAL_CURRENCY_BASE,
-	COLLATERAL_CURRENCY_QUOTE,
+	containsFlag,
 	ExchangeInfo,
-	getNewPositionLeverage,
 	MarginAccount,
 	MASK_MARKET_ORDER,
 	mul64x64,
 	NodeSDKConfig,
 	ONE_64x64,
 	PerpetualState,
-	PerpetualStaticInfo,
-	SELL_SIDE,
 	SmartContractOrder,
 	TraderInterface,
 } from "@d8x/perpetuals-sdk";
-import { BigNumber, Contract, ethers, providers } from "ethers";
 import { IncomingMessage } from "http";
 import WebSocket from "ws";
 import crypto from "crypto";
@@ -40,6 +30,7 @@ import {
 import SturdyWebSocket from "sturdy-websocket";
 import { Logger } from "winston";
 import { TrackedWebsocketsProvider } from "./providers";
+import { Contract, WebSocketProvider } from "ethers";
 
 /**
  * Class that listens to blockchain events on
@@ -100,7 +91,7 @@ export default class EventListener extends IndexPriceInterface {
 	clients: Map<WebSocket.WebSocket, Array<ClientSubscription>>;
 
 	// Current active websocket provider
-	public currentWSRpcProvider: providers.WebSocketProvider | undefined = undefined;
+	public currentWSRpcProvider: WebSocketProvider | undefined = undefined;
 	// Whether resetRPCWebsocket is currently running
 	public rpcResetting = false;
 	// After how many calls to resetRPCWebsocket service will be restarted. This
@@ -217,7 +208,7 @@ export default class EventListener extends IndexPriceInterface {
 		try {
 			await new Promise((resolve, reject) => {
 				setTimeout(() => reject("timeout"), 1000 * 20);
-				this.currentWSRpcProvider!.ready.then(resolve);
+				this.currentWSRpcProvider!._detectNetwork().then(resolve);
 			});
 		} catch (e) {
 			this.logger.error("provider ready wait timeout");
@@ -481,6 +472,9 @@ export default class EventListener extends IndexPriceInterface {
 				const perp: PerpetualState = pool.perpetuals[j];
 				this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
 				this.openInterest.set(perp.id, perp.openInterestBC);
+				if (this.isPredictionMkt.get(perp.id)) {
+					this.emaPrices.set(perp.id, perp.markPrice - perp.markPremium);
+				}
 				this.updateMarkPrice(
 					perp.id,
 					perp.midPrice,
@@ -568,7 +562,7 @@ export default class EventListener extends IndexPriceInterface {
 		);
 		proxyContract.on(
 			"UpdateFundingRate",
-			(perpetualId: number, fFundingRate: BigNumber) => {
+			(perpetualId: number, fFundingRate: bigint) => {
 				this.onUpdateFundingRate(perpetualId, fFundingRate);
 			},
 		);
@@ -582,20 +576,20 @@ export default class EventListener extends IndexPriceInterface {
     */
 		proxyContract.on(
 			"UpdateMarginAccount",
-			(perpetualId: number, trader: string, fFundingPaymentCC: BigNumber) => {
+			(perpetualId: number, trader: string, fFundingPaymentCC: bigint) => {
 				this.onUpdateMarginAccount(perpetualId, trader, fFundingPaymentCC);
 			},
 		);
 		proxyContract.on(
 			"TokensDeposited",
-			(perpetualId: number, trader: string, amount: BigNumber) => {
+			(perpetualId: number, trader: string, amount: bigint) => {
 				this.onUpdateMarginCollateral(perpetualId, trader, amount);
 			},
 		);
 		proxyContract.on(
 			"TokensWithdrawn",
-			(perpetualId: number, trader: string, amount: BigNumber) => {
-				this.onUpdateMarginCollateral(perpetualId, trader, amount.mul(-1));
+			(perpetualId: number, trader: string, amount: bigint) => {
+				this.onUpdateMarginCollateral(perpetualId, trader, amount * -1n);
 			},
 		);
 
@@ -606,8 +600,8 @@ export default class EventListener extends IndexPriceInterface {
 				trader: string,
 				order: SmartContractOrder,
 				orderDigest: string,
-				newPositionSizeBC: BigNumber,
-				price: BigNumber,
+				newPositionSizeBC: bigint,
+				price: bigint,
 			) => {
 				this.onTrade(
 					perpetualId,
@@ -674,7 +668,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * @param perpetualId
 	 * @param fFundingRate
 	 */
-	private onUpdateFundingRate(perpetualId: number, fFundingRate: BigNumber) {
+	private onUpdateFundingRate(perpetualId: number, fFundingRate: bigint) {
 		this.lastBlockChainEventTs = Date.now();
 		const rate = ABK64x64ToFloat(fFundingRate);
 		this.fundingRate.set(perpetualId, rate);
@@ -690,7 +684,7 @@ export default class EventListener extends IndexPriceInterface {
 	public async onUpdateMarginAccount(
 		perpetualId: number,
 		trader: string,
-		fFundingPaymentCC: BigNumber,
+		fFundingPaymentCC: bigint,
 	): Promise<void> {
 		// Set the open interest from exchange info (1 min delay at max)
 		const symbol = this.symbolFromPerpetualId(perpetualId);
@@ -717,14 +711,14 @@ export default class EventListener extends IndexPriceInterface {
 	private async onUpdateMarginCollateral(
 		perpetualId: number,
 		trader: string,
-		amount: BigNumber,
+		amount: bigint,
 	) {
 		this.lastBlockChainEventTs = Date.now();
 		const symbol = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
 		const pos = (<MarginAccount[]>(
 			JSON.parse(await this.sdkInterface!.positionRisk(trader, symbol))
 		))[0];
-		if (pos.positionNotionalBaseCCY == 0 && amount.lt(0)) {
+		if (pos.positionNotionalBaseCCY == 0 && amount < 0) {
 			// position is zero after a withdrawal: this will be caught as a margin account update, ignore
 			return;
 		}
@@ -763,47 +757,55 @@ export default class EventListener extends IndexPriceInterface {
 	 * Handle the event UpdateMarkPrice and update relevant
 	 * data
 	 * @param perpetualId perpetual Id
+	 * @param fMidPricePremium premium for spot price in ABDK
 	 * @param fMarkPricePremium premium rate in ABDK format
-	 * @param fSpotIndexPrice spot index price in ABDK format
+	 * @param fMarkIndexPrice spot index price or ema used for mark price in ABDK format
 	 */
 	public onUpdateMarkPrice(
 		perpetualId: number,
-		fMidPricePremium: BigNumber,
-		fMarkPricePremium: BigNumber,
-		fSpotIndexPrice: BigNumber,
+		fMidPricePremium: bigint,
+		fMarkPricePremium: bigint,
+		fMarkIndexPrice: bigint,
 	): void {
 		if (!this.isInitialized) {
 			console.log("onUpdateMarkPrice: eventListener not initialized");
 			return;
 		}
+		const isPred = this.isPredictionMkt.get(perpetualId)!;
 
 		this.lastBlockChainEventTs = Date.now();
 
 		const hash =
-			fMidPricePremium.add(fMarkPricePremium).add(fSpotIndexPrice).toString() +
+			(fMidPricePremium + fMarkPricePremium + fMarkIndexPrice).toString() +
 			perpetualId.toString();
 		if (!this.grantEventControlPassage(hash, "onUpdateMarkPrice")) {
 			console.log("onUpdateMarkPrice duplicate");
 			return;
 		}
+		const pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
+		const currIdx = this.idxPrices.get(pxIdxName)!;
 
-		let [newMidPrice, newMarkPrice, newIndexPrice] =
-			EventListener.ConvertUpdateMarkPrice(
-				fMidPricePremium,
-				fMarkPricePremium,
-				fSpotIndexPrice,
-			);
+		let newMarkPrice, newMidPrice: number;
+		const midPrem = ABK64x64ToFloat(fMidPricePremium);
+		const mrkPrem = ABK64x64ToFloat(fMarkPricePremium);
+		this.midPremium.set(perpetualId, midPrem);
+		this.mrkPremium.set(perpetualId, mrkPrem);
+		if (isPred) {
+			// set ema price for prediction markets.
+			// we don't set the index price for regular markets as this
+			// would be outdated
+			const ema = ABK64x64ToFloat(fMarkIndexPrice);
+			this.emaPrices.set(perpetualId, ema);
+			newMarkPrice = Math.max(Math.min(ema + mrkPrem, 2), 1); //clamp
+			newMidPrice = currIdx + midPrem;
+		} else {
+			newMarkPrice = currIdx * (1 + mrkPrem);
+			newMidPrice = currIdx * (1 + midPrem);
+		}
 		console.log("eventListener: onUpdateMarkPrice");
-		// update internal storage that is streamed to websocket
-		// and adjust mid/idx price based on newest index
-		[newMidPrice, newMarkPrice, newIndexPrice] = this.updatePricesOnMarkPriceEvent(
-			perpetualId,
-			newMidPrice,
-			newMarkPrice,
-			newIndexPrice,
-		);
+
 		// notify websocket listeners (using prices based on most recent websocket price)
-		this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, newIndexPrice);
+		this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, currIdx);
 
 		// update data in sdkInterface's exchangeInfo
 		const fundingRate = this.fundingRate.get(perpetualId) || 0;
@@ -814,7 +816,7 @@ export default class EventListener extends IndexPriceInterface {
 		if (this.sdkInterface != undefined && symbol != undefined) {
 			this.sdkInterface.updateExchangeInfoNumbersOfPerpetual(
 				symbol,
-				[newMidPrice, newMarkPrice, newIndexPrice, oi, fundingRate * 1e4],
+				[newMidPrice, newMarkPrice, currIdx, oi, fundingRate * 1e4],
 				[
 					"midPrice",
 					"markPrice",
@@ -834,7 +836,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * Called either by blockchain event handler (onUpdateMarkPrice),
 	 * or on update of the observable sdkInterface (after exchangeInfo update),
 	 * or from parent class on websocket update.
-	 * Informs websocket subsribers
+	 * Informs websocket subscribers
 	 * @param perpetualId id of the perpetual for which prices are being updated
 	 * @param newMidPrice mid price in decimals
 	 * @param newMarkPrice mark price
@@ -887,13 +889,10 @@ export default class EventListener extends IndexPriceInterface {
 		trader: string,
 		order: SmartContractOrder,
 		orderDigest: string,
-		newPositionSizeBC: BigNumber,
-		price: BigNumber,
+		newPositionSizeBC: bigint,
+		price: bigint,
 	) {
-		const isMarketOrder = this.containsFlag(
-			BigNumber.from(order.flags),
-			MASK_MARKET_ORDER,
-		);
+		const isMarketOrder = containsFlag(BigInt(order.flags), MASK_MARKET_ORDER);
 		if (isMarketOrder) {
 			this.mktOrderFrequency.executedCount += 1;
 			console.log(`onTrade ${trader} Market Order in perpetual ${perpetualId}`);
@@ -924,10 +923,6 @@ export default class EventListener extends IndexPriceInterface {
 		const jsonMsg: string = D8XBrokerBackendApp.JSONResponse("onTrade", "", wsMsg);
 		// broadcast
 		this.sendToSubscribers(perpetualId, jsonMsg);
-	}
-
-	private containsFlag(f1: BigNumber, f2: BigNumber): boolean {
-		return (parseInt(f1.toString()) & parseInt(f2.toString())) > 0;
 	}
 
 	/**
@@ -984,10 +979,7 @@ export default class EventListener extends IndexPriceInterface {
 		digest: string,
 	): void {
 		this.lastBlockChainEventTs = Date.now();
-		const isMarketOrder = this.containsFlag(
-			BigNumber.from(order.flags),
-			MASK_MARKET_ORDER,
-		);
+		const isMarketOrder = containsFlag(BigInt(order.flags), MASK_MARKET_ORDER);
 		if (isMarketOrder) {
 			this.mktOrderFrequency.createdCount += 1;
 		}
@@ -1078,28 +1070,5 @@ export default class EventListener extends IndexPriceInterface {
 		);
 		// send to subscribers
 		this.sendToSubscribers(perpetualId, jsonMsg, trader);
-	}
-
-	/**
-	 * UpdateMarkPrice(
-	 *  uint24 indexed perpetualId,
-	 *  int128 fMarkPricePremium,
-	 *  int128 fSpotIndexPrice
-	 * )
-	 * @param fMarkPricePremium premium rate in ABDK format
-	 * @param fSpotIndexPrice spot index price in ABDK format
-	 * @returns mark price and spot index in float
-	 */
-	private static ConvertUpdateMarkPrice(
-		fMidPricePremium: BigNumber,
-		fMarkPricePremium: BigNumber,
-		fSpotIndexPrice: BigNumber,
-	): [number, number, number] {
-		const fMarkPrice = mul64x64(fSpotIndexPrice, ONE_64x64.add(fMarkPricePremium));
-		const fMidPrice = mul64x64(fSpotIndexPrice, ONE_64x64.add(fMidPricePremium));
-		const midPrice = ABK64x64ToFloat(fMidPrice);
-		const markPrice = ABK64x64ToFloat(fMarkPrice);
-		const indexPrice = ABK64x64ToFloat(fSpotIndexPrice);
-		return [midPrice, markPrice, indexPrice];
 	}
 }

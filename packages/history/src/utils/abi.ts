@@ -12,7 +12,7 @@ export const getSDKConfigFromEnv = () => {
 };
 
 export function getPerpetualManagerABI(): ethers.InterfaceAbi {
-	const abi = getSDKConfigFromEnv().proxyABI as string;
+	const abi = getSDKConfigFromEnv().proxyABI as any as string;
 	return abi as ethers.InterfaceAbi;
 }
 
@@ -25,5 +25,5 @@ export function getDefaultRPC(): string {
 }
 
 export const getShareTokenContractABI = async () => {
-	return getSDKConfigFromEnv().shareTokenABI as ethers.InterfaceAbi;
+	return getSDKConfigFromEnv().shareTokenABI as any as ethers.InterfaceAbi;
 };

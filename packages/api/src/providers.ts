@@ -1,7 +1,10 @@
-import { Networkish } from "@ethersproject/providers";
-import { WebSocketLike } from "@ethersproject/providers/lib/websocket-provider";
-import { providers } from "ethers";
-import { ConnectionInfo } from "ethers/lib/utils";
+import {
+	FetchRequest,
+	JsonRpcProvider,
+	Networkish,
+	WebSocketLike,
+	WebSocketProvider,
+} from "ethers";
 
 export const ProvidersEthCallsStartTime = new Date();
 
@@ -18,13 +21,13 @@ export const WssEthCalls = new Map<string, number>();
 export let NumJsonRpcProviders = 0;
 export let NumWssProviders = 0;
 
-export class TrackedWebsocketsProvider extends providers.WebSocketProvider {
+export class TrackedWebsocketsProvider extends WebSocketProvider {
 	constructor(url: string | WebSocketLike, network?: Networkish) {
 		super(url, network);
 		NumWssProviders++;
 	}
 
-	send(method: string, params?: Array<any>): Promise<any> {
+	send(method: string, params: any[] | Record<string, any>): Promise<any> {
 		if (!WssEthCalls.has(method)) {
 			WssEthCalls.set(method, 0);
 		}
@@ -34,8 +37,8 @@ export class TrackedWebsocketsProvider extends providers.WebSocketProvider {
 	}
 }
 
-export class TrackedJsonRpcProvider extends providers.StaticJsonRpcProvider {
-	constructor(url?: ConnectionInfo | string, network?: Networkish) {
+export class TrackedJsonRpcProvider extends JsonRpcProvider {
+	constructor(url?: string | FetchRequest | string, network?: Networkish) {
 		super(url, network);
 		NumJsonRpcProviders++;
 	}
