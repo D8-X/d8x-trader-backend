@@ -1,7 +1,12 @@
 import { createClient } from "redis";
 import type { RedisClientType } from "redis";
 import * as redis from "redis";
-import { ExchangeInfo, NodeSDKConfig, PerpetualState } from "@d8x/perpetuals-sdk";
+import {
+	ExchangeInfo,
+	NodeSDKConfig,
+	PerpetualState,
+	probToPrice,
+} from "@d8x/perpetuals-sdk";
 import { extractErrorMsg, constructRedis } from "utils";
 import SDKInterface from "./sdkInterface";
 import Observer from "./observer";
@@ -17,9 +22,11 @@ export default abstract class IndexPriceInterface extends Observer {
 	private redisSubClient: RedisClientType;
 	private idxNamesToPerpetualIds: Map<string, number[]>; //ticker (e.g. BTC-USD) -> [10001, 10021, ..]
 	protected idxPrices: Map<string, number>; //ticker -> price
+	protected emaPrices: Map<number, number>; //perpId -> ema of s2 index price
 	protected midPremium: Map<number, number>; //perpId -> price (e.g. we can have 2 BTC-USD with different mid-price)
 	protected mrkPremium: Map<number, number>; //perpId -> mark premium
 
+	protected isPredictionMkt: Map<number, boolean>; //perpId -> true if index is probability and needs 1+x transformation
 	protected sdkInterface: SDKInterface | undefined;
 
 	constructor() {
@@ -30,6 +37,8 @@ export default abstract class IndexPriceInterface extends Observer {
 		this.idxPrices = new Map<string, number>();
 		this.midPremium = new Map<number, number>();
 		this.mrkPremium = new Map<number, number>();
+		this.emaPrices = new Map<number, number>();
+		this.isPredictionMkt = new Map<number, boolean>();
 	}
 
 	public async priceInterfaceInitialize(sdkInterface: SDKInterface) {
@@ -91,9 +100,10 @@ export default abstract class IndexPriceInterface extends Observer {
 
 	/**
 	 * We store the names of the indices that we want to get
-	 * from the oracle-websocket client and register what perpetuals
+	 * from the candles service via REDIS and register what perpetuals
 	 * the indices are used for (e.g., BTC-USD can be used in the MATIC pool and USDC pool)
 	 * We also set initial values for idx/mark/mid prices
+	 * We also set isPredictionMkt
 	 * @param info exchange-info
 	 */
 	private async _initIdxNamesToPerpetualIds(info: ExchangeInfo) {
@@ -119,6 +129,11 @@ export default abstract class IndexPriceInterface extends Observer {
 				this.idxPrices.set(pxIdxName, px);
 				this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
 				this.midPremium.set(perpId, perpState.midPrice / px - 1);
+
+				const isPred = this.sdkInterface!.isPredictionMarket(
+					pxIdxName + "-" + pool.poolSymbol,
+				);
+				this.isPredictionMkt.set(perpId, isPred);
 			}
 		}
 	}
@@ -162,7 +177,7 @@ export default abstract class IndexPriceInterface extends Observer {
 			if (perpetualIds == undefined) {
 				continue;
 			}
-			const px = this.idxPrices.get(indices[k]);
+			let px = this.idxPrices.get(indices[k]);
 			for (let j = 0; j < perpetualIds.length; j++) {
 				const markPremium = this.mrkPremium.get(perpetualIds[j]);
 				const midPremium = this.midPremium.get(perpetualIds[j]);
@@ -173,42 +188,27 @@ export default abstract class IndexPriceInterface extends Observer {
 				) {
 					continue;
 				}
-				const midPx = px * (1 + midPremium);
-				const markPx = px * (1 + markPremium);
+				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
+				let midPx, markPx: number;
+				if (isPred) {
+					// transform price from probability
+					px = probToPrice(px);
+					midPx = px + midPremium;
+					// mark price is left unchanged
+					if (!this.emaPrices.has(perpetualIds[j])) {
+						// no mark price yet, continue
+						continue;
+					}
+					markPx = this.emaPrices.get(perpetualIds[j])!;
+					markPx = Math.min(Math.max(1, markPx + markPremium), 2); //clamp
+				} else {
+					midPx = px * (1 + midPremium);
+					markPx = px * (1 + markPremium);
+				}
+
 				// call update to inform websocket
 				this.updateMarkPrice(perpetualIds[j], midPx, markPx!, px!);
 			}
 		}
-	}
-
-	/**
-	 * Upon receipt of new mark-price from the blockchain event,
-	 * we update mark-price and mid-price premium. No update of
-	 * index price because the index price is generally ahead in time.
-	 * @param perpetualId: perpetual id
-	 * @param newMidPrice: new mid price from onchain
-	 * @param newMarkPrice: new mark price from onchain
-	 * @param newIndexPrice: new index price from onchain
-	 * @returns midprice, markprice, index-price; index and mid price are adjusted by
-	 * newest index price
-	 */
-	protected updatePricesOnMarkPriceEvent(
-		perpetualId: number,
-		newMidPrice: number,
-		newMarkPrice: number,
-		newIndexPrice: number,
-	) {
-		const midPrem = newMidPrice / newIndexPrice - 1;
-		this.midPremium.set(perpetualId, midPrem);
-		const markPrem = newMarkPrice / newIndexPrice - 1;
-		this.mrkPremium.set(perpetualId, markPrem);
-		const pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId);
-		const px = this.idxPrices.get(pxIdxName!);
-		if (px == undefined) {
-			return [newMidPrice, newMarkPrice, newIndexPrice];
-		}
-		newMidPrice = px * (1 + midPrem);
-		newIndexPrice = px;
-		return [newMidPrice, newMarkPrice, newIndexPrice];
 	}
 }
