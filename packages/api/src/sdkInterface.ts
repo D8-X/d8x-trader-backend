@@ -360,7 +360,7 @@ export default class SDKInterface extends Observable {
 		);
 		// also return the order book address and postOrder ABI
 		const obAddr = this.apiInterface!.getOrderBookAddress(orders[0].symbol);
-		return JSON.stringify({
+		const resp = JSON.stringify({
 			digests: digests,
 			orderIds: ids,
 			OrderBookAddr: obAddr,
@@ -368,6 +368,8 @@ export default class SDKInterface extends Observable {
 			brokerFeeTbps,
 			brokerSignatures: SCOrders.map(({ brokerSignature }) => brokerSignature),
 		});
+		console.log("signed order response:", resp);
+		return resp;
 	}
 
 	public async positionRiskOnCollateralAction(
