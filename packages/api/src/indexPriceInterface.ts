@@ -117,6 +117,7 @@ export default abstract class IndexPriceInterface extends Observer {
 				// Use letter-case as it comes from the exchange info. Symbols should be
 				// in uppercase by default.
 				const pxIdxName = perpState.baseCurrency + "-" + perpState.quoteCurrency;
+				console.log("index = ", pxIdxName);
 				const idxs = this.idxNamesToPerpetualIds.get(pxIdxName);
 				if (idxs == undefined) {
 					const idx: number[] = [perpState.id];
@@ -147,6 +148,7 @@ export default abstract class IndexPriceInterface extends Observer {
 		const updatedIndices: string[] = [];
 
 		for (let k = 0; k < indices.length; k++) {
+			console.log("updating index from REDIS ", indices[k]);
 			// get price from redit
 			try {
 				const px_ts = await this.redisClient.ts.get(indices[k]);
