@@ -151,8 +151,10 @@ export default abstract class IndexPriceInterface extends Observer {
 			try {
 				const px_ts = await this.redisClient.ts.get(indices[k]);
 				if (px_ts !== null) {
-					this.idxPrices.set(indices[k], px_ts.value);
-					updatedIndices.push(indices[k]);
+					// indices[k]: <source>:<symbol>, e.g. univ3:BERA-USD
+					const symbol = indices[k].split(":").pop() + "";
+					this.idxPrices.set(symbol, px_ts.value);
+					updatedIndices.push(symbol);
 				}
 			} catch (error) {
 				console.log("[Error in _onRedisFeedHandlerMsg]", {
