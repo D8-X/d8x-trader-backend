@@ -366,6 +366,8 @@ export class HistoryRestAPI {
 					},
 				},
 			});
+			console.log(`hasTrades data = {data}`);
+			console.log(`hasTrades data.length = {data.length}`);
 			const hasTrades = data.length > 0;
 			// return response
 			resp.contentType("json");
