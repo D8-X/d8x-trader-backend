@@ -360,8 +360,9 @@ export class HistoryRestAPI {
                     count(trader_addr) as num_trades
                 FROM trades_history th
                 WHERE LOWER(th.trader_addr) = ${user_wallet};`;
-			console.log(`hasTrades data = ${data}`);
-			console.log(`hasTrades data.length = ${data[0].num_trades}`);
+			console.log(
+				`hasTrades query for ${user_wallet}, data.length = ${data[0].num_trades}`,
+			);
 			const hasTrades = data[0].num_trades > 0;
 			// return response
 			resp.contentType("json");
