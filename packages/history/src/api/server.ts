@@ -108,7 +108,8 @@ export class HistoryRestAPI {
 		app.get("/open-withdrawals", this.withdrawals.bind(this));
 		app.get("/margin-token-info", this.marginTokenInfo.bind(this));
 		app.get("/trading-volume", this.tradingVolume.bind(this));
-		app.get("/trades-history", this.historicalTrades.bind(this)); //<- to be phased out
+		app.get("/has-trades", this.hasTrades.bind(this));
+		app.get("/trades-history", this.historicalTrades.bind(this));
 	}
 
 	/**
@@ -329,6 +330,50 @@ export class HistoryRestAPI {
 		}
 	}
 
+	/**
+	 * hasTrades endpoint for Bera-clients
+	 * @param req
+	 * @param resp
+	 */
+	private async hasTrades(
+		req: Request<any, any, any, { walletAddress: string; chainId: number }>,
+		resp: Response,
+	) {
+		const usage = "required query parameters: walletAddress, optional: chainId";
+		try {
+			if (!correctQueryArgs(req.query, ["walletAddress"])) {
+				throw Error("please provide walletAddress");
+			}
+			const user_wallet = req.query.walletAddress.toLowerCase();
+			let chainId = 80084;
+			if (req.query["chainId"] != undefined) {
+				chainId = req.query["chainId"];
+			}
+			// Parse wallet address and see if it is correct
+			try {
+				getAddress(user_wallet);
+			} catch (e) {
+				resp.status(400);
+				throw Error("invalid wallet address");
+			}
+			const data: any = await this.opts.prisma.trade.findFirst({
+				where: {
+					trader_addr: {
+						equals: user_wallet,
+					},
+					chain_id: {
+						equals: chainId,
+					},
+				},
+			});
+			const hasTrades = data.length > 0;
+			// return response
+			resp.contentType("json");
+			resp.send(toJson({ status: hasTrades }));
+		} catch (err: any) {
+			resp.send(errorResp(extractErrorMsg(err), usage));
+		}
+	}
 	/**
 	 * trades
 	 * @param req
