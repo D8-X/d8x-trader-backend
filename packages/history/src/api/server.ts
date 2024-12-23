@@ -345,10 +345,6 @@ export class HistoryRestAPI {
 				throw Error("please provide walletAddress");
 			}
 			const user_wallet = req.query.walletAddress.toLowerCase();
-			let chainId = 80084;
-			if (req.query["chainId"] != undefined) {
-				chainId = req.query["chainId"];
-			}
 			// Parse wallet address and see if it is correct
 			try {
 				getAddress(user_wallet);
@@ -356,19 +352,17 @@ export class HistoryRestAPI {
 				resp.status(400);
 				throw Error("invalid wallet address");
 			}
-			const data: any = await this.opts.prisma.trade.findFirst({
-				where: {
-					trader_addr: {
-						equals: user_wallet,
-					},
-					chain_id: {
-						equals: chainId,
-					},
-				},
-			});
+			interface SqlResponse {
+				num_trades: number;
+			}
+			const data: SqlResponse[] = await this.opts.prisma.$queryRaw<SqlResponse[]>`
+                SELECT 
+                    count(trader_addr) as num_trades
+                FROM trades_history th
+                WHERE LOWER(th.trader_addr) = ${user_wallet};`;
 			console.log(`hasTrades data = ${data}`);
-			console.log(`hasTrades data.length = ${data.length}`);
-			const hasTrades = data.length > 0;
+			console.log(`hasTrades data.length = ${data[0].num_trades}`);
+			const hasTrades = data[0].num_trades > 0;
 			// return response
 			resp.contentType("json");
 			resp.send(toJson({ status: hasTrades }));
