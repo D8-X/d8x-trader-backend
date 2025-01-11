@@ -14,10 +14,21 @@ const utils = require('utils');
 
 ### Change DB schema
 
+##apply migration
+```
+source .env
+export DATABASE_DSN_HISTORY=$DATABASE_DSN
+npx prisma migrate deploy --schema="./packages/utils/prisma/schema.prisma"
+```
+
+## new migration
+
+
 `export DATABASE_DSN_REFERRAL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}?schema=public`
 
 `npx prisma migrate dev --schema="./packages/utils/prisma/schema.prisma" --name="yourchoice"`
 
+## reset
 Reset if migration out of sync: `npx prisma migrate reset --schema="./packages/utils/prisma/schema.prisma"`
 
 INSERT INTO referral_code (code, referrer_addr, broker_addr, broker_payout_addr, trader_rebate_perc, referrer_rebate_perc)
