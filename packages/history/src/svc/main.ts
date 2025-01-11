@@ -34,7 +34,7 @@ import WebSocket from "ws";
 import { SetOracles } from "../db/set_oracles";
 import { IPerpetualManager, sleepForSec } from "@d8x/perpetuals-sdk";
 
-const MAX_HISTORY_SINCE_TS = 1713096480;
+const MAX_HISTORY_SINCE_TS = 1711432800;
 
 const defaultLogger = () => {
 	return winston.createLogger({
