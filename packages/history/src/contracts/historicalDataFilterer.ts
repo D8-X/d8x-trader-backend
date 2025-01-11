@@ -275,14 +275,15 @@ export class HistoricalDataFilterer {
 		let lastWaitSeconds = 2;
 		const maxWaitSeconds = 32;
 		const blockTimestamp = new Map<Number, number>();
-
+		let count = 0;
 		for (let i = Number(fromBlock); i < endBlock; ) {
 			const _startBlock = i;
 			const _endBlock = Math.min(endBlock, i + deltaBlocks - 1);
-			const percProgress = Math.round(i/endBlock*100);
-			if (percProgress % 5==0) {
+			const percProgress = Math.round((i-Number(fromBlock))/(endBlock-Number(fromBlock))*10000)/100;
+			if (count % 10==0) {
 				this.l.info(`historical blocks ${_startBlock}-${_endBlock}, ${percProgress} progress`)
 			}
+			count += 1;
 			try {
 				// fetch from blockchain
 				const _events = (await c.queryFilter(
