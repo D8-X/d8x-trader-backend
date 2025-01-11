@@ -116,6 +116,21 @@ export class SetOracles {
 		}
     }
 
+	public async alignTimestamps() {
+		const res = await this.prisma.$executeRawUnsafe(`WITH cte AS (
+			SELECT
+				perpetual_id,
+				valid_from,
+				LEAD(valid_from) OVER (PARTITION BY perpetual_id ORDER BY valid_from ASC) AS next_valid_from
+			FROM perpetual_long_id
+		) UPDATE perpetual_long_id pli 
+		SET valid_to = cte.next_valid_from
+		FROM cte
+		WHERE pli.perpetual_id = cte.perpetual_id
+		AND pli.valid_from = cte.valid_from
+		AND cte.next_valid_from IS NOT NULL;`);
+		this.l.info(`perpetual_long_id: adjusted timestamps ${res} rows affected`)
+	}
 	/**
 	 * Retrieve latest timestamp of SetOracles event
 	 */

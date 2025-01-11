@@ -456,4 +456,6 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		),
 	);
 	await Promise.all(promises);
+	// align timestamps in perpetual_long_id (because we have asynchronous events)
+	await dbSetOracles.alignTimestamps()
 }
