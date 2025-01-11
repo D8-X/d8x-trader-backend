@@ -96,6 +96,7 @@ export type LiquidityWithdrawalInitiatedFilteredCb =
 	EventCallback<LiquidityWithdrawalInitiatedEvent>;
 
 
+// event SetOracles(uint24 indexed perpetualId, bytes4[2] baseQuoteS2, bytes4[2] baseQuoteS3);
 export interface SetOraclesEvent {
 	perpetualId:number
 	baseQuoteS2 : string[]
