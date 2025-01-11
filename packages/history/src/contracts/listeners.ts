@@ -10,8 +10,11 @@ import {
 	UpdateMarginAccountEvent,
 	P2PTransferEvent,
 	ListeningMode,
+	SetOraclesEvent,
+	PerpetualCreatedEvent,
 } from "./types";
 import { TradingHistory } from "../db/trading_history";
+import { SetOracles } from "../db/set_oracles";
 import { FundingRatePayments } from "../db/funding_rate";
 import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
 import { EstimatedEarnings } from "../db/estimated_earnings";
@@ -19,6 +22,7 @@ import { PriceInfo } from "../db/price_info";
 import { dec18ToFloat, decNToFloat } from "utils";
 import StaticInfo from "./static_info";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
+import { IPerpetualManager } from "@d8x/perpetuals-sdk";
 export interface EventListenerOptions {
 	logger: Logger;
 	// smart contract addresses which will be used to listen to incoming events
@@ -46,6 +50,7 @@ export class EventListener {
 		private dbEstimatedEarnings: EstimatedEarnings,
 		private dbPriceInfos: PriceInfo,
 		private dbLPWithdrawals: LiquidityWithdrawals,
+		private dbSetOracles: SetOracles,
 	) {
 		this.l = opts.logger;
 		this.opts = opts;
@@ -346,6 +351,33 @@ export class EventListener {
 		);
 	}
 
+	public async onSetOracleEvent(
+		eventData: SetOraclesEvent,
+		txHash: string,
+		isCollectedByEvent:boolean,
+		blockTimestamp:number,
+		blockNumber: number,
+	) {
+		await this.dbSetOracles.insertSetOraclesRecord(
+			eventData,
+			txHash,
+			isCollectedByEvent,
+			blockTimestamp,
+			blockNumber,
+		);
+	}
+
+	public async onPerpetualCreatedEvent(
+		eventData: PerpetualCreatedEvent,
+		txHash: string,
+		proxyContract: IPerpetualManager,
+		blockTimestamp:number,
+		blockNumber: number,
+	) {
+		console.log(`PerpetualCreatedEvent id ${eventData.id}`)
+		await this.dbSetOracles.handlePerpetualCreated(eventData, txHash, proxyContract, blockTimestamp, blockNumber);
+	}
+
 	public async onLiquidate(
 		eventData: LiquidateEvent,
 		txHash: string,
@@ -353,7 +385,7 @@ export class EventListener {
 		timestampSec: number,
 		blockNumber: number,
 	) {
-		this.dbTrades.insertTradeHistoryRecord(
+		await this.dbTrades.insertTradeHistoryRecord(
 			eventData,
 			txHash,
 			isCollectedByEvent,
@@ -368,7 +400,7 @@ export class EventListener {
 		isCollectedByEvent: boolean,
 		timestampSec: number,
 	) {
-		this.dbFundingRates.insertFundingRatePayment(
+		await this.dbFundingRates.insertFundingRatePayment(
 			eventData,
 			txHash,
 			isCollectedByEvent,
@@ -390,7 +422,7 @@ export class EventListener {
 		isCollectedByEvent: boolean,
 		timestampSec: number,
 	) {
-		this.dbLPWithdrawals.insert(
+		await this.dbLPWithdrawals.insert(
 			eventData,
 			false,
 			txHash,
@@ -405,8 +437,7 @@ export class EventListener {
 		isCollectedByEvent: boolean,
 		timestampSec: number,
 	) {
-		const poolIdNum: number = Number(eventData.poolId.toString());
-		this.dbEstimatedEarnings.insertLiquidityRemoved(
+		await this.dbEstimatedEarnings.insertLiquidityRemoved(
 			eventData,
 			txHash,
 			isCollectedByEvent,

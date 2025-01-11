@@ -17,6 +17,8 @@ import {
 	LiquidateEvent,
 	UpdateMarginAccountEvent,
 	ListeningMode,
+	SetOraclesEvent,
+	PerpetualCreatedEvent,
 } from "../contracts/types";
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { TradingHistory } from "../db/trading_history";
@@ -30,6 +32,8 @@ import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 import { MarginTokenInfo } from "../db/margin_token_info";
 import SturdyWebSocket from "sturdy-websocket";
 import WebSocket from "ws";
+import { SetOracles } from "../db/set_oracles";
+import { IPerpetualManager } from "@d8x/perpetuals-sdk";
 
 const MAX_HISTORY_SINCE_TS = 1681387680;
 
@@ -117,6 +121,7 @@ export const main = async () => {
 	const dbPriceInfo = new PriceInfo(prisma, logger);
 	const dbLPWithdrawals = new LiquidityWithdrawals(prisma, logger);
 	const dbMarginTokenInfo = new MarginTokenInfo(prisma, logger);
+	const dbSetOracles = new SetOracles(chainId, prisma, logger);
 	// get sharepool token info and margin token info
 	const staticInfo = new StaticInfo();
 	// the following call will throw an error on RPC timeout
@@ -142,9 +147,10 @@ export const main = async () => {
 		dbEstimatedEarnings,
 		dbPriceInfo,
 		dbLPWithdrawals,
+		dbSetOracles,
 	);
 
-	// Start the historical data filterers on serivice start...
+	// Start the historical data filterers on service start...
 	const hdOpts: hdFilterersOpt = {
 		dbEstimatedEarnings,
 		dbFundingRatePayments,
@@ -156,8 +162,8 @@ export const main = async () => {
 		staticInfo: staticInfo,
 		eventListener: eventsListener,
 	};
-	runHistoricalDataFilterers(hdOpts);
-
+	await runHistoricalDataFilterers(hdOpts);
+	
 	eventsListener.listen(wsProvider);
 
 	// Websocket provider leaks memory, therefore as in main api, we will
@@ -312,12 +318,13 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		(await dbTrades.getLatestLiquidateTimestamp()) ?? defaultDate,
 		(await dbFundingRatePayments.getLatestTimestamp()) ?? defaultDate,
 		(await dbEstimatedEarnings.getLatestTimestamp("liquidity_added")) ?? defaultDate,
+		defaultDate
 	];
 	// Use the smallest timestamp for the start of the filter
-	const ts = tsArr.reduce(function (a, b) {
+	let ts = tsArr.reduce(function (a, b) {
 		return a < b ? a : b;
 	});
-
+	console.log(` starting filterer at ts = ${ts}`)
 	promises.push(
 		hd.filterProxyEvents(ts, {
 			Trade: async (
@@ -334,6 +341,39 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 					Number(blockNum.toString()),
 				);
 			},
+
+			SetOracles: async(
+				eventData: SetOraclesEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number,
+			) => {
+				await eventListener.onSetOracleEvent(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp,
+					Number(blockNum.toString()),
+				)
+			},
+
+			PerpetualCreated: async(
+				eventData: PerpetualCreatedEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number,
+			) => {
+				console.log(`\n PerpetualCreated ${blockTimestamp}\n`);
+				const proxyContract = hd.PerpManagerProxy as unknown as IPerpetualManager;
+				await eventListener.onPerpetualCreatedEvent(
+					eventData,
+					txHash,
+					proxyContract,
+					blockTimestamp,
+					Number(blockNum.toString()),
+				)
+			},
+
 			Liquidate: async (
 				eventData: LiquidateEvent,
 				txHash: string,
@@ -401,7 +441,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 					blockTimeStamp,
 				);
 			},
-			// TODO: add the rest
+			
 		}),
 	);
 	// Share tokens p2p transfers

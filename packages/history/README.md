@@ -28,6 +28,15 @@ Sample Response:
 	}
 ]
 ```
+## SetOracles
+
+We need to maintain a mapping of perpetual id -> perpetual-name, valid from, valid to,
+so we can generate a new perpetual_id that includes the name (e.g. 10004-BTC-USDC-USDC)
+to prevent performing queries over different perpetuals that used the same recycled
+simple id.
+We do this by querying the event 
+`event SetOracles(uint24 indexed perpetualId, bytes4[2] baseQuoteS2, bytes4[2] baseQuoteS3);`
+
 
 ## Trades History
 
