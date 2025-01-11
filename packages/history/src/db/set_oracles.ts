@@ -1,4 +1,4 @@
-import { PerpetualCreatedEvent, SetOraclesEvent } from "../contracts/types";
+import {  SetOraclesEvent } from "../contracts/types";
 import { BigNumberish, Contract } from "ethers";
 import { PrismaClient } from "@prisma/client";
 import { IPerpetualManager } from "@d8x/perpetuals-sdk";
@@ -17,29 +17,6 @@ export class SetOracles {
         const val = buffer.toString("ascii").replace(/\0/g, "");
         return val;
     }
-
-	public async handlePerpetualCreated(
-		e: PerpetualCreatedEvent,
-		txHash: string,
-		proxyContract: IPerpetualManager,
-		blockTimestamp: number,
-		blockNumber: number,
-	) {
-		const perpId = Number(e.id.toString())
-		let S2, S3 : string;
-		try {
-			const result = await proxyContract.getPerpetual(perpId, {
-				blockTag: blockNumber+1
-			});
-			S2 = this.fromBytes4(result.S2BaseCCY)+"-"+this.fromBytes4(result.S2QuoteCCY)
-			S3 = this.fromBytes4(result.S3BaseCCY)+"-"+this.fromBytes4(result.S3QuoteCCY)
-		} catch (error) {
-			console.error("querying historical block:", error);
-			return;
-		}
-		await this.insertPerpetualLongId("PerpetualCreatedEvent", perpId, S2, S3, txHash, blockTimestamp, blockNumber)
-		
-	}
 
     public async insertSetOraclesRecord(
 		e: SetOraclesEvent,

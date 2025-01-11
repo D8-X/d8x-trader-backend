@@ -11,7 +11,6 @@ import {
 	UpdateMarginAccountEvent,
 	EventCallback,
 	SetOraclesEvent,
-	PerpetualCreatedEvent,
 } from "./types";
 import {
 	Contract,
@@ -120,7 +119,6 @@ export class HistoricalDataFilterer {
 			"LiquidityRemoved",
 			"LiquidityWithdrawalInitiated",
 			"SetOracles",
-			"PerpetualCreated"
 		];
 		const cbKeys = Object.keys(callbacks);
 		for (const eventName of cbKeys) {
@@ -175,14 +173,6 @@ export class HistoricalDataFilterer {
 				case "SetOracles":
 					callbacks["SetOracles"](
 						decodedEvent as SetOraclesEvent,
-						e.transactionHash,
-						e.blockNumber,
-						blockTimestamp,
-					);
-					break;
-				case "PerpetualCreated":
-					callbacks["PerpetualCreated"](
-						decodedEvent as PerpetualCreatedEvent,
 						e.transactionHash,
 						e.blockNumber,
 						blockTimestamp,
