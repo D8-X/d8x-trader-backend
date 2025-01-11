@@ -18,7 +18,6 @@ import {
 	UpdateMarginAccountEvent,
 	ListeningMode,
 	SetOraclesEvent,
-	PerpetualCreatedEvent,
 } from "../contracts/types";
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { TradingHistory } from "../db/trading_history";
@@ -352,23 +351,6 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 					eventData,
 					txHash,
 					IS_COLLECTED_BY_EVENT,
-					blockTimestamp,
-					Number(blockNum.toString()),
-				)
-			},
-
-			PerpetualCreated: async(
-				eventData: PerpetualCreatedEvent,
-				txHash: string,
-				blockNum: BigNumberish,
-				blockTimestamp: number,
-			) => {
-				console.log(`\n PerpetualCreated ${blockTimestamp}\n`);
-				const proxyContract = hd.PerpManagerProxy as unknown as IPerpetualManager;
-				await eventListener.onPerpetualCreatedEvent(
-					eventData,
-					txHash,
-					proxyContract,
 					blockTimestamp,
 					Number(blockNum.toString()),
 				)

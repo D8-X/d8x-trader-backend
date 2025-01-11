@@ -11,7 +11,6 @@ import {
 	P2PTransferEvent,
 	ListeningMode,
 	SetOraclesEvent,
-	PerpetualCreatedEvent,
 } from "./types";
 import { TradingHistory } from "../db/trading_history";
 import { SetOracles } from "../db/set_oracles";
@@ -365,17 +364,6 @@ export class EventListener {
 			blockTimestamp,
 			blockNumber,
 		);
-	}
-
-	public async onPerpetualCreatedEvent(
-		eventData: PerpetualCreatedEvent,
-		txHash: string,
-		proxyContract: IPerpetualManager,
-		blockTimestamp:number,
-		blockNumber: number,
-	) {
-		console.log(`PerpetualCreatedEvent id ${eventData.id}`)
-		await this.dbSetOracles.handlePerpetualCreated(eventData, txHash, proxyContract, blockTimestamp, blockNumber);
 	}
 
 	public async onLiquidate(

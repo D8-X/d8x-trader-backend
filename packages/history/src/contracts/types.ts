@@ -103,25 +103,6 @@ export interface SetOraclesEvent {
 }
 export type SetOraclesEventCb = EventCallback<SetOraclesEvent>;
 
-export interface PerpetualCreatedEvent {
-	poolId: number; // uint8 -> number
-	id: number; // uint24 -> number
-	baseParams: []; // int128[7] -> Array of 7 bigint
-	underlyingRiskParams: []; // int128[5] -> Array of 5 bigint
-	defaultFundRiskParams: []; // int128[12] -> Array of 12 bigint
-	eCollateralCurrency: bigint; // uint256 -> bigint
-}
-export type PerpetualCreatedEventCb = EventCallback<PerpetualCreatedEvent>;
-
-// event PerpetualCreated(
-// 	uint8 poolId,
-// 	uint24 id,
-// 	int128[7] baseParams,
-// 	int128[5] underlyingRiskParams,
-// 	int128[12] defaultFundRiskParams,
-// 	uint256 eCollateralCurrency
-// );
-
 export enum ListeningMode {
 	HTTP = "HTTP",
 	WS = "WS",
