@@ -279,9 +279,9 @@ export class HistoricalDataFilterer {
 		for (let i = Number(fromBlock); i < endBlock; ) {
 			const _startBlock = i;
 			const _endBlock = Math.min(endBlock, i + deltaBlocks - 1);
-			const percProgress = Math.round((i-Number(fromBlock))/(endBlock-Number(fromBlock))*10000)/100;
-			if (count % 10==0) {
-				this.l.info(`historical blocks ${_startBlock}-${_endBlock}, ${percProgress} progress`)
+			const percProgress = Math.round((i-Number(fromBlock))/(endBlock-Number(fromBlock))*100);
+			if (count % 100==0) {
+				this.l.info(`historical blocks ${_startBlock}-${_endBlock}, ${percProgress}% progress`)
 			}
 			count += 1;
 			try {
