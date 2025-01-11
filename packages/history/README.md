@@ -53,6 +53,7 @@ Sample Response:
 	{
 		"chainId": 80001,
 		"perpetualId": 100001,
+		"perpetualLongId": '100001-BTC-USD-USDC',
 		"orderId": "0x401a854d1d5c2e74a5732d411371892e0729314c21eede515ee0df49d2cac4bc",
 		"orderFlags": "1073741824",
 		"side": "buy",
