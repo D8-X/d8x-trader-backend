@@ -149,6 +149,31 @@ export class EventListener {
 			},
 		);
 
+		// SetOracles event
+		proxy.on(
+			"SetOracles",
+			(
+				perpetualId: number,
+				baseQuoteS2: string[],
+				baseQuoteS3: string[],
+				event: ethers.ContractEventPayload,
+			) => {
+				const topic = event.log.topics[0];
+				this.l.info("got SetOracles event", { perpetualId, topic });
+				this.onSetOracleEvent(
+					{
+						perpetualId: perpetualId,
+						baseQuoteS2: baseQuoteS2,
+						baseQuoteS3: baseQuoteS3,
+					},
+					event.log.transactionHash,
+					IS_COLLECTED_BY_EVENT,
+					Math.round(new Date().getTime() / 1000),
+					event.log.blockNumber,
+				);
+			},
+		);
+
 		proxy.on(
 			"Liquidate",
 			(
