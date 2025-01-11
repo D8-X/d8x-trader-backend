@@ -1,7 +1,7 @@
 import * as winston from "winston";
 import { EventListener } from "../contracts/listeners";
 import * as dotenv from "dotenv";
-import { chooseRandomRPC, executeWithTimeout, loadConfigRPC } from "utils";
+import { chooseRandomRPC, executeWithTimeout, loadConfigRPC, sleep } from "utils";
 import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer";
 import {
 	BigNumberish,
@@ -32,7 +32,7 @@ import { MarginTokenInfo } from "../db/margin_token_info";
 import SturdyWebSocket from "sturdy-websocket";
 import WebSocket from "ws";
 import { SetOracles } from "../db/set_oracles";
-import { IPerpetualManager } from "@d8x/perpetuals-sdk";
+import { IPerpetualManager, sleepForSec } from "@d8x/perpetuals-sdk";
 
 const MAX_HISTORY_SINCE_TS = 1681387680;
 
@@ -163,7 +163,9 @@ export const main = async () => {
 		eventListener: eventsListener,
 	};
 	runHistoricalDataFilterers(hdOpts);
-	
+	console.log("waiting for filterer to start")
+	await sleepForSec(60);
+	console.log("starting event listener")
 	eventsListener.listen(wsProvider);
 
 	// Websocket provider leaks memory, therefore as in main api, we will
