@@ -279,6 +279,7 @@ export class HistoricalDataFilterer {
 		for (let i = Number(fromBlock); i < endBlock; ) {
 			const _startBlock = i;
 			const _endBlock = Math.min(endBlock, i + deltaBlocks - 1);
+			this.l.info(`historical blocks ${_startBlock}-${_endBlock}`)
 			try {
 				// fetch from blockchain
 				const _events = (await c.queryFilter(
