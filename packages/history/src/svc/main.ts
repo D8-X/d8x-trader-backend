@@ -163,9 +163,6 @@ export const main = async () => {
 		eventListener: eventsListener,
 	};
 	runHistoricalDataFilterers(hdOpts);
-	console.log("waiting for filterer to start")
-	await sleepForSec(60);
-	console.log("starting event listener")
 	eventsListener.listen(wsProvider);
 
 	// Websocket provider leaks memory, therefore as in main api, we will
