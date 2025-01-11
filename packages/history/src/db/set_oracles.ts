@@ -116,5 +116,19 @@ export class SetOracles {
 		}
     }
 
+	/**
+	 * Retrieve latest timestamp of SetOracles event
+	 */
+	public async getLatestTimestamp(): Promise<Date | undefined> {
+		const res = await this.prisma.perpetualLongId.findFirst({
+			select: {
+				valid_from: true,
+			},
+			orderBy: {
+				valid_from: "desc",
+			}
+		});
+		return res?.valid_from;
+	}
 
 }//class
