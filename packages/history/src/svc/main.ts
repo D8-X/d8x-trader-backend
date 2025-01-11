@@ -156,12 +156,13 @@ export const main = async () => {
 		dbLPWithdrawals,
 		dbPriceInfo,
 		dbTrades,
+		dbSetOracles,
 		httpProvider,
 		proxyContractAddr,
 		staticInfo: staticInfo,
 		eventListener: eventsListener,
 	};
-	await runHistoricalDataFilterers(hdOpts);
+	runHistoricalDataFilterers(hdOpts);
 	
 	eventsListener.listen(wsProvider);
 
@@ -282,6 +283,7 @@ export interface hdFilterersOpt {
 	httpProvider: ethers.Provider;
 	proxyContractAddr: string;
 	dbTrades: TradingHistory;
+	dbSetOracles: SetOracles;
 	dbFundingRatePayments: FundingRatePayments;
 	dbEstimatedEarnings: EstimatedEarnings;
 	dbPriceInfo: PriceInfo;
@@ -295,6 +297,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		httpProvider,
 		proxyContractAddr,
 		dbTrades,
+		dbSetOracles,
 		dbFundingRatePayments,
 		dbEstimatedEarnings,
 		dbPriceInfo,
@@ -317,7 +320,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		(await dbTrades.getLatestLiquidateTimestamp()) ?? defaultDate,
 		(await dbFundingRatePayments.getLatestTimestamp()) ?? defaultDate,
 		(await dbEstimatedEarnings.getLatestTimestamp("liquidity_added")) ?? defaultDate,
-		defaultDate
+		(await dbSetOracles.getLatestTimestamp()) ?? defaultDate,
 	];
 	// Use the smallest timestamp for the start of the filter
 	let ts = tsArr.reduce(function (a, b) {
