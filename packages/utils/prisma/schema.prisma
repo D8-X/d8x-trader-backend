@@ -138,3 +138,13 @@ model MarginTokenInfo {
   token_name String @db.VarChar(20)
   token_decimals Int
 }
+
+model PerpetualLongId {
+  @@map("perpetual_long_id")
+  perpetual_id Int
+  perpetual_name String @db.VarChar(20)
+  valid_from DateTime @db.Timestamptz 
+  valid_to DateTime @db.Timestamptz @default(dbgenerated("TO_TIMESTAMP(253402300799)")) // Year 9999-12-31T23:59:59Z
+  tx_hash String @db.Text 
+  @@id(tx_hash)
+}

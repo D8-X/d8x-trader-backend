@@ -95,6 +95,15 @@ export interface LiquidityWithdrawalInitiatedEvent {
 export type LiquidityWithdrawalInitiatedFilteredCb =
 	EventCallback<LiquidityWithdrawalInitiatedEvent>;
 
+
+// event SetOracles(uint24 indexed perpetualId, bytes4[2] baseQuoteS2, bytes4[2] baseQuoteS3);
+export interface SetOraclesEvent {
+	perpetualId:number
+	baseQuoteS2 : string[]
+	baseQuoteS3 : string[]
+}
+export type SetOraclesEventCb = EventCallback<SetOraclesEvent>;
+
 export enum ListeningMode {
 	HTTP = "HTTP",
 	WS = "WS",

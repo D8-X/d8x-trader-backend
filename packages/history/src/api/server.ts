@@ -394,26 +394,24 @@ export class HistoryRestAPI {
 				resp.status(400);
 				throw Error("invalid wallet address");
 			}
-
-			const data: Trade[] = await this.opts.prisma.trade.findMany({
-				orderBy: {
-					trade_timestamp: "desc",
-				},
-				where: {
-					trader_addr: {
-						equals: user_wallet,
-					},
-				},
-			});
+			type TradeEnh = Trade & {
+				perpetual_long_id: string;
+			};
+			const data: TradeEnh[] = await this.opts.prisma.$queryRaw`
+				SELECT * 
+				FROM trades_view 
+				WHERE trader_addr = ${user_wallet}
+				ORDER BY trade_timestamp DESC
+			`;
 
 			// return response
 			resp.contentType("json");
 			resp.send(
 				toJson(
-					data.map((t: Trade) => ({
+					data.map((t: TradeEnh) => ({
 						chainId: Number(t.chain_id),
 						perpetualId: Number(t.perpetual_id),
-
+						perpetualLongId: t.perpetual_long_id,
 						orderId: t.order_digest_hash,
 						orderFlags: t.order_flags,
 						side: t.side.toUpperCase(),
@@ -421,7 +419,6 @@ export class HistoryRestAPI {
 						quantity: ABK64x64ToFloat(BigInt(t.quantity.toFixed())),
 						fee: ABK64x64ToFloat(BigInt(t.fee.toFixed())),
 						realizedPnl: ABK64x64ToFloat(BigInt(t.realized_profit.toFixed())),
-
 						transactionHash: t.tx_hash,
 						timestamp: t.trade_timestamp,
 					})),

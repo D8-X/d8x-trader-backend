@@ -1,7 +1,7 @@
 import * as winston from "winston";
 import { EventListener } from "../contracts/listeners";
 import * as dotenv from "dotenv";
-import { chooseRandomRPC, executeWithTimeout, loadConfigRPC } from "utils";
+import { chooseRandomRPC, executeWithTimeout, loadConfigRPC, sleep } from "utils";
 import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer";
 import {
 	BigNumberish,
@@ -17,6 +17,7 @@ import {
 	LiquidateEvent,
 	UpdateMarginAccountEvent,
 	ListeningMode,
+	SetOraclesEvent,
 } from "../contracts/types";
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { TradingHistory } from "../db/trading_history";
@@ -30,8 +31,8 @@ import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 import { MarginTokenInfo } from "../db/margin_token_info";
 import SturdyWebSocket from "sturdy-websocket";
 import WebSocket from "ws";
-
-const MAX_HISTORY_SINCE_TS = 1681387680;
+import { SetOracles } from "../db/set_oracles";
+import { sleepForSec } from "@d8x/perpetuals-sdk";
 
 const defaultLogger = () => {
 	return winston.createLogger({
@@ -117,6 +118,7 @@ export const main = async () => {
 	const dbPriceInfo = new PriceInfo(prisma, logger);
 	const dbLPWithdrawals = new LiquidityWithdrawals(prisma, logger);
 	const dbMarginTokenInfo = new MarginTokenInfo(prisma, logger);
+	const dbSetOracles = new SetOracles(chainId, prisma, logger);
 	// get sharepool token info and margin token info
 	const staticInfo = new StaticInfo();
 	// the following call will throw an error on RPC timeout
@@ -142,22 +144,25 @@ export const main = async () => {
 		dbEstimatedEarnings,
 		dbPriceInfo,
 		dbLPWithdrawals,
+		dbSetOracles,
 	);
 
-	// Start the historical data filterers on serivice start...
+	let blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider)
+
+	// Start the historical data filterers on service start...
 	const hdOpts: hdFilterersOpt = {
 		dbEstimatedEarnings,
 		dbFundingRatePayments,
 		dbLPWithdrawals,
 		dbPriceInfo,
 		dbTrades,
+		dbSetOracles,
 		httpProvider,
 		proxyContractAddr,
 		staticInfo: staticInfo,
 		eventListener: eventsListener,
 	};
-	runHistoricalDataFilterers(hdOpts);
-
+	runHistoricalDataFilterers(hdOpts, blk.timestamp);
 	eventsListener.listen(wsProvider);
 
 	// Websocket provider leaks memory, therefore as in main api, we will
@@ -253,7 +258,7 @@ export const main = async () => {
 	setInterval(async () => {
 		logger.info("running historical data filterers for redundancy");
 		// non-blocking, so no await
-		runHistoricalDataFilterers(hdOpts);
+		runHistoricalDataFilterers(hdOpts, blk.timestamp);
 	}, 14_400_000); // 4 * 60 * 60 * 1000 miliseconds
 
 	// Start the history api
@@ -277,6 +282,7 @@ export interface hdFilterersOpt {
 	httpProvider: ethers.Provider;
 	proxyContractAddr: string;
 	dbTrades: TradingHistory;
+	dbSetOracles: SetOracles;
 	dbFundingRatePayments: FundingRatePayments;
 	dbEstimatedEarnings: EstimatedEarnings;
 	dbPriceInfo: PriceInfo;
@@ -285,11 +291,52 @@ export interface hdFilterersOpt {
 	eventListener: EventListener;
 }
 
-export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
+//getCloseDeploymentBlock finds a block that is a few blocks before the proxy contract
+//was deployed.
+async function getCloseDeploymentBlock(contractAddress: string, provider: ethers.Provider): Promise<{blockNumber: number,timestamp: number}> {
+    
+	let blockNumber = await provider.getBlockNumber();
+	let delta = 1000;
+	blockNumber = blockNumber-delta;
+	let lastAvailBlock = blockNumber;
+	let lastNABlock = 0;
+	let code:string;
+	let errCount=0;
+	while(lastAvailBlock-lastNABlock>10_000) {
+		try{ 
+			code = await provider.getCode(contractAddress,  blockNumber);
+		} catch (err) {
+			console.log("getCloseDeploymentBlock error: waiting")
+			if (errCount>10) {
+				throw new Error("too many errors in trying to getCloseDeploymentBlock");
+			}
+			await sleepForSec(10);
+			errCount+=1;
+			continue;
+		}
+		if (code === "0x") {
+			// not deployed yet
+			lastNABlock = blockNumber;
+		} else {
+			// deployed
+			lastAvailBlock = blockNumber;
+		}
+		blockNumber = lastNABlock+Math.floor((lastAvailBlock-lastNABlock)/2);
+	}
+	const block = await provider.getBlock(lastNABlock);
+
+    return {
+        blockNumber: lastNABlock,
+        timestamp: block!.timestamp,
+    };
+}
+
+export async function runHistoricalDataFilterers(opts: hdFilterersOpt, startTimestampSec:number) {
 	const {
 		httpProvider,
 		proxyContractAddr,
 		dbTrades,
+		dbSetOracles,
 		dbFundingRatePayments,
 		dbEstimatedEarnings,
 		dbPriceInfo,
@@ -297,7 +344,8 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		staticInfo,
 		eventListener,
 	} = opts;
-	const defaultDate = new Date(MAX_HISTORY_SINCE_TS * 1000);
+	
+	const defaultDate = new Date(startTimestampSec * 1000);
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
 
 	// Share token contracts
@@ -312,12 +360,13 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		(await dbTrades.getLatestLiquidateTimestamp()) ?? defaultDate,
 		(await dbFundingRatePayments.getLatestTimestamp()) ?? defaultDate,
 		(await dbEstimatedEarnings.getLatestTimestamp("liquidity_added")) ?? defaultDate,
+		(await dbSetOracles.getLatestTimestamp()) ?? defaultDate,
 	];
 	// Use the smallest timestamp for the start of the filter
-	const ts = tsArr.reduce(function (a, b) {
+	let ts = tsArr.reduce(function (a, b) {
 		return a < b ? a : b;
 	});
-
+	console.log(` starting filterer at ts = ${ts}`)
 	promises.push(
 		hd.filterProxyEvents(ts, {
 			Trade: async (
@@ -334,6 +383,22 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 					Number(blockNum.toString()),
 				);
 			},
+
+			SetOracles: async(
+				eventData: SetOraclesEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number,
+			) => {
+				await eventListener.onSetOracleEvent(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp,
+					Number(blockNum.toString()),
+				)
+			},
+
 			Liquidate: async (
 				eventData: LiquidateEvent,
 				txHash: string,
@@ -401,7 +466,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 					blockTimeStamp,
 				);
 			},
-			// TODO: add the rest
+			
 		}),
 	);
 	// Share tokens p2p transfers
@@ -432,4 +497,6 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		),
 	);
 	await Promise.all(promises);
+	// align timestamps in perpetual_long_id (because we have asynchronous events)
+	await dbSetOracles.alignTimestamps()
 }
