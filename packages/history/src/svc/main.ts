@@ -32,9 +32,7 @@ import { MarginTokenInfo } from "../db/margin_token_info";
 import SturdyWebSocket from "sturdy-websocket";
 import WebSocket from "ws";
 import { SetOracles } from "../db/set_oracles";
-import { IPerpetualManager, sleepForSec } from "@d8x/perpetuals-sdk";
-
-const MAX_HISTORY_SINCE_TS = 1711432800;
+import { sleepForSec } from "@d8x/perpetuals-sdk";
 
 const defaultLogger = () => {
 	return winston.createLogger({
@@ -149,6 +147,8 @@ export const main = async () => {
 		dbSetOracles,
 	);
 
+	let blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider)
+
 	// Start the historical data filterers on service start...
 	const hdOpts: hdFilterersOpt = {
 		dbEstimatedEarnings,
@@ -162,7 +162,7 @@ export const main = async () => {
 		staticInfo: staticInfo,
 		eventListener: eventsListener,
 	};
-	runHistoricalDataFilterers(hdOpts);
+	runHistoricalDataFilterers(hdOpts, blk.timestamp);
 	eventsListener.listen(wsProvider);
 
 	// Websocket provider leaks memory, therefore as in main api, we will
@@ -258,7 +258,7 @@ export const main = async () => {
 	setInterval(async () => {
 		logger.info("running historical data filterers for redundancy");
 		// non-blocking, so no await
-		runHistoricalDataFilterers(hdOpts);
+		runHistoricalDataFilterers(hdOpts, blk.timestamp);
 	}, 14_400_000); // 4 * 60 * 60 * 1000 miliseconds
 
 	// Start the history api
@@ -291,7 +291,47 @@ export interface hdFilterersOpt {
 	eventListener: EventListener;
 }
 
-export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
+//getCloseDeploymentBlock finds a block that is a few blocks before the proxy contract
+//was deployed.
+async function getCloseDeploymentBlock(contractAddress: string, provider: ethers.Provider): Promise<{blockNumber: number,timestamp: number}> {
+    
+	let blockNumber = await provider.getBlockNumber();
+	let delta = 1000;
+	blockNumber = blockNumber-delta;
+	let lastAvailBlock = blockNumber;
+	let lastNABlock = 0;
+	let code:string;
+	let errCount=0;
+	while(lastAvailBlock-lastNABlock>10_000) {
+		try{ 
+			code = await provider.getCode(contractAddress,  blockNumber);
+		} catch (err) {
+			console.log("getCloseDeploymentBlock error: waiting")
+			if (errCount>10) {
+				throw new Error("too many errors in trying to getCloseDeploymentBlock");
+			}
+			await sleepForSec(10);
+			errCount+=1;
+			continue;
+		}
+		if (code === "0x") {
+			// not deployed yet
+			lastNABlock = blockNumber;
+		} else {
+			// deployed
+			lastAvailBlock = blockNumber;
+		}
+		blockNumber = lastNABlock+Math.floor((lastAvailBlock-lastNABlock)/2);
+	}
+	const block = await provider.getBlock(lastNABlock);
+
+    return {
+        blockNumber: lastNABlock,
+        timestamp: block!.timestamp,
+    };
+}
+
+export async function runHistoricalDataFilterers(opts: hdFilterersOpt, startTimestampSec:number) {
 	const {
 		httpProvider,
 		proxyContractAddr,
@@ -304,7 +344,8 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt) {
 		staticInfo,
 		eventListener,
 	} = opts;
-	const defaultDate = new Date(MAX_HISTORY_SINCE_TS * 1000);
+	
+	const defaultDate = new Date(startTimestampSec * 1000);
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
 
 	// Share token contracts
