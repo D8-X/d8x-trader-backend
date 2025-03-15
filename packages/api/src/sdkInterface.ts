@@ -21,6 +21,7 @@ import { extractErrorMsg, constructRedis } from "utils";
 import RPCManager from "./rpcManager";
 import { TrackedJsonRpcProvider } from "./providers";
 import { toQuantity } from "ethers";
+import RedisOI from "./redisOI";
 
 export type OrderWithTraderAndId = Order & { orderId: string; trader: string };
 
@@ -68,6 +69,14 @@ export default class SDKInterface extends Observable {
 		const xchInfo = await this.apiInterface!.exchangeInfo({
 			rpcURL: await this.rpcManager?.getRPC(),
 		});
+		// extend xchInfo with 24h OI
+		for(let j=0; j<xchInfo.pools.length; j++) {
+			for(let k=0; k<xchInfo.pools[j].perpetuals.length; k++) {
+				const id = xchInfo.pools[j].perpetuals[k].id;
+				const oi = await RedisOI.getMax24h(id, this.redisClient);
+				(xchInfo.pools[j].perpetuals[k] as any).openInterestBC24h = oi;
+			}
+		}
 		const info = JSON.stringify(xchInfo);
 		await this.redisClient.hSet("exchangeInfo", [
 			"ts:response",

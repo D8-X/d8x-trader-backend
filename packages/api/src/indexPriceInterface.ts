@@ -18,7 +18,7 @@ import Observer from "./observer";
  * and the subscribers are informed.
  */
 export default abstract class IndexPriceInterface extends Observer {
-	private redisClient: RedisClientType;
+	protected redisClient: RedisClientType;
 	private redisSubClient: RedisClientType;
 	private idxNamesToPerpetualIds: Map<string, number[]>; //ticker (e.g. BTC-USD) -> [10001, 10021, ..]
 	protected idxPrices: Map<string, number>; //ticker -> price
