@@ -31,7 +31,7 @@ import SturdyWebSocket from "sturdy-websocket";
 import { Logger } from "winston";
 import { TrackedWebsocketsProvider } from "./providers";
 import { Contract, WebSocketProvider } from "ethers";
-
+import RedisOI from "./redisOI";
 /**
  * Class that listens to blockchain events on
  * - limitorder books
@@ -82,7 +82,6 @@ export default class EventListener extends IndexPriceInterface {
 	wsRPC!: string;
 	isInitialized = false;
 	fundingRate: Map<number, number>; // perpetualId -> funding rate
-	openInterest: Map<number, number>; // perpetualId -> openInterest
 	lastBlockChainEventTs: number; //here we log the event occurence time to guess whether the connection is alive
 	wsConn: SturdyWebSocket | undefined;
 	// subscription for perpetualId and trader address. Multiple websocket-clients can subscribe
@@ -99,6 +98,8 @@ export default class EventListener extends IndexPriceInterface {
 	public restartServiceAfter = 100 + Math.floor(Math.random() * 100);
 	// Current counter, how many times resetRPCWebsocket was called
 	private currentRestartCount = 0;
+
+	private redisOITimeSeries: RedisOI;
 
 	private mktOrderFrequency: EventFrequencyCount = {
 		createdCount: 0,
@@ -118,7 +119,6 @@ export default class EventListener extends IndexPriceInterface {
 
 		this.lastBlockChainEventTs = Date.now();
 		this.fundingRate = new Map<number, number>();
-		this.openInterest = new Map<number, number>();
 		this.subscriptions = new Map<number, Map<string, WebSocket.WebSocket[]>>();
 		this.clients = new Map<WebSocket.WebSocket, Array<ClientSubscription>>();
 		this.resetEventFrequencies(this.mktOrderFrequency);
@@ -128,6 +128,7 @@ export default class EventListener extends IndexPriceInterface {
 			onPerpetualLimitOrderCreated: { hash: new Array<string>(10), pointer: 0 },
 			onExecutionFailed: { hash: new Array<string>(10), pointer: 0 },
 		};
+		this.redisOITimeSeries = new RedisOI(this.redisClient);
 	}
 
 	// throws error on RPC issue
@@ -464,14 +465,14 @@ export default class EventListener extends IndexPriceInterface {
 		console.log("received update from sdkInterface", msg);
 		const info: ExchangeInfo = await this.traderInterface.exchangeInfo();
 		// update fundingRate: Map<number, number>; // perpetualId -> funding rate
-		//        openInterest: Map<number, number>; // perpetualId -> openInterest
 		const pools = info.pools;
+		const nowTs = Date.now();
 		for (let k = 0; k < pools.length; k++) {
 			const pool = pools[k];
 			for (let j = 0; j < pool.perpetuals.length; j++) {
 				const perp: PerpetualState = pool.perpetuals[j];
 				this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
-				this.openInterest.set(perp.id, perp.openInterestBC);
+				this.redisOITimeSeries.addOIObs(perp.id, perp.openInterestBC, nowTs)
 				if (this.isPredictionMkt.get(perp.id)) {
 					this.emaPrices.set(perp.id, perp.markPrice - perp.markPremium);
 				}
@@ -690,7 +691,7 @@ export default class EventListener extends IndexPriceInterface {
 		const symbol = this.symbolFromPerpetualId(perpetualId);
 		const state =
 			await this.sdkInterface!.extractPerpetualStateFromExchangeInfo(symbol);
-		this.openInterest.set(perpetualId, state.openInterestBC);
+		this.redisOITimeSeries.addOIObs(perpetualId, state.openInterestBC, Date.now());
 
 		const obj: UpdateMarginAccountTrimmed = {
 			traderAddr: trader,
@@ -810,7 +811,7 @@ export default class EventListener extends IndexPriceInterface {
 		// update data in sdkInterface's exchangeInfo
 		const fundingRate = this.fundingRate.get(perpetualId) || 0;
 
-		const oi = this.openInterest.get(perpetualId) || 0;
+		const oi = this.redisOITimeSeries.get(perpetualId);
 		const symbol = this.symbolFromPerpetualId(perpetualId);
 
 		if (this.sdkInterface != undefined && symbol != undefined) {
@@ -855,7 +856,7 @@ export default class EventListener extends IndexPriceInterface {
 
 		const fundingRate = this.fundingRate.get(perpetualId) || 0;
 
-		const oi = this.openInterest.get(perpetualId) || 0;
+		const oi = this.redisOITimeSeries.get(perpetualId);
 		const symbol = this.symbolFromPerpetualId(perpetualId);
 		const obj: PriceUpdate = {
 			symbol: symbol,
