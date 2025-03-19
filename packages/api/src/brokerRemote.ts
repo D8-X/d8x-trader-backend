@@ -89,7 +89,7 @@ export default class BrokerRemote extends BrokerIntegration {
 		} catch (error) {
 			const msg = "Error signOrder for URL:" + query;
 			console.log(query + " failed");
-			throw Error(msg + error);
+			return "";
 		}
 	}
 }
