@@ -70,8 +70,8 @@ export default class SDKInterface extends Observable {
 			rpcURL: await this.rpcManager?.getRPC(),
 		});
 		// extend xchInfo with 24h OI
-		for(let j=0; j<xchInfo.pools.length; j++) {
-			for(let k=0; k<xchInfo.pools[j].perpetuals.length; k++) {
+		for (let j = 0; j < xchInfo.pools.length; j++) {
+			for (let k = 0; k < xchInfo.pools[j].perpetuals.length; k++) {
 				const id = xchInfo.pools[j].perpetuals[k].id;
 				const oi = await RedisOI.getMax24h(id, this.redisClient);
 				(xchInfo.pools[j].perpetuals[k] as any).openInterestBC24h = oi;
@@ -348,6 +348,9 @@ export default class SDKInterface extends Observable {
 		const brokerAddr = await this.broker.getBrokerAddress();
 		const SCOrders = await Promise.all(
 			orders!.map(async (order: Order) => {
+				if (order.brokerAddr == undefined) {
+					order.brokerAddr = brokerAddr;
+				}
 				const SCOrder = this.apiInterface?.createSmartContractOrder(
 					order,
 					traderAddr,

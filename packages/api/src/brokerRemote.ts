@@ -87,8 +87,16 @@ export default class BrokerRemote extends BrokerIntegration {
 			const responseData = response.data;
 			return responseData.brokerSignature;
 		} catch (error) {
-			const msg = "Error signOrder for URL:" + query;
-			console.log(query + " failed");
+			let errorMessage;
+			if (axios.isAxiosError(error)) {
+				errorMessage =
+					error.response?.data?.error ||
+					error.message ||
+					"Axios error occurred";
+			} else if (error instanceof Error) {
+				errorMessage = "Unknown error";
+			}
+			console.log(`${query} failed: ${errorMessage}`);
 			return "";
 		}
 	}
