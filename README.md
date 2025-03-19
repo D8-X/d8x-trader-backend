@@ -46,3 +46,14 @@ The Frontend package is tightly linked to these services, and the way it connect
 ```
 npx lerna exec npm run build
 ```
+
+# localhost:3001/order-digest
+
+```
+{
+    "orders":[
+    {"symbol":"BERA-USD-BUSD","side":"BUY","type":"MARKET","quantity":1.3,"leverage":1,"keepPositionLvg":false,"executionTimestamp":1742381717,"deadline":1743101927}
+    ],
+    "traderAddr":"0x312129Ce46acF0efDf390147B619a934610c6194"
+}
+```
