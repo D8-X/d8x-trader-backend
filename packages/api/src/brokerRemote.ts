@@ -64,7 +64,13 @@ export default class BrokerRemote extends BrokerIntegration {
 		return this.brokerFee!;
 	}
 
-	public async signOrder(SCOrder: SmartContractOrder): Promise<string> {
+	public async signOrder(SCOrder: SmartContractOrder): Promise<{
+		sig: string;
+		digest: string;
+		orderId: string;
+		brokerFee: number;
+		brokerAddr: "";
+	}> {
 		const reqData = {
 			order: {
 				flags: Number(SCOrder.flags.toString()),
@@ -85,11 +91,25 @@ export default class BrokerRemote extends BrokerIntegration {
 		try {
 			const response = await axios.post(query, reqData);
 			const responseData = response.data;
-			return responseData.brokerSignature;
+			return {
+				sig: responseData.brokerSignature,
+				digest: responseData.orderDigest,
+				orderId: responseData.orderId,
+				brokerFee: responseData.orderFields.brokerFeeTbps,
+				brokerAddr: responseData.orderFields.brokerAddr,
+			};
 		} catch (error) {
-			const msg = "Error signOrder for URL:" + query;
-			console.log(query + " failed");
-			return "";
+			let errorMessage;
+			if (axios.isAxiosError(error)) {
+				errorMessage =
+					error.response?.data?.error ||
+					error.message ||
+					"Axios error occurred";
+			} else if (error instanceof Error) {
+				errorMessage = "Unknown error";
+			}
+			console.log(`${query} failed: ${errorMessage}`);
+			return { sig: "", digest: "", orderId: "", brokerFee: 0, brokerAddr: "" };
 		}
 	}
 }
