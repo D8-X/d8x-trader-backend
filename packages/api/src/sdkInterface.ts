@@ -343,42 +343,37 @@ export default class SDKInterface extends Observable {
 			throw Error("orders must have the same symbol");
 		}
 
-		// Note that order field is not used in remote broker integration
-		const brokerFeeTbps = await this.broker.getBrokerFeeTBps(traderAddr, undefined);
-		const brokerAddr = await this.broker.getBrokerAddress();
-		const SCOrders = await Promise.all(
-			orders!.map(async (order: Order) => {
-				if (order.brokerAddr == undefined) {
-					order.brokerAddr = brokerAddr;
-				}
-				const SCOrder = this.apiInterface?.createSmartContractOrder(
-					order,
-					traderAddr,
-				);
-				SCOrder!.brokerSignature = await this.broker.signOrder(SCOrder!);
-				return SCOrder!;
-			}),
-		);
-		// now we can create the digest that is to be signed by the trader
-		const digests = await Promise.all(
-			SCOrders.map((SCOrder: SmartContractOrder) => {
-				return this.apiInterface?.orderDigest(SCOrder);
-			}),
-		);
-		const ids = await Promise.all(
-			digests.map((digest) => {
-				return this.apiInterface!.digestTool.createOrderId(digest!);
-			}),
-		);
+		const digests: string[] = [];
+		const orderIds: string[] = [];
+		const brokerSignatures: string[] = [];
+		let brokerFeeTbps = 0;
+		let brokerAddr = "";
+		for (let k = 0; k < orders.length; k++) {
+			const order = orders[k];
+			const SCOrder = this.apiInterface?.createSmartContractOrder(
+				order,
+				traderAddr,
+			);
+			const res = await this.broker.signOrder(SCOrder!);
+			if (res.sig == "") {
+				continue;
+			}
+			orderIds.push("0x" + res.orderId);
+			digests.push("0x" + res.digest);
+			brokerSignatures.push(res.sig);
+			brokerFeeTbps = res.brokerFee;
+			brokerAddr = res.brokerAddr;
+		}
+
 		// also return the order book address and postOrder ABI
 		const obAddr = this.apiInterface!.getOrderBookAddress(orders[0].symbol);
 		const resp = JSON.stringify({
 			digests: digests,
-			orderIds: ids,
+			orderIds: orderIds,
 			OrderBookAddr: obAddr,
 			brokerAddr,
 			brokerFeeTbps,
-			brokerSignatures: SCOrders.map(({ brokerSignature }) => brokerSignature),
+			brokerSignatures: brokerSignatures,
 		});
 		console.log("signed order response:", resp);
 		return resp;
