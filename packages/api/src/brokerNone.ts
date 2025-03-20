@@ -15,8 +15,14 @@ export default class BrokerNone extends BrokerIntegration {
 		return 0;
 	}
 
-	public async signOrder(SCOrder: SmartContractOrder): Promise<string> {
-		return await "";
+	public async signOrder(SCOrder: SmartContractOrder): Promise<{
+		sig: string;
+		digest: string;
+		orderId: string;
+		brokerFee: number;
+		brokerAddr: string;
+	}> {
+		return { sig: "", digest: "", orderId: "", brokerFee: 0, brokerAddr: "" };
 	}
 
 	public async initialize(config: NodeSDKConfig): Promise<string> {
