@@ -69,6 +69,7 @@ export class TradingHistory {
 						quantity: e.order.fAmount.toString(),
 						quantity_cc: quantityCC.toString(),
 						realized_profit: e.fPnlCC.toString(),
+						new_pos_bc: e.newPositionSizeBC.toString(),
 						side: (parseInt(e.order.fAmount.toString()) > 0
 							? "buy"
 							: "sell") as trade_side,
@@ -92,6 +93,7 @@ export class TradingHistory {
 						price: e.liquidationPrice.toString(),
 						quantity: e.amountLiquidatedBC.toString(),
 						realized_profit: e.fPnlCC.toString(),
+						new_pos_bc: e.newPositionSizeBC.toString(),
 						side: (parseInt(e.amountLiquidatedBC.toString()) > 0
 							? "liquidate_buy"
 							: "liquidate_sell") as trade_side,
