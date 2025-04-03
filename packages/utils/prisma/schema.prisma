@@ -43,7 +43,10 @@ model Trade{
   broker_addr String @db.VarChar(42) @default("")
   // realized profit is stored in ABDK format
   realized_profit Decimal @db.Decimal(40,0)
-
+ 
+  // new signed position in base currency ABDK
+  new_pos_bc Decimal? @db.Decimal(40,0)
+   
   // the order digest is unique and is the key:
   // posting two identical orders (same order_digest_hash) is not
   // possible on chain
