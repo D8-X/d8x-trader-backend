@@ -105,6 +105,59 @@ Sample Response:
 
 Note that `earnings` will be returned as decimal 18 adjusted number value.
 
+## LP Actions
+
+Endpoint: `/lp-actions`
+
+Query params: `lpAddr` - liquidity provider address; `poolSymbol` - string
+
+Example: http://localhost:8888/lp-actions?lpAddr=0x9d5aab428e98678d0e645ea4aebd25f744341a05&poolSymbol=MATIC
+
+<details>
+<summary>Sample Response</summary>
+
+```json
+[
+  {
+    "created_at": "2024-09-14T20:43:51.000Z",
+    "pool_id": 1,
+    "lp_tokens_dec": -100,
+    "event_type": "liquidity_added",
+    "sh_tokens_dec": -100,
+    "price_cc": 1,
+    "tx_hash": "0x2aacb90c6c339b6b0ffd384148a554acee764e05e51e7318ddc21cc04d693df9"
+  },
+  {
+    "created_at": "2024-05-29T14:59:10.000Z",
+    "pool_id": 1,
+    "lp_tokens_dec": 3307.328215,
+    "event_type": "liquidity_removed",
+    "sh_tokens_dec": 3278.29689590634,
+    "price_cc": 1.0088556100974,
+    "tx_hash": "0x2f265bbdc5acfe7f29b3111c75ef628e7aeb14b8901a9e6efbfc577a6fe3b447"
+  },
+  {
+    "created_at": "2024-03-29T12:40:24.000Z",
+    "pool_id": 1,
+    "lp_tokens_dec": -3000,
+    "event_type": "liquidity_added",
+    "sh_tokens_dec": -2978.29689590634,
+    "price_cc": 1.00728708548953,
+    "tx_hash": "0xf2e99d46935aa310edce8624edd401eb6dad71d0419a040fa976fe23eb40912e"
+  },
+  {
+    "created_at": "2024-03-26T20:50:31.000Z",
+    "pool_id": 1,
+    "lp_tokens_dec": -300,
+    "event_type": "liquidity_added",
+    "sh_tokens_dec": -300,
+    "price_cc": 1,
+    "tx_hash": "0xf174e307bc06b427ff5f3d97b89f5ad1daa0b0b9926c140640654d1909111c79"
+  }
+]
+```
+</details>
+
 ## Open withdrawal
 
 Endpoint: `/open-withdrawals`

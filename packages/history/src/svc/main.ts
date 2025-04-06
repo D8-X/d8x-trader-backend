@@ -147,7 +147,7 @@ export const main = async () => {
 		dbSetOracles,
 	);
 
-	let blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider)
+	const blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider);
 
 	// Start the historical data filterers on service start...
 	const hdOpts: hdFilterersOpt = {
@@ -293,25 +293,27 @@ export interface hdFilterersOpt {
 
 //getCloseDeploymentBlock finds a block that is a few blocks before the proxy contract
 //was deployed.
-async function getCloseDeploymentBlock(contractAddress: string, provider: ethers.Provider): Promise<{blockNumber: number,timestamp: number}> {
-    
+async function getCloseDeploymentBlock(
+	contractAddress: string,
+	provider: ethers.Provider,
+): Promise<{ blockNumber: number; timestamp: number }> {
 	let blockNumber = await provider.getBlockNumber();
-	let delta = 1000;
-	blockNumber = blockNumber-delta;
+	const delta = 1000;
+	blockNumber = blockNumber - delta;
 	let lastAvailBlock = blockNumber;
 	let lastNABlock = 0;
-	let code:string;
-	let errCount=0;
-	while(lastAvailBlock-lastNABlock>10_000) {
-		try{ 
-			code = await provider.getCode(contractAddress,  blockNumber);
+	let code: string;
+	let errCount = 0;
+	while (lastAvailBlock - lastNABlock > 10_000) {
+		try {
+			code = await provider.getCode(contractAddress, blockNumber);
 		} catch (err) {
-			console.log("getCloseDeploymentBlock error: waiting")
-			if (errCount>10) {
+			console.log("getCloseDeploymentBlock error: waiting");
+			if (errCount > 10) {
 				throw new Error("too many errors in trying to getCloseDeploymentBlock");
 			}
 			await sleepForSec(10);
-			errCount+=1;
+			errCount += 1;
 			continue;
 		}
 		if (code === "0x") {
@@ -321,17 +323,20 @@ async function getCloseDeploymentBlock(contractAddress: string, provider: ethers
 			// deployed
 			lastAvailBlock = blockNumber;
 		}
-		blockNumber = lastNABlock+Math.floor((lastAvailBlock-lastNABlock)/2);
+		blockNumber = lastNABlock + Math.floor((lastAvailBlock - lastNABlock) / 2);
 	}
 	const block = await provider.getBlock(lastNABlock);
 
-    return {
-        blockNumber: lastNABlock,
-        timestamp: block!.timestamp,
-    };
+	return {
+		blockNumber: lastNABlock,
+		timestamp: block!.timestamp,
+	};
 }
 
-export async function runHistoricalDataFilterers(opts: hdFilterersOpt, startTimestampSec:number) {
+export async function runHistoricalDataFilterers(
+	opts: hdFilterersOpt,
+	startTimestampSec: number,
+) {
 	const {
 		httpProvider,
 		proxyContractAddr,
@@ -344,7 +349,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt, startTime
 		staticInfo,
 		eventListener,
 	} = opts;
-	
+
 	const defaultDate = new Date(startTimestampSec * 1000);
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
 
@@ -363,10 +368,10 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt, startTime
 		(await dbSetOracles.getLatestTimestamp()) ?? defaultDate,
 	];
 	// Use the smallest timestamp for the start of the filter
-	let ts = tsArr.reduce(function (a, b) {
+	const ts = tsArr.reduce(function (a, b) {
 		return a < b ? a : b;
 	});
-	console.log(` starting filterer at ts = ${ts}`)
+	console.log(` starting filterer at ts = ${ts}`);
 	promises.push(
 		hd.filterProxyEvents(ts, {
 			Trade: async (
@@ -384,7 +389,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt, startTime
 				);
 			},
 
-			SetOracles: async(
+			SetOracles: async (
 				eventData: SetOraclesEvent,
 				txHash: string,
 				blockNum: BigNumberish,
@@ -396,7 +401,7 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt, startTime
 					IS_COLLECTED_BY_EVENT,
 					blockTimestamp,
 					Number(blockNum.toString()),
-				)
+				);
 			},
 
 			Liquidate: async (
@@ -466,7 +471,6 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt, startTime
 					blockTimeStamp,
 				);
 			},
-			
 		}),
 	);
 	// Share tokens p2p transfers
@@ -492,11 +496,12 @@ export async function runHistoricalDataFilterers(opts: hdFilterersOpt, startTime
 					txHash,
 					IS_COLLECTED_BY_EVENT,
 					blockTimeStamp,
+					staticInfo,
 				);
 			},
 		),
 	);
 	await Promise.all(promises);
 	// align timestamps in perpetual_long_id (because we have asynchronous events)
-	await dbSetOracles.alignTimestamps()
+	await dbSetOracles.alignTimestamps();
 }

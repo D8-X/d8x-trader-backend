@@ -356,6 +356,7 @@ export class EventListener {
 			txHash,
 			isCollectedByEvent,
 			timestampSec,
+			this.opts.staticInfo,
 		);
 	}
 
@@ -378,8 +379,8 @@ export class EventListener {
 	public async onSetOracleEvent(
 		eventData: SetOraclesEvent,
 		txHash: string,
-		isCollectedByEvent:boolean,
-		blockTimestamp:number,
+		isCollectedByEvent: boolean,
+		blockTimestamp: number,
 		blockNumber: number,
 	) {
 		await this.dbSetOracles.insertSetOraclesRecord(
