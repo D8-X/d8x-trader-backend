@@ -249,7 +249,8 @@ export class HistoryRestAPI {
 			if (!correctQueryArgs(req.query, ["poolSymbol"])) {
 				throw Error("please provide correct query parameters");
 			}
-			const poolIdNum = this.md!.getPoolIdFromSymbol(req.query.poolSymbol)!;
+			const sym = req.query.poolSymbol.toUpperCase();
+			const poolIdNum = this.md!.getPoolIdFromSymbol(sym)!;
 			const nowTs = Math.round(Date.now() / 1000);
 			let ch: CacheLpPrice | undefined = this.lpPriceCash.get(poolIdNum);
 			if (ch != undefined && nowTs - ch!.ts < 5 * 120) {
@@ -257,7 +258,6 @@ export class HistoryRestAPI {
 					"returning cached lp prices for pool (10min cache)",
 					poolIdNum,
 				);
-				ch = this.lpPriceCash.get(poolIdNum);
 			} else {
 				console.log("sql query of lp prices for pool", poolIdNum);
 				const res = await this.opts.prisma.$queryRaw<LpPrice[]>`
