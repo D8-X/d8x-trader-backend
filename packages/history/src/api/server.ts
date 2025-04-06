@@ -110,6 +110,7 @@ export class HistoryRestAPI {
 		app.get("/trading-volume", this.tradingVolume.bind(this));
 		app.get("/has-trades", this.hasTrades.bind(this));
 		app.get("/trades-history", this.historicalTrades.bind(this));
+		app.get("/lp-actions", this.lpActions.bind(this));
 	}
 
 	/**
@@ -220,6 +221,58 @@ export class HistoryRestAPI {
 		}
 	}
 
+	/**
+	 *
+	 * @param req request
+	 * @param resp response
+	 */
+	private async lpActions(
+		req: Request<any, any, any, { lpAddr: string; poolSymbol: string }>,
+		resp: Response,
+	) {
+		const usage = "required query parameters: lpAddr, poolSymbol";
+		try {
+			if (!correctQueryArgs(req.query, ["lpAddr", "poolSymbol"])) {
+				throw Error("please provide correct query parameters");
+			}
+
+			const user_wallet = req.query.lpAddr.toLowerCase();
+			if (!isValidAddress(user_wallet)) {
+				resp.status(400);
+				throw Error("invalid address");
+			}
+			const poolIdNum = this.md!.getPoolIdFromSymbol(req.query.poolSymbol)!;
+
+			interface Resp {
+				createdAt: string;
+				lp_tkn_dec: number;
+				sh_tkn_dec: number;
+				price_cc: number;
+				event_type: string;
+				tx: string;
+			}
+			const res = await this.opts.prisma.$queryRaw<Resp[]>`
+				select 
+					eet.created_at,
+					eet.pool_id,
+					eet.token_amount/power(10, mti.token_decimals) as lp_tokens_dec,
+					eet.event_type,
+					eet.share_amount/power(10, 18) as sh_tokens_dec,
+					abs(eet.token_amount*power(10, 18-mti.token_decimals)/eet.share_amount) as price_cc,
+					eet.tx_hash
+				from estimated_earnings_tokens eet
+				join margin_token_info mti
+				on eet.pool_id=mti.pool_id
+				where eet.liq_provider_addr = ${user_wallet}
+				and eet.pool_id = ${poolIdNum}
+				order by eet.pool_id, eet.created_at desc`;
+
+			resp.contentType("json");
+			resp.send(toJson(res));
+		} catch (err: any) {
+			resp.send(errorResp(extractErrorMsg(err), usage));
+		}
+	}
 	/**
 	 * See "Estimated Earnings" in
 	 * https://www.notion.so/Trader-Backend-Historical-Data-6a13d2a4aba74c7da1726c31640386f9
