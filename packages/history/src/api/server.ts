@@ -48,6 +48,16 @@ export interface RestAPIOptions {
 	prisma: PrismaClient;
 }
 
+interface LpPrice {
+	time: string;
+	price_cc: number;
+}
+
+interface CacheLpPrice {
+	ts: number;
+	data: LpPrice[];
+}
+
 // Profit and loss express REST API
 export class HistoryRestAPI {
 	private app: express.Application;
@@ -57,6 +67,8 @@ export class HistoryRestAPI {
 	private md?: MarketData;
 
 	private CORS_ON: boolean;
+
+	private lpPriceCash: Map<number, CacheLpPrice>; // poolId -> Cache
 
 	/**
 	 * Initialize ResAPI parameters, routes, middelware, etc
@@ -73,6 +85,7 @@ export class HistoryRestAPI {
 		);
 		this.db = opts.db;
 		this.app = express();
+		this.lpPriceCash = new Map<number, CacheLpPrice>();
 
 		this.registerMiddleware();
 		this.registerRoutes(this.app);
@@ -111,6 +124,7 @@ export class HistoryRestAPI {
 		app.get("/has-trades", this.hasTrades.bind(this));
 		app.get("/trades-history", this.historicalTrades.bind(this));
 		app.get("/lp-actions", this.lpActions.bind(this));
+		app.get("/lp-price", this.lpPrice.bind(this));
 	}
 
 	/**
@@ -221,6 +235,53 @@ export class HistoryRestAPI {
 		}
 	}
 
+	/**
+	 * Returns historical LP prices (pool share token price in collateral token currency)
+	 * @param req request
+	 * @param resp response
+	 */
+	private async lpPrice(
+		req: Request<any, any, any, { lpAddr: string; poolSymbol: string }>,
+		resp: Response,
+	) {
+		const usage = "required query parameters: poolSymbol";
+		try {
+			if (!correctQueryArgs(req.query, ["poolSymbol"])) {
+				throw Error("please provide correct query parameters");
+			}
+			const sym = req.query.poolSymbol.toUpperCase();
+			const poolIdNum = this.md!.getPoolIdFromSymbol(sym)!;
+			const nowTs = Math.round(Date.now() / 1000);
+			let ch: CacheLpPrice | undefined = this.lpPriceCash.get(poolIdNum);
+			if (ch != undefined && nowTs - ch!.ts < 5 * 120) {
+				console.log(
+					"returning cached lp prices for pool (10min cache)",
+					poolIdNum,
+				);
+			} else {
+				console.log("sql query of lp prices for pool", poolIdNum);
+				const res = await this.opts.prisma.$queryRaw<LpPrice[]>`
+				select 
+					eet.created_at as time,
+					abs(eet.token_amount*power(10, 18-mti.token_decimals)/eet.share_amount) as price_cc
+				from estimated_earnings_tokens eet
+				join margin_token_info mti
+				on eet.pool_id=mti.pool_id
+				where 
+				eet.pool_id = ${poolIdNum}
+				and event_type!='share_token_p2p_transfer'
+				order by eet.created_at asc`;
+				ch = {
+					ts: nowTs,
+					data: res,
+				};
+			}
+			resp.contentType("json");
+			resp.send(toJson(ch));
+		} catch (err: any) {
+			resp.send(errorResp(extractErrorMsg(err), usage));
+		}
+	}
 	/**
 	 *
 	 * @param req request
