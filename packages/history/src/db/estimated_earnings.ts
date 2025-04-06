@@ -10,7 +10,8 @@ import {
 	LiquidityRemovedEvent,
 	P2PTransferEvent,
 } from "../contracts/types";
-import { dec18ToFloat, decNToFloat } from "utils";
+import { dec18ToFloat, floatToDecN, decNToFloat } from "utils";
+import StaticInfo from "../contracts/static_info";
 
 export class EstimatedEarnings {
 	constructor(
@@ -154,16 +155,17 @@ export class EstimatedEarnings {
 		txHash: string,
 		isCollectedByEvent: boolean,
 		blockTimestamp: number,
+		staticInfo: StaticInfo,
 	) {
 		const shareTokenAmount = dec18ToFloat(eventData.amountD18);
 		const price = dec18ToFloat(eventData.priceD18);
 
 		const estimatedEarningsTokensAmnt = shareTokenAmount * price;
-
+		const decN = staticInfo.getMarginTokenDecimals(poolId);
 		// From wallet_from amount sign is plus
 		await this.insert(
 			eventData.from,
-			BigInt(Math.floor(estimatedEarningsTokensAmnt)),
+			floatToDecN(estimatedEarningsTokensAmnt, decN),
 			eventData.amountD18,
 			poolId,
 			txHash,
