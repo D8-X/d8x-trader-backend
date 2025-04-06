@@ -265,7 +265,7 @@ export class HistoryRestAPI {
 				on eet.pool_id=mti.pool_id
 				where eet.liq_provider_addr = ${user_wallet}
 				and eet.pool_id = ${poolIdNum}
-				order by eet.pool_id, eet.created_at desc`;
+				order by eet.created_at desc`;
 
 			resp.contentType("json");
 			resp.send(toJson(res));
