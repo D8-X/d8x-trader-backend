@@ -159,7 +159,13 @@ export default class SDKInterface extends Observable {
 	) {
 		const obj = await this.redisClient.hGetAll("exchangeInfo");
 		const info = <ExchangeInfo>JSON.parse(obj["content"]);
-		const [k, j] = SDKInterface.findPoolAndPerpIdx(symbol, info);
+		let k, j: Number;
+		try {
+			[k, j] = SDKInterface.findPoolAndPerpIdx(symbol, info);
+		} catch (err) {
+			console.log(err);
+			return;
+		}
 		const perpState: PerpetualState = info.pools[k].perpetuals[j];
 		for (let m = 0; m < values.length; m++) {
 			switch (propertyNames[m]) {
@@ -238,7 +244,7 @@ export default class SDKInterface extends Observable {
 		const symbols = symbol.split("-");
 		const k = SDKInterface.findPoolIdx(symbols[2], pools);
 		if (k == -1) {
-			throw new Error(`No pool found with symbol ${symbol}`);
+			throw new Error("No pool found with symbol" + symbol);
 		}
 		const j = SDKInterface.findPerpetualInPool(
 			symbols[0],
@@ -246,7 +252,7 @@ export default class SDKInterface extends Observable {
 			pools[k].perpetuals,
 		);
 		if (j == -1) {
-			throw new Error(`No perpetual found with symbol ${symbol}`);
+			throw new Error("No perpetual found with symbol" + symbol);
 		}
 		return [k, j];
 	}
