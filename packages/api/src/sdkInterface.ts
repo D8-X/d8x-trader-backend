@@ -20,7 +20,7 @@ import type { RedisClientType } from "redis";
 import { extractErrorMsg, constructRedis } from "utils";
 import RPCManager from "./rpcManager";
 import { TrackedJsonRpcProvider } from "./providers";
-import { toQuantity } from "ethers";
+import { Numeric, toQuantity } from "ethers";
 import RedisOI from "./redisOI";
 
 export type OrderWithTraderAndId = Order & { orderId: string; trader: string };
@@ -159,7 +159,7 @@ export default class SDKInterface extends Observable {
 	) {
 		const obj = await this.redisClient.hGetAll("exchangeInfo");
 		const info = <ExchangeInfo>JSON.parse(obj["content"]);
-		let k, j: Number;
+		let k, j: Numeric;
 		try {
 			[k, j] = SDKInterface.findPoolAndPerpIdx(symbol, info);
 		} catch (err) {
