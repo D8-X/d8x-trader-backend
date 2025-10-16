@@ -173,6 +173,7 @@ export default class D8XBrokerBackendApp {
 							);
 						}
 					} catch (err: any) {
+						console.log("error on user request:", err);
 						const usage = "{symbol: BTC-USD-MATIC, traderAddr: 0xCAFE...}";
 						ws.send(
 							D8XBrokerBackendApp.JSONResponse(
