@@ -65,6 +65,11 @@ export default abstract class IndexPriceInterface extends Observer {
 		await this._initIdxNamesToPerpetualIds(<ExchangeInfo>JSON.parse(info));
 	}
 
+	private async refreshIndexNames() {
+		const info = await this.sdkInterface!.exchangeInfo();
+		await this._initIdxNamesToPerpetualIds(<ExchangeInfo>JSON.parse(info));
+	}
+
 	/**
 	 * Internal function to update prices and informs websocket subscribers
 	 * @param perpetualId id of the perpetual for which prices are being updated
@@ -163,7 +168,29 @@ export default abstract class IndexPriceInterface extends Observer {
 				});
 			}
 		}
+		if (!this.isMappingRecent(updatedIndices)) {
+			this.refreshIndexNames();
+		}
 		this._updatePricesOnIndexPrice(updatedIndices);
+	}
+
+	private async isMappingRecent(indices: string[]): Promise<boolean> {
+		const tif = this.sdkInterface?.getTraderInterface();
+		if (indices.length > 0) {
+			return true;
+		}
+		// index still exists?
+		if (tif != undefined) {
+			try {
+				for (let j = 0; j < indices.length; j++) {
+					await tif.getShortSymbol(indices[j]);
+				}
+			} catch (error) {
+				// if index doesn't exist the function throws an error
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
