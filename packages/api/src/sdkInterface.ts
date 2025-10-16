@@ -67,9 +67,13 @@ export default class SDKInterface extends Observable {
 		console.log(`SDK v${D8X_SDK_VERSION} API initialized`);
 	}
 
+	public getTraderInterface(): TraderInterface | undefined {
+		return this.apiInterface;
+	}
+
 	private async refreshProxyInstance(): Promise<boolean> {
 		const now = Math.floor(Date.now() / 1000);
-		if (now - this.lastInitTs < 30 * 60) {
+		if (now - this.lastInitTs < 5 * 60) {
 			return false;
 		}
 		await this.apiInterface!.createProxyInstance(
