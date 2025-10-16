@@ -219,6 +219,8 @@ export default class EventListener extends IndexPriceInterface {
 		}
 		this.logger.info("provider is ready");
 
+		await this.traderInterface.createProxyInstance();
+
 		this.proxyContract = new Contract(
 			this.traderInterface.getProxyAddress(),
 			this.traderInterface.getABI("proxy")!,
@@ -472,7 +474,7 @@ export default class EventListener extends IndexPriceInterface {
 			for (let j = 0; j < pool.perpetuals.length; j++) {
 				const perp: PerpetualState = pool.perpetuals[j];
 				this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
-				this.redisOITimeSeries.addOIObs(perp.id, perp.openInterestBC, nowTs)
+				this.redisOITimeSeries.addOIObs(perp.id, perp.openInterestBC, nowTs);
 				if (this.isPredictionMkt.get(perp.id)) {
 					this.emaPrices.set(perp.id, perp.markPrice - perp.markPremium);
 				}
@@ -569,12 +571,12 @@ export default class EventListener extends IndexPriceInterface {
 		);
 
 		/*
-        event UpdateMarginAccount(
-            uint24 indexed perpetualId,
-            address indexed trader,
-            int128 fFundingPaymentCC,
-        );
-    */
+		event UpdateMarginAccount(
+			uint24 indexed perpetualId,
+			address indexed trader,
+			int128 fFundingPaymentCC,
+		);
+	*/
 		proxyContract.on(
 			"UpdateMarginAccount",
 			(perpetualId: number, trader: string, fFundingPaymentCC: bigint) => {
