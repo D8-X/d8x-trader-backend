@@ -40,6 +40,8 @@ export default class SDKInterface extends Observable {
 	TIMEOUTSEC = 5 * 60; // timeout for exchange info
 	private MUTEX_TS_EXCHANGE_INFO = 0; // mutex for exchange info query
 	private rpcManager: RPCManager | undefined;
+	private lastInitTs: number = 0;
+	private sdkConfig: NodeSDKConfig | undefined;
 
 	constructor(broker: BrokerIntegration) {
 		super();
@@ -49,6 +51,7 @@ export default class SDKInterface extends Observable {
 	}
 
 	public async initialize(sdkConfig: NodeSDKConfig, rpcManager: RPCManager) {
+		this.sdkConfig = sdkConfig;
 		this.apiInterface = new TraderInterface(sdkConfig);
 		this.rpcManager = rpcManager;
 		await this.apiInterface.createProxyInstance(
@@ -59,8 +62,21 @@ export default class SDKInterface extends Observable {
 		if (!this.redisClient.isOpen) {
 			await this.redisClient.connect();
 		}
+		this.lastInitTs = Math.floor(Date.now() / 1000);
 		console.log(`Main API initialized broker address=`, brokerAddress);
 		console.log(`SDK v${D8X_SDK_VERSION} API initialized`);
+	}
+
+	private async refreshProxyInstance(): Promise<boolean> {
+		const now = Math.floor(Date.now() / 1000);
+		if (now - this.lastInitTs < 30 * 60) {
+			return false;
+		}
+		await this.apiInterface!.createProxyInstance(
+			new TrackedJsonRpcProvider(this.sdkConfig!.nodeURL),
+		);
+		this.lastInitTs = now;
+		return true;
 	}
 
 	private async cacheExchangeInfo() {
@@ -103,7 +119,8 @@ export default class SDKInterface extends Observable {
 			const timeElapsedS = (Date.now() - parseInt(obj["ts:query"])) / 1000;
 			// prevent multiple clients calling at the same time via "MUTEX"
 			const delay = Date.now() - this.MUTEX_TS_EXCHANGE_INFO;
-			if (delay > 60_000 && timeElapsedS > this.TIMEOUTSEC) {
+			const mustRefresh = await this.refreshProxyInstance();
+			if (mustRefresh || (delay > 60_000 && timeElapsedS > this.TIMEOUTSEC)) {
 				this.MUTEX_TS_EXCHANGE_INFO = Date.now();
 				// reload data through API
 				// no await
