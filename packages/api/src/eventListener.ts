@@ -792,7 +792,10 @@ export default class EventListener extends IndexPriceInterface {
 		}
 		const pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
 		const currIdx = this.idxPrices.get(pxIdxName)!;
-
+		if (currIdx == undefined) {
+			console.log("onUpdateMarkPrice: index name=", pxIdxName, "currIdx undefined");
+			return;
+		}
 		let newMarkPrice, newMidPrice: number;
 		const midPrem = ABK64x64ToFloat(fMidPricePremium);
 		const mrkPrem = ABK64x64ToFloat(fMarkPricePremium);
@@ -801,6 +804,7 @@ export default class EventListener extends IndexPriceInterface {
 		if (isPred) {
 			// we don't set the index price for regular markets as this
 			// would be outdated
+			console.log("index name=", pxIdxName, "currIdx=", currIdx);
 			newMidPrice = currIdx * (1 + midPrem);
 			const ema = this.emaPrices.get(pxIdxName) ?? currIdx;
 			newMarkPrice = Math.max(Math.min(ema * (1 + mrkPrem), 2), 1); //clamp
