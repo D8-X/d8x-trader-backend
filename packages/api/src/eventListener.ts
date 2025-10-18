@@ -475,6 +475,14 @@ export default class EventListener extends IndexPriceInterface {
 				const perp: PerpetualState = pool.perpetuals[j];
 				this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
 				this.redisOITimeSeries.addOIObs(perp.id, perp.openInterestBC, nowTs);
+				console.log(
+					"_update: ",
+					perp.id,
+					"mid=",
+					perp.midPrice,
+					"mark=",
+					perp.markPrice,
+				);
 				this.updateMarkPrice(
 					perp.id,
 					perp.midPrice,
@@ -803,6 +811,15 @@ export default class EventListener extends IndexPriceInterface {
 		console.log("eventListener: onUpdateMarkPrice");
 
 		// notify websocket listeners (using prices based on most recent websocket price)
+
+		console.log(
+			"onUpdateMarkPrice: ",
+			perpetualId,
+			"mid=",
+			newMidPrice,
+			"mark=",
+			newMarkPrice,
+		);
 		this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, currIdx);
 
 		// update data in sdkInterface's exchangeInfo
