@@ -695,7 +695,15 @@ export default class EventListener extends IndexPriceInterface {
 		fFundingPaymentCC: bigint,
 	): Promise<void> {
 		// Set the open interest from exchange info (1 min delay at max)
+		perpetualId = Number(perpetualId);
 		const symbol = this.symbolFromPerpetualId(perpetualId);
+		if (symbol == "") {
+			console.log(
+				"onUpdateMarginAccount: no symbol found for perpetual id ",
+				perpetualId,
+			);
+			return;
+		}
 		const state =
 			await this.sdkInterface!.extractPerpetualStateFromExchangeInfo(symbol);
 		this.redisOITimeSeries.addOIObs(perpetualId, state.openInterestBC, Date.now());
