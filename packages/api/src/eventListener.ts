@@ -779,6 +779,7 @@ export default class EventListener extends IndexPriceInterface {
 			console.log("onUpdateMarkPrice: eventListener not initialized");
 			return;
 		}
+		perpetualId = Number(perpetualId.toString());
 		const isPred = this.isPredictionMkt.get(perpetualId)!;
 
 		this.lastBlockChainEventTs = Date.now();
