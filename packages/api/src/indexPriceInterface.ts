@@ -207,7 +207,10 @@ export default abstract class IndexPriceInterface extends Observer {
 	 * mid-price and mark-price and the 3 prices are sent to ws-subscribers
 	 * @param indices index names, such as BTC-USDC
 	 */
-	private _updatePricesOnIndexPrice(indices: string[]) {
+	protected _updatePricesOnIndexPrice(
+		indices: string[],
+		callUpdateMarkPrice: boolean = true,
+	) {
 		for (let k = 0; k < indices.length; k++) {
 			const perpetualIds: number[] | undefined = this.idxNamesToPerpetualIds.get(
 				indices[k],
@@ -238,9 +241,10 @@ export default abstract class IndexPriceInterface extends Observer {
 					midPx = px * (1 + midPremium);
 					markPx = px * (1 + markPremium);
 				}
-
-				// call update to inform websocket
-				this.updateMarkPrice(perpetualIds[j], midPx, markPx!, px!);
+				if (callUpdateMarkPrice) {
+					// call update to inform websocket
+					this.updateMarkPrice(perpetualIds[j], midPx, markPx!, px!);
+				}
 			}
 		}
 	}

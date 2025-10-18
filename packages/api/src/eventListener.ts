@@ -790,17 +790,37 @@ export default class EventListener extends IndexPriceInterface {
 			console.log("onUpdateMarkPrice duplicate");
 			return;
 		}
-		const pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
-		const currIdx = this.idxPrices.get(pxIdxName)!;
-		if (currIdx == undefined) {
-			console.log("onUpdateMarkPrice: index name=", pxIdxName, "currIdx undefined");
-			return;
-		}
-		let newMarkPrice, newMidPrice: number;
+
 		const midPrem = ABK64x64ToFloat(fMidPricePremium);
 		const mrkPrem = ABK64x64ToFloat(fMarkPricePremium);
 		this.midPremium.set(perpetualId, midPrem);
 		this.mrkPremium.set(perpetualId, mrkPrem);
+
+		const pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
+		// ensure index price availability
+		let currIdx = this.idxPrices.get(pxIdxName);
+		if (currIdx == undefined) {
+			console.log(
+				"onUpdateMarkPrice: index name=",
+				pxIdxName,
+				"currIdx undefined refreshing from redis",
+			);
+			const idx = [pxIdxName];
+			if (isPred) {
+				idx.push(pxIdxName + "|mark");
+			}
+			this._updatePricesOnIndexPrice(idx, false);
+			currIdx = this.idxPrices.get(pxIdxName);
+			if (currIdx == undefined) {
+				console.log(
+					"onUpdateMarkPrice: index name=",
+					pxIdxName,
+					"unable to get price",
+				);
+				return;
+			}
+		}
+		let newMarkPrice, newMidPrice: number;
 		if (isPred) {
 			// we don't set the index price for regular markets as this
 			// would be outdated
