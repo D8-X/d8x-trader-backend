@@ -475,9 +475,6 @@ export default class EventListener extends IndexPriceInterface {
 				const perp: PerpetualState = pool.perpetuals[j];
 				this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
 				this.redisOITimeSeries.addOIObs(perp.id, perp.openInterestBC, nowTs);
-				if (this.isPredictionMkt.get(perp.id)) {
-					this.emaPrices.set(perp.id, perp.markPrice - perp.markPremium);
-				}
 				this.updateMarkPrice(
 					perp.id,
 					perp.midPrice,
@@ -794,12 +791,10 @@ export default class EventListener extends IndexPriceInterface {
 		this.midPremium.set(perpetualId, midPrem);
 		this.mrkPremium.set(perpetualId, mrkPrem);
 		if (isPred) {
-			// set ema price for prediction markets.
 			// we don't set the index price for regular markets as this
 			// would be outdated
-			const ema = ABK64x64ToFloat(fMarkIndexPrice);
-			this.emaPrices.set(perpetualId, ema);
-			newMidPrice = currIdx * (1 + mrkPrem);
+			newMidPrice = currIdx * (1 + midPrem);
+			const ema = this.emaPrices.get(pxIdxName) ?? currIdx;
 			newMarkPrice = Math.max(Math.min(ema * (1 + mrkPrem), 2), 1); //clamp
 		} else {
 			newMarkPrice = currIdx * (1 + mrkPrem);
