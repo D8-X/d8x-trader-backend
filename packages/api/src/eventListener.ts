@@ -813,9 +813,6 @@ export default class EventListener extends IndexPriceInterface {
 				"currIdx undefined refreshing from redis",
 			);
 			const idx = [pxIdxName];
-			if (isPred) {
-				idx.push(pxIdxName + "|mark");
-			}
 			this._updatePricesOnIndexPrice(idx, false);
 			currIdx = this.idxPrices.get(pxIdxName);
 			if (currIdx == undefined) {

@@ -236,6 +236,7 @@ export default abstract class IndexPriceInterface extends Observer {
 					px = probToPrice(px);
 					midPx = px + midPremium;
 					markPx = this.emaPrices.get(indices[k]) ?? px;
+					markPx = probToPrice(markPx);
 					markPx = Math.min(Math.max(1, markPx + markPremium), 2); //clamp
 				} else {
 					midPx = px * (1 + midPremium);
