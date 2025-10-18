@@ -114,8 +114,12 @@ export default abstract class IndexPriceInterface extends Observer {
 	private async _initIdxNamesToPerpetualIds(info: ExchangeInfo) {
 		console.log("Initialize index names");
 		// gather perpetuals index-names from exchange data
+		const indices: string[] = [];
 		for (let k = 0; k < info.pools.length; k++) {
 			const pool = info.pools[k];
+			if (!pool.isRunning) {
+				continue;
+			}
 			for (let j = 0; j < pool.perpetuals.length; j++) {
 				const perpState: PerpetualState = pool.perpetuals[j];
 				const perpId: number = perpState.id;
@@ -135,11 +139,17 @@ export default abstract class IndexPriceInterface extends Observer {
 				this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
 				this.midPremium.set(perpId, perpState.midPrice / px - 1);
 
+				indices.push(pxIdxName);
 				const isPred = this.sdkInterface!.isPredictionMarket(
 					pxIdxName + "-" + pool.poolSymbol,
 				);
+				if (isPred) {
+					indices.push(pxIdxName + "|mark");
+				}
 				this.isPredictionMkt.set(perpId, isPred);
 			}
+			// initialize index prices
+			await this.fetchIndicesFromRedis(indices);
 		}
 	}
 
@@ -147,7 +157,14 @@ export default abstract class IndexPriceInterface extends Observer {
 		// message must be indices separated by semicolon
 		// console.log("Received REDIS message" + message);
 		const indices = message.split(";");
+		const updatedIndices = await this.fetchIndicesFromRedis(indices);
+		if (!this.isMappingRecent(updatedIndices)) {
+			this.refreshIndexNames();
+		}
+		this._updatePricesOnIndexPrice(updatedIndices);
+	}
 
+	protected async fetchIndicesFromRedis(indices: string[]): Promise<string[]> {
 		// Create new updated indices and only send those that were updated.
 		const updatedIndices: string[] = [];
 
@@ -157,16 +174,23 @@ export default abstract class IndexPriceInterface extends Observer {
 				const px_ts = await this.redisClient.ts.get(indices[k]);
 				if (px_ts !== null) {
 					// indices[k]: <source>:<symbol>, e.g. univ3:BERA-USD
-					// indices[k]: <source>:<symbol|mark>, e.g. sport:BERA-USD|mark
+					// indices[k]: <source>:<symbol|mark>, e.g. sport:BERA-USD|mark; only for sport
+					const source = indices[k].split(":")[0];
 					const symbol = indices[k].split(":").pop() + "";
 					const markSplit = symbol.split("|");
 					if (markSplit.length == 2) {
 						// mark price is sent by candles
-						// backend
+						// backend for sports
 						const idxSym = markSplit[0];
-						this.emaPrices.set(idxSym, px_ts.value);
+						let px = px_ts.value;
+						px = probToPrice(px_ts.value);
+						this.emaPrices.set(idxSym, px);
 					} else {
-						this.idxPrices.set(symbol, px_ts.value);
+						let px = px_ts.value;
+						if (source == "sport" || source == "polymarket") {
+							px = probToPrice(px_ts.value);
+						}
+						this.idxPrices.set(symbol, px);
 						updatedIndices.push(symbol);
 					}
 				}
@@ -177,10 +201,7 @@ export default abstract class IndexPriceInterface extends Observer {
 				});
 			}
 		}
-		if (!this.isMappingRecent(updatedIndices)) {
-			this.refreshIndexNames();
-		}
-		this._updatePricesOnIndexPrice(updatedIndices);
+		return updatedIndices;
 	}
 
 	private async isMappingRecent(indices: string[]): Promise<boolean> {
@@ -207,10 +228,7 @@ export default abstract class IndexPriceInterface extends Observer {
 	 * mid-price and mark-price and the 3 prices are sent to ws-subscribers
 	 * @param indices index names, such as BTC-USDC
 	 */
-	protected _updatePricesOnIndexPrice(
-		indices: string[],
-		callUpdateMarkPrice: boolean = true,
-	) {
+	protected _updatePricesOnIndexPrice(indices: string[]) {
 		for (let k = 0; k < indices.length; k++) {
 			const perpetualIds: number[] | undefined = this.idxNamesToPerpetualIds.get(
 				indices[k],
@@ -242,10 +260,8 @@ export default abstract class IndexPriceInterface extends Observer {
 					midPx = px * (1 + midPremium);
 					markPx = px * (1 + markPremium);
 				}
-				if (callUpdateMarkPrice) {
-					// call update to inform websocket
-					this.updateMarkPrice(perpetualIds[j], midPx, markPx!, px!);
-				}
+				// call update to inform websocket
+				this.updateMarkPrice(perpetualIds[j], midPx, markPx!, px!);
 			}
 		}
 	}
