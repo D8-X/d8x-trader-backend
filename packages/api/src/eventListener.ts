@@ -805,24 +805,10 @@ export default class EventListener extends IndexPriceInterface {
 		const parts = pxIdxName.split("-");
 		pxIdxName = parts[0] + "-" + parts[1];
 		// ensure index price availability
-		let currIdx = this.idxPrices.get(pxIdxName);
+		const currIdx = this.idxPrices.get(pxIdxName);
 		if (currIdx == undefined) {
-			console.log(
-				"onUpdateMarkPrice: index name=",
-				pxIdxName,
-				"currIdx undefined refreshing from redis",
-			);
-			const idx = [pxIdxName];
-			this._updatePricesOnIndexPrice(idx, false);
-			currIdx = this.idxPrices.get(pxIdxName);
-			if (currIdx == undefined) {
-				console.log(
-					"onUpdateMarkPrice: index name=",
-					pxIdxName,
-					"unable to get price",
-				);
-				return;
-			}
+			console.log("onUpdateMarkPrice: index name=", pxIdxName, "currIdx undefined");
+			return;
 		}
 		let newMarkPrice, newMidPrice: number;
 		if (isPred) {
