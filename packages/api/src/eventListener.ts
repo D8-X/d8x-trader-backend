@@ -796,7 +796,11 @@ export default class EventListener extends IndexPriceInterface {
 		this.midPremium.set(perpetualId, midPrem);
 		this.mrkPremium.set(perpetualId, mrkPrem);
 
-		const pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
+		const pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId);
+		if (pxIdxName == undefined) {
+			console.log("onUpdateMarkPrice: no index defined for perpetual", perpetualId);
+			return;
+		}
 		// ensure index price availability
 		let currIdx = this.idxPrices.get(pxIdxName);
 		if (currIdx == undefined) {
