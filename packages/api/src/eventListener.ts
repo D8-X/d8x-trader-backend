@@ -476,21 +476,6 @@ export default class EventListener extends IndexPriceInterface {
 				const perp: PerpetualState = pool.perpetuals[j];
 				this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
 				this.redisOITimeSeries.addOIObs(perp.id, perp.openInterestBC, nowTs);
-				console.log(
-					"_update: ",
-					perp.id,
-					"mid=",
-					perp.midPrice,
-					"mark=",
-					perp.markPrice,
-				);
-				this.updateMarkPrice(
-					perp.id,
-					perp.midPrice,
-					perp.markPrice,
-					perp.indexPrice,
-				);
-
 				console.log(`[_update] setting fundingRate and openInterest`, {
 					fundingRate: perp.currentFundingRateBps / 1e4,
 					openInterest: perp.openInterestBC,
