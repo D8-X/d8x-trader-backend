@@ -144,8 +144,10 @@ export default abstract class IndexPriceInterface extends Observer {
 					pxIdxName + "-" + pool.poolSymbol,
 				);
 				if (isPred) {
-					indices.push(pxIdxName + "|mark");
+					indices[indices.length - 1] = "sport:" + indices[indices.length - 1];
+					indices.push("sport:" + pxIdxName + "|mark");
 				}
+				// todo: other types than sport
 				this.isPredictionMkt.set(perpId, isPred);
 			}
 			// initialize index prices
