@@ -120,11 +120,14 @@ export default class SDKInterface extends Observable {
 			console.log("re-query exchange info (latest: invalid)");
 			info = await this.cacheExchangeInfo();
 		} else {
-			const timeElapsedS = (Date.now() - parseInt(obj["ts:query"])) / 1000;
+			let timeElapsedS = (Date.now() - parseInt(obj["ts:query"])) / 1000;
 			// prevent multiple clients calling at the same time via "MUTEX"
 			const delay = Date.now() - this.MUTEX_TS_EXCHANGE_INFO;
 			const mustRefresh = await this.refreshProxyInstance();
-			if (mustRefresh || (delay > 60_000 && timeElapsedS > this.TIMEOUTSEC)) {
+			if (mustRefresh) {
+				timeElapsedS = this.TIMEOUTSEC + 1;
+			}
+			if (delay > 60_000 && timeElapsedS > this.TIMEOUTSEC) {
 				this.MUTEX_TS_EXCHANGE_INFO = Date.now();
 				// reload data through API
 				// no await
