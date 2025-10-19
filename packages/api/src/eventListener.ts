@@ -825,6 +825,10 @@ export default class EventListener extends IndexPriceInterface {
 		console.log(
 			"onUpdateMarkPrice: ",
 			perpetualId,
+			"miPremium",
+			midPrem,
+			"markPrem",
+			mrkPrem,
 			"mid=",
 			newMidPrice,
 			"mark=",
