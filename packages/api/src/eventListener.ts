@@ -825,7 +825,8 @@ export default class EventListener extends IndexPriceInterface {
 			// would be outdated
 			console.log("index name=", pxIdxName, "currIdx=", currIdx);
 			newMidPrice = probToPrice(currIdx) + midPrem;
-			const markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
+			let markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
+			markPx = probToPrice(markPx);
 			newMarkPrice = Math.min(Math.max(1, markPx + mrkPrem), 2); //clamp
 		} else {
 			newMarkPrice = currIdx * (1 + mrkPrem);
