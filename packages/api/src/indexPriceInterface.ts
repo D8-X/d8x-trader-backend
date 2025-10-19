@@ -233,7 +233,7 @@ export default abstract class IndexPriceInterface extends Observer {
 			if (perpetualIds == undefined) {
 				continue;
 			}
-			const px = this.idxPrices.get(indices[k]);
+			let px = this.idxPrices.get(indices[k]);
 			for (let j = 0; j < perpetualIds.length; j++) {
 				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
 				const markPremium = this.mrkPremium.get(perpetualIds[j]);
@@ -252,6 +252,7 @@ export default abstract class IndexPriceInterface extends Observer {
 					markPx = this.emaPrices.get(indices[k]) ?? px;
 					markPx = probToPrice(markPx);
 					markPx = Math.min(Math.max(1, markPx + markPremium), 2); //clamp
+					px = probToPrice(px);
 				} else {
 					midPx = px * (1 + midPremium);
 					markPx = px * (1 + markPremium);

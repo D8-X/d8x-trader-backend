@@ -814,7 +814,7 @@ export default class EventListener extends IndexPriceInterface {
 		const parts = pxIdxName.split("-");
 		pxIdxName = parts[0] + "-" + parts[1];
 		// ensure index price availability
-		const currIdx = this.idxPrices.get(pxIdxName);
+		let currIdx = this.idxPrices.get(pxIdxName);
 		if (currIdx == undefined) {
 			console.log("onUpdateMarkPrice: index name=", pxIdxName, "currIdx undefined");
 			return;
@@ -828,6 +828,7 @@ export default class EventListener extends IndexPriceInterface {
 			let markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
 			markPx = probToPrice(markPx);
 			newMarkPrice = Math.min(Math.max(1, markPx + mrkPrem), 2); //clamp
+			currIdx = probToPrice(currIdx);
 		} else {
 			newMarkPrice = currIdx * (1 + mrkPrem);
 			newMidPrice = currIdx * (1 + midPrem);
@@ -843,6 +844,8 @@ export default class EventListener extends IndexPriceInterface {
 			newMidPrice,
 			"mark=",
 			newMarkPrice,
+			"idx=",
+			currIdx,
 		);
 		this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, currIdx);
 
