@@ -62,6 +62,22 @@ model Trade{
   @@index([trade_timestamp])
 }
 
+model Settle{
+  @@map("settle_history")
+  trader_addr String @db.VarChar(42)
+  perpetual_id Int 
+  chain_id Int
+  // quantity_cc (collateral currency) is stored in ABDK format
+  quantity_cc Decimal? @db.Decimal(40,0)
+  tx_hash String @db.Text 
+  timestamp DateTime @db.Timestamptz @default(now())
+  is_collected_by_event Boolean @default(true)
+  @@id([trader_addr, perpetual_id, tx_hash])
+  @@index([trader_addr])
+  @@index([perpetual_id])
+  @@index([timestamp])
+}
+
 model FundingRatePayment{
   @@map("funding_rate_payments")
   trader_addr String @db.VarChar(42)
