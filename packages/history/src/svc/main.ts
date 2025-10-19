@@ -18,6 +18,7 @@ import {
 	UpdateMarginAccountEvent,
 	ListeningMode,
 	SetOraclesEvent,
+	SettleEvent,
 } from "../contracts/types";
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { TradingHistory } from "../db/trading_history";
@@ -385,6 +386,21 @@ export async function runHistoricalDataFilterers(
 					txHash,
 					IS_COLLECTED_BY_EVENT,
 					blockTimestamp,
+					Number(blockNum.toString()),
+				);
+			},
+
+			Settle: async (
+				eventData: SettleEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimeStamp: number,
+			) => {
+				await eventListener.onSettleEvent(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimeStamp,
 					Number(blockNum.toString()),
 				);
 			},
