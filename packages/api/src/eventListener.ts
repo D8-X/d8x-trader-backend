@@ -10,6 +10,7 @@ import {
 	PerpetualState,
 	SmartContractOrder,
 	TraderInterface,
+	probToPrice,
 } from "@d8x/perpetuals-sdk";
 import { IncomingMessage } from "http";
 import WebSocket from "ws";
@@ -823,9 +824,9 @@ export default class EventListener extends IndexPriceInterface {
 			// we don't set the index price for regular markets as this
 			// would be outdated
 			console.log("index name=", pxIdxName, "currIdx=", currIdx);
-			newMidPrice = currIdx * (1 + midPrem);
-			const ema = this.emaPrices.get(pxIdxName) ?? currIdx;
-			newMarkPrice = Math.max(Math.min(ema * (1 + mrkPrem), 2), 1); //clamp
+			newMidPrice = probToPrice(currIdx) + midPrem;
+			const markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
+			newMarkPrice = Math.min(Math.max(1, markPx + mrkPrem), 2); //clamp
 		} else {
 			newMarkPrice = currIdx * (1 + mrkPrem);
 			newMidPrice = currIdx * (1 + midPrem);
