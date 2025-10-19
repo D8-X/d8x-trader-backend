@@ -147,7 +147,7 @@ export default abstract class IndexPriceInterface extends Observer {
 					indices[indices.length - 1] = "sport:" + indices[indices.length - 1];
 					indices.push("sport:" + pxIdxName + "|mark");
 				}
-				// todo: other types than sport
+				// ^--- todo: other types than sport
 				this.isPredictionMkt.set(perpId, isPred);
 			}
 			// initialize index prices
@@ -184,14 +184,9 @@ export default abstract class IndexPriceInterface extends Observer {
 						// mark price is sent by candles
 						// backend for sports
 						const idxSym = markSplit[0];
-						let px = px_ts.value;
-						px = probToPrice(px_ts.value);
-						this.emaPrices.set(idxSym, px);
+						this.emaPrices.set(idxSym, px_ts.value);
 					} else {
-						let px = px_ts.value;
-						if (source == "sport" || source == "polymarket") {
-							px = probToPrice(px_ts.value);
-						}
+						const px = px_ts.value;
 						this.idxPrices.set(symbol, px);
 						updatedIndices.push(symbol);
 					}
@@ -238,7 +233,7 @@ export default abstract class IndexPriceInterface extends Observer {
 			if (perpetualIds == undefined) {
 				continue;
 			}
-			let px = this.idxPrices.get(indices[k]);
+			const px = this.idxPrices.get(indices[k]);
 			for (let j = 0; j < perpetualIds.length; j++) {
 				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
 				const markPremium = this.mrkPremium.get(perpetualIds[j]);
@@ -253,8 +248,7 @@ export default abstract class IndexPriceInterface extends Observer {
 				let midPx, markPx: number;
 				if (isPred) {
 					// transform price from probability
-					px = probToPrice(px);
-					midPx = px + midPremium;
+					midPx = probToPrice(px) + midPremium;
 					markPx = this.emaPrices.get(indices[k]) ?? px;
 					markPx = probToPrice(markPx);
 					markPx = Math.min(Math.max(1, markPx + markPremium), 2); //clamp
