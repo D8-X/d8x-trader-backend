@@ -34,6 +34,7 @@ import SturdyWebSocket from "sturdy-websocket";
 import WebSocket from "ws";
 import { SetOracles } from "../db/set_oracles";
 import { sleepForSec } from "@d8x/perpetuals-sdk";
+import { SettleHistory } from "../db/settle_history";
 
 const defaultLogger = () => {
 	return winston.createLogger({
@@ -120,6 +121,7 @@ export const main = async () => {
 	const dbLPWithdrawals = new LiquidityWithdrawals(prisma, logger);
 	const dbMarginTokenInfo = new MarginTokenInfo(prisma, logger);
 	const dbSetOracles = new SetOracles(chainId, prisma, logger);
+	const dbSettle = new SettleHistory(chainId, prisma, logger);
 	// get sharepool token info and margin token info
 	const staticInfo = new StaticInfo();
 	// the following call will throw an error on RPC timeout
@@ -146,6 +148,7 @@ export const main = async () => {
 		dbPriceInfo,
 		dbLPWithdrawals,
 		dbSetOracles,
+		dbSettle,
 	);
 
 	const blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider);

@@ -23,6 +23,7 @@ import { dec18ToFloat, decNToFloat } from "utils";
 import StaticInfo from "./static_info";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 import { IPerpetualManager } from "@d8x/perpetuals-sdk";
+import { SettleHistory } from "../db/settle_history";
 export interface EventListenerOptions {
 	logger: Logger;
 	// smart contract addresses which will be used to listen to incoming events
@@ -51,6 +52,7 @@ export class EventListener {
 		private dbPriceInfos: PriceInfo,
 		private dbLPWithdrawals: LiquidityWithdrawals,
 		private dbSetOracles: SetOracles,
+		private dbSettle: SettleHistory,
 	) {
 		this.l = opts.logger;
 		this.opts = opts;
@@ -393,6 +395,12 @@ export class EventListener {
 		blockNumber: number,
 	) {
 		console.log(`onSettleEvent`);
+		this.dbSettle.insertSettleHistoryRecord(
+			eventData,
+			txHash,
+			isCollectedByEvent,
+			timestampSec,
+		);
 	}
 
 	public async onTradeEvent(
