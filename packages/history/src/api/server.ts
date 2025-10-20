@@ -517,7 +517,7 @@ export class HistoryRestAPI {
 				SELECT * 
 				FROM settle_view 
 				WHERE trader_addr = ${user_wallet}
-				ORDER BY trade_timestamp DESC
+				ORDER BY timestamp DESC
 			`;
 
 			// return response
