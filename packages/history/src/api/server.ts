@@ -4,6 +4,7 @@ import {
 	Prisma,
 	PrismaClient,
 	MarginTokenInfo,
+	Settle,
 } from "@prisma/client";
 import express, { Express, Request, Response, response } from "express";
 import { Logger, error } from "winston";
@@ -123,6 +124,7 @@ export class HistoryRestAPI {
 		app.get("/trading-volume", this.tradingVolume.bind(this));
 		app.get("/has-trades", this.hasTrades.bind(this));
 		app.get("/trades-history", this.historicalTrades.bind(this));
+		app.get("/settle-history", this.historicalSettle.bind(this));
 		app.get("/lp-actions", this.lpActions.bind(this));
 		app.get("/lp-price", this.lpPrice.bind(this));
 	}
@@ -485,6 +487,59 @@ export class HistoryRestAPI {
 			resp.send(errorResp(extractErrorMsg(err), usage));
 		}
 	}
+	/**
+	 * historicalSettle
+	 * @param req
+	 * @param resp
+	 */
+	private async historicalSettle(
+		req: Request<any, any, any, { traderAddr: string }>,
+		resp: Response,
+	) {
+		const usage = "required query parameters: traderAddr";
+		try {
+			if (!correctQueryArgs(req.query, ["traderAddr"])) {
+				throw Error("please provide correct query parameters");
+			}
+			const user_wallet = req.query.traderAddr.toLowerCase();
+
+			// Parse wallet address and see if it is correct
+			try {
+				getAddress(user_wallet);
+			} catch (e) {
+				resp.status(400);
+				throw Error("invalid wallet address");
+			}
+			type SettleEnh = Settle & {
+				perpetual_long_id: string;
+			};
+			const data: SettleEnh[] = await this.opts.prisma.$queryRaw`
+				SELECT * 
+				FROM settle_view 
+				WHERE trader_addr = ${user_wallet}
+				ORDER BY trade_timestamp DESC
+			`;
+
+			// return response
+			resp.contentType("json");
+			resp.send(
+				toJson(
+					data.map((t: SettleEnh) => ({
+						trader_addr: t.trader_addr,
+						perpetualId: Number(t.perpetual_id),
+						chainId: Number(t.chain_id),
+						perpetualLongId: t.perpetual_long_id,
+						quantity_cc: ABK64x64ToFloat(BigInt(t.quantity_cc!.toString())),
+						transactionHash: t.tx_hash,
+						timestamp: t.timestamp,
+					})),
+				),
+			);
+		} catch (err: any) {
+			resp.send(errorResp(extractErrorMsg(err), usage));
+		}
+	}
+
 	/**
 	 * trades
 	 * @param req
