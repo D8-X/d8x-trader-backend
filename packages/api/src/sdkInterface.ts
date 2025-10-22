@@ -62,6 +62,7 @@ export default class SDKInterface extends Observable {
 		if (!this.redisClient.isOpen) {
 			await this.redisClient.connect();
 		}
+		this.redisClient.del("exchangeInfo");
 		this.lastInitTs = Math.floor(Date.now() / 1000);
 		console.log(`Main API initialized broker address=`, brokerAddress);
 		console.log(`SDK v${D8X_SDK_VERSION} API initialized`);
