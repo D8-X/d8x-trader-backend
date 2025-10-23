@@ -4,21 +4,18 @@ import {
 	ExchangeInfo,
 	MarginAccount,
 	MASK_MARKET_ORDER,
-	mul64x64,
 	NodeSDKConfig,
-	ONE_64x64,
 	PerpetualState,
+	probToPrice,
 	SmartContractOrder,
 	TraderInterface,
-	probToPrice,
 } from "@d8x/perpetuals-sdk";
+import crypto from "crypto";
 import { IncomingMessage } from "http";
 import WebSocket from "ws";
-import crypto from "crypto";
 
-import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
-import IndexPriceInterface from "./indexPriceInterface";
-import SDKInterface from "./sdkInterface";
+import { Contract, WebSocketProvider } from "ethers";
+import SturdyWebSocket from "sturdy-websocket";
 import {
 	ExecutionFailed,
 	LimitOrderCreated,
@@ -28,11 +25,12 @@ import {
 	UpdateMarginAccountTrimmed,
 	WSMsg,
 } from "utils/src/wsTypes";
-import SturdyWebSocket from "sturdy-websocket";
 import { Logger } from "winston";
+import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
+import IndexPriceInterface from "./indexPriceInterface";
 import { TrackedWebsocketsProvider } from "./providers";
-import { Contract, WebSocketProvider } from "ethers";
 import RedisOI from "./redisOI";
+import SDKInterface from "./sdkInterface";
 /**
  * Class that listens to blockchain events on
  * - limitorder books
@@ -536,9 +534,29 @@ export default class EventListener extends IndexPriceInterface {
 		const proxyContract = this.proxyContract;
 
 		proxyContract.on(
+			"SetEmergencyState",
+			(
+				perpetualId: number,
+				_fSettlementMarkPremiumRate: bigint,
+				_fSettlementS2Price: bigint,
+				_fSettlementS3Price: bigint,
+			) => {
+				this.onPerpetualState(perpetualId, "emergency");
+			},
+		);
+
+		proxyContract.on("SettlementComplete", (perpetualId: number) => {
+			this.onPerpetualState(perpetualId, "settled");
+		});
+
+		proxyContract.on("SetNormalState", (perpetualId: number) => {
+			this.onPerpetualState(perpetualId, "normal");
+		});
+
+		proxyContract.on(
 			"TransferAddressTo",
 			(module: string, oldAddress: string, newAddress: string) => {
-				console.log("restart", { module, oldAddress, newAddress });
+				console.log("restart: module update", { module, oldAddress, newAddress });
 				process.exit(1);
 			},
 		);
@@ -1101,5 +1119,15 @@ export default class EventListener extends IndexPriceInterface {
 		);
 		// send to subscribers
 		this.sendToSubscribers(perpetualId, jsonMsg, trader);
+	}
+
+	/**
+	 * Events: SetNormalState, SetEmergencyState, SettlementComplete
+	 * @param perpetualId
+	 * @param _state 'normal', 'emergency', 'settled'
+	 */
+	private onPerpetualState(perpetualId: number, state: string) {
+		console.log("restart: perpetual state changed", { perpetualId, state });
+		process.exit(1);
 	}
 }
