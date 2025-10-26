@@ -529,7 +529,7 @@ export class HistoryRestAPI {
 						perpetualId: Number(t.perpetual_id),
 						chainId: Number(t.chain_id),
 						perpetualLongId: t.perpetual_long_id,
-						quantity_cc: ABK64x64ToFloat(BigInt(t.quantity_cc!.toString())),
+						quantity_cc: ABK64x64ToFloat(BigInt(t.quantity_cc!.toFixed())),
 						transactionHash: t.tx_hash,
 						timestamp: t.timestamp,
 					})),
