@@ -537,6 +537,10 @@ export default class SDKInterface extends Observable {
 		return OB;
 	}
 
+	/**
+	 * Check SDK heartbeat. Passes if not initialized.
+	 * @returns True if current perpetuals appear to be in sync with on-chain values
+	 */
 	public async checkHeartbeat() {
 		return !this.apiInterface ? true : this.apiInterface.checkHeartbeat();
 	}
