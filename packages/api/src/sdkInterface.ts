@@ -1,27 +1,22 @@
 import {
-	BUY_SIDE,
+	D8X_SDK_VERSION,
 	ExchangeInfo,
+	MarginAccount,
 	NodeSDKConfig,
 	Order,
 	PerpetualState,
 	PoolState,
-	SELL_SIDE,
 	TraderInterface,
-	MarginAccount,
-	floatToABK64x64,
-	SmartContractOrder,
-	D8X_SDK_VERSION,
-	ZERO_ADDRESS,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
+import { Numeric } from "ethers";
+import type { RedisClientType } from "redis";
+import { constructRedis, extractErrorMsg } from "utils";
 import BrokerIntegration from "./brokerIntegration";
 import Observable from "./observable";
-import type { RedisClientType } from "redis";
-import { extractErrorMsg, constructRedis } from "utils";
-import RPCManager from "./rpcManager";
 import { TrackedJsonRpcProvider } from "./providers";
-import { Numeric, toQuantity } from "ethers";
 import RedisOI from "./redisOI";
+import RPCManager from "./rpcManager";
 
 export type OrderWithTraderAndId = Order & { orderId: string; trader: string };
 
@@ -540,5 +535,9 @@ export default class SDKInterface extends Observable {
 			orders: ordersWithTraderAndId,
 		};
 		return OB;
+	}
+
+	public async checkHeartbeat() {
+		return !this.apiInterface ? true : this.apiInterface.checkHeartbeat();
 	}
 }

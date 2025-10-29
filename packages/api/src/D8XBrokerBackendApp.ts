@@ -1,15 +1,15 @@
-import express, { Express, Request, Response } from "express";
-import WebSocket, { WebSocketServer } from "ws";
-import { IncomingMessage } from "http";
-import dotenv from "dotenv";
-import SDKInterface from "./sdkInterface";
-import { extractErrorMsg, isValidAddress, isValidPerpSymbol } from "utils";
-import { Order, PerpetualState, NodeSDKConfig, MarginAccount } from "@d8x/perpetuals-sdk";
-import EventListener from "./eventListener";
-import BrokerIntegration from "./brokerIntegration";
-import { Logger } from "winston";
+import { MarginAccount, NodeSDKConfig, Order, PerpetualState } from "@d8x/perpetuals-sdk";
 import cors from "cors";
+import dotenv from "dotenv";
+import express, { Request, Response } from "express";
+import { IncomingMessage } from "http";
+import { extractErrorMsg, isValidAddress, isValidPerpSymbol } from "utils";
+import { Logger } from "winston";
+import WebSocket, { WebSocketServer } from "ws";
+import BrokerIntegration from "./brokerIntegration";
+import EventListener from "./eventListener";
 import RPCManager from "./rpcManager";
+import SDKInterface from "./sdkInterface";
 dotenv.config();
 //https://roger13.github.io/SwagDefGen/
 //setAllowance?
@@ -110,6 +110,10 @@ export default class D8XBrokerBackendApp {
 			this.logger.info(msg + msgFreq2 + ` - no restart`);
 		}
 		return true;
+	}
+
+	public async checkSDKHeartbeat() {
+		return this.sdk.checkHeartbeat();
 	}
 
 	public static JSONResponse(
