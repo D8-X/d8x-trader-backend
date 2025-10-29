@@ -117,7 +117,8 @@ async function start() {
 
 		// restart everything if sdk is out of sync
 		if (!(await d8XBackend.checkSDKHeartbeat())) {
-			process.exit(0);
+			logger.error("SDK heartbeat check failed");
+			process.exit(1);
 		}
 
 		await sleep(1_000);
