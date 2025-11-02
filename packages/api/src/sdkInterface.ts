@@ -1,27 +1,22 @@
 import {
-	BUY_SIDE,
+	D8X_SDK_VERSION,
 	ExchangeInfo,
+	MarginAccount,
 	NodeSDKConfig,
 	Order,
 	PerpetualState,
 	PoolState,
-	SELL_SIDE,
 	TraderInterface,
-	MarginAccount,
-	floatToABK64x64,
-	SmartContractOrder,
-	D8X_SDK_VERSION,
-	ZERO_ADDRESS,
 } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
+import { Numeric } from "ethers";
+import type { RedisClientType } from "redis";
+import { constructRedis, extractErrorMsg } from "utils";
 import BrokerIntegration from "./brokerIntegration";
 import Observable from "./observable";
-import type { RedisClientType } from "redis";
-import { extractErrorMsg, constructRedis } from "utils";
-import RPCManager from "./rpcManager";
 import { TrackedJsonRpcProvider } from "./providers";
-import { Numeric, toQuantity } from "ethers";
 import RedisOI from "./redisOI";
+import RPCManager from "./rpcManager";
 
 export type OrderWithTraderAndId = Order & { orderId: string; trader: string };
 
@@ -40,6 +35,8 @@ export default class SDKInterface extends Observable {
 	TIMEOUTSEC = 5 * 60; // timeout for exchange info
 	private MUTEX_TS_EXCHANGE_INFO = 0; // mutex for exchange info query
 	private rpcManager: RPCManager | undefined;
+	private lastInitTs: number = 0;
+	private sdkConfig: NodeSDKConfig | undefined;
 
 	constructor(broker: BrokerIntegration) {
 		super();
@@ -49,6 +46,7 @@ export default class SDKInterface extends Observable {
 	}
 
 	public async initialize(sdkConfig: NodeSDKConfig, rpcManager: RPCManager) {
+		this.sdkConfig = sdkConfig;
 		this.apiInterface = new TraderInterface(sdkConfig);
 		this.rpcManager = rpcManager;
 		await this.apiInterface.createProxyInstance(
@@ -59,8 +57,26 @@ export default class SDKInterface extends Observable {
 		if (!this.redisClient.isOpen) {
 			await this.redisClient.connect();
 		}
+		this.redisClient.del("exchangeInfo");
+		this.lastInitTs = Math.floor(Date.now() / 1000);
 		console.log(`Main API initialized broker address=`, brokerAddress);
 		console.log(`SDK v${D8X_SDK_VERSION} API initialized`);
+	}
+
+	public getTraderInterface(): TraderInterface | undefined {
+		return this.apiInterface;
+	}
+
+	private async refreshProxyInstance(): Promise<boolean> {
+		const now = Math.floor(Date.now() / 1000);
+		if (now - this.lastInitTs < 5 * 60) {
+			return false;
+		}
+		await this.apiInterface!.createProxyInstance(
+			new TrackedJsonRpcProvider(this.sdkConfig!.nodeURL),
+		);
+		this.lastInitTs = now;
+		return true;
 	}
 
 	private async cacheExchangeInfo() {
@@ -100,9 +116,13 @@ export default class SDKInterface extends Observable {
 			console.log("re-query exchange info (latest: invalid)");
 			info = await this.cacheExchangeInfo();
 		} else {
-			const timeElapsedS = (Date.now() - parseInt(obj["ts:query"])) / 1000;
+			let timeElapsedS = (Date.now() - parseInt(obj["ts:query"])) / 1000;
 			// prevent multiple clients calling at the same time via "MUTEX"
 			const delay = Date.now() - this.MUTEX_TS_EXCHANGE_INFO;
+			const mustRefresh = await this.refreshProxyInstance();
+			if (mustRefresh) {
+				timeElapsedS = this.TIMEOUTSEC + 1;
+			}
 			if (delay > 60_000 && timeElapsedS > this.TIMEOUTSEC) {
 				this.MUTEX_TS_EXCHANGE_INFO = Date.now();
 				// reload data through API
@@ -244,7 +264,7 @@ export default class SDKInterface extends Observable {
 		const symbols = symbol.split("-");
 		const k = SDKInterface.findPoolIdx(symbols[2], pools);
 		if (k == -1) {
-			throw new Error("No pool found with symbol" + symbol);
+			throw new Error(`No pool found with symbol '${symbol}'`);
 		}
 		const j = SDKInterface.findPerpetualInPool(
 			symbols[0],
@@ -515,5 +535,13 @@ export default class SDKInterface extends Observable {
 			orders: ordersWithTraderAndId,
 		};
 		return OB;
+	}
+
+	/**
+	 * Check SDK heartbeat. Passes if not initialized.
+	 * @returns True if current perpetuals appear to be in sync with on-chain values
+	 */
+	public async checkHeartbeat() {
+		return !this.apiInterface ? true : this.apiInterface.checkHeartbeat();
 	}
 }

@@ -77,6 +77,12 @@ export interface LiquidityRemovedEvent {
 	shareAmount: bigint;
 }
 
+export interface SettleEvent {
+	perpetualId: number;
+	trader: string;
+	amount: bigint;
+}
+
 export type LiquidityRemovedFilteredCb = EventCallback<LiquidityRemovedEvent>;
 
 export interface P2PTransferEvent {
@@ -95,12 +101,11 @@ export interface LiquidityWithdrawalInitiatedEvent {
 export type LiquidityWithdrawalInitiatedFilteredCb =
 	EventCallback<LiquidityWithdrawalInitiatedEvent>;
 
-
 // event SetOracles(uint24 indexed perpetualId, bytes4[2] baseQuoteS2, bytes4[2] baseQuoteS3);
 export interface SetOraclesEvent {
-	perpetualId:number
-	baseQuoteS2 : string[]
-	baseQuoteS3 : string[]
+	perpetualId: number;
+	baseQuoteS2: string[];
+	baseQuoteS3: string[];
 }
 export type SetOraclesEventCb = EventCallback<SetOraclesEvent>;
 

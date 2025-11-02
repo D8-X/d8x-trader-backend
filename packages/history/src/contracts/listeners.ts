@@ -11,6 +11,7 @@ import {
 	P2PTransferEvent,
 	ListeningMode,
 	SetOraclesEvent,
+	SettleEvent,
 } from "./types";
 import { TradingHistory } from "../db/trading_history";
 import { SetOracles } from "../db/set_oracles";
@@ -22,6 +23,7 @@ import { dec18ToFloat, decNToFloat } from "utils";
 import StaticInfo from "./static_info";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
 import { IPerpetualManager } from "@d8x/perpetuals-sdk";
+import { SettleHistory } from "../db/settle_history";
 export interface EventListenerOptions {
 	logger: Logger;
 	// smart contract addresses which will be used to listen to incoming events
@@ -50,6 +52,7 @@ export class EventListener {
 		private dbPriceInfos: PriceInfo,
 		private dbLPWithdrawals: LiquidityWithdrawals,
 		private dbSetOracles: SetOracles,
+		private dbSettle: SettleHistory,
 	) {
 		this.l = opts.logger;
 		this.opts = opts;
@@ -109,6 +112,30 @@ export class EventListener {
 			(module: string, oldAddress: string, newAddress: string) => {
 				this.l.info("restart", { module, oldAddress, newAddress });
 				process.exit(1);
+			},
+		);
+
+		proxy.on(
+			"Settle",
+			(
+				perpetualId: number,
+				trader: string,
+				amount: bigint,
+				event: ethers.ContractEventPayload,
+			) => {
+				const topic = event.log.topics[0];
+				this.l.info("got settle event", { perpetualId, trader, topic });
+				this.onSettleEvent(
+					{
+						perpetualId: perpetualId,
+						trader: trader,
+						amount: amount,
+					},
+					event.log.transactionHash,
+					IS_COLLECTED_BY_EVENT,
+					Math.round(new Date().getTime() / 1000),
+					event.log.blockNumber,
+				);
 			},
 		);
 
@@ -357,6 +384,22 @@ export class EventListener {
 			isCollectedByEvent,
 			timestampSec,
 			this.opts.staticInfo,
+		);
+	}
+
+	public async onSettleEvent(
+		eventData: SettleEvent,
+		txHash: string,
+		isCollectedByEvent: boolean,
+		timestampSec: number,
+		blockNumber: number,
+	) {
+		console.log(`onSettleEvent`);
+		this.dbSettle.insertSettleHistoryRecord(
+			eventData,
+			txHash,
+			isCollectedByEvent,
+			timestampSec,
 		);
 	}
 

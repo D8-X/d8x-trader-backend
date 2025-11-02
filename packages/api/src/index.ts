@@ -1,14 +1,13 @@
+import { NodeSDKConfig, PerpetualDataHandler } from "@d8x/perpetuals-sdk";
 import dotenv from "dotenv";
-import { chooseRandomRPC, sleep, executeWithTimeout, loadConfigRPC } from "utils";
-import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
-import BrokerNone from "./brokerNone";
-import BrokerIntegration from "./brokerIntegration";
-import { PerpetualDataHandler, NodeSDKConfig } from "@d8x/perpetuals-sdk";
-import BrokerRemote from "./brokerRemote";
-import * as winston from "winston";
-import { RPCConfig } from "utils/dist/wsTypes";
-import RPCManager from "./rpcManager";
 import fs from "fs";
+import { executeWithTimeout, loadConfigRPC, sleep } from "utils";
+import { RPCConfig } from "utils/dist/wsTypes";
+import * as winston from "winston";
+import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
+import BrokerIntegration from "./brokerIntegration";
+import BrokerNone from "./brokerNone";
+import BrokerRemote from "./brokerRemote";
 import {
 	JsonRpcEthCalls,
 	NumJsonRpcProviders,
@@ -16,6 +15,7 @@ import {
 	ProvidersEthCallsStartTime,
 	WssEthCalls,
 } from "./providers";
+import RPCManager from "./rpcManager";
 
 const defaultLogger = () => {
 	return winston.createLogger({
@@ -114,6 +114,17 @@ async function start() {
 		wsRPC = await rpcManagerWs.getRPC(false);
 		await sleep(1_000);
 		sdkConfig.nodeURL = await rpcManagerHttp.getRPC();
+
+		// restart everything if sdk is out of sync
+		if (!(await d8XBackend.checkSDKHeartbeat())) {
+			logger.error("SDK heartbeat check failed");
+			process.exit(1);
+		}
+
+		await sleep(1_000);
+
+		// restart event listener if events are out of sync
+
 		if (!(await d8XBackend!.checkTradeEventListenerHeartbeat(wsRPC))) {
 			waitTime = 1000;
 		} else {

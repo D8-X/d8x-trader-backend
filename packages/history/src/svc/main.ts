@@ -18,6 +18,7 @@ import {
 	UpdateMarginAccountEvent,
 	ListeningMode,
 	SetOraclesEvent,
+	SettleEvent,
 } from "../contracts/types";
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { TradingHistory } from "../db/trading_history";
@@ -33,6 +34,7 @@ import SturdyWebSocket from "sturdy-websocket";
 import WebSocket from "ws";
 import { SetOracles } from "../db/set_oracles";
 import { sleepForSec } from "@d8x/perpetuals-sdk";
+import { SettleHistory } from "../db/settle_history";
 
 const defaultLogger = () => {
 	return winston.createLogger({
@@ -119,6 +121,7 @@ export const main = async () => {
 	const dbLPWithdrawals = new LiquidityWithdrawals(prisma, logger);
 	const dbMarginTokenInfo = new MarginTokenInfo(prisma, logger);
 	const dbSetOracles = new SetOracles(chainId, prisma, logger);
+	const dbSettle = new SettleHistory(chainId, prisma, logger);
 	// get sharepool token info and margin token info
 	const staticInfo = new StaticInfo();
 	// the following call will throw an error on RPC timeout
@@ -145,6 +148,7 @@ export const main = async () => {
 		dbPriceInfo,
 		dbLPWithdrawals,
 		dbSetOracles,
+		dbSettle,
 	);
 
 	const blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider);
@@ -385,6 +389,21 @@ export async function runHistoricalDataFilterers(
 					txHash,
 					IS_COLLECTED_BY_EVENT,
 					blockTimestamp,
+					Number(blockNum.toString()),
+				);
+			},
+
+			Settle: async (
+				eventData: SettleEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimeStamp: number,
+			) => {
+				await eventListener.onSettleEvent(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimeStamp,
 					Number(blockNum.toString()),
 				);
 			},

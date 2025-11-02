@@ -22,7 +22,7 @@ export default abstract class IndexPriceInterface extends Observer {
 	private redisSubClient: RedisClientType;
 	private idxNamesToPerpetualIds: Map<string, number[]>; //ticker (e.g. BTC-USD) -> [10001, 10021, ..]
 	protected idxPrices: Map<string, number>; //ticker -> price
-	protected emaPrices: Map<number, number>; //perpId -> ema of s2 index price
+	protected emaPrices: Map<string, number>; //indexname -> ema of s2 index price; for sports/prediction
 	protected midPremium: Map<number, number>; //perpId -> price (e.g. we can have 2 BTC-USD with different mid-price)
 	protected mrkPremium: Map<number, number>; //perpId -> mark premium
 
@@ -37,7 +37,7 @@ export default abstract class IndexPriceInterface extends Observer {
 		this.idxPrices = new Map<string, number>();
 		this.midPremium = new Map<number, number>();
 		this.mrkPremium = new Map<number, number>();
-		this.emaPrices = new Map<number, number>();
+		this.emaPrices = new Map<string, number>();
 		this.isPredictionMkt = new Map<number, boolean>();
 	}
 
@@ -62,6 +62,11 @@ export default abstract class IndexPriceInterface extends Observer {
 		// priceInterfaceInitialize is called. Initial _update is called in the
 		// eventListener initialization.
 		const info = await this.sdkInterface.exchangeInfo();
+		await this._initIdxNamesToPerpetualIds(<ExchangeInfo>JSON.parse(info));
+	}
+
+	private async refreshIndexNames() {
+		const info = await this.sdkInterface!.exchangeInfo();
 		await this._initIdxNamesToPerpetualIds(<ExchangeInfo>JSON.parse(info));
 	}
 
@@ -109,8 +114,12 @@ export default abstract class IndexPriceInterface extends Observer {
 	private async _initIdxNamesToPerpetualIds(info: ExchangeInfo) {
 		console.log("Initialize index names");
 		// gather perpetuals index-names from exchange data
+		const indices: string[] = [];
 		for (let k = 0; k < info.pools.length; k++) {
 			const pool = info.pools[k];
+			if (!pool.isRunning) {
+				continue;
+			}
 			for (let j = 0; j < pool.perpetuals.length; j++) {
 				const perpState: PerpetualState = pool.perpetuals[j];
 				const perpId: number = perpState.id;
@@ -130,11 +139,19 @@ export default abstract class IndexPriceInterface extends Observer {
 				this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
 				this.midPremium.set(perpId, perpState.midPrice / px - 1);
 
+				indices.push(pxIdxName);
 				const isPred = this.sdkInterface!.isPredictionMarket(
 					pxIdxName + "-" + pool.poolSymbol,
 				);
+				if (isPred) {
+					indices[indices.length - 1] = "sport:" + indices[indices.length - 1];
+					indices.push("sport:" + pxIdxName + "|mark");
+				}
+				// ^--- todo: other types than sport
 				this.isPredictionMkt.set(perpId, isPred);
 			}
+			// initialize index prices
+			await this.fetchIndicesFromRedis(indices);
 		}
 	}
 
@@ -142,7 +159,14 @@ export default abstract class IndexPriceInterface extends Observer {
 		// message must be indices separated by semicolon
 		// console.log("Received REDIS message" + message);
 		const indices = message.split(";");
+		const updatedIndices = await this.fetchIndicesFromRedis(indices);
+		if (!this.isMappingRecent(updatedIndices)) {
+			this.refreshIndexNames();
+		}
+		this._updatePricesOnIndexPrice(updatedIndices);
+	}
 
+	protected async fetchIndicesFromRedis(indices: string[]): Promise<string[]> {
 		// Create new updated indices and only send those that were updated.
 		const updatedIndices: string[] = [];
 
@@ -152,9 +176,20 @@ export default abstract class IndexPriceInterface extends Observer {
 				const px_ts = await this.redisClient.ts.get(indices[k]);
 				if (px_ts !== null) {
 					// indices[k]: <source>:<symbol>, e.g. univ3:BERA-USD
+					// indices[k]: <source>:<symbol|mark>, e.g. sport:BERA-USD|mark; only for sport
+					const source = indices[k].split(":")[0];
 					const symbol = indices[k].split(":").pop() + "";
-					this.idxPrices.set(symbol, px_ts.value);
-					updatedIndices.push(symbol);
+					const markSplit = symbol.split("|");
+					if (markSplit.length == 2) {
+						// mark price is sent by candles
+						// backend for sports
+						const idxSym = markSplit[0];
+						this.emaPrices.set(idxSym, px_ts.value);
+					} else {
+						const px = px_ts.value;
+						this.idxPrices.set(symbol, px);
+						updatedIndices.push(symbol);
+					}
 				}
 			} catch (error) {
 				console.log("[Error in _onRedisFeedHandlerMsg]", {
@@ -163,7 +198,26 @@ export default abstract class IndexPriceInterface extends Observer {
 				});
 			}
 		}
-		this._updatePricesOnIndexPrice(updatedIndices);
+		return updatedIndices;
+	}
+
+	private async isMappingRecent(indices: string[]): Promise<boolean> {
+		const tif = this.sdkInterface?.getTraderInterface();
+		if (indices.length > 0) {
+			return true;
+		}
+		// index still exists?
+		if (tif != undefined) {
+			try {
+				for (let j = 0; j < indices.length; j++) {
+					await tif.getShortSymbol(indices[j]);
+				}
+			} catch (error) {
+				// if index doesn't exist the function throws an error
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -171,7 +225,7 @@ export default abstract class IndexPriceInterface extends Observer {
 	 * mid-price and mark-price and the 3 prices are sent to ws-subscribers
 	 * @param indices index names, such as BTC-USDC
 	 */
-	private _updatePricesOnIndexPrice(indices: string[]) {
+	protected _updatePricesOnIndexPrice(indices: string[]) {
 		for (let k = 0; k < indices.length; k++) {
 			const perpetualIds: number[] | undefined = this.idxNamesToPerpetualIds.get(
 				indices[k],
@@ -181,6 +235,7 @@ export default abstract class IndexPriceInterface extends Observer {
 			}
 			let px = this.idxPrices.get(indices[k]);
 			for (let j = 0; j < perpetualIds.length; j++) {
+				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
 				const markPremium = this.mrkPremium.get(perpetualIds[j]);
 				const midPremium = this.midPremium.get(perpetualIds[j]);
 				if (
@@ -190,24 +245,18 @@ export default abstract class IndexPriceInterface extends Observer {
 				) {
 					continue;
 				}
-				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
 				let midPx, markPx: number;
 				if (isPred) {
 					// transform price from probability
-					px = probToPrice(px);
-					midPx = px + midPremium;
-					// mark price is left unchanged
-					if (!this.emaPrices.has(perpetualIds[j])) {
-						// no mark price yet, continue
-						continue;
-					}
-					markPx = this.emaPrices.get(perpetualIds[j])!;
+					midPx = probToPrice(px) + midPremium;
+					markPx = this.emaPrices.get(indices[k]) ?? px;
+					markPx = probToPrice(markPx);
 					markPx = Math.min(Math.max(1, markPx + markPremium), 2); //clamp
+					px = probToPrice(px);
 				} else {
 					midPx = px * (1 + midPremium);
 					markPx = px * (1 + markPremium);
 				}
-
 				// call update to inform websocket
 				this.updateMarkPrice(perpetualIds[j], midPx, markPx!, px!);
 			}

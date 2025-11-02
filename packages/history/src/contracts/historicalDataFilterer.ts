@@ -11,6 +11,7 @@ import {
 	UpdateMarginAccountEvent,
 	EventCallback,
 	SetOraclesEvent,
+	SettleEvent,
 } from "./types";
 import {
 	Contract,
@@ -113,6 +114,7 @@ export class HistoricalDataFilterer {
 		// events in scope
 		const eventNames = [
 			"Trade",
+			"Settle",
 			"Liquidate",
 			"UpdateMarginAccount",
 			"LiquidityAdded",
@@ -165,6 +167,14 @@ export class HistoricalDataFilterer {
 				case "Trade":
 					callbacks["Trade"](
 						decodedEvent as TradeEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp,
+					);
+					break;
+				case "Settle":
+					callbacks["Settle"](
+						decodedEvent as SettleEvent,
 						e.transactionHash,
 						e.blockNumber,
 						blockTimestamp,
@@ -279,9 +289,13 @@ export class HistoricalDataFilterer {
 		for (let i = Number(fromBlock); i < endBlock; ) {
 			const _startBlock = i;
 			const _endBlock = Math.min(endBlock, i + deltaBlocks - 1);
-			const percProgress = Math.round((i-Number(fromBlock))/(endBlock-Number(fromBlock))*100);
-			if (count % 100==0) {
-				this.l.info(`historical blocks ${_startBlock}-${_endBlock}, ${percProgress}% progress`)
+			const percProgress = Math.round(
+				((i - Number(fromBlock)) / (endBlock - Number(fromBlock))) * 100,
+			);
+			if (count % 100 == 0) {
+				this.l.info(
+					`historical blocks ${_startBlock}-${_endBlock}, ${percProgress}% progress`,
+				);
 			}
 			count += 1;
 			try {

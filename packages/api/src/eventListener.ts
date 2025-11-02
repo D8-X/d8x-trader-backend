@@ -4,20 +4,18 @@ import {
 	ExchangeInfo,
 	MarginAccount,
 	MASK_MARKET_ORDER,
-	mul64x64,
 	NodeSDKConfig,
-	ONE_64x64,
 	PerpetualState,
+	probToPrice,
 	SmartContractOrder,
 	TraderInterface,
 } from "@d8x/perpetuals-sdk";
+import crypto from "crypto";
 import { IncomingMessage } from "http";
 import WebSocket from "ws";
-import crypto from "crypto";
 
-import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
-import IndexPriceInterface from "./indexPriceInterface";
-import SDKInterface from "./sdkInterface";
+import { Contract, WebSocketProvider } from "ethers";
+import SturdyWebSocket from "sturdy-websocket";
 import {
 	ExecutionFailed,
 	LimitOrderCreated,
@@ -27,11 +25,12 @@ import {
 	UpdateMarginAccountTrimmed,
 	WSMsg,
 } from "utils/src/wsTypes";
-import SturdyWebSocket from "sturdy-websocket";
 import { Logger } from "winston";
+import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
+import IndexPriceInterface from "./indexPriceInterface";
 import { TrackedWebsocketsProvider } from "./providers";
-import { Contract, WebSocketProvider } from "ethers";
 import RedisOI from "./redisOI";
+import SDKInterface from "./sdkInterface";
 /**
  * Class that listens to blockchain events on
  * - limitorder books
@@ -218,6 +217,8 @@ export default class EventListener extends IndexPriceInterface {
 			return false;
 		}
 		this.logger.info("provider is ready");
+
+		await this.traderInterface.createProxyInstance();
 
 		this.proxyContract = new Contract(
 			this.traderInterface.getProxyAddress(),
@@ -472,17 +473,7 @@ export default class EventListener extends IndexPriceInterface {
 			for (let j = 0; j < pool.perpetuals.length; j++) {
 				const perp: PerpetualState = pool.perpetuals[j];
 				this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
-				this.redisOITimeSeries.addOIObs(perp.id, perp.openInterestBC, nowTs)
-				if (this.isPredictionMkt.get(perp.id)) {
-					this.emaPrices.set(perp.id, perp.markPrice - perp.markPremium);
-				}
-				this.updateMarkPrice(
-					perp.id,
-					perp.midPrice,
-					perp.markPrice,
-					perp.indexPrice,
-				);
-
+				this.redisOITimeSeries.addOIObs(perp.id, perp.openInterestBC, nowTs);
 				console.log(`[_update] setting fundingRate and openInterest`, {
 					fundingRate: perp.currentFundingRateBps / 1e4,
 					openInterest: perp.openInterestBC,
@@ -543,9 +534,29 @@ export default class EventListener extends IndexPriceInterface {
 		const proxyContract = this.proxyContract;
 
 		proxyContract.on(
+			"SetEmergencyState",
+			(
+				perpetualId: number,
+				_fSettlementMarkPremiumRate: bigint,
+				_fSettlementS2Price: bigint,
+				_fSettlementS3Price: bigint,
+			) => {
+				this.onPerpetualState(perpetualId, "emergency");
+			},
+		);
+
+		proxyContract.on("SettlementComplete", (perpetualId: number) => {
+			this.onPerpetualState(perpetualId, "settled");
+		});
+
+		proxyContract.on("SetNormalState", (perpetualId: number) => {
+			this.onPerpetualState(perpetualId, "normal");
+		});
+
+		proxyContract.on(
 			"TransferAddressTo",
 			(module: string, oldAddress: string, newAddress: string) => {
-				console.log("restart", { module, oldAddress, newAddress });
+				console.log("restart: module update", { module, oldAddress, newAddress });
 				process.exit(1);
 			},
 		);
@@ -569,12 +580,12 @@ export default class EventListener extends IndexPriceInterface {
 		);
 
 		/*
-        event UpdateMarginAccount(
-            uint24 indexed perpetualId,
-            address indexed trader,
-            int128 fFundingPaymentCC,
-        );
-    */
+		event UpdateMarginAccount(
+			uint24 indexed perpetualId,
+			address indexed trader,
+			int128 fFundingPaymentCC,
+		);
+	*/
 		proxyContract.on(
 			"UpdateMarginAccount",
 			(perpetualId: number, trader: string, fFundingPaymentCC: bigint) => {
@@ -688,7 +699,15 @@ export default class EventListener extends IndexPriceInterface {
 		fFundingPaymentCC: bigint,
 	): Promise<void> {
 		// Set the open interest from exchange info (1 min delay at max)
+		perpetualId = Number(perpetualId);
 		const symbol = this.symbolFromPerpetualId(perpetualId);
+		if (symbol == "") {
+			console.log(
+				"onUpdateMarginAccount: no symbol found for perpetual id ",
+				perpetualId,
+			);
+			return;
+		}
 		const state =
 			await this.sdkInterface!.extractPerpetualStateFromExchangeInfo(symbol);
 		this.redisOITimeSeries.addOIObs(perpetualId, state.openInterestBC, Date.now());
@@ -772,6 +791,7 @@ export default class EventListener extends IndexPriceInterface {
 			console.log("onUpdateMarkPrice: eventListener not initialized");
 			return;
 		}
+		perpetualId = Number(perpetualId.toString());
 		const isPred = this.isPredictionMkt.get(perpetualId)!;
 
 		this.lastBlockChainEventTs = Date.now();
@@ -783,22 +803,35 @@ export default class EventListener extends IndexPriceInterface {
 			console.log("onUpdateMarkPrice duplicate");
 			return;
 		}
-		const pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
-		const currIdx = this.idxPrices.get(pxIdxName)!;
 
-		let newMarkPrice, newMidPrice: number;
 		const midPrem = ABK64x64ToFloat(fMidPricePremium);
 		const mrkPrem = ABK64x64ToFloat(fMarkPricePremium);
 		this.midPremium.set(perpetualId, midPrem);
 		this.mrkPremium.set(perpetualId, mrkPrem);
+
+		let pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId);
+		if (pxIdxName == undefined) {
+			console.log("onUpdateMarkPrice: no index defined for perpetual", perpetualId);
+			return;
+		}
+		const parts = pxIdxName.split("-");
+		pxIdxName = parts[0] + "-" + parts[1];
+		// ensure index price availability
+		let currIdx = this.idxPrices.get(pxIdxName);
+		if (currIdx == undefined) {
+			console.log("onUpdateMarkPrice: index name=", pxIdxName, "currIdx undefined");
+			return;
+		}
+		let newMarkPrice, newMidPrice: number;
 		if (isPred) {
-			// set ema price for prediction markets.
 			// we don't set the index price for regular markets as this
 			// would be outdated
-			const ema = ABK64x64ToFloat(fMarkIndexPrice);
-			this.emaPrices.set(perpetualId, ema);
-			newMidPrice = currIdx * (1 + mrkPrem);
-			newMarkPrice = Math.max(Math.min(ema * (1 + mrkPrem), 2), 1); //clamp
+			console.log("index name=", pxIdxName, "currIdx=", currIdx);
+			newMidPrice = probToPrice(currIdx) + midPrem;
+			let markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
+			markPx = probToPrice(markPx);
+			newMarkPrice = Math.min(Math.max(1, markPx + mrkPrem), 2); //clamp
+			currIdx = probToPrice(currIdx);
 		} else {
 			newMarkPrice = currIdx * (1 + mrkPrem);
 			newMidPrice = currIdx * (1 + midPrem);
@@ -806,6 +839,21 @@ export default class EventListener extends IndexPriceInterface {
 		console.log("eventListener: onUpdateMarkPrice");
 
 		// notify websocket listeners (using prices based on most recent websocket price)
+
+		console.log(
+			"onUpdateMarkPrice: ",
+			perpetualId,
+			"miPremium",
+			midPrem,
+			"markPrem",
+			mrkPrem,
+			"mid=",
+			newMidPrice,
+			"mark=",
+			newMarkPrice,
+			"idx=",
+			currIdx,
+		);
 		this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, currIdx);
 
 		// update data in sdkInterface's exchangeInfo
@@ -1071,5 +1119,15 @@ export default class EventListener extends IndexPriceInterface {
 		);
 		// send to subscribers
 		this.sendToSubscribers(perpetualId, jsonMsg, trader);
+	}
+
+	/**
+	 * Events: SetNormalState, SetEmergencyState, SettlementComplete
+	 * @param perpetualId
+	 * @param _state 'normal', 'emergency', 'settled'
+	 */
+	private onPerpetualState(perpetualId: number, state: string) {
+		console.log("restart: perpetual state changed", { perpetualId, state });
+		process.exit(1);
 	}
 }

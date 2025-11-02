@@ -70,7 +70,7 @@ export function isValidAddress(addr: string): boolean {
 }
 
 export function isValidPerpSymbol(input: string): boolean {
-	const regex = /^[a-zA-Z]+-[a-zA-Z]+-[a-zA-Z]+$/;
+	const regex = /^[a-zA-Z_0-9]+-[a-zA-Z]+-[a-zA-Z]+$/;
 	return regex.test(input);
 }
 
