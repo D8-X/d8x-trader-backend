@@ -1,15 +1,8 @@
-import { createClient } from "redis";
+import { ExchangeInfo, PerpetualState } from "@d8x/perpetuals-sdk";
 import type { RedisClientType } from "redis";
-import * as redis from "redis";
-import {
-	ExchangeInfo,
-	NodeSDKConfig,
-	PerpetualState,
-	probToPrice,
-} from "@d8x/perpetuals-sdk";
-import { extractErrorMsg, constructRedis } from "utils";
-import SDKInterface from "./sdkInterface";
+import { constructRedis, extractErrorMsg } from "utils";
 import Observer from "./observer";
+import SDKInterface from "./sdkInterface";
 
 /**
  * This class handles the communication with the websocket client
@@ -136,8 +129,6 @@ export default abstract class IndexPriceInterface extends Observer {
 				this.idxNamesToPerpetualIds.get(pxIdxName);
 				const px = perpState.indexPrice;
 				this.idxPrices.set(pxIdxName, px);
-				this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
-				this.midPremium.set(perpId, perpState.midPrice / px - 1);
 
 				indices.push(pxIdxName);
 				const isPred = this.sdkInterface!.isPredictionMarket(
@@ -146,6 +137,11 @@ export default abstract class IndexPriceInterface extends Observer {
 				if (isPred) {
 					indices[indices.length - 1] = "sport:" + indices[indices.length - 1];
 					indices.push("sport:" + pxIdxName + "|mark");
+					this.mrkPremium.set(perpId, perpState.markPrice - px);
+					this.midPremium.set(perpId, perpState.midPrice - px);
+				} else {
+					this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
+					this.midPremium.set(perpId, perpState.midPrice / px - 1);
 				}
 				// ^--- todo: other types than sport
 				this.isPredictionMkt.set(perpId, isPred);
@@ -233,7 +229,7 @@ export default abstract class IndexPriceInterface extends Observer {
 			if (perpetualIds == undefined) {
 				continue;
 			}
-			let px = this.idxPrices.get(indices[k]);
+			const px = this.idxPrices.get(indices[k]);
 			for (let j = 0; j < perpetualIds.length; j++) {
 				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
 				const markPremium = this.mrkPremium.get(perpetualIds[j]);
@@ -247,13 +243,12 @@ export default abstract class IndexPriceInterface extends Observer {
 				}
 				let midPx, markPx: number;
 				if (isPred) {
-					// transform price from probability
-					midPx = probToPrice(px) + midPremium;
+					// premia are additive
+					midPx = Math.min(Math.max(1, px + midPremium), 2);
 					markPx = this.emaPrices.get(indices[k]) ?? px;
-					markPx = probToPrice(markPx);
 					markPx = Math.min(Math.max(1, markPx + markPremium), 2); //clamp
-					px = probToPrice(px);
 				} else {
+					// premia are relative
 					midPx = px * (1 + midPremium);
 					markPx = px * (1 + markPremium);
 				}

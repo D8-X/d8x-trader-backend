@@ -6,7 +6,6 @@ import {
 	MASK_MARKET_ORDER,
 	NodeSDKConfig,
 	PerpetualState,
-	probToPrice,
 	SmartContractOrder,
 	TraderInterface,
 } from "@d8x/perpetuals-sdk";
@@ -817,7 +816,7 @@ export default class EventListener extends IndexPriceInterface {
 		const parts = pxIdxName.split("-");
 		pxIdxName = parts[0] + "-" + parts[1];
 		// ensure index price availability
-		let currIdx = this.idxPrices.get(pxIdxName);
+		const currIdx = this.idxPrices.get(pxIdxName);
 		if (currIdx == undefined) {
 			console.log("onUpdateMarkPrice: index name=", pxIdxName, "currIdx undefined");
 			return;
@@ -827,11 +826,9 @@ export default class EventListener extends IndexPriceInterface {
 			// we don't set the index price for regular markets as this
 			// would be outdated
 			console.log("index name=", pxIdxName, "currIdx=", currIdx);
-			newMidPrice = probToPrice(currIdx) + midPrem;
-			let markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
-			markPx = probToPrice(markPx);
+			newMidPrice = Math.min(Math.max(1, currIdx + midPrem), 2);
+			const markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
 			newMarkPrice = Math.min(Math.max(1, markPx + mrkPrem), 2); //clamp
-			currIdx = probToPrice(currIdx);
 		} else {
 			newMarkPrice = currIdx * (1 + mrkPrem);
 			newMidPrice = currIdx * (1 + midPrem);
