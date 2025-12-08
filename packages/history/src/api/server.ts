@@ -586,6 +586,7 @@ export class HistoryRestAPI {
 						side: t.side.toUpperCase(),
 						price: ABK64x64ToFloat(BigInt(t.price.toFixed())),
 						quantity: ABK64x64ToFloat(BigInt(t.quantity.toFixed())),
+						newPosBc: ABK64x64ToFloat(BigInt(t.new_pos_bc!.toFixed())),
 						fee: ABK64x64ToFloat(BigInt(t.fee.toFixed())),
 						realizedPnl: ABK64x64ToFloat(BigInt(t.realized_profit.toFixed())),
 						transactionHash: t.tx_hash,
