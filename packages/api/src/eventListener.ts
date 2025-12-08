@@ -6,6 +6,7 @@ import {
 	MASK_MARKET_ORDER,
 	NodeSDKConfig,
 	PerpetualState,
+	probToPrice,
 	SmartContractOrder,
 	TraderInterface,
 } from "@d8x/perpetuals-sdk";
@@ -816,20 +817,24 @@ export default class EventListener extends IndexPriceInterface {
 		const parts = pxIdxName.split("-");
 		pxIdxName = parts[0] + "-" + parts[1];
 		// ensure index price availability
-		const currIdx = this.idxPrices.get(pxIdxName);
+		let currIdx = this.idxPrices.get(pxIdxName);
 		if (currIdx == undefined) {
 			console.log("onUpdateMarkPrice: index name=", pxIdxName, "currIdx undefined");
 			return;
 		}
 		let newMarkPrice, newMidPrice: number;
 		if (isPred) {
+			// for pred markets, currIdx == spot probability
+			// --> convert all to price to send over WS and update xchg info
+			console.log("index name=", pxIdxName, "currIdx=", currIdx);
+			newMidPrice = probToPrice(currIdx) + midPrem;
+			let markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
+			markPx = probToPrice(markPx);
+			newMarkPrice = Math.min(Math.max(1, markPx + mrkPrem), 2); //clamp
+			currIdx = probToPrice(currIdx);
+		} else {
 			// we don't set the index price for regular markets as this
 			// would be outdated
-			console.log("index name=", pxIdxName, "currIdx=", currIdx);
-			newMidPrice = Math.min(Math.max(1, currIdx + midPrem), 2);
-			const markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
-			newMarkPrice = Math.min(Math.max(1, markPx + mrkPrem), 2); //clamp
-		} else {
 			newMarkPrice = currIdx * (1 + mrkPrem);
 			newMidPrice = currIdx * (1 + midPrem);
 		}

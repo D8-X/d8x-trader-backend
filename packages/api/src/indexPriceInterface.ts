@@ -127,19 +127,22 @@ export default abstract class IndexPriceInterface extends Observer {
 					idxs!.push(perpId);
 				}
 				this.idxNamesToPerpetualIds.get(pxIdxName);
-				const px = perpState.indexPrice;
-				this.idxPrices.set(pxIdxName, px);
+				const px = perpState.indexPrice; // price, even for pred markets (prob + 1)
 
 				indices.push(pxIdxName);
 				const isPred = this.sdkInterface!.isPredictionMarket(
 					pxIdxName + "-" + pool.poolSymbol,
 				);
 				if (isPred) {
+					// save prob and additive premia
 					indices[indices.length - 1] = "sport:" + indices[indices.length - 1];
 					indices.push("sport:" + pxIdxName + "|mark");
+					this.idxPrices.set(pxIdxName, px - 1);
 					this.mrkPremium.set(perpId, perpState.markPrice - px);
 					this.midPremium.set(perpId, perpState.midPrice - px);
 				} else {
+					// set price and relative premia
+					this.idxPrices.set(pxIdxName, px);
 					this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
 					this.midPremium.set(perpId, perpState.midPrice / px - 1);
 				}
