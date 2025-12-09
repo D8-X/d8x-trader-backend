@@ -126,7 +126,6 @@ export default abstract class IndexPriceInterface extends Observer {
 				} else {
 					idxs!.push(perpId);
 				}
-				this.idxNamesToPerpetualIds.get(pxIdxName);
 				const px = perpState.indexPrice; // price, even for pred markets (prob + 1)
 
 				indices.push(pxIdxName);
@@ -159,8 +158,9 @@ export default abstract class IndexPriceInterface extends Observer {
 		// console.log("Received REDIS message" + message);
 		const indices = message.split(";");
 		const updatedIndices = await this.fetchIndicesFromRedis(indices);
-		if (!this.isMappingRecent(updatedIndices)) {
-			this.refreshIndexNames();
+		const isRecent = await this.isMappingRecent(updatedIndices);
+		if (!isRecent) {
+			await this.refreshIndexNames();
 		}
 		this._updatePricesOnIndexPrice(updatedIndices);
 	}
