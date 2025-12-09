@@ -468,6 +468,9 @@ export default class EventListener extends IndexPriceInterface {
 		// update fundingRate: Map<number, number>; // perpetualId -> funding rate
 		const pools = info.pools;
 		const nowTs = Date.now();
+		let maxFunding = -100,
+			minFunding = 100,
+			maxOI = 0;
 		for (let k = 0; k < pools.length; k++) {
 			const pool = pools[k];
 			for (let j = 0; j < pool.perpetuals.length; j++) {
@@ -478,13 +481,16 @@ export default class EventListener extends IndexPriceInterface {
 					perp.openInterestBC,
 					nowTs,
 				);
-				console.log(`[_update] setting fundingRate and openInterest`, {
-					fundingRate: perp.currentFundingRateBps / 1e4,
-					openInterest: perp.openInterestBC,
-					perpetualId: perp.id,
-				});
+				maxFunding = Math.max(maxFunding, perp.currentFundingRateBps);
+				minFunding = Math.min(minFunding, perp.currentFundingRateBps);
+				maxOI = Math.max(maxOI, maxOI);
 			}
 		}
+		console.log(`[_update] setting fundingRate and openInterest`, {
+			maxFunding: maxFunding / 1e4,
+			minFunding: minFunding / 1e4,
+			maxOpenInterest: maxOI,
+		});
 	}
 
 	/**
