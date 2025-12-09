@@ -1,4 +1,4 @@
-import { ExchangeInfo, PerpetualState } from "@d8x/perpetuals-sdk";
+import { ExchangeInfo, PerpetualState, probToPrice } from "@d8x/perpetuals-sdk";
 import type { RedisClientType } from "redis";
 import { constructRedis, extractErrorMsg } from "utils";
 import Observer from "./observer";
@@ -232,7 +232,7 @@ export default abstract class IndexPriceInterface extends Observer {
 			if (perpetualIds == undefined) {
 				continue;
 			}
-			const px = this.idxPrices.get(indices[k]);
+			let px = this.idxPrices.get(indices[k]);
 			for (let j = 0; j < perpetualIds.length; j++) {
 				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
 				const markPremium = this.mrkPremium.get(perpetualIds[j]);
@@ -246,9 +246,11 @@ export default abstract class IndexPriceInterface extends Observer {
 				}
 				let midPx, markPx: number;
 				if (isPred) {
+					// for pred markets, px and emaPrices are probabilities (set by candles)
+					markPx = probToPrice(this.emaPrices.get(indices[k]) ?? px);
+					px = probToPrice(px);
 					// premia are additive
 					midPx = Math.min(Math.max(1, px + midPremium), 2);
-					markPx = this.emaPrices.get(indices[k]) ?? px;
 					markPx = Math.min(Math.max(1, markPx + markPremium), 2); //clamp
 				} else {
 					// premia are relative
