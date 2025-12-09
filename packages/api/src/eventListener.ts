@@ -473,7 +473,11 @@ export default class EventListener extends IndexPriceInterface {
 			for (let j = 0; j < pool.perpetuals.length; j++) {
 				const perp: PerpetualState = pool.perpetuals[j];
 				this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
-				this.redisOITimeSeries.addOIObs(perp.id, perp.openInterestBC, nowTs);
+				await this.redisOITimeSeries.addOIObs(
+					perp.id,
+					perp.openInterestBC,
+					nowTs,
+				);
 				console.log(`[_update] setting fundingRate and openInterest`, {
 					fundingRate: perp.currentFundingRateBps / 1e4,
 					openInterest: perp.openInterestBC,
@@ -710,7 +714,11 @@ export default class EventListener extends IndexPriceInterface {
 		}
 		const state =
 			await this.sdkInterface!.extractPerpetualStateFromExchangeInfo(symbol);
-		this.redisOITimeSeries.addOIObs(perpetualId, state.openInterestBC, Date.now());
+		await this.redisOITimeSeries.addOIObs(
+			perpetualId,
+			state.openInterestBC,
+			Date.now(),
+		);
 
 		const obj: UpdateMarginAccountTrimmed = {
 			traderAddr: trader,
