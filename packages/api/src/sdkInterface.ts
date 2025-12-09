@@ -90,7 +90,10 @@ export default class SDKInterface extends Observable {
 			for (let k = 0; k < xchInfo.pools[j].perpetuals.length; k++) {
 				const id = xchInfo.pools[j].perpetuals[k].id;
 				const oi = await RedisOI.getMax24h(id, this.redisClient);
-				(xchInfo.pools[j].perpetuals[k] as any).openInterestBC24h = oi;
+				xchInfo.pools[j].perpetuals[k] = {
+					...xchInfo.pools[j].perpetuals[k],
+					openInterestBC: oi,
+				};
 			}
 		}
 		const info = JSON.stringify(xchInfo);
