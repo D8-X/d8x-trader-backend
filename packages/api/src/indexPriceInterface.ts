@@ -1,15 +1,8 @@
-import { createClient } from "redis";
+import { ExchangeInfo, PerpetualState, probToPrice } from "@d8x/perpetuals-sdk";
 import type { RedisClientType } from "redis";
-import * as redis from "redis";
-import {
-	ExchangeInfo,
-	NodeSDKConfig,
-	PerpetualState,
-	probToPrice,
-} from "@d8x/perpetuals-sdk";
-import { extractErrorMsg, constructRedis } from "utils";
-import SDKInterface from "./sdkInterface";
+import { constructRedis, extractErrorMsg } from "utils";
 import Observer from "./observer";
+import SDKInterface from "./sdkInterface";
 
 /**
  * This class handles the communication with the websocket client
@@ -133,19 +126,24 @@ export default abstract class IndexPriceInterface extends Observer {
 				} else {
 					idxs!.push(perpId);
 				}
-				this.idxNamesToPerpetualIds.get(pxIdxName);
-				const px = perpState.indexPrice;
-				this.idxPrices.set(pxIdxName, px);
-				this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
-				this.midPremium.set(perpId, perpState.midPrice / px - 1);
+				const px = perpState.indexPrice; // price, even for pred markets (prob + 1)
 
 				indices.push(pxIdxName);
 				const isPred = this.sdkInterface!.isPredictionMarket(
 					pxIdxName + "-" + pool.poolSymbol,
 				);
 				if (isPred) {
+					// save prob and additive premia
 					indices[indices.length - 1] = "sport:" + indices[indices.length - 1];
 					indices.push("sport:" + pxIdxName + "|mark");
+					this.idxPrices.set(pxIdxName, px - 1);
+					this.mrkPremium.set(perpId, perpState.markPrice - px);
+					this.midPremium.set(perpId, perpState.midPrice - px);
+				} else {
+					// set price and relative premia
+					this.idxPrices.set(pxIdxName, px);
+					this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
+					this.midPremium.set(perpId, perpState.midPrice / px - 1);
 				}
 				// ^--- todo: other types than sport
 				this.isPredictionMkt.set(perpId, isPred);
@@ -160,8 +158,9 @@ export default abstract class IndexPriceInterface extends Observer {
 		// console.log("Received REDIS message" + message);
 		const indices = message.split(";");
 		const updatedIndices = await this.fetchIndicesFromRedis(indices);
-		if (!this.isMappingRecent(updatedIndices)) {
-			this.refreshIndexNames();
+		const isRecent = await this.isMappingRecent(updatedIndices);
+		if (!isRecent) {
+			await this.refreshIndexNames();
 		}
 		this._updatePricesOnIndexPrice(updatedIndices);
 	}
@@ -247,13 +246,14 @@ export default abstract class IndexPriceInterface extends Observer {
 				}
 				let midPx, markPx: number;
 				if (isPred) {
-					// transform price from probability
-					midPx = probToPrice(px) + midPremium;
-					markPx = this.emaPrices.get(indices[k]) ?? px;
-					markPx = probToPrice(markPx);
-					markPx = Math.min(Math.max(1, markPx + markPremium), 2); //clamp
+					// for pred markets, px and emaPrices are probabilities (set by candles)
+					markPx = probToPrice(this.emaPrices.get(indices[k]) ?? px);
 					px = probToPrice(px);
+					// premia are additive
+					midPx = Math.min(Math.max(1, px + midPremium), 2);
+					markPx = Math.min(Math.max(1, markPx + markPremium), 2); //clamp
 				} else {
+					// premia are relative
 					midPx = px * (1 + midPremium);
 					markPx = px * (1 + markPremium);
 				}

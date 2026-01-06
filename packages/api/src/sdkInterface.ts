@@ -172,6 +172,13 @@ export default class SDKInterface extends Observable {
 		return this.apiInterface!.getSymbolFromPerpId(perpId);
 	}
 
+	/**
+	 * Update exchange info with new data
+	 * @param symbol Symbol of perpetual
+	 * @param values Prices (prob + 1 for prediction markets) and other fields
+	 * @param propertyNames Price names
+	 * @returns
+	 */
 	public async updateExchangeInfoNumbersOfPerpetual(
 		symbol: string,
 		values: number[],

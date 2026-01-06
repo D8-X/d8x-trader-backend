@@ -468,19 +468,29 @@ export default class EventListener extends IndexPriceInterface {
 		// update fundingRate: Map<number, number>; // perpetualId -> funding rate
 		const pools = info.pools;
 		const nowTs = Date.now();
+		let maxFunding = -100,
+			minFunding = 100,
+			maxOI = 0;
 		for (let k = 0; k < pools.length; k++) {
 			const pool = pools[k];
 			for (let j = 0; j < pool.perpetuals.length; j++) {
 				const perp: PerpetualState = pool.perpetuals[j];
 				this.fundingRate.set(perp.id, perp.currentFundingRateBps / 1e4);
-				this.redisOITimeSeries.addOIObs(perp.id, perp.openInterestBC, nowTs);
-				console.log(`[_update] setting fundingRate and openInterest`, {
-					fundingRate: perp.currentFundingRateBps / 1e4,
-					openInterest: perp.openInterestBC,
-					perpetualId: perp.id,
-				});
+				await this.redisOITimeSeries.addOIObs(
+					perp.id,
+					perp.openInterestBC,
+					nowTs,
+				);
+				maxFunding = Math.max(maxFunding, perp.currentFundingRateBps);
+				minFunding = Math.min(minFunding, perp.currentFundingRateBps);
+				maxOI = Math.max(maxOI, maxOI);
 			}
 		}
+		console.log(`[_update] setting fundingRate and openInterest`, {
+			maxFunding: maxFunding / 1e4,
+			minFunding: minFunding / 1e4,
+			maxOpenInterest: maxOI,
+		});
 	}
 
 	/**
@@ -710,7 +720,11 @@ export default class EventListener extends IndexPriceInterface {
 		}
 		const state =
 			await this.sdkInterface!.extractPerpetualStateFromExchangeInfo(symbol);
-		this.redisOITimeSeries.addOIObs(perpetualId, state.openInterestBC, Date.now());
+		await this.redisOITimeSeries.addOIObs(
+			perpetualId,
+			state.openInterestBC,
+			Date.now(),
+		);
 
 		const obj: UpdateMarginAccountTrimmed = {
 			traderAddr: trader,
@@ -824,8 +838,8 @@ export default class EventListener extends IndexPriceInterface {
 		}
 		let newMarkPrice, newMidPrice: number;
 		if (isPred) {
-			// we don't set the index price for regular markets as this
-			// would be outdated
+			// for pred markets, currIdx == spot probability
+			// --> convert all to price to send over WS and update xchg info
 			console.log("index name=", pxIdxName, "currIdx=", currIdx);
 			newMidPrice = probToPrice(currIdx) + midPrem;
 			let markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
@@ -833,6 +847,8 @@ export default class EventListener extends IndexPriceInterface {
 			newMarkPrice = Math.min(Math.max(1, markPx + mrkPrem), 2); //clamp
 			currIdx = probToPrice(currIdx);
 		} else {
+			// we don't set the index price for regular markets as this
+			// would be outdated
 			newMarkPrice = currIdx * (1 + mrkPrem);
 			newMidPrice = currIdx * (1 + midPrem);
 		}
