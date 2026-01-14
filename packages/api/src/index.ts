@@ -59,7 +59,7 @@ async function start() {
 		type = "odin";
 	}
 	sdkConfig.priceFeedEndpoints = [{ type: type, endpoints: endpoints }];
-
+	console.log("priceFeedEndpoints:", sdkConfig.priceFeedEndpoints);
 	const rpcConfig = loadConfigRPC() as RPCConfig[];
 	let broker: BrokerIntegration;
 	let remoteBrokerAddr = process.env.REMOTE_BROKER_HTTP;
