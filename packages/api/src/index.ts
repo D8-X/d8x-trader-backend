@@ -45,7 +45,7 @@ async function start() {
 	}
 	logger.info(`loading configuration ${configName}`);
 	const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig(configName);
-
+	/*
 	const configPricesName: string = <string>process.env.CONFIG_PATH_PRICES || "";
 	if (configPricesName == "") {
 		throw new Error(
@@ -59,6 +59,7 @@ async function start() {
 		type = "odin";
 	}
 	sdkConfig.priceFeedEndpoints = [{ type: type, endpoints: endpoints }];
+	*/
 	console.log("priceFeedEndpoints:", sdkConfig.priceFeedEndpoints);
 	const rpcConfig = loadConfigRPC() as RPCConfig[];
 	let broker: BrokerIntegration;
