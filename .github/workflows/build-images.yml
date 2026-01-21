@@ -7,6 +7,7 @@ on:
       - "*"
 env:
   container_registry: ghcr.io
+  NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
 jobs:
   build:
     permissions:
@@ -20,7 +21,7 @@ jobs:
             image: ghcr.io/d8-x/d8x-trader-main
           - dockerfile: ./packages/history/Dockerfile
             image: ghcr.io/d8-x/d8x-trader-history
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v3
       - name: Login to GHCR
