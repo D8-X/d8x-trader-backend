@@ -7,7 +7,6 @@ on:
       - "*"
 env:
   container_registry: ghcr.io
-  NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
 jobs:
   build:
     permissions:
@@ -45,3 +44,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          secrets: |
+            npm_token=${{ secrets.GITHUB_TOKEN }}
