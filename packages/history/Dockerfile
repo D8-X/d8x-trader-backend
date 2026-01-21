@@ -9,15 +9,12 @@ COPY ./config/. ./config/.
 COPY ./packages/utils ./packages/utils
 COPY ./packages/history ./packages/history
 
-# Generate .npmrc with the secret token
+# Generate .npmrc and install in one step, then clean up
 RUN --mount=type=secret,id=npm_token \
     echo "@d8-x:registry=https://npm.pkg.github.com" > .npmrc && \
-    echo "//npm.pkg.github.com/:_authToken=$(cat /run/secrets/npm_token)" >> .npmrc
-
-RUN yarn install
-
-# Clean up .npmrc to avoid including token in image
-RUN rm -f .npmrc
+    echo "//npm.pkg.github.com/:_authToken=$(cat /run/secrets/npm_token)" >> .npmrc && \
+    yarn install && \
+    rm -f .npmrc
 
 # Build the history project
 RUN npx lerna run build --scope=history
