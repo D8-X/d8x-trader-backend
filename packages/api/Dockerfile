@@ -5,6 +5,9 @@ ARG MAIN_API_PORT_WEBSOCKET
 ARG CHAIN_ID
 ARG REDIS_URL
 
+ARG NODE_AUTH_TOKEN
+ENV NODE_AUTH_TOKEN=$NODE_AUTH_TOKEN
+
 WORKDIR /app
 
 # COPY package*.json ./
@@ -13,7 +16,7 @@ WORKDIR /app
 #COPY . . 
 COPY ./packages/utils ./packages/utils
 COPY ./packages/api ./packages/api
-COPY ./package.json .
+COPY package.json yarn.lock .npmrc .
 COPY ./nx.json .
 COPY ./lerna.json .
 COPY ./config/. ./config/.
