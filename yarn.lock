@@ -49,22 +49,34 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@d8-x/d8x-node-sdk@^0.1.13":
-  version "0.1.13"
-  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.1.13/cd48a4a0c5d287a7eaba7da11cd7c43358e88123#cd48a4a0c5d287a7eaba7da11cd7c43358e88123"
-  integrity sha512-cmKfhhrNa51ZheDoBxri6sXOsxJGth6Nc8zro7TOfCqeGKJJTCJzWMZh9Bvx9fACvm5rovgUSv2AXZq0R4rclA==
+"@d8-x/d8x-node-sdk@^0.1.17":
+  version "0.1.24"
+  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.1.24/0151d0d481753b7b73697b85641b7ea1de88a077#0151d0d481753b7b73697b85641b7ea1de88a077"
+  integrity sha512-KvxVC1alW4Qj5g98VbqeJta3JLOvtcA/nHXdfTkw5OhmKOA3crsX7GkHcgnUqs8NFjWDfa2HMBwDd4W5aPSLhg==
   dependencies:
-    "@d8-x/d8x-price-wasm" "^1.0.19"
+    "@d8-x/d8x-price-wasm" "^1.0.24"
     "@typechain/ethers-v6" "^0.5.1"
     buffer "6.0.3"
     ethers "^6.13.1"
     process "0.11.10"
     typechain "^8.3.2"
 
-"@d8-x/d8x-price-wasm@^1.0.19":
-  version "1.0.19"
-  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-price-wasm/1.0.19/aac595d21099fe92cb9b6dc10764a1cf9edf4fba#aac595d21099fe92cb9b6dc10764a1cf9edf4fba"
-  integrity sha512-LYR9CNaqUp9KIXq38VKkExr5qf2GaPj1RjbZ3x9jwTCFbcyhPeQ9ihRhheE0IQ3wjI5Yifzf/xZa3XbTAYgDKw==
+"@d8-x/d8x-node-sdk@^1.0.25":
+  version "1.0.25"
+  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/1.0.25/35fb07c378ffebb244119b1093a30b37dc3e1c05#35fb07c378ffebb244119b1093a30b37dc3e1c05"
+  integrity sha512-TAnThIJbTVj3Mzn5VvHMmjkj/SH1xZm0ZpDDkGGvbrvZXjd3zezzBLIYKqX60YAmcMYEjNl+mseIgb0hN6oLsA==
+  dependencies:
+    "@d8-x/d8x-price-wasm" "^1.0.25"
+    "@typechain/ethers-v6" "^0.5.1"
+    buffer "6.0.3"
+    ethers "^6.13.1"
+    process "0.11.10"
+    typechain "^8.3.2"
+
+"@d8-x/d8x-price-wasm@^1.0.24", "@d8-x/d8x-price-wasm@^1.0.25":
+  version "1.0.25"
+  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-price-wasm/1.0.25/442cbc51302e0ce83b04aa01953607b6ffb2a4db#442cbc51302e0ce83b04aa01953607b6ffb2a4db"
+  integrity sha512-SRDe1eRvArG0JWYz7BJG+rLxCi0E2XzLuYOuP5xKXooePxuNl/p0b2TibrrVmbkpIyxHQk+AdZX+AeMzTIqwbg==
 
 "@dabh/diagnostics@^2.0.2":
   version "2.0.3"
