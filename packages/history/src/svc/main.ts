@@ -33,7 +33,7 @@ import { MarginTokenInfo } from "../db/margin_token_info";
 import SturdyWebSocket from "sturdy-websocket";
 import WebSocket from "ws";
 import { SetOracles } from "../db/set_oracles";
-import { sleepForSec } from "@d8x/perpetuals-sdk";
+import { sleepForSec } from "@d8-x/d8x-node-sdk";
 import { SettleHistory } from "../db/settle_history";
 
 const defaultLogger = () => {

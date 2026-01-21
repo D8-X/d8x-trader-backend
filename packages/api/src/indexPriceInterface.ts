@@ -1,4 +1,4 @@
-import { ExchangeInfo, PerpetualState, probToPrice } from "@d8x/perpetuals-sdk";
+import { ExchangeInfo, PerpetualState, probToPrice } from "@d8-x/d8x-node-sdk";
 import type { RedisClientType } from "redis";
 import { constructRedis, extractErrorMsg } from "utils";
 import Observer from "./observer";

@@ -5,7 +5,7 @@ import {
 	SmartContractOrder,
 	ZERO_ADDRESS,
 	NodeSDKConfig,
-} from "@d8x/perpetuals-sdk";
+} from "@d8-x/d8x-node-sdk";
 
 export default class BrokerNone extends BrokerIntegration {
 	public async getBrokerAddress(): Promise<string> {

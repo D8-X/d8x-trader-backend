@@ -1,4 +1,4 @@
-import { PerpetualDataHandler } from "@d8x/perpetuals-sdk";
+import { PerpetualDataHandler } from "@d8-x/d8x-node-sdk";
 
 import { ethers } from "ethers";
 

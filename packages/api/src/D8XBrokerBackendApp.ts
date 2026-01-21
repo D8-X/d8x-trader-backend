@@ -1,4 +1,4 @@
-import { MarginAccount, NodeSDKConfig, Order, PerpetualState } from "@d8x/perpetuals-sdk";
+import { MarginAccount, NodeSDKConfig, Order, PerpetualState } from "@d8-x/d8x-node-sdk";
 import cors from "cors";
 import dotenv from "dotenv";
 import express, { Request, Response } from "express";

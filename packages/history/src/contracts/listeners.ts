@@ -22,7 +22,7 @@ import { PriceInfo } from "../db/price_info";
 import { dec18ToFloat, decNToFloat } from "utils";
 import StaticInfo from "./static_info";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
-import { IPerpetualManager } from "@d8x/perpetuals-sdk";
+import { IPerpetualManager } from "@d8-x/d8x-node-sdk";
 import { SettleHistory } from "../db/settle_history";
 export interface EventListenerOptions {
 	logger: Logger;
