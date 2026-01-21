@@ -23,7 +23,7 @@ import {
 } from "utils";
 
 import { getAddress } from "ethers";
-import { MarketData } from "@d8x/perpetuals-sdk";
+import { MarketData } from "@d8-x/d8x-node-sdk";
 import { getSDKConfigFromEnv } from "../utils/abi";
 import dotenv from "dotenv";
 import cors from "cors";

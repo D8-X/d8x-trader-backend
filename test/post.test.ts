@@ -1,6 +1,6 @@
 import axios from "axios";
 import { ethers } from "ethers";
-import { MarginAccount, Order } from "@d8x/perpetuals-sdk";
+import { MarginAccount, Order } from "@d8-x/d8x-node-sdk";
 
 //const HOST_URL = "https://dev.testnet.d8x.exchange/api/v1/"; // use this to test after deployment
 // const HOST_URL =  "http://localhost:3001/"; // use this to test before deployment

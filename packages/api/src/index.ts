@@ -1,4 +1,4 @@
-import { NodeSDKConfig, PerpetualDataHandler } from "@d8x/perpetuals-sdk";
+import { NodeSDKConfig, PerpetualDataHandler } from "@d8-x/d8x-node-sdk";
 import dotenv from "dotenv";
 import fs from "fs";
 import { executeWithTimeout, loadConfigRPC, sleep } from "utils";

@@ -9,7 +9,7 @@ import {
 	probToPrice,
 	SmartContractOrder,
 	TraderInterface,
-} from "@d8x/perpetuals-sdk";
+} from "@d8-x/d8x-node-sdk";
 import crypto from "crypto";
 import { IncomingMessage } from "http";
 import WebSocket from "ws";

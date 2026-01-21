@@ -1,5 +1,5 @@
 import { JsonRpcProvider, Contract } from "ethers";
-import { MarketData, PerpetualStaticInfo } from "@d8x/perpetuals-sdk";
+import { MarketData, PerpetualStaticInfo } from "@d8-x/d8x-node-sdk";
 import { getSDKConfigFromEnv } from "../utils/abi";
 import { MarginTokenInfo, MarginTokenData } from "../db/margin_token_info";
 

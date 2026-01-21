@@ -3,8 +3,8 @@ import { ethers, Wallet } from "ethers";
 import {
 	APIReferralCodePayload,
 	APIReferralCodeSelectionPayload,
-} from "@d8x/perpetuals-sdk";
-import { ReferralCodeSigner } from "@d8x/perpetuals-sdk";
+} from "@d8-x/d8x-node-sdk";
+import { ReferralCodeSigner } from "@d8-x/d8x-node-sdk";
 let PK = process.env.PK ?? "";
 let RPC = process.env.RPC ?? "https://matic-mumbai.chainstacklabs.com";
 

@@ -7,7 +7,7 @@ import {
 	PerpetualState,
 	PoolState,
 	TraderInterface,
-} from "@d8x/perpetuals-sdk";
+} from "@d8-x/d8x-node-sdk";
 import dotenv from "dotenv";
 import { Numeric } from "ethers";
 import type { RedisClientType } from "redis";
