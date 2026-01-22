@@ -11,7 +11,7 @@ WORKDIR /app
 
 COPY ./packages/utils ./packages/utils
 COPY ./packages/api ./packages/api
-COPY package.json yarn.lock .
+COPY package.json yarn.lock ./
 COPY ./nx.json .
 COPY ./lerna.json .
 COPY ./config/. ./config/.
@@ -22,10 +22,7 @@ RUN --mount=type=secret,id=npm_token \
     yarn install && \
     rm -f .npmrc
 
-# (optional) don't bake runtime config into the image; prefer Swarm env
-# If you keep it, at least include all ARGs used:
-RUN echo -e \
-"MAIN_API_PORT_WEBSOCKET=${MAIN_API_PORT_WEBSOCKET}\nPORT=${PORT}\nREDIS_URL=${REDIS_URL}\nCHAIN_ID=${CHAIN_ID}\nSDK_CONFIG_NAME=${SDK_CONFIG_NAME}\n" > .env
+RUN echo -e "MAIN_API_PORT_WEBSOCKET=${MAIN_API_PORT_WEBSOCKET}\nPORT=${PORT}\nREDIS_URL=${REDIS_URL}\nCHAIN_ID=${CHAIN_ID}\nSDK_CONFIG_NAME=${SDK_CONFIG_NAME}\n" > .env
 
 RUN npx lerna run build --scope api
 
