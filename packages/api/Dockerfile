@@ -42,4 +42,5 @@ EXPOSE ${MAIN_API_PORT_WEBSOCKET}
 # Use NODE_PATH to help Node find modules in /app/node_modules
 ENV NODE_PATH=/app/node_modules
 
-CMD ["node", "packages/api/dist/index.js"]
+#CMD ["node", "packages/api/dist/index.js"]
+CMD ["sh", "-c", "echo '=== Checking for SDK ===' && find /app -name 'd8x-node-sdk' -o -name '@d8-x' && echo '=== Root node_modules ===' && ls -la /app/node_modules/ 2>/dev/null | head -20 && echo '=== API node_modules ===' && ls -la /app/packages/api/node_modules/ 2>/dev/null | head -20 && echo '=== Sleeping for inspection ===' && sleep 3600"]
