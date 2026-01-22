@@ -8,7 +8,7 @@ COPY ./lerna.json .
 COPY ./config/. ./config/.
 COPY ./packages/utils ./packages/utils
 COPY ./packages/history ./packages/history
-
+RUN apk add --no-cache openssl openssl3 ca-certificates
 # Generate .npmrc and install in one step, then clean up
 RUN --mount=type=secret,id=npm_token \
     echo "@d8-x:registry=https://npm.pkg.github.com" > .npmrc && \
