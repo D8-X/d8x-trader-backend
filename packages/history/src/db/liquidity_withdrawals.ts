@@ -3,7 +3,7 @@ import { Logger } from "winston";
 import {
 	LiquidityRemovedEvent,
 	LiquidityWithdrawalInitiatedEvent,
-} from "../contracts/types";
+} from "../contracts/types.js";
 
 export class LiquidityWithdrawals {
 	constructor(

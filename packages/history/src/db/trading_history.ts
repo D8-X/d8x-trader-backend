@@ -1,8 +1,8 @@
 import { PrismaClient, Trade, trade_side, Prisma } from "@prisma/client";
 import { BigNumberish } from "ethers";
-import { TradeEvent } from "../contracts/types";
+import { TradeEvent } from "../contracts/types.js";
 import { Logger } from "winston";
-import { LiquidateEvent } from "../contracts/types";
+import { LiquidateEvent } from "../contracts/types.js";
 import { ONE_64x64 } from "utils";
 import { createHash } from "crypto";
 

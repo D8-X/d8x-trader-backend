@@ -1,2 +1,2 @@
-import { main } from "./svc/main";
+import { main } from "./svc/main.js";
 main();

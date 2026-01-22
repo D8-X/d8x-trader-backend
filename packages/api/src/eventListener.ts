@@ -15,7 +15,7 @@ import { IncomingMessage } from "http";
 import WebSocket from "ws";
 
 import { Contract, WebSocketProvider } from "ethers";
-import SturdyWebSocket from "sturdy-websocket";
+
 import {
 	ExecutionFailed,
 	LimitOrderCreated,
@@ -24,13 +24,19 @@ import {
 	UpdateMarginAccount,
 	UpdateMarginAccountTrimmed,
 	WSMsg,
-} from "utils/src/wsTypes";
+} from "utils/src/wsTypes.js";
 import { Logger } from "winston";
-import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
-import IndexPriceInterface from "./indexPriceInterface";
-import { TrackedWebsocketsProvider } from "./providers";
-import RedisOI from "./redisOI";
-import SDKInterface from "./sdkInterface";
+import D8XBrokerBackendApp from "./D8XBrokerBackendApp.js";
+import IndexPriceInterface from "./indexPriceInterface.js";
+import { TrackedWebsocketsProvider } from "./providers.js";
+import RedisOI from "./redisOI.js";
+import SDKInterface from "./sdkInterface.js";
+
+// workaround for CJS package
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const SturdyWebSocket = require("sturdy-websocket");
+
 /**
  * Class that listens to blockchain events on
  * - limitorder books
@@ -82,7 +88,7 @@ export default class EventListener extends IndexPriceInterface {
 	isInitialized = false;
 	fundingRate: Map<number, number>; // perpetualId -> funding rate
 	lastBlockChainEventTs: number; //here we log the event occurence time to guess whether the connection is alive
-	wsConn: SturdyWebSocket | undefined;
+	wsConn: any | undefined;
 	// subscription for perpetualId and trader address. Multiple websocket-clients can subscribe
 	// (hence array of websockets)
 	subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>; // perpetualId -> traderAddr -> ws[]

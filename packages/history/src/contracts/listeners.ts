@@ -12,18 +12,18 @@ import {
 	ListeningMode,
 	SetOraclesEvent,
 	SettleEvent,
-} from "./types";
-import { TradingHistory } from "../db/trading_history";
-import { SetOracles } from "../db/set_oracles";
-import { FundingRatePayments } from "../db/funding_rate";
-import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
-import { EstimatedEarnings } from "../db/estimated_earnings";
-import { PriceInfo } from "../db/price_info";
+} from "./types.js";
+import { TradingHistory } from "../db/trading_history.js";
+import { SetOracles } from "../db/set_oracles.js";
+import { FundingRatePayments } from "../db/funding_rate.js";
+import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi.js";
+import { EstimatedEarnings } from "../db/estimated_earnings.js";
+import { PriceInfo } from "../db/price_info.js";
 import { dec18ToFloat, decNToFloat } from "utils";
-import StaticInfo from "./static_info";
-import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
+import StaticInfo from "./static_info.js";
+import { LiquidityWithdrawals } from "../db/liquidity_withdrawals.js";
 import { IPerpetualManager } from "@d8-x/d8x-node-sdk";
-import { SettleHistory } from "../db/settle_history";
+import { SettleHistory } from "../db/settle_history.js";
 export interface EventListenerOptions {
 	logger: Logger;
 	// smart contract addresses which will be used to listen to incoming events

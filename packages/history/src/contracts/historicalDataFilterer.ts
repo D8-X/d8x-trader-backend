@@ -12,7 +12,7 @@ import {
 	EventCallback,
 	SetOraclesEvent,
 	SettleEvent,
-} from "./types";
+} from "./types.js";
 import {
 	Contract,
 	Provider,
@@ -22,7 +22,7 @@ import {
 	ContractEventName,
 	EventFragment,
 } from "ethers";
-import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
+import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi.js";
 
 global.Error.stackTraceLimit = Infinity;
 

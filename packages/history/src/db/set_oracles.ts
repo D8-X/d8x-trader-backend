@@ -1,4 +1,4 @@
-import { SetOraclesEvent } from "../contracts/types";
+import { SetOraclesEvent } from "../contracts/types.js";
 import { BigNumberish, Contract } from "ethers";
 import { PrismaClient } from "@prisma/client";
 import { IPerpetualManager } from "@d8-x/d8x-node-sdk";
