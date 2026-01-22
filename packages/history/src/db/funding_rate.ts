@@ -1,7 +1,7 @@
 import { PrismaClient, Prisma, FundingRatePayment } from "@prisma/client";
 import { BigNumberish } from "ethers";
 import { Logger } from "winston";
-import { UpdateMarginAccountEvent } from "../contracts/types";
+import { UpdateMarginAccountEvent } from "../contracts/types.js";
 
 //
 export class FundingRatePayments {

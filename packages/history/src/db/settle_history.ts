@@ -1,6 +1,6 @@
 import { PrismaClient, Trade, trade_side, Prisma } from "@prisma/client";
 import { BigNumberish } from "ethers";
-import { SettleEvent } from "../contracts/types";
+import { SettleEvent } from "../contracts/types.js";
 import { Logger } from "winston";
 
 export class SettleHistory {

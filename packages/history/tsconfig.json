@@ -1,14 +1,19 @@
 {
 	"compilerOptions": {
 		"target": "ES2022",
-		"module": "CommonJS",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
 		"esModuleInterop": true,
 		"declaration": true,
 		"outDir": "./dist",
+		"rootDir": "./src",
 		"strict": true,
 		"resolveJsonModule": true,
-		"forceConsistentCasingInFileNames": true /* Ensure that casing is correct in imports. */,
-		"skipLibCheck": true /* Skip type checking all .d.ts files. */
+		"forceConsistentCasingInFileNames": true,
+		"skipLibCheck": true
 	},
-	"include": ["./src/**/*", "./src/**/*.json"]
+	"include": [
+		"./src/**/*",
+		"./src/**/*.json"
+	]
 }

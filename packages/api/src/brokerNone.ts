@@ -1,5 +1,5 @@
-import ethers from "ethers";
-import BrokerIntegration from "./brokerIntegration";
+import { ethers } from "ethers";
+import BrokerIntegration from "./brokerIntegration.js";
 import {
 	Order,
 	SmartContractOrder,

@@ -1,5 +1,5 @@
 import { toJson } from "utils";
-import BrokerIntegration from "./brokerIntegration";
+import BrokerIntegration from "./brokerIntegration.js";
 import axios from "axios";
 import {
 	BrokerTool,

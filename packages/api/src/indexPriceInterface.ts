@@ -1,8 +1,8 @@
 import { ExchangeInfo, PerpetualState, probToPrice } from "@d8-x/d8x-node-sdk";
 import type { RedisClientType } from "redis";
 import { constructRedis, extractErrorMsg } from "utils";
-import Observer from "./observer";
-import SDKInterface from "./sdkInterface";
+import Observer from "./observer.js";
+import SDKInterface from "./sdkInterface.js";
 
 /**
  * This class handles the communication with the websocket client

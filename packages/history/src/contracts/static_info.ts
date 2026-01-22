@@ -1,7 +1,7 @@
 import { JsonRpcProvider, Contract } from "ethers";
 import { MarketData, PerpetualStaticInfo } from "@d8-x/d8x-node-sdk";
-import { getSDKConfigFromEnv } from "../utils/abi";
-import { MarginTokenInfo, MarginTokenData } from "../db/margin_token_info";
+import { getSDKConfigFromEnv } from "../utils/abi.js";
+import { MarginTokenInfo, MarginTokenData } from "../db/margin_token_info.js";
 
 export default class StaticInfo {
 	public retrievedShareTokenAddresses: string[] = [];

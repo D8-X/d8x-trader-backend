@@ -1,8 +1,8 @@
 import * as winston from "winston";
-import { EventListener } from "../contracts/listeners";
+import { EventListener } from "../contracts/listeners.js";
 import * as dotenv from "dotenv";
 import { chooseRandomRPC, executeWithTimeout, loadConfigRPC, sleep } from "utils";
-import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer";
+import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer.js";
 import {
 	BigNumberish,
 	JsonRpcProvider,
@@ -19,22 +19,25 @@ import {
 	ListeningMode,
 	SetOraclesEvent,
 	SettleEvent,
-} from "../contracts/types";
+} from "../contracts/types.js";
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
-import { TradingHistory } from "../db/trading_history";
-import { FundingRatePayments } from "../db/funding_rate";
-import { HistoryRestAPI } from "../api/server";
-import { getPerpetualManagerProxyAddress, getDefaultRPC } from "../utils/abi";
-import { EstimatedEarnings } from "../db/estimated_earnings";
-import { PriceInfo } from "../db/price_info";
-import StaticInfo from "../contracts/static_info";
-import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
-import { MarginTokenInfo } from "../db/margin_token_info";
-import SturdyWebSocket from "sturdy-websocket";
+import { TradingHistory } from "../db/trading_history.js";
+import { FundingRatePayments } from "../db/funding_rate.js";
+import { HistoryRestAPI } from "../api/server.js";
+import { getPerpetualManagerProxyAddress, getDefaultRPC } from "../utils/abi.js";
+import { EstimatedEarnings } from "../db/estimated_earnings.js";
+import { PriceInfo } from "../db/price_info.js";
+import StaticInfo from "../contracts/static_info.js";
+import { LiquidityWithdrawals } from "../db/liquidity_withdrawals.js";
+import { MarginTokenInfo } from "../db/margin_token_info.js";
 import WebSocket from "ws";
-import { SetOracles } from "../db/set_oracles";
+import { SetOracles } from "../db/set_oracles.js";
 import { sleepForSec } from "@d8-x/d8x-node-sdk";
-import { SettleHistory } from "../db/settle_history";
+import { SettleHistory } from "../db/settle_history.js";
+// workaround for CJS package
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const SturdyWebSocket = require("sturdy-websocket");
 
 const defaultLogger = () => {
 	return winston.createLogger({
