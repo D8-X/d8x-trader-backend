@@ -49,10 +49,10 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@d8-x/d8x-node-sdk@^0.1.25":
-  version "0.1.25"
-  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.1.25/99056e23b169a5fa0c406935a934158a6f5f69a4#99056e23b169a5fa0c406935a934158a6f5f69a4"
-  integrity sha512-rc4VXgs2IZ96tsOPRM0fJUsbPGH1TXHvNHbAoP8SZYq7OSpO0u7yYu2quVW1AzTD9MLdSfTyzElKcgzMcNpazA==
+"@d8-x/d8x-node-sdk@^0.1.26":
+  version "0.1.26"
+  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.1.26/77fd9e143127b1ae58e72f544fbb268133beb964#77fd9e143127b1ae58e72f544fbb268133beb964"
+  integrity sha512-eoj0XH3IpA8fN+xDwGf6U1ml+nQcW+DXrrTbzxpwIsTWO7IDfOewVYCjWal59obFVmbDgQrYHgAE/vGoIN3RBg==
   dependencies:
     "@d8-x/d8x-price-wasm" "^1.0.25"
     "@typechain/ethers-v6" "^0.5.1"
@@ -6360,10 +6360,10 @@ typedarray@^0.0.6:
   resolved "https://registry.yarnpkg.com/typedarray/-/typedarray-0.0.6.tgz#867ac74e3864187b1d3d47d996a78ec5c8830777"
   integrity sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==
 
-typescript@4.9.5:
-  version "4.9.5"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.9.5.tgz#095979f9bcc0d09da324d58d03ce8f8374cbe65a"
-  integrity sha512-1FXk9E2Hm+QzZQ7z+McJiHL4NW1F2EzMu9Nq9i3zAaGqibafqYwCVU6WyWAuyQRRzOlxou8xZSyXLEN8oKj24g==
+typescript@5.3.3:
+  version "5.3.3"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.3.3.tgz#b3ce6ba258e72e6305ba66f5c9b452aaee3ffe37"
+  integrity sha512-pXWcraxM0uxAS+tN0AG/BF2TyqmHO014Z070UsJ+pFvYuRSq8KH8DmWpnbXe0pEPDHXZV3FcAbJkijJ5oNEnWw==
 
 "typescript@>=3 < 6":
   version "5.5.3"
