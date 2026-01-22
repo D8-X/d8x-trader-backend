@@ -39,4 +39,7 @@ RUN echo -e "MAIN_API_PORT_WEBSOCKET=${MAIN_API_PORT_WEBSOCKET}\nPORT=${PORT}\nR
 EXPOSE ${MAIN_API_PORT_HTTP}
 EXPOSE ${MAIN_API_PORT_WEBSOCKET}
 
+# Use NODE_PATH to help Node find modules in /app/node_modules
+ENV NODE_PATH=/app/node_modules
+
 CMD ["node", "packages/api/dist/index.js"]
