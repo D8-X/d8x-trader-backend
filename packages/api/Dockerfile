@@ -23,7 +23,8 @@ COPY ./packages/api/package.json ./packages/api/
 RUN --mount=type=secret,id=npm_token \
     echo "@d8-x:registry=https://npm.pkg.github.com" > .npmrc && \
     echo "//npm.pkg.github.com/:_authToken=$(cat /run/secrets/npm_token)" >> .npmrc && \
-    yarn install --frozen-lockfile && \
+    cat .npmrc && \
+    yarn install --frozen-lockfile --verbose && \
     rm -f .npmrc
 
 # Now copy the actual source code
