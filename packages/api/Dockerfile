@@ -20,7 +20,8 @@ COPY ./packages/utils/package.json ./packages/utils/
 COPY ./packages/api/package.json ./packages/api/
 # Install dependencies with authentication
 RUN --mount=type=secret,id=npm_token \
-    echo "@d8-x:registry=https://npm.pkg.github.com" > .npmrc && \
+    echo "@D8-X:registry=https://npm.pkg.github.com" > .npmrc && \
+    echo "@d8-x:registry=https://npm.pkg.github.com" >> .npmrc && \
     echo "//npm.pkg.github.com/:_authToken=$(cat /run/secrets/npm_token)" >> .npmrc && \
     cat .npmrc && \
     yarn install --frozen-lockfile --verbose && \
