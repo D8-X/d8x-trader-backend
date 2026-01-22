@@ -1,4 +1,4 @@
-FROM node:18-bookworm
+FROM node:20-alpine
 WORKDIR /app
 
 # Copy necessary files for dependency installation
