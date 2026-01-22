@@ -37,7 +37,8 @@ import { SettleHistory } from "../db/settle_history.js";
 // workaround for CJS package
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const SturdyWebSocket = require("sturdy-websocket");
+const mod = require("sturdy-websocket");
+const SturdyWebSocket = mod.default ?? mod.SturdyWebSocket ?? mod;
 
 const defaultLogger = () => {
 	return winston.createLogger({
