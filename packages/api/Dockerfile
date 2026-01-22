@@ -22,7 +22,7 @@ RUN --mount=type=secret,id=npm_token \
     yarn install && \
     rm -f .npmrc
 
-RUN echo -e "MAIN_API_PORT_WEBSOCKET=${MAIN_API_PORT_WEBSOCKET}\nPORT=${PORT}\nREDIS_URL=${REDIS_URL}\nCHAIN_ID=${CHAIN_ID}\nSDK_CONFIG_NAME=${SDK_CONFIG_NAME}\n" > .env
+# RUN echo -e "MAIN_API_PORT_WEBSOCKET=${MAIN_API_PORT_WEBSOCKET}\nPORT=${PORT}\nREDIS_URL=${REDIS_URL}\nCHAIN_ID=${CHAIN_ID}\nSDK_CONFIG_NAME=${SDK_CONFIG_NAME}\n" > .env
 
 RUN npx lerna run build --scope api
 
