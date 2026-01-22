@@ -35,8 +35,8 @@ import SDKInterface from "./sdkInterface.js";
 // workaround for CJS package
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const SturdyWebSocket = require("sturdy-websocket");
-
+const mod = require("sturdy-websocket");
+const SturdyWebSocket = mod.default ?? mod.SturdyWebSocket ?? mod;
 /**
  * Class that listens to blockchain events on
  * - limitorder books
@@ -191,11 +191,14 @@ export default class EventListener extends IndexPriceInterface {
 			this.logger.info("old rpc provider destroyed");
 		}
 
-		this.wsConn = new SturdyWebSocket(this.wsRPC, {
-			wsConstructor: WebSocket,
-			connectTimeout: 10000,
-			maxReconnectAttempts: 3,
-		});
+		this.wsConn = new WebSocketProvider(
+			() =>
+				new SturdyWebSocket(this.wsRPC, {
+					wsConstructor: WebSocket,
+					connectTimeout: 10000,
+					maxReconnectAttempts: 3,
+				}),
+		);
 
 		// Attempt to establish a ws connection to new RPC
 		this.logger.info("creating new websocket rpc provider");
