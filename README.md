@@ -44,6 +44,8 @@ The Frontend package is tightly linked to these services, and the way it connect
 # DEV
 
 ```
+export NODE_AUTH_TOKEN=ghp...
+yarn
 npx lerna exec npm run build
 ```
 
