@@ -34,6 +34,7 @@ import WebSocket from "ws";
 import { SetOracles } from "../db/set_oracles.js";
 import { sleepForSec } from "@d8-x/d8x-node-sdk";
 import { SettleHistory } from "../db/settle_history.js";
+import { TokenFlow } from "../db/token_flow.js";
 // workaround for CJS package
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
@@ -126,6 +127,7 @@ export const main = async () => {
 	const dbMarginTokenInfo = new MarginTokenInfo(prisma, logger);
 	const dbSetOracles = new SetOracles(chainId, prisma, logger);
 	const dbSettle = new SettleHistory(chainId, prisma, logger);
+	const dbTokenFlow = new TokenFlow(chainId, prisma, logger);
 	// get sharepool token info and margin token info
 	const staticInfo = new StaticInfo();
 	// the following call will throw an error on RPC timeout
@@ -153,6 +155,7 @@ export const main = async () => {
 		dbLPWithdrawals,
 		dbSetOracles,
 		dbSettle,
+		dbTokenFlow,
 	);
 
 	const blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider);

@@ -51,6 +51,25 @@ export interface LiquidateEvent {
 	fPnlCC: bigint; //P&L in collateral cu
 }
 
+// event TokensDeposited(uint24 indexed perpetualId, address indexed trader, int128 amount);
+export interface TokensDepositedEvent {
+	perpetualId: number; //unique perpetual id
+	trader: string;
+	amountCC: bigint; //amount transfered in collateral currency, ABDK
+}
+// event TokensWithdrawn(uint24 indexed perpetualId, address indexed trader, int128 amount);
+export interface TokensWithdrawnEvent {
+	perpetualId: number; //unique perpetual id
+	trader: string;
+	amountCC: bigint; //amount transfered in collateral currency, ABDK
+}
+
+export interface TokenFlowEvent {
+	perpetualId: number; //unique perpetual id
+	trader: string;
+	amountCC: bigint; //signed amount transfered (withdraw<0) in collateral currency, ABDK
+}
+
 export type LiquidationsFilteredCb = EventCallback<LiquidateEvent>;
 
 export interface UpdateMarginAccountEvent {

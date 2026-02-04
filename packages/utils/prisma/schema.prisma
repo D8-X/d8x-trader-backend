@@ -86,6 +86,7 @@ model TokenFlow{
   timestamp DateTime @db.Timestamptz @default(now())
   tx_hash String @db.Text 
   amount_cc Decimal? @db.Decimal(40,0)
+  is_collected_by_event Boolean @default(true)
   @@id([trader_addr, perpetual_id, tx_hash])
   @@index([trader_addr])
   @@index([perpetual_id])
