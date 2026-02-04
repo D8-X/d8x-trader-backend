@@ -19,6 +19,8 @@ import {
 	ListeningMode,
 	SetOraclesEvent,
 	SettleEvent,
+	TokensDepositedEvent,
+	TokensWithdrawnEvent,
 } from "../contracts/types.js";
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { TradingHistory } from "../db/trading_history.js";
@@ -411,6 +413,36 @@ export async function runHistoricalDataFilterers(
 					txHash,
 					IS_COLLECTED_BY_EVENT,
 					blockTimeStamp,
+					Number(blockNum.toString()),
+				);
+			},
+
+			TokensDeposited: async (
+				eventData: TokensDepositedEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number,
+			) => {
+				await eventListener.onTokensDepositedEvent(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp,
+					Number(blockNum.toString()),
+				);
+			},
+
+			TokensWithdrawn: async (
+				eventData: TokensWithdrawnEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number,
+			) => {
+				await eventListener.onTokensWithdrawnEvent(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp,
 					Number(blockNum.toString()),
 				);
 			},
