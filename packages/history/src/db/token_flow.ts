@@ -22,7 +22,7 @@ export class TokenFlow {
 	) {
 		const ev: TokenFlowEvent = {
 			perpetualId: e.perpetualId,
-			amountCC: e.amountCC,
+			amountCC: -e.amountCC,
 			trader: e.trader,
 		};
 		await this.insertTokenFlowRecord(
