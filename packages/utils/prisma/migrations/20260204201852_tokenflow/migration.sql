@@ -9,7 +9,7 @@ CREATE TABLE "token_flow" (
     "timestamp" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "tx_hash" TEXT NOT NULL,
     "amount_cc" DECIMAL(40,0),
-
+    "is_collected_by_event" BOOLEAN NOT NULL DEFAULT true,
     CONSTRAINT "token_flow_pkey" PRIMARY KEY ("trader_addr","perpetual_id","tx_hash")
 );
 
