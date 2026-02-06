@@ -46,7 +46,10 @@ model Trade{
  
   // new signed position in base currency ABDK
   new_pos_bc Decimal? @db.Decimal(40,0)
-   
+
+  // leverage in TDR format, null for liquidations
+  leverage Int?
+
   // the order digest is unique and is the key:
   // posting two identical orders (same order_digest_hash) is not
   // possible on chain
