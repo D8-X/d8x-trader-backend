@@ -18,6 +18,7 @@ export class SettleHistory {
 	) {
 		const tx_hash = txHash.toLowerCase();
 		const trader = e.trader.toLowerCase();
+		const netAmt = e.amount - e.marginCash;
 		await this.prisma.settle.upsert({
 			where: {
 				trader_addr_perpetual_id_tx_hash: {
@@ -33,7 +34,7 @@ export class SettleHistory {
 				trader_addr: trader,
 				perpetual_id: Number(e.perpetualId),
 				chain_id: parseInt(this.chainId.toString()),
-				quantity_cc: e.amount.toString(),
+				quantity_cc: netAmt.toString(),
 				tx_hash,
 				timestamp: new Date(tradeBlockTimestamp * 1000),
 				is_collected_by_event: isCollectedByEvent,
