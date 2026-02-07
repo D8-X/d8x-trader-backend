@@ -168,6 +168,31 @@ export class EventListener {
 		);
 
 		proxy.on(
+			"SettleV2",
+			(
+				perpetualId: number,
+				trader: string,
+				amount: bigint,
+				cash: bigint,
+				event: ethers.ContractEventPayload,
+			) => {
+				const topic = event.log.topics[0];
+				this.l.info("got settle event V2", { perpetualId, trader, topic });
+				this.onSettleEvent(
+					{
+						perpetualId: perpetualId,
+						trader: trader,
+						amount: amount,
+						cash: cash,
+					},
+					event.log.transactionHash,
+					IS_COLLECTED_BY_EVENT,
+					Math.round(new Date().getTime() / 1000),
+					event.log.blockNumber,
+				);
+			},
+		);
+		proxy.on(
 			"Settle",
 			(
 				perpetualId: number,
@@ -176,12 +201,13 @@ export class EventListener {
 				event: ethers.ContractEventPayload,
 			) => {
 				const topic = event.log.topics[0];
-				this.l.info("got settle event", { perpetualId, trader, topic });
+				this.l.info("got settle event V1", { perpetualId, trader, topic });
 				this.onSettleEvent(
 					{
 						perpetualId: perpetualId,
 						trader: trader,
 						amount: amount,
+						cash: 0n,
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
