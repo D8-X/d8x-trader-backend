@@ -415,6 +415,21 @@ export async function runHistoricalDataFilterers(
 				);
 			},
 
+			SettleV2: async (
+				eventData: SettleEvent,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimeStamp: number,
+			) => {
+				await eventListener.onSettleEvent(
+					eventData,
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimeStamp,
+					Number(blockNum.toString()),
+				);
+			},
+
 			TokensDeposited: async (
 				eventData: Record<string, any>,
 				txHash: string,
