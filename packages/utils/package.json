@@ -26,7 +26,7 @@
 	},
 	"homepage": "https://github.com/D8-X/d8x-trader-backend#readme",
 	"dependencies": {
-		"@d8-x/d8x-node-sdk": "^0.1.39",
+		"@d8-x/d8x-node-sdk": "^0.1.41",
 		"@prisma/client": "^5.17.0",
 		"prisma": "^5.17.0",
 		"@redis/time-series": "^1.0.5",
