@@ -31,7 +31,7 @@ export interface Order {
 	fAmount: bigint;
 	fLimitPrice: bigint;
 	fTriggerPrice: bigint;
-	fLeverage: bigint;
+	leverageTDR: bigint;
 	iDeadline: bigint;
 	createdTimestamp: bigint;
 	submittedTimestamp: bigint;
