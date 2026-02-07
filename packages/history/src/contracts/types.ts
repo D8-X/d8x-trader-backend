@@ -100,7 +100,6 @@ export interface SettleEvent {
 	perpetualId: number;
 	trader: string;
 	amount: bigint;
-	marginCash: bigint;
 }
 
 export type LiquidityRemovedFilteredCb = EventCallback<LiquidityRemovedEvent>;

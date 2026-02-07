@@ -173,7 +173,6 @@ export class EventListener {
 				perpetualId: number,
 				trader: string,
 				amount: bigint,
-				marginCash: bigint,
 				event: ethers.ContractEventPayload,
 			) => {
 				const topic = event.log.topics[0];
@@ -183,7 +182,6 @@ export class EventListener {
 						perpetualId: perpetualId,
 						trader: trader,
 						amount: amount,
-						marginCash: marginCash,
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
