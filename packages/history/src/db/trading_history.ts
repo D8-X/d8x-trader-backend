@@ -79,6 +79,7 @@ export class TradingHistory {
 						trader_addr: trader,
 						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
 						is_collected_by_event: isCollectedByEvent,
+						leverage: Number(e.order.leverageTDR),
 					};
 				} else {
 					e = e as LiquidateEvent;
@@ -101,6 +102,7 @@ export class TradingHistory {
 						tx_hash,
 						trader_addr: trader,
 						is_collected_by_event: isCollectedByEvent,
+						leverage: null,
 					};
 				}
 				this.l.info(`inserting new ${isLiquidation ? "liquidation" : "trade"}`, {
