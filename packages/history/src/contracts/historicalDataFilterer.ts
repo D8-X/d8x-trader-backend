@@ -12,6 +12,7 @@ import {
 	EventCallback,
 	SetOraclesEvent,
 	SettleEvent,
+	SettleEventV1,
 	TokensDepositedEvent,
 	TokensWithdrawnEvent,
 } from "./types.js";
@@ -117,6 +118,7 @@ export class HistoricalDataFilterer {
 		const eventNames = [
 			"Trade",
 			"Settle",
+			"SettleV2",
 			"TokensDeposited",
 			"TokensWithdrawn",
 			"Liquidate",
@@ -178,12 +180,21 @@ export class HistoricalDataFilterer {
 					break;
 				case "Settle":
 					callbacks["Settle"](
+						decodedEvent as SettleEventV1,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp,
+					);
+					break;
+				case "SettleV2":
+					callbacks["SettleV2"](
 						decodedEvent as SettleEvent,
 						e.transactionHash,
 						e.blockNumber,
 						blockTimestamp,
 					);
 					break;
+
 				case "TokensWithdrawn":
 					callbacks["TokensWithdrawn"](
 						decodedEvent as TokensWithdrawnEvent,

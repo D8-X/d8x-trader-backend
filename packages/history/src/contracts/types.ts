@@ -96,6 +96,11 @@ export interface LiquidityRemovedEvent {
 	shareAmount: bigint;
 }
 
+export interface SettleEventV1 {
+	perpetualId: number;
+	trader: string;
+	amount: bigint;
+}
 export interface SettleEvent {
 	perpetualId: number;
 	trader: string;
