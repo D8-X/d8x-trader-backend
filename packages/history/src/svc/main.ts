@@ -19,6 +19,7 @@ import {
 	ListeningMode,
 	SetOraclesEvent,
 	SettleEvent,
+	SettleEventV1,
 } from "../contracts/types.js";
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { TradingHistory } from "../db/trading_history.js";
@@ -401,13 +402,13 @@ export async function runHistoricalDataFilterers(
 			},
 
 			Settle: async (
-				eventData: SettleEvent,
+				eventData: SettleEventV1,
 				txHash: string,
 				blockNum: BigNumberish,
 				blockTimeStamp: number,
 			) => {
 				await eventListener.onSettleEvent(
-					eventData,
+					{ ...eventData, cash: 0n },
 					txHash,
 					IS_COLLECTED_BY_EVENT,
 					blockTimeStamp,
