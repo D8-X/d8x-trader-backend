@@ -408,7 +408,12 @@ export async function runHistoricalDataFilterers(
 				blockTimeStamp: number,
 			) => {
 				await eventListener.onSettleEvent(
-					{ ...eventData, cash: 0n },
+					{
+						perpetualId: eventData.perpetualId,
+						trader: eventData.trader,
+						amount: eventData.amount,
+						cash: 0n,
+					},
 					txHash,
 					IS_COLLECTED_BY_EVENT,
 					blockTimeStamp,
