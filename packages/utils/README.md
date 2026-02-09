@@ -15,9 +15,12 @@ const utils = require('utils');
 ### Change DB schema
 
 ##apply migration
+After changing `schema.prisma` run this from `packages/utils`: `npx prisma generate`
 ```
 source .env
+// take a dummy db
 export DATABASE_DSN_HISTORY=$DATABASE_DSN
+npx prisma migrate dev --name describe_your_change
 npx prisma migrate deploy --schema="./packages/utils/prisma/schema.prisma"
 ```
 

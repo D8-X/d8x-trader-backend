@@ -30,12 +30,14 @@ export class SettleHistory {
 			},
 			update: {
 				is_collected_by_event: isCollectedByEvent,
+				cash_cc: e.cash.toString(),
 				quantity_cc: q.toString(),
 			},
 			create: {
 				trader_addr: trader,
 				perpetual_id: Number(e.perpetualId),
 				chain_id: parseInt(this.chainId.toString()),
+				cash_cc: e.cash.toString(),
 				quantity_cc: q.toString(),
 				tx_hash,
 				timestamp: new Date(tradeBlockTimestamp * 1000),

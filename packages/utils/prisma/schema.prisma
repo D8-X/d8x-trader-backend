@@ -72,6 +72,7 @@ model Settle{
   chain_id Int
   // quantity_cc (collateral currency) is stored in ABDK format
   quantity_cc Decimal? @db.Decimal(40,0)
+  cash_cc Decimal? @db.Decimal(40,0)
   tx_hash String @db.Text 
   timestamp DateTime @db.Timestamptz @default(now())
   is_collected_by_event Boolean @default(true)
