@@ -1,5 +1,5 @@
 import { toJson } from "utils";
-import BrokerIntegration from "./brokerIntegration";
+import BrokerIntegration from "./brokerIntegration.js";
 import axios from "axios";
 import {
 	BrokerTool,
@@ -7,7 +7,7 @@ import {
 	Order,
 	SmartContractOrder,
 	ZERO_ADDRESS,
-} from "@d8x/perpetuals-sdk";
+} from "@d8-x/d8x-node-sdk";
 
 /**
  * This is a remote broker that relays signature requests to a REST API.

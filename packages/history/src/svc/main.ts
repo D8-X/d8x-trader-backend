@@ -1,8 +1,8 @@
 import * as winston from "winston";
-import { EventListener } from "../contracts/listeners";
+import { EventListener } from "../contracts/listeners.js";
 import * as dotenv from "dotenv";
 import { chooseRandomRPC, executeWithTimeout, loadConfigRPC, sleep } from "utils";
-import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer";
+import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer.js";
 import {
 	BigNumberish,
 	JsonRpcProvider,
@@ -19,22 +19,28 @@ import {
 	ListeningMode,
 	SetOraclesEvent,
 	SettleEvent,
-} from "../contracts/types";
+	SettleEventV1,
+} from "../contracts/types.js";
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
-import { TradingHistory } from "../db/trading_history";
-import { FundingRatePayments } from "../db/funding_rate";
-import { HistoryRestAPI } from "../api/server";
-import { getPerpetualManagerProxyAddress, getDefaultRPC } from "../utils/abi";
-import { EstimatedEarnings } from "../db/estimated_earnings";
-import { PriceInfo } from "../db/price_info";
-import StaticInfo from "../contracts/static_info";
-import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
-import { MarginTokenInfo } from "../db/margin_token_info";
-import SturdyWebSocket from "sturdy-websocket";
+import { TradingHistory } from "../db/trading_history.js";
+import { FundingRatePayments } from "../db/funding_rate.js";
+import { HistoryRestAPI } from "../api/server.js";
+import { getPerpetualManagerProxyAddress, getDefaultRPC } from "../utils/abi.js";
+import { EstimatedEarnings } from "../db/estimated_earnings.js";
+import { PriceInfo } from "../db/price_info.js";
+import StaticInfo from "../contracts/static_info.js";
+import { LiquidityWithdrawals } from "../db/liquidity_withdrawals.js";
+import { MarginTokenInfo } from "../db/margin_token_info.js";
 import WebSocket from "ws";
-import { SetOracles } from "../db/set_oracles";
-import { sleepForSec } from "@d8x/perpetuals-sdk";
-import { SettleHistory } from "../db/settle_history";
+import { SetOracles } from "../db/set_oracles.js";
+import { sleepForSec } from "@d8-x/d8x-node-sdk";
+import { SettleHistory } from "../db/settle_history.js";
+import { TokenFlow } from "../db/token_flow.js";
+// workaround for CJS package
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const mod = require("sturdy-websocket");
+const SturdyWebSocket = mod.default ?? mod.SturdyWebSocket ?? mod;
 
 const defaultLogger = () => {
 	return winston.createLogger({
@@ -122,6 +128,7 @@ export const main = async () => {
 	const dbMarginTokenInfo = new MarginTokenInfo(prisma, logger);
 	const dbSetOracles = new SetOracles(chainId, prisma, logger);
 	const dbSettle = new SettleHistory(chainId, prisma, logger);
+	const dbTokenFlow = new TokenFlow(chainId, prisma, logger);
 	// get sharepool token info and margin token info
 	const staticInfo = new StaticInfo();
 	// the following call will throw an error on RPC timeout
@@ -149,6 +156,7 @@ export const main = async () => {
 		dbLPWithdrawals,
 		dbSetOracles,
 		dbSettle,
+		dbTokenFlow,
 	);
 
 	const blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider);
@@ -394,6 +402,26 @@ export async function runHistoricalDataFilterers(
 			},
 
 			Settle: async (
+				eventData: SettleEventV1,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimeStamp: number,
+			) => {
+				await eventListener.onSettleEvent(
+					{
+						perpetualId: eventData.perpetualId,
+						trader: eventData.trader,
+						amount: eventData.amount,
+						cash: 0n,
+					},
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimeStamp,
+					Number(blockNum.toString()),
+				);
+			},
+
+			SettleV2: async (
 				eventData: SettleEvent,
 				txHash: string,
 				blockNum: BigNumberish,
@@ -404,6 +432,44 @@ export async function runHistoricalDataFilterers(
 					txHash,
 					IS_COLLECTED_BY_EVENT,
 					blockTimeStamp,
+					Number(blockNum.toString()),
+				);
+			},
+
+			TokensDeposited: async (
+				eventData: Record<string, any>,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number,
+			) => {
+				await eventListener.onTokensDepositedEvent(
+					{
+						perpetualId: eventData.perpetualId,
+						trader: eventData.trader,
+						amountCC: eventData.amount,
+					},
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp,
+					Number(blockNum.toString()),
+				);
+			},
+
+			TokensWithdrawn: async (
+				eventData: Record<string, any>,
+				txHash: string,
+				blockNum: BigNumberish,
+				blockTimestamp: number,
+			) => {
+				await eventListener.onTokensWithdrawnEvent(
+					{
+						perpetualId: eventData.perpetualId,
+						trader: eventData.trader,
+						amountCC: eventData.amount,
+					},
+					txHash,
+					IS_COLLECTED_BY_EVENT,
+					blockTimestamp,
 					Number(blockNum.toString()),
 				);
 			},

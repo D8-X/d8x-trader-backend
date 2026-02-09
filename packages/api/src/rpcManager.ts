@@ -1,5 +1,5 @@
 import { executeWithTimeout } from "utils";
-import { TrackedJsonRpcProvider } from "./providers";
+import { TrackedJsonRpcProvider } from "./providers.js";
 
 export default class RPCManager {
 	private healthy: Map<string, boolean> = new Map();

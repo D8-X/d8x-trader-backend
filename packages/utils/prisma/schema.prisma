@@ -46,7 +46,10 @@ model Trade{
  
   // new signed position in base currency ABDK
   new_pos_bc Decimal? @db.Decimal(40,0)
-   
+
+  // leverage in TDR format, null for liquidations
+  leverage Int?
+
   // the order digest is unique and is the key:
   // posting two identical orders (same order_digest_hash) is not
   // possible on chain
@@ -71,6 +74,21 @@ model Settle{
   quantity_cc Decimal? @db.Decimal(40,0)
   tx_hash String @db.Text 
   timestamp DateTime @db.Timestamptz @default(now())
+  is_collected_by_event Boolean @default(true)
+  @@id([trader_addr, perpetual_id, tx_hash])
+  @@index([trader_addr])
+  @@index([perpetual_id])
+  @@index([timestamp])
+}
+
+model TokenFlow{
+  @@map("token_flow")
+  perpetual_id Int 
+  chain_id Int
+  trader_addr String @db.VarChar(42)
+  timestamp DateTime @db.Timestamptz @default(now())
+  tx_hash String @db.Text 
+  amount_cc Decimal? @db.Decimal(40,0)
   is_collected_by_event Boolean @default(true)
   @@id([trader_addr, perpetual_id, tx_hash])
   @@index([trader_addr])

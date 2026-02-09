@@ -31,7 +31,7 @@ export interface Order {
 	fAmount: bigint;
 	fLimitPrice: bigint;
 	fTriggerPrice: bigint;
-	fLeverage: bigint;
+	leverageTDR: bigint;
 	iDeadline: bigint;
 	createdTimestamp: bigint;
 	submittedTimestamp: bigint;
@@ -49,6 +49,25 @@ export interface LiquidateEvent {
 	newPositionSizeBC: bigint; //size after liq in base currency, ABDK
 	fFeeCC: bigint; //fee in collateral currency, ABDK format
 	fPnlCC: bigint; //P&L in collateral cu
+}
+
+// event TokensDeposited(uint24 indexed perpetualId, address indexed trader, int128 amount);
+export interface TokensDepositedEvent {
+	perpetualId: number; //unique perpetual id
+	trader: string;
+	amountCC: bigint; //amount transfered in collateral currency, ABDK
+}
+// event TokensWithdrawn(uint24 indexed perpetualId, address indexed trader, int128 amount);
+export interface TokensWithdrawnEvent {
+	perpetualId: number; //unique perpetual id
+	trader: string;
+	amountCC: bigint; //amount transfered in collateral currency, ABDK
+}
+
+export interface TokenFlowEvent {
+	perpetualId: number; //unique perpetual id
+	trader: string;
+	amountCC: bigint; //signed amount transfered (withdraw<0) in collateral currency, ABDK
 }
 
 export type LiquidationsFilteredCb = EventCallback<LiquidateEvent>;
@@ -77,10 +96,16 @@ export interface LiquidityRemovedEvent {
 	shareAmount: bigint;
 }
 
+export interface SettleEventV1 {
+	perpetualId: number;
+	trader: string;
+	amount: bigint;
+}
 export interface SettleEvent {
 	perpetualId: number;
 	trader: string;
 	amount: bigint;
+	cash: bigint;
 }
 
 export type LiquidityRemovedFilteredCb = EventCallback<LiquidityRemovedEvent>;

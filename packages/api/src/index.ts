@@ -1,21 +1,21 @@
-import { NodeSDKConfig, PerpetualDataHandler } from "@d8x/perpetuals-sdk";
+import { NodeSDKConfig, PerpetualDataHandler } from "@d8-x/d8x-node-sdk";
 import dotenv from "dotenv";
 import fs from "fs";
 import { executeWithTimeout, loadConfigRPC, sleep } from "utils";
-import { RPCConfig } from "utils/dist/wsTypes";
+import { RPCConfig } from "utils/dist/wsTypes.js";
 import * as winston from "winston";
-import D8XBrokerBackendApp from "./D8XBrokerBackendApp";
-import BrokerIntegration from "./brokerIntegration";
-import BrokerNone from "./brokerNone";
-import BrokerRemote from "./brokerRemote";
+import D8XBrokerBackendApp from "./D8XBrokerBackendApp.js";
+import BrokerIntegration from "./brokerIntegration.js";
+import BrokerNone from "./brokerNone.js";
+import BrokerRemote from "./brokerRemote.js";
 import {
 	JsonRpcEthCalls,
 	NumJsonRpcProviders,
 	NumWssProviders,
 	ProvidersEthCallsStartTime,
 	WssEthCalls,
-} from "./providers";
-import RPCManager from "./rpcManager";
+} from "./providers.js";
+import RPCManager from "./rpcManager.js";
 
 const defaultLogger = () => {
 	return winston.createLogger({

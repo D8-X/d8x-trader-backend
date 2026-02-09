@@ -1,7 +1,7 @@
 import type { RedisClientType } from "redis";
 import { createClient } from "redis";
 import { Prisma } from "@prisma/client";
-import { WebsocketClientConfig, RPCConfig } from "./wsTypes";
+import { WebsocketClientConfig, RPCConfig } from "./wsTypes.js";
 import dotenv from "dotenv";
 import parser from "cron-parser";
 import fs from "fs";

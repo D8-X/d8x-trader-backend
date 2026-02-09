@@ -7,16 +7,16 @@ import {
 	PerpetualState,
 	PoolState,
 	TraderInterface,
-} from "@d8x/perpetuals-sdk";
+} from "@d8-x/d8x-node-sdk";
 import dotenv from "dotenv";
 import { Numeric } from "ethers";
 import type { RedisClientType } from "redis";
 import { constructRedis, extractErrorMsg } from "utils";
-import BrokerIntegration from "./brokerIntegration";
-import Observable from "./observable";
-import { TrackedJsonRpcProvider } from "./providers";
-import RedisOI from "./redisOI";
-import RPCManager from "./rpcManager";
+import BrokerIntegration from "./brokerIntegration.js";
+import Observable from "./observable.js";
+import { TrackedJsonRpcProvider } from "./providers.js";
+import RedisOI from "./redisOI.js";
+import RPCManager from "./rpcManager.js";
 
 export type OrderWithTraderAndId = Order & { orderId: string; trader: string };
 

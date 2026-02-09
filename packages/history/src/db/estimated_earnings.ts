@@ -9,9 +9,9 @@ import {
 	LiquidityAddedEvent,
 	LiquidityRemovedEvent,
 	P2PTransferEvent,
-} from "../contracts/types";
+} from "../contracts/types.js";
 import { dec18ToFloat, floatToDecN, decNToFloat } from "utils";
-import StaticInfo from "../contracts/static_info";
+import StaticInfo from "../contracts/static_info.js";
 
 export class EstimatedEarnings {
 	constructor(

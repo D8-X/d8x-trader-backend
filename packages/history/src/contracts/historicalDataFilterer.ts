@@ -12,7 +12,10 @@ import {
 	EventCallback,
 	SetOraclesEvent,
 	SettleEvent,
-} from "./types";
+	SettleEventV1,
+	TokensDepositedEvent,
+	TokensWithdrawnEvent,
+} from "./types.js";
 import {
 	Contract,
 	Provider,
@@ -22,7 +25,7 @@ import {
 	ContractEventName,
 	EventFragment,
 } from "ethers";
-import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
+import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi.js";
 
 global.Error.stackTraceLimit = Infinity;
 
@@ -115,6 +118,9 @@ export class HistoricalDataFilterer {
 		const eventNames = [
 			"Trade",
 			"Settle",
+			"SettleV2",
+			"TokensDeposited",
+			"TokensWithdrawn",
 			"Liquidate",
 			"UpdateMarginAccount",
 			"LiquidityAdded",
@@ -174,7 +180,32 @@ export class HistoricalDataFilterer {
 					break;
 				case "Settle":
 					callbacks["Settle"](
+						decodedEvent as SettleEventV1,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp,
+					);
+					break;
+				case "SettleV2":
+					callbacks["SettleV2"](
 						decodedEvent as SettleEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp,
+					);
+					break;
+
+				case "TokensWithdrawn":
+					callbacks["TokensWithdrawn"](
+						decodedEvent as TokensWithdrawnEvent,
+						e.transactionHash,
+						e.blockNumber,
+						blockTimestamp,
+					);
+					break;
+				case "TokensDeposited":
+					callbacks["TokensDeposited"](
+						decodedEvent as TokensDepositedEvent,
 						e.transactionHash,
 						e.blockNumber,
 						blockTimestamp,

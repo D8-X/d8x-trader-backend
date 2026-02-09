@@ -1,5 +1,5 @@
-import { SmartContractOrder, Order } from "@d8x/perpetuals-sdk";
-import { NodeSDKConfig } from "@d8x/perpetuals-sdk";
+import { SmartContractOrder, Order } from "@d8-x/d8x-node-sdk";
+import { NodeSDKConfig } from "@d8-x/d8x-node-sdk";
 /**
  * Broker inherit from this class, perform
  * fee, address, and key management

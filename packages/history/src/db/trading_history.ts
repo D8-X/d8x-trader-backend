@@ -1,8 +1,8 @@
 import { PrismaClient, Trade, trade_side, Prisma } from "@prisma/client";
 import { BigNumberish } from "ethers";
-import { TradeEvent } from "../contracts/types";
+import { TradeEvent } from "../contracts/types.js";
 import { Logger } from "winston";
-import { LiquidateEvent } from "../contracts/types";
+import { LiquidateEvent } from "../contracts/types.js";
 import { ONE_64x64 } from "utils";
 import { createHash } from "crypto";
 
@@ -79,6 +79,7 @@ export class TradingHistory {
 						trader_addr: trader,
 						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
 						is_collected_by_event: isCollectedByEvent,
+						leverage: Number(e.order.leverageTDR),
 					};
 				} else {
 					e = e as LiquidateEvent;
@@ -101,6 +102,7 @@ export class TradingHistory {
 						tx_hash,
 						trader_addr: trader,
 						is_collected_by_event: isCollectedByEvent,
+						leverage: null,
 					};
 				}
 				this.l.info(`inserting new ${isLiquidation ? "liquidation" : "trade"}`, {

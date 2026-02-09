@@ -8,11 +8,11 @@ import {
 } from "@prisma/client";
 import express, { Express, Request, Response, response } from "express";
 import { Logger, error } from "winston";
-import { TradingHistory } from "../db/trading_history";
-import { FundingRatePayments } from "../db/funding_rate";
-import { MarginTokenData } from "../db/margin_token_info";
-import StaticInfo from "../contracts/static_info";
-import { correctQueryArgs, errorResp } from "../utils/response";
+import { TradingHistory } from "../db/trading_history.js";
+import { FundingRatePayments } from "../db/funding_rate.js";
+import { MarginTokenData } from "../db/margin_token_info.js";
+import StaticInfo from "../contracts/static_info.js";
+import { correctQueryArgs, errorResp } from "../utils/response.js";
 import {
 	toJson,
 	dec18ToFloat,
@@ -23,11 +23,11 @@ import {
 } from "utils";
 
 import { getAddress } from "ethers";
-import { MarketData } from "@d8x/perpetuals-sdk";
-import { getSDKConfigFromEnv } from "../utils/abi";
+import { MarketData } from "@d8-x/d8x-node-sdk";
+import { getSDKConfigFromEnv } from "../utils/abi.js";
 import dotenv from "dotenv";
 import cors from "cors";
-import { PriceInfo } from "../db/price_info";
+import { PriceInfo } from "../db/price_info.js";
 import { tokenToString } from "typescript";
 export const DECIMAL40_FORMAT_STRING = "FM9999999999999999999999999999999999999";
 

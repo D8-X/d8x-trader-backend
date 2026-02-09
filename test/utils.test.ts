@@ -9,9 +9,10 @@ import {
 	chooseRandomRPC,
 	calculateBlockFromTimeOld2,
 } from "../packages/utils/src/utils";
+import rpcConfig from "../config/example.rpc.json" assert { type: "json" };
 
 async function testCalculateBlockFromTime() {
-	const rpcConfig = require("../config/example.rpc.json");
+	//const rpcConfig = require("../config/example.rpc.json");
 	const rpcURL = chooseRandomRPC(false, rpcConfig);
 	const provider = new JsonRpcProvider(rpcURL);
 	let R = (Math.random() - 0.5) / 0.5;

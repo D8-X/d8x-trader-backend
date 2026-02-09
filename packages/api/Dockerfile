@@ -1,36 +1,47 @@
+FROM node:20-alpine
 
-FROM node:18-alpine
 ARG PORT
+ARG MAIN_API_PORT_HTTP
 ARG MAIN_API_PORT_WEBSOCKET
 ARG CHAIN_ID
 ARG REDIS_URL
+ARG SDK_CONFIG_NAME
 
 WORKDIR /app
 
-# COPY package*.json ./
-# COPY yarn.lock ./
-
-#COPY . . 
-COPY ./packages/utils ./packages/utils
-COPY ./packages/api ./packages/api
-COPY ./package.json .
+# Copy package files first
+COPY package.json yarn.lock ./
 COPY ./nx.json .
 COPY ./lerna.json .
 COPY ./config/. ./config/.
 
-RUN yarn install 
+# Copy package-specific package.json files to establish workspace structure
+COPY ./packages/utils/package.json ./packages/utils/
+COPY ./packages/api/package.json ./packages/api/
+# Install dependencies with authentication
+RUN --mount=type=secret,id=npm_token \
+    echo "@D8-X:registry=https://npm.pkg.github.com" > .npmrc && \
+    echo "@d8-x:registry=https://npm.pkg.github.com" >> .npmrc && \
+    echo "//npm.pkg.github.com/:_authToken=$(cat /run/secrets/npm_token)" >> .npmrc && \
+    cat .npmrc && \
+    yarn install --frozen-lockfile --verbose && \
+    rm -f .npmrc
 
-# COPY . .
-
-#Appended arguments need the below structure of the command to be work
-RUN echo -e "MAIN_API_PORT_WEBSOCKET=${MAIN_API_PORT_WEBSOCKET}\n""PORT=${PORT}\n""REDIS_URL=${REDIS_URL}\n""CHAIN_ID=${CHAIN_ID}\n""SDK_CONFIG_NAME=${SDK_CONFIG_NAME}\n" > .env
+# Now copy the actual source code
+COPY ./packages/utils ./packages/utils
+COPY ./packages/api ./packages/api
 
 # Build the api project
 RUN npx lerna run build --scope api
 
-#EXPOSED PORTS
+# Create .env file
+RUN echo -e "MAIN_API_PORT_WEBSOCKET=${MAIN_API_PORT_WEBSOCKET}\nPORT=${PORT}\nREDIS_URL=${REDIS_URL}\nCHAIN_ID=${CHAIN_ID}\nSDK_CONFIG_NAME=${SDK_CONFIG_NAME}\n" > .env
+
 EXPOSE ${MAIN_API_PORT_HTTP}
 EXPOSE ${MAIN_API_PORT_WEBSOCKET}
 
-CMD ["node", "packages/api/dist/index.js"]
+# Use NODE_PATH to help Node find modules in /app/node_modules
+ENV NODE_PATH=/app/node_modules
 
+CMD ["node", "packages/api/dist/index.js"]
+#CMD ["sh", "-c", "echo '=== Checking for SDK ===' && find /app -name 'd8x-node-sdk' -o -name '@d8-x' && echo '=== Root node_modules ===' && ls -la /app/node_modules/ 2>/dev/null | head -20 && echo '=== API node_modules ===' && ls -la /app/packages/api/node_modules/ 2>/dev/null | head -20 && echo '=== Sleeping for inspection ===' && sleep 3600"]

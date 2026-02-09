@@ -6,6 +6,7 @@
 		"dist",
 		"src"
 	],
+	"type": "module",
 	"license": "MIT",
 	"scripts": {
 		"build": "npx prisma generate --schema ../utils/prisma/schema.prisma && rimraf ./dist && tsc",
@@ -18,7 +19,7 @@
 		"postinstall": "patch-package"
 	},
 	"dependencies": {
-		"@d8x/perpetuals-sdk": "^2.7.5",
+		"@d8-x/d8x-node-sdk": "^0.1.41",
 		"@prisma/client": "^5.17.0",
 		"prisma": "^5.17.0",
 		"@types/ws": "^8.5.5",

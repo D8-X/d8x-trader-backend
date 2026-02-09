@@ -1,4 +1,4 @@
-import { MarginAccount, NodeSDKConfig, Order, PerpetualState } from "@d8x/perpetuals-sdk";
+import { MarginAccount, NodeSDKConfig, Order, PerpetualState } from "@d8-x/d8x-node-sdk";
 import cors from "cors";
 import dotenv from "dotenv";
 import express, { Request, Response } from "express";
@@ -6,10 +6,10 @@ import { IncomingMessage } from "http";
 import { extractErrorMsg, isValidAddress, isValidPerpSymbol } from "utils";
 import { Logger } from "winston";
 import WebSocket, { WebSocketServer } from "ws";
-import BrokerIntegration from "./brokerIntegration";
-import EventListener from "./eventListener";
-import RPCManager from "./rpcManager";
-import SDKInterface from "./sdkInterface";
+import BrokerIntegration from "./brokerIntegration.js";
+import EventListener from "./eventListener.js";
+import RPCManager from "./rpcManager.js";
+import SDKInterface from "./sdkInterface.js";
 dotenv.config();
 //https://roger13.github.io/SwagDefGen/
 //setAllowance?

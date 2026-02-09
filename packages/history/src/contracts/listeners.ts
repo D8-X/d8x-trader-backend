@@ -12,18 +12,21 @@ import {
 	ListeningMode,
 	SetOraclesEvent,
 	SettleEvent,
-} from "./types";
-import { TradingHistory } from "../db/trading_history";
-import { SetOracles } from "../db/set_oracles";
-import { FundingRatePayments } from "../db/funding_rate";
-import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi";
-import { EstimatedEarnings } from "../db/estimated_earnings";
-import { PriceInfo } from "../db/price_info";
+	TokensDepositedEvent,
+	TokensWithdrawnEvent,
+} from "./types.js";
+import { TradingHistory } from "../db/trading_history.js";
+import { SetOracles } from "../db/set_oracles.js";
+import { FundingRatePayments } from "../db/funding_rate.js";
+import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi.js";
+import { EstimatedEarnings } from "../db/estimated_earnings.js";
+import { PriceInfo } from "../db/price_info.js";
 import { dec18ToFloat, decNToFloat } from "utils";
-import StaticInfo from "./static_info";
-import { LiquidityWithdrawals } from "../db/liquidity_withdrawals";
-import { IPerpetualManager } from "@d8x/perpetuals-sdk";
-import { SettleHistory } from "../db/settle_history";
+import StaticInfo from "./static_info.js";
+import { LiquidityWithdrawals } from "../db/liquidity_withdrawals.js";
+import { IPerpetualManager } from "@d8-x/d8x-node-sdk";
+import { SettleHistory } from "../db/settle_history.js";
+import { TokenFlow } from "../db/token_flow.js";
 export interface EventListenerOptions {
 	logger: Logger;
 	// smart contract addresses which will be used to listen to incoming events
@@ -53,6 +56,7 @@ export class EventListener {
 		private dbLPWithdrawals: LiquidityWithdrawals,
 		private dbSetOracles: SetOracles,
 		private dbSettle: SettleHistory,
+		private dbTokenFlow: TokenFlow,
 	) {
 		this.l = opts.logger;
 		this.opts = opts;
@@ -116,6 +120,79 @@ export class EventListener {
 		);
 
 		proxy.on(
+			"TokensWithdrawn",
+			(
+				perpetualId: number,
+				trader: string,
+				amount: bigint,
+				event: ethers.ContractEventPayload,
+			) => {
+				const topic = event.log.topics[0];
+				this.l.info("got withdraw event", { perpetualId, trader, topic });
+				this.onTokensWithdrawnEvent(
+					{
+						perpetualId: perpetualId,
+						trader: trader,
+						amountCC: amount,
+					},
+					event.log.transactionHash,
+					IS_COLLECTED_BY_EVENT,
+					Math.round(new Date().getTime() / 1000),
+					event.log.blockNumber,
+				);
+			},
+		);
+
+		proxy.on(
+			"TokensDeposited",
+			(
+				perpetualId: number,
+				trader: string,
+				amount: bigint,
+				event: ethers.ContractEventPayload,
+			) => {
+				const topic = event.log.topics[0];
+				this.l.info("got deposit event", { perpetualId, trader, topic });
+				this.onTokensDepositedEvent(
+					{
+						perpetualId: perpetualId,
+						trader: trader,
+						amountCC: amount,
+					},
+					event.log.transactionHash,
+					IS_COLLECTED_BY_EVENT,
+					Math.round(new Date().getTime() / 1000),
+					event.log.blockNumber,
+				);
+			},
+		);
+
+		proxy.on(
+			"SettleV2",
+			(
+				perpetualId: number,
+				trader: string,
+				amount: bigint,
+				cash: bigint,
+				event: ethers.ContractEventPayload,
+			) => {
+				const topic = event.log.topics[0];
+				this.l.info("got settle event V2", { perpetualId, trader, topic });
+				this.onSettleEvent(
+					{
+						perpetualId: perpetualId,
+						trader: trader,
+						amount: amount,
+						cash: cash,
+					},
+					event.log.transactionHash,
+					IS_COLLECTED_BY_EVENT,
+					Math.round(new Date().getTime() / 1000),
+					event.log.blockNumber,
+				);
+			},
+		);
+		proxy.on(
 			"Settle",
 			(
 				perpetualId: number,
@@ -124,12 +201,13 @@ export class EventListener {
 				event: ethers.ContractEventPayload,
 			) => {
 				const topic = event.log.topics[0];
-				this.l.info("got settle event", { perpetualId, trader, topic });
+				this.l.info("got settle event V1", { perpetualId, trader, topic });
 				this.onSettleEvent(
 					{
 						perpetualId: perpetualId,
 						trader: trader,
 						amount: amount,
+						cash: 0n,
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
@@ -396,6 +474,37 @@ export class EventListener {
 	) {
 		console.log(`onSettleEvent`);
 		this.dbSettle.insertSettleHistoryRecord(
+			eventData,
+			txHash,
+			isCollectedByEvent,
+			timestampSec,
+		);
+	}
+
+	public async onTokensDepositedEvent(
+		eventData: TokensDepositedEvent,
+		txHash: string,
+		isCollectedByEvent: boolean,
+		timestampSec: number,
+		blockNumber: number,
+	) {
+		console.log(`onTokensDepositedEvent`);
+		this.dbTokenFlow.insertTokenDepositRecord(
+			eventData,
+			txHash,
+			isCollectedByEvent,
+			timestampSec,
+		);
+	}
+	public async onTokensWithdrawnEvent(
+		eventData: TokensWithdrawnEvent,
+		txHash: string,
+		isCollectedByEvent: boolean,
+		timestampSec: number,
+		blockNumber: number,
+	) {
+		console.log(`onTokensWithdrawnEvent`);
+		this.dbTokenFlow.insertTokenWithdrawRecord(
 			eventData,
 			txHash,
 			isCollectedByEvent,

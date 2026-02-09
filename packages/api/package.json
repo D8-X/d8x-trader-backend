@@ -6,6 +6,7 @@
 	"homepage": "https://github.com/D8-X/d8x-trader-backend#readme",
 	"license": "ISC",
 	"main": "dist/index.js",
+	"type": "module",
 	"directories": {
 		"lib": "dist",
 		"test": "__tests__"
@@ -25,7 +26,7 @@
 		"url": "https://github.com/D8-X/d8x-trader-backend/issues"
 	},
 	"dependencies": {
-		"@d8x/perpetuals-sdk": "^2.7.5",
+		"@d8-x/d8x-node-sdk": "^0.1.41",
 		"ethers": "^6.13.1",
 		"redis": "^4.6.9",
 		"rimraf": "^4.4.1",

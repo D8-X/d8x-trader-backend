@@ -1,4 +1,4 @@
-import { PerpetualDataHandler, MarketData } from "@d8x/perpetuals-sdk";
+import { PerpetualDataHandler, MarketData } from "@d8-x/d8x-node-sdk";
 
 async function test() {
 	const config = PerpetualDataHandler.readSDKConfig("arbitrumSepolia");

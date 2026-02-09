@@ -1,4 +1,4 @@
-import { MarginAccount } from "@d8x/perpetuals-sdk";
+import { MarginAccount } from "@d8-x/d8x-node-sdk";
 
 /**
  * use this format to subscribe
