@@ -163,6 +163,7 @@ export class TradingHistory {
 			orderBy: {
 				trade_timestamp: "desc",
 			},
+			skip: 10, //avoid gaps when recent events arrived
 		});
 
 		return tradeDate?.trade_timestamp;
@@ -188,6 +189,7 @@ export class TradingHistory {
 			orderBy: {
 				trade_timestamp: "desc",
 			},
+			skip: 10,
 		});
 
 		return tradeDate?.trade_timestamp;
