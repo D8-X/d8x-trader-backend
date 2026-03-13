@@ -10,6 +10,21 @@ export class SettleHistory {
 		public l: Logger,
 	) {}
 
+	public async getLatestTimestamp(): Promise<Date | undefined> {
+		const res = await this.prisma.settle.findFirst({
+			select: {
+				timestamp: true,
+			},
+			orderBy: {
+				timestamp: "desc",
+			},
+			where: {
+				is_collected_by_event: false,
+			},
+		});
+		return res?.timestamp;
+	}
+
 	public async insertSettleHistoryRecord(
 		e: SettleEvent,
 		txHash: string,

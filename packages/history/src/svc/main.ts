@@ -169,6 +169,7 @@ export const main = async () => {
 		dbPriceInfo,
 		dbTrades,
 		dbSetOracles,
+		dbSettle,
 		httpProvider,
 		proxyContractAddr,
 		staticInfo: staticInfo,
@@ -299,6 +300,7 @@ export interface hdFilterersOpt {
 	dbEstimatedEarnings: EstimatedEarnings;
 	dbPriceInfo: PriceInfo;
 	dbLPWithdrawals: LiquidityWithdrawals;
+	dbSettle: SettleHistory;
 	staticInfo: StaticInfo; //<---- TODO: remove, available via EventListener
 	eventListener: EventListener;
 }
@@ -358,6 +360,7 @@ export async function runHistoricalDataFilterers(
 		dbEstimatedEarnings,
 		dbPriceInfo,
 		dbLPWithdrawals,
+		dbSettle,
 		staticInfo,
 		eventListener,
 	} = opts;
@@ -378,6 +381,7 @@ export async function runHistoricalDataFilterers(
 		(await dbFundingRatePayments.getLatestTimestamp()) ?? defaultDate,
 		(await dbEstimatedEarnings.getLatestTimestamp("liquidity_added")) ?? defaultDate,
 		(await dbSetOracles.getLatestTimestamp()) ?? defaultDate,
+		(await dbSettle.getLatestTimestamp()) ?? defaultDate,
 	];
 	// Use the smallest timestamp for the start of the filter
 	const ts = tsArr.reduce(function (a, b) {
