@@ -84,7 +84,13 @@ export class EventListener {
 	 */
 	public async listen(provider: WebSocketProvider | JsonRpcProvider) {
 		if (this.provider) {
-			await this.provider.removeAllListeners();
+			try {
+				await this.provider.removeAllListeners();
+			} catch (e) {
+				this.l.warn("failed to remove listeners from previous provider", {
+					error: e,
+				});
+			}
 		}
 		const IS_COLLECTED_BY_EVENT = true;
 		this.provider = provider;
