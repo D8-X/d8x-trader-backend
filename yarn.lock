@@ -49,10 +49,10 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@d8-x/d8x-node-sdk@^0.1.52":
-  version "0.1.52"
-  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.1.52/e065ce43f44614f3b621376519462e6cd06ee8d5#e065ce43f44614f3b621376519462e6cd06ee8d5"
-  integrity sha512-9RCHu+7Hq4zGhlJudgi96c4VuP+NpSygMhmbGs/0jowXlSyHg3FEKuK47lOW0q9NUzNgPBTa9Tvl4xxdPGopog==
+"@d8-x/d8x-node-sdk@^0.1.53":
+  version "0.1.53"
+  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.1.53/6656611bbbd1ac05054a0e10090abdd52a0262dd#6656611bbbd1ac05054a0e10090abdd52a0262dd"
+  integrity sha512-ibvxvNJxAu2b/A9p+QlcWhTHZ0ndudlUPDabZEZ+qaBbORaLfezdhZIo7kgORpZQQhH82+I7rVfEWXNaWlhM2A==
   dependencies:
     "@d8-x/d8x-price-wasm" "^1.0.32"
     "@typechain/ethers-v6" "^0.5.1"
