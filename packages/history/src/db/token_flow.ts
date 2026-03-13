@@ -14,6 +14,22 @@ export class TokenFlow {
 		public l: Logger,
 	) {}
 
+	public async getLatestTimestamp(): Promise<Date | undefined> {
+		const res = await this.prisma.tokenFlow.findFirst({
+			select: {
+				timestamp: true,
+			},
+			orderBy: {
+				timestamp: "desc",
+			},
+			where: {
+				is_collected_by_event: false,
+			},
+			skip: 15,
+		});
+		return res?.timestamp;
+	}
+
 	public async insertTokenWithdrawRecord(
 		e: TokensWithdrawnEvent,
 		txHash: string,
