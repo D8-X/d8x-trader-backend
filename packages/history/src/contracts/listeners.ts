@@ -478,13 +478,16 @@ export class EventListener {
 		timestampSec: number,
 		blockNumber: number,
 	) {
-		console.log(`onSettleEvent`);
-		this.dbSettle.insertSettleHistoryRecord(
-			eventData,
-			txHash,
-			isCollectedByEvent,
-			timestampSec,
-		);
+		try {
+			await this.dbSettle.insertSettleHistoryRecord(
+				eventData,
+				txHash,
+				isCollectedByEvent,
+				timestampSec,
+			);
+		} catch (e) {
+			this.l.error("failed to insert settle record", { txHash, error: e });
+		}
 	}
 
 	public async onTokensDepositedEvent(
@@ -494,13 +497,16 @@ export class EventListener {
 		timestampSec: number,
 		blockNumber: number,
 	) {
-		console.log(`onTokensDepositedEvent`);
-		this.dbTokenFlow.insertTokenDepositRecord(
-			eventData,
-			txHash,
-			isCollectedByEvent,
-			timestampSec,
-		);
+		try {
+			await this.dbTokenFlow.insertTokenDepositRecord(
+				eventData,
+				txHash,
+				isCollectedByEvent,
+				timestampSec,
+			);
+		} catch (e) {
+			this.l.error("failed to insert token deposit record", { txHash, error: e });
+		}
 	}
 	public async onTokensWithdrawnEvent(
 		eventData: TokensWithdrawnEvent,
@@ -509,13 +515,16 @@ export class EventListener {
 		timestampSec: number,
 		blockNumber: number,
 	) {
-		console.log(`onTokensWithdrawnEvent`);
-		this.dbTokenFlow.insertTokenWithdrawRecord(
-			eventData,
-			txHash,
-			isCollectedByEvent,
-			timestampSec,
-		);
+		try {
+			await this.dbTokenFlow.insertTokenWithdrawRecord(
+				eventData,
+				txHash,
+				isCollectedByEvent,
+				timestampSec,
+			);
+		} catch (e) {
+			this.l.error("failed to insert token withdraw record", { txHash, error: e });
+		}
 	}
 
 	public async onTradeEvent(
@@ -525,13 +534,17 @@ export class EventListener {
 		timestampSec: number,
 		blockNumber: number,
 	) {
-		this.dbTrades.insertTradeHistoryRecord(
-			eventData,
-			txHash,
-			isCollectedByEvent,
-			timestampSec,
-			blockNumber,
-		);
+		try {
+			await this.dbTrades.insertTradeHistoryRecord(
+				eventData,
+				txHash,
+				isCollectedByEvent,
+				timestampSec,
+				blockNumber,
+			);
+		} catch (e) {
+			this.l.error("failed to insert trade record", { txHash, error: e });
+		}
 	}
 
 	public async onSetOracleEvent(

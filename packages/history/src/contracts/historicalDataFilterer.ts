@@ -345,6 +345,10 @@ export class HistoricalDataFilterer {
 					await new Promise((resolve) => setTimeout(resolve, 10_000));
 				}
 				i += deltaBlocks;
+				// to not just shrink indefinitely
+				if (deltaBlocks < 9_999 * 0.75) {
+					deltaBlocks = Math.min(9_999, Math.round(deltaBlocks * 1.25));
+				}
 				// save to db
 				await this.saveEvents(
 					topicHashes,
@@ -358,10 +362,11 @@ export class HistoricalDataFilterer {
 				const errMsg = formatErrorMessage(error);
 				this.l.warn("Caught error in genericFilterer:" + errMsg);
 				if (errMsg.includes("413")) {
-					// 413 Payload Too Large
 					deltaBlocks = Math.max(100, Math.round(deltaBlocks * 0.75));
-					this.l.info("reduced deltaBlocks to " + String(deltaBlocks));
-					return;
+					this.l.info(
+						"reduced deltaBlocks to " + String(deltaBlocks) + " ... retrying",
+					);
+					continue;
 				}
 				// probably too many requests to node
 				this.l.info("seconds", { maxWaitSeconds, lastWaitSeconds });
