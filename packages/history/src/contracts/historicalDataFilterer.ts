@@ -345,8 +345,8 @@ export class HistoricalDataFilterer {
 					await new Promise((resolve) => setTimeout(resolve, 10_000));
 				}
 				i += deltaBlocks;
-				// to not just shrink indefenitly
-				if (deltaBlocks < 9_999 * 0.5) {
+				// to not just shrink indefinitely
+				if (deltaBlocks < 9_999 * 0.75) {
 					deltaBlocks = Math.min(9_999, Math.round(deltaBlocks * 1.25));
 				}
 				// save to db
