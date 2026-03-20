@@ -1,10 +1,13 @@
 import {
 	FetchRequest,
+	JsonRpcApiProviderOptions,
 	JsonRpcProvider,
 	Networkish,
 	WebSocketLike,
 	WebSocketProvider,
 } from "ethers";
+
+type WebSocketCreator = () => WebSocketLike;
 
 export const ProvidersEthCallsStartTime = new Date();
 
@@ -22,8 +25,12 @@ export let NumJsonRpcProviders = 0;
 export let NumWssProviders = 0;
 
 export class TrackedWebsocketsProvider extends WebSocketProvider {
-	constructor(url: string | WebSocketLike, network?: Networkish) {
-		super(url, network);
+	constructor(
+		url: string | WebSocketLike | WebSocketCreator,
+		network?: Networkish,
+		options?: JsonRpcApiProviderOptions,
+	) {
+		super(url, network, options);
 		NumWssProviders++;
 	}
 
