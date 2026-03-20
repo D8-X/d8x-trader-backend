@@ -113,6 +113,7 @@ export class HistoricalDataFilterer {
 	public async filterProxyEvents(
 		since: Date,
 		callbacks: Record<string, EventCallback<any>>,
+		eventTimestamps?: Map<string, Date>,
 	) {
 		// events in scope
 		const eventNames = [
@@ -156,19 +157,22 @@ export class HistoricalDataFilterer {
 		);
 
 		// callbacks
+		const skipCounts = new Map<string, number>();
 		const cb = async (
 			decodedEvent: Record<string, any>,
 			e: ethers.EventLog,
 			blockTimestamp: number,
 		) => {
 			const eventName = this.PerpManagerProxy.interface.getEventName(e.topics[0]);
-			// TODO: can't do this because of the casting below ... not necessarily better, but would be shorter code
-			// callbacks[eventName](
-			// 	decodedEvent as TradeEvent, // <--
-			// 	e.transactionHash,
-			// 	e.blockNumber,z
-			// 	blockTimestamp
-			// );
+
+			if (eventTimestamps) {
+				const watermark = eventTimestamps.get(eventName);
+				if (watermark && new Date(blockTimestamp * 1000) < watermark) {
+					skipCounts.set(eventName, (skipCounts.get(eventName) ?? 0) + 1);
+					return;
+				}
+			}
+
 			switch (eventName) {
 				case "Trade":
 					callbacks["Trade"](
@@ -276,6 +280,14 @@ export class HistoricalDataFilterer {
 			cb,
 			sinceBlocks[1],
 		);
+
+		if (skipCounts.size > 0) {
+			const counts: Record<string, number> = {};
+			for (const [k, v] of skipCounts) {
+				counts[k] = v;
+			}
+			this.l.info("skipped already-up-to-date events", counts);
+		}
 	}
 
 	/**

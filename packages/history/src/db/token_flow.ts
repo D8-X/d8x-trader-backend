@@ -25,9 +25,11 @@ export class TokenFlow {
 			where: {
 				is_collected_by_event: false,
 			},
-			skip: 15,
 		});
-		return res?.timestamp;
+		if (res?.timestamp) {
+			return new Date(res.timestamp.getTime() - 3_600_000);
+		}
+		return undefined;
 	}
 
 	public async insertTokenWithdrawRecord(
