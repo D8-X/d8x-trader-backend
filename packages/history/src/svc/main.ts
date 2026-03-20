@@ -82,6 +82,10 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 
 // Entrypoint of history service
 export const main = async () => {
+	process.on("unhandledRejection", (reason) => {
+		logger.warn("unhandled rejection", { error: reason });
+	});
+
 	loadEnv();
 	logger.info("starting history service");
 
@@ -206,9 +210,16 @@ export const main = async () => {
 			// WS is not working, switch to HTTP
 			logger.info(`switching to HTTP provider`);
 			eventsListener.listen(makeJsonProvider());
-		} else {
-			if (wsProvider) {
+			try {
 				await wsProvider.destroy();
+			} catch (e) {
+				logger.warn("error destroying ws provider", { error: e });
+			}
+		} else {
+			try {
+				await wsProvider.destroy();
+			} catch (e) {
+				logger.warn("error destroying ws provider", { error: e });
 			}
 
 			// currently on HTTP - check if can switch back to WS
