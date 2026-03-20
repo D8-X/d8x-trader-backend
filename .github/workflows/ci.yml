@@ -37,10 +37,6 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        package: [utils, api, history]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,7 +46,13 @@ jobs:
       - run: yarn install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: yarn workspace ${{ matrix.package }} build
+      - run: yarn workspace utils build
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: yarn workspace api build
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: yarn workspace history build
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
