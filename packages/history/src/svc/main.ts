@@ -710,18 +710,19 @@ async function detectAndFillGaps(
 	opts: hdFilterersOpt,
 	startTimestampSec: number,
 ) {
-	let earliestGapStart: Date | undefined;
+	let latestGapStart: Date | undefined;
 
 	for (const config of GAP_CONFIGS) {
 		try {
 			const gaps = await detectGaps(prisma, config);
 			if (gaps.length > 0) {
+				const lastGap = gaps[gaps.length - 1];
 				logger.info(`detected ${gaps.length} gap(s) in ${config.table}`, {
 					first_gap: `${gaps[0].gap_start.toISOString()} - ${gaps[0].gap_end.toISOString()}`,
+					last_gap: `${lastGap.gap_start.toISOString()} - ${lastGap.gap_end.toISOString()}`,
 				});
-				const gapStart = gaps[0].gap_start;
-				if (!earliestGapStart || gapStart < earliestGapStart) {
-					earliestGapStart = gapStart;
+				if (!latestGapStart || lastGap.gap_start > latestGapStart) {
+					latestGapStart = lastGap.gap_start;
 				}
 			}
 		} catch (e) {
@@ -729,13 +730,13 @@ async function detectAndFillGaps(
 		}
 	}
 
-	if (earliestGapStart) {
+	if (latestGapStart) {
 		const gapStartSec = Math.max(
-			Math.floor(earliestGapStart.getTime() / 1000),
+			Math.floor(latestGapStart.getTime() / 1000),
 			startTimestampSec,
 		);
-		logger.info("triggering backfill from earliest gap", {
-			gap_start: earliestGapStart.toISOString(),
+		logger.info("triggering backfill from latest gap", {
+			gap_start: latestGapStart.toISOString(),
 		});
 		await runHistoricalDataFilterers(opts, gapStartSec, false);
 	}
