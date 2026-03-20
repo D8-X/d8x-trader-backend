@@ -18,7 +18,11 @@ jobs:
       - run: yarn install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: yarn check-types
+      - run: yarn workspace utils build
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npx tsc --noEmit -p packages/api/tsconfig.json
+      - run: npx tsc --noEmit -p packages/history/tsconfig.json
 
   lint:
     name: Lint
