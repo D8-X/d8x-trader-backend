@@ -699,6 +699,7 @@ async function detectGaps(
 		FROM ordered
 		WHERE next_ts IS NOT NULL
 			AND EXTRACT(EPOCH FROM (next_ts - ts)) > $1
+		ORDER BY ts DESC
 		LIMIT 10`,
 		config.thresholdSeconds,
 	);
@@ -716,13 +717,12 @@ async function detectAndFillGaps(
 		try {
 			const gaps = await detectGaps(prisma, config);
 			if (gaps.length > 0) {
-				const lastGap = gaps[gaps.length - 1];
 				logger.info(`detected ${gaps.length} gap(s) in ${config.table}`, {
-					first_gap: `${gaps[0].gap_start.toISOString()} - ${gaps[0].gap_end.toISOString()}`,
-					last_gap: `${lastGap.gap_start.toISOString()} - ${lastGap.gap_end.toISOString()}`,
+					most_recent: `${gaps[0].gap_start.toISOString()} - ${gaps[0].gap_end.toISOString()}`,
+					oldest: `${gaps[gaps.length - 1].gap_start.toISOString()} - ${gaps[gaps.length - 1].gap_end.toISOString()}`,
 				});
-				if (!latestGapStart || lastGap.gap_start > latestGapStart) {
-					latestGapStart = lastGap.gap_start;
+				if (!latestGapStart || gaps[0].gap_start > latestGapStart) {
+					latestGapStart = gaps[0].gap_start;
 				}
 			}
 		} catch (e) {
