@@ -322,8 +322,6 @@ export class HistoricalDataFilterer {
 			numBlocks: endBlock - Number(fromBlock),
 		});
 
-		await new Promise((resolve) => setTimeout(resolve, 1_100));
-		let numRequests = 0;
 		let events: ethers.EventLog[] = [];
 		let lastWaitSeconds = 2;
 		const maxWaitSeconds = 32;
@@ -335,41 +333,25 @@ export class HistoricalDataFilterer {
 			const percProgress = Math.round(
 				((i - Number(fromBlock)) / (endBlock - Number(fromBlock))) * 100,
 			);
-			if (count % 100 == 0) {
+			if (count % 10 == 0) {
 				this.l.info(
-					`historical blocks ${_startBlock}-${_endBlock}, ${percProgress}% progress`,
+					`historical blocks ${_startBlock}-${_endBlock}, ${percProgress}% progress, iteration ${count}`,
 				);
 			}
 			count += 1;
 			try {
-				// fetch from blockchain
 				const _events = (await c.queryFilter(
 					filter,
 					_startBlock,
 					_endBlock,
 				)) as ethers.EventLog[];
 				events = [...events, ..._events];
-				// limit: 25 requests per second
-				numRequests++;
-				if (numRequests >= 25) {
-					numRequests = 0;
-					lastWaitSeconds = 2;
-					await new Promise((resolve) => setTimeout(resolve, 10_000));
-				}
 				i += deltaBlocks;
-				// to not just shrink indefinitely
+				lastWaitSeconds = 2;
 				if (deltaBlocks < 9_999 * 0.75) {
 					deltaBlocks = Math.min(9_999, Math.round(deltaBlocks * 1.25));
 				}
-				// save to db
-				await this.saveEvents(
-					topicHashes,
-					_events,
-					c,
-					blockTimestamp,
-					numRequests,
-					cb,
-				);
+				await this.saveEvents(topicHashes, _events, c, blockTimestamp, cb);
 			} catch (error) {
 				const errMsg = formatErrorMessage(error);
 				this.l.warn("Caught error in genericFilterer:" + errMsg);
@@ -391,7 +373,6 @@ export class HistoricalDataFilterer {
 					await new Promise((resolve) =>
 						setTimeout(resolve, lastWaitSeconds * 1000),
 					);
-					numRequests = 0;
 					lastWaitSeconds *= 2;
 				} else {
 					this.l.warn("throwing error in genericFilterer");
@@ -410,7 +391,6 @@ export class HistoricalDataFilterer {
 		events: ethers.EventLog[],
 		c: Contract,
 		blockTimestamp: Map<Number, number>,
-		numRequests: number,
 		cb: (
 			decodedEvent: Record<string, any>,
 			event: ethers.EventLog,
@@ -421,41 +401,36 @@ export class HistoricalDataFilterer {
 			return;
 		}
 
+		this.l.info(`saveEvents: processing ${events.length} events`);
+
 		const eventFragments = topicHashes.map(
 			(topic0) => c.interface.getEvent(topic0) as EventFragment,
 		);
-		// let blockTimestamp = new Map<Number, number>();
+		let getBlockCalls = 0;
 		for (let i = 0; i < events.length; i++) {
 			const event = events[i];
 			for (let j = 0; j < topicHashes.length; j++) {
 				if (topicHashes[j] == event.topics[0]) {
-					// found event
 					const log = c.interface.decodeEventLog(
 						eventFragments[j],
 						event.data,
 						event.topics,
 					);
-					// one call per block with event
 					if (blockTimestamp.get(event.blockNumber) == undefined) {
+						getBlockCalls++;
 						blockTimestamp.set(
 							event.blockNumber,
 							(await event.getBlock()).timestamp,
 						);
 					}
 					const ts = blockTimestamp.get(event.blockNumber)!;
-					// do work
 					cb(log, event, ts);
-
-					// TODO: how to get rid of this?
-					// limit: 25 requests per second
-					numRequests++;
-					if (numRequests >= 25) {
-						numRequests = 0;
-						await new Promise((resolve) => setTimeout(resolve, 1_100));
-					}
 					break;
 				}
 			}
+		}
+		if (getBlockCalls > 0) {
+			this.l.info(`saveEvents: made ${getBlockCalls} getBlock() RPC calls`);
 		}
 	}
 }
