@@ -275,6 +275,14 @@ export const main = async () => {
 		runHistoricalDataFilterers(hdOpts, blk.timestamp);
 	}, 14_400_000); // 4 * 60 * 60 * 1000 miliseconds
 
+	setInterval(async () => {
+		try {
+			await detectAndFillGaps(prisma, hdOpts, blk.timestamp);
+		} catch (e) {
+			logger.warn("gap detection failed", { error: e });
+		}
+	}, 86_400_000); // this 24h in ms
+
 	// Start the history api
 	const api = new HistoryRestAPI(
 		{
@@ -352,6 +360,7 @@ async function getCloseDeploymentBlock(
 export async function runHistoricalDataFilterers(
 	opts: hdFilterersOpt,
 	startTimestampSec: number,
+	skipUpToDate = true,
 ) {
 	const {
 		httpProvider,
@@ -377,194 +386,230 @@ export async function runHistoricalDataFilterers(
 	const promises: Array<Promise<void>> = [];
 	const IS_COLLECTED_BY_EVENT = false;
 
-	const tsArr = [
-		(await dbLPWithdrawals.getLatestTimestampInitiation()) ?? defaultDate,
-		(await dbTrades.getLatestTradeTimestamp()) ?? defaultDate,
-		(await dbTrades.getLatestLiquidateTimestamp()) ?? defaultDate,
-		(await dbFundingRatePayments.getLatestTimestamp()) ?? defaultDate,
-		(await dbEstimatedEarnings.getLatestTimestamp("liquidity_added")) ?? defaultDate,
-		(await dbSetOracles.getLatestTimestamp()) ?? defaultDate,
-		(await dbSettle.getLatestTimestamp()) ?? defaultDate,
-		(await dbTokenFlow.getLatestTimestamp()) ?? defaultDate,
-	];
-	// Use the smallest timestamp for the start of the filter
-	const ts = tsArr.reduce(function (a, b) {
-		return a < b ? a : b;
-	});
-	console.log(` starting filterer at ts = ${ts}`);
+	const eventTimestamps = new Map<string, Date>();
+
+	const tradeTs = await dbTrades.getLatestTradeTimestamp();
+	if (tradeTs) eventTimestamps.set("Trade", tradeTs);
+
+	const liqTs = await dbTrades.getLatestLiquidateTimestamp();
+	if (liqTs) eventTimestamps.set("Liquidate", liqTs);
+
+	const settleTs = await dbSettle.getLatestTimestamp();
+	if (settleTs) {
+		eventTimestamps.set("Settle", settleTs);
+		eventTimestamps.set("SettleV2", settleTs);
+	}
+
+	const tokenFlowTs = await dbTokenFlow.getLatestTimestamp();
+	if (tokenFlowTs) {
+		eventTimestamps.set("TokensDeposited", tokenFlowTs);
+		eventTimestamps.set("TokensWithdrawn", tokenFlowTs);
+	}
+
+	const fundingTs = await dbFundingRatePayments.getLatestTimestamp();
+	if (fundingTs) eventTimestamps.set("UpdateMarginAccount", fundingTs);
+
+	const earningsTs = await dbEstimatedEarnings.getLatestTimestamp("liquidity_added");
+	if (earningsTs) {
+		eventTimestamps.set("LiquidityAdded", earningsTs);
+		eventTimestamps.set("LiquidityRemoved", earningsTs);
+	}
+
+	const lpWithdrawalTs = await dbLPWithdrawals.getLatestTimestampInitiation();
+	if (lpWithdrawalTs)
+		eventTimestamps.set("LiquidityWithdrawalInitiated", lpWithdrawalTs);
+
+	const oracleTs = await dbSetOracles.getLatestTimestamp();
+	if (oracleTs) eventTimestamps.set("SetOracles", oracleTs);
+
+	const allTimestamps = [...eventTimestamps.values()];
+	allTimestamps.push(defaultDate);
+	const ts = allTimestamps.reduce((a, b) => (a < b ? a : b));
+
+	const tsInfo: Record<string, string> = {};
+	for (const [k, v] of eventTimestamps) {
+		tsInfo[k] = v.toISOString();
+	}
+	logger.info("per-event-type timestamps", tsInfo);
+	logger.info(`starting filterer at ts = ${ts.toISOString()}`);
+
 	promises.push(
-		hd.filterProxyEvents(ts, {
-			Trade: async (
-				eventData: TradeEvent,
-				txHash: string,
-				blockNum: BigNumberish,
-				blockTimestamp: number,
-			) => {
-				await eventListener.onTradeEvent(
+		hd.filterProxyEvents(
+			ts,
+			{
+				Trade: async (
+					eventData: TradeEvent,
+					txHash: string,
+					blockNum: BigNumberish,
+					blockTimestamp: number,
+				) => {
+					await eventListener.onTradeEvent(
+						eventData,
+						txHash,
+						IS_COLLECTED_BY_EVENT,
+						blockTimestamp,
+						Number(blockNum.toString()),
+					);
+				},
+
+				Settle: async (
+					eventData: SettleEventV1,
+					txHash: string,
+					blockNum: BigNumberish,
+					blockTimeStamp: number,
+				) => {
+					await eventListener.onSettleEvent(
+						{
+							perpetualId: eventData.perpetualId,
+							trader: eventData.trader,
+							amount: eventData.amount,
+							cash: 0n,
+						},
+						txHash,
+						IS_COLLECTED_BY_EVENT,
+						blockTimeStamp,
+						Number(blockNum.toString()),
+					);
+				},
+
+				SettleV2: async (
+					eventData: SettleEvent,
+					txHash: string,
+					blockNum: BigNumberish,
+					blockTimeStamp: number,
+				) => {
+					await eventListener.onSettleEvent(
+						eventData,
+						txHash,
+						IS_COLLECTED_BY_EVENT,
+						blockTimeStamp,
+						Number(blockNum.toString()),
+					);
+				},
+
+				TokensDeposited: async (
+					eventData: Record<string, any>,
+					txHash: string,
+					blockNum: BigNumberish,
+					blockTimestamp: number,
+				) => {
+					await eventListener.onTokensDepositedEvent(
+						{
+							perpetualId: eventData.perpetualId,
+							trader: eventData.trader,
+							amountCC: eventData.amount,
+						},
+						txHash,
+						IS_COLLECTED_BY_EVENT,
+						blockTimestamp,
+						Number(blockNum.toString()),
+					);
+				},
+
+				TokensWithdrawn: async (
+					eventData: Record<string, any>,
+					txHash: string,
+					blockNum: BigNumberish,
+					blockTimestamp: number,
+				) => {
+					await eventListener.onTokensWithdrawnEvent(
+						{
+							perpetualId: eventData.perpetualId,
+							trader: eventData.trader,
+							amountCC: eventData.amount,
+						},
+						txHash,
+						IS_COLLECTED_BY_EVENT,
+						blockTimestamp,
+						Number(blockNum.toString()),
+					);
+				},
+
+				SetOracles: async (
+					eventData: SetOraclesEvent,
+					txHash: string,
+					blockNum: BigNumberish,
+					blockTimestamp: number,
+				) => {
+					await eventListener.onSetOracleEvent(
+						eventData,
+						txHash,
+						IS_COLLECTED_BY_EVENT,
+						blockTimestamp,
+						Number(blockNum.toString()),
+					);
+				},
+
+				Liquidate: async (
+					eventData: LiquidateEvent,
+					txHash: string,
+					blockNum: BigNumberish,
+					blockTimestamp: number,
+				) => {
+					await eventListener.onLiquidate(
+						eventData,
+						txHash,
+						IS_COLLECTED_BY_EVENT,
+						blockTimestamp,
+						Number(blockNum.toString()),
+					);
+				},
+				UpdateMarginAccount: async (
+					eventData: UpdateMarginAccountEvent,
+					txHash: string,
+					_blockNum: BigNumberish,
+					blockTimestamp: number,
+				) => {
+					await eventListener.onUpdateMarginAccount(
+						eventData,
+						txHash,
+						IS_COLLECTED_BY_EVENT,
+						blockTimestamp,
+					);
+				},
+				LiquidityAdded: async (
+					eventData: LiquidityAddedEvent,
+					txHash: string,
+					_blockNum: BigNumberish,
+					blockTimestamp: number,
+				) => {
+					await eventListener.onLiquidityAdded(
+						eventData,
+						txHash,
+						IS_COLLECTED_BY_EVENT,
+						blockTimestamp,
+					);
+				},
+				LiquidityRemoved: async (
+					eventData: LiquidityRemovedEvent,
+					txHash: string,
+					_blockNum: BigNumberish,
+					blockTimestamp: number,
+				) => {
+					await eventListener.onLiquidityRemoved(
+						eventData,
+						txHash,
+						IS_COLLECTED_BY_EVENT,
+						blockTimestamp,
+					);
+				},
+				LiquidityWithdrawalInitiated: async (
 					eventData,
 					txHash,
-					IS_COLLECTED_BY_EVENT,
-					blockTimestamp,
-					Number(blockNum.toString()),
-				);
-			},
-
-			Settle: async (
-				eventData: SettleEventV1,
-				txHash: string,
-				blockNum: BigNumberish,
-				blockTimeStamp: number,
-			) => {
-				await eventListener.onSettleEvent(
-					{
-						perpetualId: eventData.perpetualId,
-						trader: eventData.trader,
-						amount: eventData.amount,
-						cash: 0n,
-					},
-					txHash,
-					IS_COLLECTED_BY_EVENT,
+					_blockNumber,
 					blockTimeStamp,
-					Number(blockNum.toString()),
-				);
+					_params,
+				) => {
+					await eventListener.onLiquidityWithdrawalInitiated(
+						eventData,
+						txHash,
+						IS_COLLECTED_BY_EVENT,
+						blockTimeStamp,
+					);
+				},
 			},
-
-			SettleV2: async (
-				eventData: SettleEvent,
-				txHash: string,
-				blockNum: BigNumberish,
-				blockTimeStamp: number,
-			) => {
-				await eventListener.onSettleEvent(
-					eventData,
-					txHash,
-					IS_COLLECTED_BY_EVENT,
-					blockTimeStamp,
-					Number(blockNum.toString()),
-				);
-			},
-
-			TokensDeposited: async (
-				eventData: Record<string, any>,
-				txHash: string,
-				blockNum: BigNumberish,
-				blockTimestamp: number,
-			) => {
-				await eventListener.onTokensDepositedEvent(
-					{
-						perpetualId: eventData.perpetualId,
-						trader: eventData.trader,
-						amountCC: eventData.amount,
-					},
-					txHash,
-					IS_COLLECTED_BY_EVENT,
-					blockTimestamp,
-					Number(blockNum.toString()),
-				);
-			},
-
-			TokensWithdrawn: async (
-				eventData: Record<string, any>,
-				txHash: string,
-				blockNum: BigNumberish,
-				blockTimestamp: number,
-			) => {
-				await eventListener.onTokensWithdrawnEvent(
-					{
-						perpetualId: eventData.perpetualId,
-						trader: eventData.trader,
-						amountCC: eventData.amount,
-					},
-					txHash,
-					IS_COLLECTED_BY_EVENT,
-					blockTimestamp,
-					Number(blockNum.toString()),
-				);
-			},
-
-			SetOracles: async (
-				eventData: SetOraclesEvent,
-				txHash: string,
-				blockNum: BigNumberish,
-				blockTimestamp: number,
-			) => {
-				await eventListener.onSetOracleEvent(
-					eventData,
-					txHash,
-					IS_COLLECTED_BY_EVENT,
-					blockTimestamp,
-					Number(blockNum.toString()),
-				);
-			},
-
-			Liquidate: async (
-				eventData: LiquidateEvent,
-				txHash: string,
-				blockNum: BigNumberish,
-				blockTimestamp: number,
-			) => {
-				await eventListener.onLiquidate(
-					eventData,
-					txHash,
-					IS_COLLECTED_BY_EVENT,
-					blockTimestamp,
-					Number(blockNum.toString()),
-				);
-			},
-			UpdateMarginAccount: async (
-				eventData: UpdateMarginAccountEvent,
-				txHash: string,
-				_blockNum: BigNumberish,
-				blockTimestamp: number,
-			) => {
-				await eventListener.onUpdateMarginAccount(
-					eventData,
-					txHash,
-					IS_COLLECTED_BY_EVENT,
-					blockTimestamp,
-				);
-			},
-			LiquidityAdded: async (
-				eventData: LiquidityAddedEvent,
-				txHash: string,
-				_blockNum: BigNumberish,
-				blockTimestamp: number,
-			) => {
-				await eventListener.onLiquidityAdded(
-					eventData,
-					txHash,
-					IS_COLLECTED_BY_EVENT,
-					blockTimestamp,
-				);
-			},
-			LiquidityRemoved: async (
-				eventData: LiquidityRemovedEvent,
-				txHash: string,
-				_blockNum: BigNumberish,
-				blockTimestamp: number,
-			) => {
-				await eventListener.onLiquidityRemoved(
-					eventData,
-					txHash,
-					IS_COLLECTED_BY_EVENT,
-					blockTimestamp,
-				);
-			},
-			LiquidityWithdrawalInitiated: async (
-				eventData,
-				txHash,
-				_blockNumber,
-				blockTimeStamp,
-				_params,
-			) => {
-				await eventListener.onLiquidityWithdrawalInitiated(
-					eventData,
-					txHash,
-					IS_COLLECTED_BY_EVENT,
-					blockTimeStamp,
-				);
-			},
-		}),
+			skipUpToDate ? eventTimestamps : undefined,
+		),
 	);
 	// Share tokens p2p transfers
 	const p2pTimestamps = await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
@@ -597,4 +642,87 @@ export async function runHistoricalDataFilterers(
 	await Promise.all(promises);
 	// align timestamps in perpetual_long_id (because we have asynchronous events)
 	await dbSetOracles.alignTimestamps();
+}
+
+interface GapConfig {
+	table: string;
+	timestampCol: string;
+	thresholdSeconds: number;
+}
+
+const GAP_CONFIGS: GapConfig[] = [
+	{
+		table: "trades_history",
+		timestampCol: "trade_timestamp",
+		thresholdSeconds: 12 * 3600,
+	},
+	{ table: "token_flow", timestampCol: "timestamp", thresholdSeconds: 12 * 3600 },
+	{
+		table: "funding_rate_payments",
+		timestampCol: "payment_timestamp",
+		thresholdSeconds: 12 * 3600,
+	},
+	{ table: "settle_history", timestampCol: "timestamp", thresholdSeconds: 24 * 3600 },
+	{
+		table: "estimated_earnings_tokens",
+		timestampCol: "created_at",
+		thresholdSeconds: 24 * 3600,
+	},
+];
+
+async function detectGaps(
+	prisma: PrismaClient,
+	config: GapConfig,
+): Promise<{ gap_start: Date; gap_end: Date }[]> {
+	const gaps = await prisma.$queryRawUnsafe<{ gap_start: Date; gap_end: Date }[]>(
+		`WITH ordered AS (
+			SELECT ${config.timestampCol} as ts,
+				LEAD(${config.timestampCol}) OVER (ORDER BY ${config.timestampCol}) as next_ts
+			FROM ${config.table}
+			WHERE is_collected_by_event = false
+		)
+		SELECT ts as gap_start, next_ts as gap_end
+		FROM ordered
+		WHERE next_ts IS NOT NULL
+			AND EXTRACT(EPOCH FROM (next_ts - ts)) > $1
+		LIMIT 10`,
+		config.thresholdSeconds,
+	);
+	return gaps;
+}
+
+async function detectAndFillGaps(
+	prisma: PrismaClient,
+	opts: hdFilterersOpt,
+	startTimestampSec: number,
+) {
+	let earliestGapStart: Date | undefined;
+
+	for (const config of GAP_CONFIGS) {
+		try {
+			const gaps = await detectGaps(prisma, config);
+			if (gaps.length > 0) {
+				logger.info(`detected ${gaps.length} gap(s) in ${config.table}`, {
+					first_gap: `${gaps[0].gap_start.toISOString()} - ${gaps[0].gap_end.toISOString()}`,
+				});
+				const gapStart = gaps[0].gap_start;
+				if (!earliestGapStart || gapStart < earliestGapStart) {
+					earliestGapStart = gapStart;
+				}
+			}
+		} catch (e) {
+			logger.warn(`gap detection failed for ${config.table}`, { error: e });
+		}
+	}
+
+	if (earliestGapStart) {
+		const gapStartSec = Math.max(
+			Math.floor(earliestGapStart.getTime() / 1000),
+			startTimestampSec,
+		);
+		logger.info("triggering backfill from earliest gap", {
+			gap_start: earliestGapStart.toISOString(),
+		});
+		await runHistoricalDataFilterers(opts, gapStartSec, false);
+	}
 }

@@ -163,10 +163,12 @@ export class TradingHistory {
 			orderBy: {
 				trade_timestamp: "desc",
 			},
-			skip: 10, //avoid gaps when recent events arrived
 		});
 
-		return tradeDate?.trade_timestamp;
+		if (tradeDate?.trade_timestamp) {
+			return new Date(tradeDate.trade_timestamp.getTime() - 3_600_000);
+		}
+		return undefined;
 	}
 
 	/**
@@ -189,9 +191,11 @@ export class TradingHistory {
 			orderBy: {
 				trade_timestamp: "desc",
 			},
-			skip: 10,
 		});
 
-		return tradeDate?.trade_timestamp;
+		if (tradeDate?.trade_timestamp) {
+			return new Date(tradeDate.trade_timestamp.getTime() - 3_600_000);
+		}
+		return undefined;
 	}
 }
