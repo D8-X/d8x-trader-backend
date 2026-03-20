@@ -180,7 +180,11 @@ export const main = async () => {
 		staticInfo: staticInfo,
 		eventListener: eventsListener,
 	};
-	runHistoricalDataFilterers(hdOpts, blk.timestamp);
+	runHistoricalDataFilterers(hdOpts, blk.timestamp).then(() => {
+		detectAndFillGaps(prisma, hdOpts, blk.timestamp).catch((e) => {
+			logger.warn("initial gap detection failed", { error: e });
+		});
+	});
 	eventsListener.listen(wsProvider);
 
 	// Websocket provider leaks memory, therefore as in main api, we will
