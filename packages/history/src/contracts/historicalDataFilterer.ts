@@ -322,7 +322,7 @@ export class HistoricalDataFilterer {
 			numBlocks: endBlock - Number(fromBlock),
 		});
 
-		let events: ethers.EventLog[] = [];
+		let totalEventsFound = 0;
 		let lastWaitSeconds = 2;
 		const maxWaitSeconds = 32;
 		const blockTimestamp = new Map<Number, number>();
@@ -345,7 +345,7 @@ export class HistoricalDataFilterer {
 					_startBlock,
 					_endBlock,
 				)) as ethers.EventLog[];
-				events = [...events, ..._events];
+				totalEventsFound += _events.length;
 				i += deltaBlocks;
 				lastWaitSeconds = 2;
 				if (deltaBlocks < 9_999 * 0.75) {
@@ -382,7 +382,7 @@ export class HistoricalDataFilterer {
 		}
 		this.l.info("finished querying historical logs", {
 			events: eventNames,
-			eventsFound: events.length,
+			eventsFound: totalEventsFound,
 		});
 	}
 
