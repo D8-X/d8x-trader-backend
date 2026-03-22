@@ -694,13 +694,13 @@ async function detectGaps(
 				LEAD(${config.timestampCol}) OVER (ORDER BY ${config.timestampCol}) as next_ts
 			FROM ${config.table}
 			WHERE is_collected_by_event = false
+				AND ${config.timestampCol} > NOW() - interval '30 days'
 		)
 		SELECT ts as gap_start, next_ts as gap_end
 		FROM ordered
 		WHERE next_ts IS NOT NULL
 			AND EXTRACT(EPOCH FROM (next_ts - ts)) > $1
-		ORDER BY ts DESC
-		LIMIT 10`,
+		ORDER BY ts ASC`,
 		config.thresholdSeconds,
 	);
 	return gaps;
@@ -711,18 +711,18 @@ async function detectAndFillGaps(
 	opts: hdFilterersOpt,
 	startTimestampSec: number,
 ) {
-	let latestGapStart: Date | undefined;
+	const allGapStarts = new Set<number>();
 
 	for (const config of GAP_CONFIGS) {
 		try {
 			const gaps = await detectGaps(prisma, config);
 			if (gaps.length > 0) {
 				logger.info(`detected ${gaps.length} gap(s) in ${config.table}`, {
-					most_recent: `${gaps[0].gap_start.toISOString()} - ${gaps[0].gap_end.toISOString()}`,
-					oldest: `${gaps[gaps.length - 1].gap_start.toISOString()} - ${gaps[gaps.length - 1].gap_end.toISOString()}`,
+					earliest: `${gaps[0].gap_start.toISOString()} - ${gaps[0].gap_end.toISOString()}`,
+					latest: `${gaps[gaps.length - 1].gap_start.toISOString()} - ${gaps[gaps.length - 1].gap_end.toISOString()}`,
 				});
-				if (!latestGapStart || gaps[0].gap_start > latestGapStart) {
-					latestGapStart = gaps[0].gap_start;
+				for (const gap of gaps) {
+					allGapStarts.add(Math.floor(gap.gap_start.getTime() / 1000));
 				}
 			}
 		} catch (e) {
@@ -730,14 +730,16 @@ async function detectAndFillGaps(
 		}
 	}
 
-	if (latestGapStart) {
-		const gapStartSec = Math.max(
-			Math.floor(latestGapStart.getTime() / 1000),
-			startTimestampSec,
-		);
-		logger.info("triggering backfill from latest gap", {
-			gap_start: latestGapStart.toISOString(),
+	if (allGapStarts.size === 0) return;
+
+	const sorted = [...allGapStarts].sort((a, b) => b - a);
+	logger.info(`filling ${sorted.length} unique gap(s), most recent first`);
+
+	for (const gapStartSec of sorted) {
+		const sec = Math.max(gapStartSec, startTimestampSec);
+		logger.info("triggering backfill for gap", {
+			gap_start: new Date(sec * 1000).toISOString(),
 		});
-		await runHistoricalDataFilterers(opts, gapStartSec, false);
+		await runHistoricalDataFilterers(opts, sec, false);
 	}
 }
