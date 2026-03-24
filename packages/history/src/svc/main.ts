@@ -36,6 +36,7 @@ import { SetOracles } from "../db/set_oracles.js";
 import { sleepForSec } from "@d8-x/d8x-node-sdk";
 import { SettleHistory } from "../db/settle_history.js";
 import { TokenFlow } from "../db/token_flow.js";
+import { metrics } from "./metrics.js";
 // workaround for CJS package
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
@@ -732,6 +733,8 @@ async function detectAndFillGaps(
 
 	if (allGapStarts.size === 0) return;
 
+	metrics.gapDetection.lastRun = new Date().toISOString();
+	metrics.gapDetection.gapsDetected = allGapStarts.size;
 	const sorted = [...allGapStarts].sort((a, b) => b - a);
 	logger.info(`filling ${sorted.length} unique gap(s), most recent first`);
 
@@ -741,5 +744,6 @@ async function detectAndFillGaps(
 			gap_start: new Date(sec * 1000).toISOString(),
 		});
 		await runHistoricalDataFilterers(opts, sec, false);
+		metrics.gapDetection.gapsFilled++;
 	}
 }
