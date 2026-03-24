@@ -490,6 +490,7 @@ export class EventListener {
 			);
 		} catch (e) {
 			this.l.error("failed to insert settle record", { txHash, error: e });
+			metrics.trackError("db:settle", e);
 		}
 	}
 
@@ -509,6 +510,7 @@ export class EventListener {
 			);
 		} catch (e) {
 			this.l.error("failed to insert token deposit record", { txHash, error: e });
+			metrics.trackError("db:tokenDeposit", e);
 		}
 	}
 	public async onTokensWithdrawnEvent(
@@ -527,6 +529,7 @@ export class EventListener {
 			);
 		} catch (e) {
 			this.l.error("failed to insert token withdraw record", { txHash, error: e });
+			metrics.trackError("db:tokenWithdraw", e);
 		}
 	}
 
@@ -547,6 +550,7 @@ export class EventListener {
 			);
 		} catch (e) {
 			this.l.error("failed to insert trade record", { txHash, error: e });
+			metrics.trackError("db:trade", e);
 		}
 	}
 

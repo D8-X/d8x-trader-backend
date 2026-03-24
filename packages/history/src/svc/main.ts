@@ -85,6 +85,7 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 export const main = async () => {
 	process.on("unhandledRejection", (reason) => {
 		logger.warn("unhandled rejection", { error: reason });
+		metrics.trackError("unhandledRejection", reason);
 	});
 
 	loadEnv();
@@ -184,6 +185,7 @@ export const main = async () => {
 	runHistoricalDataFilterers(hdOpts, blk.timestamp);
 	detectAndFillGaps(prisma, hdOpts, blk.timestamp).catch((e) => {
 		logger.warn("initial gap detection failed", { error: e });
+		metrics.trackError("gapDetection", e);
 	});
 	eventsListener.listen(wsProvider);
 
@@ -218,12 +220,14 @@ export const main = async () => {
 				await wsProvider.destroy();
 			} catch (e) {
 				logger.warn("error destroying ws provider", { error: e });
+				metrics.trackError("wsProvider.destroy", e);
 			}
 		} else {
 			try {
 				await wsProvider.destroy();
 			} catch (e) {
 				logger.warn("error destroying ws provider", { error: e });
+				metrics.trackError("wsProvider.destroy", e);
 			}
 
 			// currently on HTTP - check if can switch back to WS
@@ -295,6 +299,7 @@ export const main = async () => {
 			await detectAndFillGaps(prisma, hdOpts, blk.timestamp);
 		} catch (e) {
 			logger.warn("gap detection failed", { error: e });
+			metrics.trackError("gapDetection", e);
 		}
 	}, 86_400_000); // this 24h in ms
 
@@ -728,6 +733,7 @@ async function detectAndFillGaps(
 			}
 		} catch (e) {
 			logger.warn(`gap detection failed for ${config.table}`, { error: e });
+			metrics.trackError(`gapDetection:${config.table}`, e);
 		}
 	}
 

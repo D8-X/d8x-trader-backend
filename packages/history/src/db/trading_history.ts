@@ -5,6 +5,7 @@ import { Logger } from "winston";
 import { LiquidateEvent } from "../contracts/types.js";
 import { ONE_64x64 } from "utils";
 import { createHash } from "crypto";
+import { metrics } from "../svc/metrics.js";
 
 type TradeHistoryEvent = TradeEvent | LiquidateEvent;
 
@@ -100,6 +101,7 @@ export class TradingHistory {
 			this.l.error(`inserting new ${isLiquidation ? "liquidation" : "trade"}`, {
 				error: e,
 			});
+			metrics.trackError("db:trade_upsert", e);
 		}
 	}
 
