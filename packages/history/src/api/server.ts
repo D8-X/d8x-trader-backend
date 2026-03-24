@@ -116,6 +116,7 @@ export class HistoryRestAPI {
 	 * Register routes of history API
 	 */
 	private registerRoutes(app: express.Application) {
+		app.get("/health", (_req, resp) => resp.json({ ok: true }));
 		app.get("/funding-rate-payments", this.fundingRatePayments.bind(this));
 		app.get("/apy", this.apyCalculation.bind(this));
 		app.get("/earnings", this.earnings.bind(this));
