@@ -27,6 +27,7 @@ import { LiquidityWithdrawals } from "../db/liquidity_withdrawals.js";
 import { IPerpetualManager } from "@d8-x/d8x-node-sdk";
 import { SettleHistory } from "../db/settle_history.js";
 import { TokenFlow } from "../db/token_flow.js";
+import { metrics } from "../svc/metrics.js";
 export interface EventListenerOptions {
 	logger: Logger;
 	// smart contract addresses which will be used to listen to incoming events
@@ -104,9 +105,11 @@ export class EventListener {
 			},
 		);
 
+		metrics.connection = this.listeningMode;
 		provider.on("block", (blockNumber) => {
 			this.lastEventTs = Date.now();
 			this.blockNumber = blockNumber;
+			metrics.lastBlock = blockNumber;
 		});
 
 		// perpertual proxy manager - main contract

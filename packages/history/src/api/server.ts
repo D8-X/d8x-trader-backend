@@ -28,6 +28,7 @@ import { getSDKConfigFromEnv } from "../utils/abi.js";
 import dotenv from "dotenv";
 import cors from "cors";
 import { PriceInfo } from "../db/price_info.js";
+import { metrics } from "../svc/metrics.js";
 import { tokenToString } from "typescript";
 export const DECIMAL40_FORMAT_STRING = "FM9999999999999999999999999999999999999";
 
@@ -117,6 +118,7 @@ export class HistoryRestAPI {
 	 */
 	private registerRoutes(app: express.Application) {
 		app.get("/health", (_req, resp) => resp.json({ ok: true }));
+		app.get("/status", (_req, resp) => resp.json(metrics.toJSON()));
 		app.get("/funding-rate-payments", this.fundingRatePayments.bind(this));
 		app.get("/apy", this.apyCalculation.bind(this));
 		app.get("/earnings", this.earnings.bind(this));

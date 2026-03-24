@@ -26,6 +26,7 @@ import {
 	EventFragment,
 } from "ethers";
 import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi.js";
+import { metrics } from "../svc/metrics.js";
 
 global.Error.stackTraceLimit = Infinity;
 
@@ -189,6 +190,7 @@ export class HistoricalDataFilterer {
 				}
 			}
 
+			metrics.trackEvent(eventName);
 			switch (eventName) {
 				case "Trade":
 					callbacks["Trade"](
@@ -348,6 +350,9 @@ export class HistoricalDataFilterer {
 			const percProgress = Math.round(
 				((i - Number(fromBlock)) / (endBlock - Number(fromBlock))) * 100,
 			);
+			metrics.backfill.running = true;
+			metrics.backfill.progress = percProgress;
+			metrics.backfill.eventsFound = totalEventsFound;
 			if (count % 100 == 0) {
 				this.l.info(
 					`historical blocks ${_startBlock}-${_endBlock}, ${percProgress}% progress`,
@@ -372,6 +377,11 @@ export class HistoricalDataFilterer {
 			} catch (error) {
 				const errMsg = formatErrorMessage(error);
 				this.l.warn("Caught error in genericFilterer:" + errMsg);
+				metrics.errors.push({
+					ts: new Date().toISOString(),
+					msg: errMsg.slice(0, 200),
+				});
+				if (metrics.errors.length > 50) metrics.errors.shift();
 				if (errMsg.includes("413")) {
 					deltaBlocks = Math.max(100, Math.round(deltaBlocks * 0.75));
 					this.l.info(
@@ -380,6 +390,7 @@ export class HistoricalDataFilterer {
 					continue;
 				}
 				if (isRateLimitError(error)) {
+					metrics.rateLimitsHit++;
 					this.l.warn("rate limited by RPC, backing off", {
 						wait_seconds: lastWaitSeconds,
 					});
@@ -403,6 +414,8 @@ export class HistoricalDataFilterer {
 				}
 			}
 		}
+		metrics.backfill.running = false;
+		metrics.backfill.eventsFound = totalEventsFound;
 		this.l.info("finished querying historical logs", {
 			events: eventNames,
 			eventsFound: totalEventsFound,
@@ -453,6 +466,7 @@ export class HistoricalDataFilterer {
 								break;
 							} catch (e) {
 								if (isRateLimitError(e) && retries < 5) {
+									metrics.rateLimitsHit++;
 									const wait = Math.pow(2, retries) * 1000;
 									this.l.warn(
 										`getBlock rate limited, retrying in ${wait}ms`,
