@@ -34,6 +34,22 @@ function formatErrorMessage(error: unknown) {
 	return String(error);
 }
 
+function isRateLimitError(error: unknown): boolean {
+	// I hate having to do this be we have no choice for now
+	const msg = formatErrorMessage(error);
+	if (msg.includes("rate limit") || msg.includes("-32016") || msg.includes("429")) {
+		return true;
+	}
+	const err = error as Record<string, any>;
+	if (err?.error?.code === -32016 || err?.error?.message?.includes("rate limit")) {
+		return true;
+	}
+	if (err?.code === "UNKNOWN_ERROR" && err?.error?.code === -32016) {
+		return true;
+	}
+	return false;
+}
+
 /**
  * HistoricalDataFilterer retrieves historical data for trades, liquidations and
  * other events from perpetual manager proxy contract
@@ -311,7 +327,6 @@ export class HistoricalDataFilterer {
 		) => void,
 		currentBlock: number,
 	) {
-		// limit: 10_000 blocks in one eth_getLogs call
 		let deltaBlocks = 9_999;
 		const endBlock: number = currentBlock;
 		const eventNames = topicHashes.map((topic0) => c.interface.getEventName(topic0));
@@ -333,9 +348,9 @@ export class HistoricalDataFilterer {
 			const percProgress = Math.round(
 				((i - Number(fromBlock)) / (endBlock - Number(fromBlock))) * 100,
 			);
-			if (count % 10 == 0) {
+			if (count % 100 == 0) {
 				this.l.info(
-					`historical blocks ${_startBlock}-${_endBlock}, ${percProgress}% progress, iteration ${count}`,
+					`historical blocks ${_startBlock}-${_endBlock}, ${percProgress}% progress`,
 				);
 			}
 			count += 1;
@@ -352,6 +367,8 @@ export class HistoricalDataFilterer {
 					deltaBlocks = Math.min(9_999, Math.round(deltaBlocks * 1.25));
 				}
 				await this.saveEvents(topicHashes, _events, c, blockTimestamp, cb);
+				// throttle just in case avoid RPC ban, for about ~10 rps
+				await new Promise((resolve) => setTimeout(resolve, 250));
 			} catch (error) {
 				const errMsg = formatErrorMessage(error);
 				this.l.warn("Caught error in genericFilterer:" + errMsg);
@@ -362,14 +379,20 @@ export class HistoricalDataFilterer {
 					);
 					continue;
 				}
-				// probably too many requests to node
-				this.l.info("seconds", { maxWaitSeconds, lastWaitSeconds });
-				if (maxWaitSeconds > lastWaitSeconds) {
-					this.l.warn(
-						"attempted to make too many requests to node, performing a wait",
-						{ wait_seconds: lastWaitSeconds },
+				if (isRateLimitError(error)) {
+					this.l.warn("rate limited by RPC, backing off", {
+						wait_seconds: lastWaitSeconds,
+					});
+					await new Promise((resolve) =>
+						setTimeout(resolve, lastWaitSeconds * 1000),
 					);
-					// rate limited: wait before re-trying
+					lastWaitSeconds = Math.min(lastWaitSeconds * 2, maxWaitSeconds);
+					continue;
+				}
+				if (maxWaitSeconds > lastWaitSeconds) {
+					this.l.warn("RPC error, retrying", {
+						wait_seconds: lastWaitSeconds,
+					});
 					await new Promise((resolve) =>
 						setTimeout(resolve, lastWaitSeconds * 1000),
 					);
@@ -401,7 +424,9 @@ export class HistoricalDataFilterer {
 			return;
 		}
 
-		this.l.info(`saveEvents: processing ${events.length} events`);
+		if (events.length >= 100) {
+			this.l.info(`saveEvents: processing ${events.length} events`);
+		}
 
 		const eventFragments = topicHashes.map(
 			(topic0) => c.interface.getEvent(topic0) as EventFragment,
@@ -418,10 +443,27 @@ export class HistoricalDataFilterer {
 					);
 					if (blockTimestamp.get(event.blockNumber) == undefined) {
 						getBlockCalls++;
-						blockTimestamp.set(
-							event.blockNumber,
-							(await event.getBlock()).timestamp,
-						);
+						let retries = 0;
+						for (;;) {
+							try {
+								blockTimestamp.set(
+									event.blockNumber,
+									(await event.getBlock()).timestamp,
+								);
+								break;
+							} catch (e) {
+								if (isRateLimitError(e) && retries < 5) {
+									const wait = Math.pow(2, retries) * 1000;
+									this.l.warn(
+										`getBlock rate limited, retrying in ${wait}ms`,
+									);
+									await new Promise((r) => setTimeout(r, wait));
+									retries++;
+								} else {
+									throw e;
+								}
+							}
+						}
 					}
 					const ts = blockTimestamp.get(event.blockNumber)!;
 					cb(log, event, ts);
@@ -429,7 +471,7 @@ export class HistoricalDataFilterer {
 				}
 			}
 		}
-		if (getBlockCalls > 0) {
+		if (getBlockCalls >= 100) {
 			this.l.info(`saveEvents: made ${getBlockCalls} getBlock() RPC calls`);
 		}
 	}
