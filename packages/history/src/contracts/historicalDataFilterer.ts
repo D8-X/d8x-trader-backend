@@ -377,11 +377,7 @@ export class HistoricalDataFilterer {
 			} catch (error) {
 				const errMsg = formatErrorMessage(error);
 				this.l.warn("Caught error in genericFilterer:" + errMsg);
-				metrics.errors.push({
-					ts: new Date().toISOString(),
-					msg: errMsg.slice(0, 200),
-				});
-				if (metrics.errors.length > 50) metrics.errors.shift();
+				metrics.trackError("genericFilterer", error);
 				if (errMsg.includes("413")) {
 					deltaBlocks = Math.max(100, Math.round(deltaBlocks * 0.75));
 					this.l.info(
@@ -467,6 +463,7 @@ export class HistoricalDataFilterer {
 							} catch (e) {
 								if (isRateLimitError(e) && retries < 5) {
 									metrics.rateLimitsHit++;
+									metrics.trackError("getBlock", e);
 									const wait = Math.pow(2, retries) * 1000;
 									this.l.warn(
 										`getBlock rate limited, retrying in ${wait}ms`,
