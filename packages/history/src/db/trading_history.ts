@@ -5,6 +5,7 @@ import { Logger } from "winston";
 import { LiquidateEvent } from "../contracts/types.js";
 import { ONE_64x64 } from "utils";
 import { createHash } from "crypto";
+import { metrics } from "../svc/metrics.js";
 
 type TradeHistoryEvent = TradeEvent | LiquidateEvent;
 
@@ -37,101 +38,70 @@ export class TradingHistory {
 		const tx_hash = txHash.toLowerCase();
 		const trader = e.trader.toLowerCase();
 		const isLiquidation = (e as TradeEvent).order == undefined;
-		const exists = await this.prisma.trade.findFirst({
-			where: {
-				tx_hash: {
-					equals: tx_hash,
-				},
-				trader_addr: {
-					equals: trader,
-				},
-			},
-		});
-		if (exists === null) {
-			let newTrade: Trade;
-			let orderDigest: string;
-			try {
-				let data: Prisma.TradeCreateInput;
+		try {
+			let data: Prisma.TradeCreateInput;
 
-				if (!isLiquidation) {
-					e = e as TradeEvent;
-					//a*2^64 * b*2^64 /2^64 = a*b*2^64 => requires >ES2017
-					const quantityCC = (e.fB2C * e.order.fAmount) / ONE_64x64;
-					orderDigest = e.orderDigest.toString();
-					data = {
-						chain_id: parseInt(this.chainId.toString()),
-						order_digest_hash: orderDigest,
-						fee: e.fFeeCC.toString(),
-						broker_fee_tbps: Number(e.order.brokerFeeTbps),
-						broker_addr: e.order.brokerAddr.toLowerCase(),
-						perpetual_id: Number(e.perpetualId),
-						price: e.price.toString(),
-						quantity: e.order.fAmount.toString(),
-						quantity_cc: quantityCC.toString(),
-						realized_profit: e.fPnlCC.toString(),
-						new_pos_bc: e.newPositionSizeBC.toString(),
-						side: (parseInt(e.order.fAmount.toString()) > 0
-							? "buy"
-							: "sell") as trade_side,
-						// Order flags are only present
-						order_flags: e.order.flags,
-						tx_hash,
-						trader_addr: trader,
-						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
-						is_collected_by_event: isCollectedByEvent,
-						leverage: Number(e.order.leverageTDR),
-					};
-				} else {
-					e = e as LiquidateEvent;
-					orderDigest = this._createLiquidationId(e, tradeBlockNumber);
-					data = {
-						chain_id: parseInt(this.chainId.toString()),
-						// create id in case of liquidation event that is unique
-						order_digest_hash: orderDigest,
-						fee: e.fFeeCC.toString(),
-						broker_fee_tbps: 0,
-						perpetual_id: Number(e.perpetualId),
-						price: e.liquidationPrice.toString(),
-						quantity: e.amountLiquidatedBC.toString(),
-						realized_profit: e.fPnlCC.toString(),
-						new_pos_bc: e.newPositionSizeBC.toString(),
-						side: (parseInt(e.amountLiquidatedBC.toString()) > 0
-							? "liquidate_buy"
-							: "liquidate_sell") as trade_side,
-						trade_timestamp: new Date(tradeBlockTimestamp * 1000),
-						tx_hash,
-						trader_addr: trader,
-						is_collected_by_event: isCollectedByEvent,
-						leverage: null,
-					};
-				}
-				this.l.info(`inserting new ${isLiquidation ? "liquidation" : "trade"}`, {
-					order_digest: data.order_digest_hash,
-				});
-				newTrade = await this.prisma.trade.create({
-					data,
-				});
-			} catch (e) {
-				this.l.error(`inserting new ${isLiquidation ? "liquidation" : "trade"}`, {
-					error: e,
-				});
-				return;
+			if (!isLiquidation) {
+				e = e as TradeEvent;
+				const quantityCC = (e.fB2C * e.order.fAmount) / ONE_64x64;
+				data = {
+					chain_id: parseInt(this.chainId.toString()),
+					order_digest_hash: e.orderDigest.toString(),
+					fee: e.fFeeCC.toString(),
+					broker_fee_tbps: Number(e.order.brokerFeeTbps),
+					broker_addr: e.order.brokerAddr.toLowerCase(),
+					perpetual_id: Number(e.perpetualId),
+					price: e.price.toString(),
+					quantity: e.order.fAmount.toString(),
+					quantity_cc: quantityCC.toString(),
+					realized_profit: e.fPnlCC.toString(),
+					new_pos_bc: e.newPositionSizeBC.toString(),
+					side: (parseInt(e.order.fAmount.toString()) > 0
+						? "buy"
+						: "sell") as trade_side,
+					order_flags: e.order.flags,
+					tx_hash,
+					trader_addr: trader,
+					trade_timestamp: new Date(tradeBlockTimestamp * 1000),
+					is_collected_by_event: isCollectedByEvent,
+					leverage: Number(e.order.leverageTDR),
+				};
+			} else {
+				e = e as LiquidateEvent;
+				data = {
+					chain_id: parseInt(this.chainId.toString()),
+					order_digest_hash: this._createLiquidationId(e, tradeBlockNumber),
+					fee: e.fFeeCC.toString(),
+					broker_fee_tbps: 0,
+					perpetual_id: Number(e.perpetualId),
+					price: e.liquidationPrice.toString(),
+					quantity: e.amountLiquidatedBC.toString(),
+					realized_profit: e.fPnlCC.toString(),
+					new_pos_bc: e.newPositionSizeBC.toString(),
+					side: (parseInt(e.amountLiquidatedBC.toString()) > 0
+						? "liquidate_buy"
+						: "liquidate_sell") as trade_side,
+					trade_timestamp: new Date(tradeBlockTimestamp * 1000),
+					tx_hash,
+					trader_addr: trader,
+					is_collected_by_event: isCollectedByEvent,
+					leverage: null,
+				};
 			}
-		} else if (isCollectedByEvent) {
-			// record exists, and was collected by event -> update
-			const id = isLiquidation
-				? this._createLiquidationId(e as LiquidateEvent, tradeBlockNumber)
-				: (e as TradeEvent).orderDigest.toString();
-			console.log(`tradingHistory: tradevent = ${e}`);
-			console.log(`tradingHistory: id = ${id}`);
-			await this.prisma.trade.update({
+			await this.prisma.trade.upsert({
 				where: {
-					order_digest_hash: id,
+					order_digest_hash: data.order_digest_hash,
 				},
-				data: {
-					is_collected_by_event: false,
+				update: {
+					is_collected_by_event: isCollectedByEvent,
 				},
+				create: data,
 			});
+		} catch (e) {
+			this.l.error(`inserting new ${isLiquidation ? "liquidation" : "trade"}`, {
+				error: e,
+			});
+			metrics.trackError("db:trade_upsert", e);
 		}
 	}
 
@@ -163,10 +133,12 @@ export class TradingHistory {
 			orderBy: {
 				trade_timestamp: "desc",
 			},
-			skip: 10, //avoid gaps when recent events arrived
 		});
 
-		return tradeDate?.trade_timestamp;
+		if (tradeDate?.trade_timestamp) {
+			return new Date(tradeDate.trade_timestamp.getTime() - 3_600_000);
+		}
+		return undefined;
 	}
 
 	/**
@@ -189,9 +161,11 @@ export class TradingHistory {
 			orderBy: {
 				trade_timestamp: "desc",
 			},
-			skip: 10,
 		});
 
-		return tradeDate?.trade_timestamp;
+		if (tradeDate?.trade_timestamp) {
+			return new Date(tradeDate.trade_timestamp.getTime() - 3_600_000);
+		}
+		return undefined;
 	}
 }
