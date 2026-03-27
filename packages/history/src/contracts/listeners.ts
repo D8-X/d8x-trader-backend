@@ -102,7 +102,7 @@ export class EventListener {
 			blockNumber: blockNum,
 			txHash: event.log.transactionHash,
 		});
-		return undefined; // so that we doon't store something missleading
+		return undefined;
 	}
 
 	public checkHeartbeat(maxDelaySec: number) {

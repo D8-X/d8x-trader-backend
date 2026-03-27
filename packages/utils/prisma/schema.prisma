@@ -21,7 +21,7 @@ enum trade_side {
 // Decimal with 40 precision is used for int128 fields, since 128 bit number can
 // have 39 digits.
 model Trade {
-  // Wallet address of user 
+  // Wallet address of user
   trader_addr     String     @db.VarChar(42)
   perpetual_id    Int
   chain_id        Int
@@ -91,10 +91,11 @@ model TokenFlow {
   timestamp             DateTime @default(now()) @db.Timestamptz
   tx_hash               String   @db.Text
   amount_cc             Decimal? @db.Decimal(40, 0)
+  deposit               Boolean
   is_collected_by_event Boolean  @default(true)
   updated_at            DateTime @default(now()) @db.Timestamptz
 
-  @@id([trader_addr, perpetual_id, tx_hash])
+  @@id([trader_addr, perpetual_id, tx_hash, deposit])
   @@index([trader_addr])
   @@index([perpetual_id])
   @@index([timestamp])

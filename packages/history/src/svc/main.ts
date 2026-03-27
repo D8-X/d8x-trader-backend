@@ -186,7 +186,9 @@ export const main = async () => {
 	const thirtyDaysAgoSec = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
 	runHistoricalDataFilterers(hdOpts, thirtyDaysAgoSec, false);
 	// runHistoricalDataFilterers(hdOpts, blk.timestamp, false);
-	detectAndFillGaps(prisma, hdOpts, blk.timestamp).catch((e) => {
+
+	const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
+	detectAndFillGaps(prisma, hdOpts, sevenDaysAgoSec).catch((e) => {
 		logger.warn("initial gap detection failed", { error: e });
 		metrics.trackError("gapDetection", e);
 	});
