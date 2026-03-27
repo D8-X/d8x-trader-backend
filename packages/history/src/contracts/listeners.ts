@@ -46,6 +46,7 @@ export class EventListener {
 	private opts: EventListenerOptions;
 	private lastEventTs: number;
 	public listeningMode: ListeningMode;
+	private blockTsCache: Map<number, number> = new Map();
 
 	constructor(
 		opts: EventListenerOptions,
@@ -63,6 +64,35 @@ export class EventListener {
 		this.opts = opts;
 		this.lastEventTs = Date.now();
 		this.listeningMode = ListeningMode.WS;
+	}
+
+	/**
+	 * Get the block timestamp for an event, using a cache to avoid redundant
+	 * RPC calls for events in the same block. Falls back to wall-clock time
+	 * if the RPC call fails.
+	 */
+	private async getBlockTs(event: ethers.ContractEventPayload): Promise<number> {
+		const blockNum = event.log.blockNumber;
+		const cached = this.blockTsCache.get(blockNum);
+		if (cached !== undefined) {
+			return cached;
+		}
+		try {
+			const block = await event.getBlock();
+			this.blockTsCache.set(blockNum, block.timestamp);
+
+			if (this.blockTsCache.size > 200) {
+				const oldest = this.blockTsCache.keys().next().value!;
+				this.blockTsCache.delete(oldest);
+			}
+			return block.timestamp;
+		} catch (e) {
+			this.l.warn("failed to get block timestamp, using wall-clock", {
+				blockNumber: blockNum,
+				error: e,
+			});
+			return Math.round(Date.now() / 1000);
+		}
 	}
 
 	public checkHeartbeat(maxDelaySec: number) {
@@ -130,7 +160,7 @@ export class EventListener {
 
 		proxy.on(
 			"TokensWithdrawn",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				amount: bigint,
@@ -146,7 +176,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					await this.getBlockTs(event),
 					event.log.blockNumber,
 				);
 			},
@@ -154,7 +184,7 @@ export class EventListener {
 
 		proxy.on(
 			"TokensDeposited",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				amount: bigint,
@@ -170,7 +200,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					await this.getBlockTs(event),
 					event.log.blockNumber,
 				);
 			},
@@ -178,7 +208,7 @@ export class EventListener {
 
 		proxy.on(
 			"SettleV2",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				amount: bigint,
@@ -196,14 +226,14 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					await this.getBlockTs(event),
 					event.log.blockNumber,
 				);
 			},
 		);
 		proxy.on(
 			"Settle",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				amount: bigint,
@@ -220,7 +250,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					await this.getBlockTs(event),
 					event.log.blockNumber,
 				);
 			},
@@ -229,7 +259,7 @@ export class EventListener {
 		// Trade event
 		proxy.on(
 			"Trade",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				order: Order,
@@ -257,7 +287,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					await this.getBlockTs(event),
 					event.log.blockNumber,
 				);
 			},
@@ -266,7 +296,7 @@ export class EventListener {
 		// SetOracles event
 		proxy.on(
 			"SetOracles",
-			(
+			async (
 				perpetualId: number,
 				baseQuoteS2: string[],
 				baseQuoteS3: string[],
@@ -282,7 +312,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					await this.getBlockTs(event),
 					event.log.blockNumber,
 				);
 			},
@@ -290,7 +320,7 @@ export class EventListener {
 
 		proxy.on(
 			"Liquidate",
-			(
+			async (
 				perpetualId: number,
 				liquidator: string,
 				trader: string,
@@ -315,7 +345,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					await this.getBlockTs(event),
 					event.log.blockNumber,
 				);
 			},
@@ -323,7 +353,7 @@ export class EventListener {
 
 		proxy.on(
 			"UpdateMarginAccount",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				fFundingPaymentCC: bigint,
@@ -341,14 +371,14 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					await this.getBlockTs(event),
 				);
 			},
 		);
 
 		proxy.on(
 			"LiquidityAdded",
-			(
+			async (
 				poolId: number,
 				user: string,
 				tokenAmount: bigint,
@@ -368,14 +398,14 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					await this.getBlockTs(event),
 				);
 			},
 		);
 
 		proxy.on(
 			"LiquidityRemoved",
-			(
+			async (
 				poolId: number,
 				user: string,
 				tokenAmount: bigint,
@@ -395,7 +425,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					await this.getBlockTs(event),
 				);
 			},
 		);
@@ -415,7 +445,7 @@ export class EventListener {
 			);
 			c.on(
 				"P2PTransfer",
-				(
+				async (
 					from: string,
 					to: string,
 					amountD18: bigint,
@@ -427,7 +457,7 @@ export class EventListener {
 						poolId,
 						event.log.transactionHash,
 						IS_COLLECTED_BY_EVENT,
-						Math.round(new Date().getTime() / 1000),
+						await this.getBlockTs(event),
 					);
 				},
 			);
@@ -438,7 +468,7 @@ export class EventListener {
 		);
 		proxy.on(
 			"LiquidityWithdrawalInitiated",
-			(
+			async (
 				poolId: number,
 				user: string,
 				shareAmount: bigint,
@@ -452,7 +482,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					await this.getBlockTs(event),
 				),
 		);
 	}

@@ -94,6 +94,8 @@ export class TradingHistory {
 				},
 				update: {
 					is_collected_by_event: isCollectedByEvent,
+					trade_timestamp: data.trade_timestamp,
+					updated_at: new Date(),
 				},
 				create: data,
 			});

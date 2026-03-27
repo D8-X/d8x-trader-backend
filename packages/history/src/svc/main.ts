@@ -182,7 +182,8 @@ export const main = async () => {
 		staticInfo: staticInfo,
 		eventListener: eventsListener,
 	};
-	runHistoricalDataFilterers(hdOpts, blk.timestamp);
+
+	runHistoricalDataFilterers(hdOpts, blk.timestamp, false);
 	detectAndFillGaps(prisma, hdOpts, blk.timestamp).catch((e) => {
 		logger.warn("initial gap detection failed", { error: e });
 		metrics.trackError("gapDetection", e);
@@ -301,7 +302,7 @@ export const main = async () => {
 			logger.warn("gap detection failed", { error: e });
 			metrics.trackError("gapDetection", e);
 		}
-	}, 86_400_000); // this 24h in ms
+	}, 7_200_000); // 2h in ms
 
 	// Start the history api
 	const api = new HistoryRestAPI(
@@ -674,19 +675,19 @@ const GAP_CONFIGS: GapConfig[] = [
 	{
 		table: "trades_history",
 		timestampCol: "trade_timestamp",
-		thresholdSeconds: 12 * 3600,
+		thresholdSeconds: 4 * 3600,
 	},
-	{ table: "token_flow", timestampCol: "timestamp", thresholdSeconds: 12 * 3600 },
+	{ table: "token_flow", timestampCol: "timestamp", thresholdSeconds: 4 * 3600 },
 	{
 		table: "funding_rate_payments",
 		timestampCol: "payment_timestamp",
-		thresholdSeconds: 12 * 3600,
+		thresholdSeconds: 4 * 3600,
 	},
-	{ table: "settle_history", timestampCol: "timestamp", thresholdSeconds: 24 * 3600 },
+	{ table: "settle_history", timestampCol: "timestamp", thresholdSeconds: 6 * 3600 },
 	{
 		table: "estimated_earnings_tokens",
 		timestampCol: "created_at",
-		thresholdSeconds: 24 * 3600,
+		thresholdSeconds: 12 * 3600,
 	},
 ];
 

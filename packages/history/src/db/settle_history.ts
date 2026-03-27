@@ -22,7 +22,10 @@ export class SettleHistory {
 				is_collected_by_event: false,
 			},
 		});
-		return res?.timestamp;
+		if (res?.timestamp) {
+			return new Date(res.timestamp.getTime() - 3_600_000);
+		}
+		return undefined;
 	}
 
 	public async insertSettleHistoryRecord(
@@ -47,6 +50,8 @@ export class SettleHistory {
 				is_collected_by_event: isCollectedByEvent,
 				cash_cc: e.cash.toString(),
 				quantity_cc: q.toString(),
+				timestamp: new Date(tradeBlockTimestamp * 1000),
+				updated_at: new Date(),
 			},
 			create: {
 				trader_addr: trader,
