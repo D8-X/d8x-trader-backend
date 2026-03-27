@@ -1,4 +1,4 @@
-import { PrismaClient, Trade, trade_side, Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { BigNumberish } from "ethers";
 import {
 	TokenFlowEvent,
@@ -48,6 +48,7 @@ export class TokenFlow {
 			txHash,
 			isCollectedByEvent,
 			evtBlockTimestamp,
+			false,
 		);
 	}
 
@@ -67,6 +68,7 @@ export class TokenFlow {
 			txHash,
 			isCollectedByEvent,
 			evtBlockTimestamp,
+			true,
 		);
 	}
 
@@ -75,15 +77,17 @@ export class TokenFlow {
 		txHash: string,
 		isCollectedByEvent: boolean,
 		evtBlockTimestamp: number,
+		isDeposit: boolean,
 	) {
 		const tx_hash = txHash.toLowerCase();
 		const trader = e.trader.toLowerCase();
 		await this.prisma.tokenFlow.upsert({
 			where: {
-				trader_addr_perpetual_id_tx_hash: {
+				trader_addr_perpetual_id_tx_hash_deposit: {
 					trader_addr: trader,
 					perpetual_id: Number(e.perpetualId),
 					tx_hash,
+					deposit: isDeposit,
 				},
 			},
 			update: {
@@ -96,6 +100,7 @@ export class TokenFlow {
 				perpetual_id: Number(e.perpetualId),
 				chain_id: parseInt(this.chainId.toString()),
 				amount_cc: e.amountCC.toString(),
+				deposit: isDeposit,
 				tx_hash,
 				timestamp: new Date(evtBlockTimestamp * 1000),
 				is_collected_by_event: isCollectedByEvent,
