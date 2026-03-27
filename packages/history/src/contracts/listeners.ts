@@ -46,6 +46,7 @@ export class EventListener {
 	private opts: EventListenerOptions;
 	private lastEventTs: number;
 	public listeningMode: ListeningMode;
+	private blockTsCache: Map<number, number> = new Map();
 
 	constructor(
 		opts: EventListenerOptions,
@@ -63,6 +64,45 @@ export class EventListener {
 		this.opts = opts;
 		this.lastEventTs = Date.now();
 		this.listeningMode = ListeningMode.WS;
+	}
+
+	/**
+	 * Get the block timestamp for an event, using a cache to avoid redundant
+	 * RPC calls for events in the same block. Retries up to 3 times on failure.
+	 * Returns undefined if all retries fail. caller should skip the event
+	 * and let the backfill pick it up later with the correct timestamp.
+	 */
+	private async getBlockTs(
+		event: ethers.ContractEventPayload,
+	): Promise<number | undefined> {
+		const blockNum = event.log.blockNumber;
+		const cached = this.blockTsCache.get(blockNum);
+		if (cached !== undefined) {
+			return cached;
+		}
+		for (let attempt = 0; attempt < 3; attempt++) {
+			try {
+				const block = await event.getBlock();
+				if (this.blockTsCache.size > 200) {
+					this.blockTsCache.clear();
+				}
+				this.blockTsCache.set(blockNum, block.timestamp);
+				return block.timestamp;
+			} catch (e) {
+				this.l.warn(`getBlockTs attempt ${attempt + 1}/3 failed`, {
+					blockNumber: blockNum,
+					error: e,
+				});
+				if (attempt < 2) {
+					await new Promise((r) => setTimeout(r, (attempt + 1) * 1000));
+				}
+			}
+		}
+		this.l.error("getBlockTs failed after 3 retries, skipping event", {
+			blockNumber: blockNum,
+			txHash: event.log.transactionHash,
+		});
+		return undefined; // so that we doon't store something missleading
 	}
 
 	public checkHeartbeat(maxDelaySec: number) {
@@ -130,7 +170,7 @@ export class EventListener {
 
 		proxy.on(
 			"TokensWithdrawn",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				amount: bigint,
@@ -138,6 +178,8 @@ export class EventListener {
 			) => {
 				const topic = event.log.topics[0];
 				this.l.info("got withdraw event", { perpetualId, trader, topic });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onTokensWithdrawnEvent(
 					{
 						perpetualId: perpetualId,
@@ -146,7 +188,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
@@ -154,7 +196,7 @@ export class EventListener {
 
 		proxy.on(
 			"TokensDeposited",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				amount: bigint,
@@ -162,6 +204,8 @@ export class EventListener {
 			) => {
 				const topic = event.log.topics[0];
 				this.l.info("got deposit event", { perpetualId, trader, topic });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onTokensDepositedEvent(
 					{
 						perpetualId: perpetualId,
@@ -170,7 +214,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
@@ -178,7 +222,7 @@ export class EventListener {
 
 		proxy.on(
 			"SettleV2",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				amount: bigint,
@@ -187,6 +231,8 @@ export class EventListener {
 			) => {
 				const topic = event.log.topics[0];
 				this.l.info("got settle event V2", { perpetualId, trader, topic });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onSettleEvent(
 					{
 						perpetualId: perpetualId,
@@ -196,14 +242,14 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
 		);
 		proxy.on(
 			"Settle",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				amount: bigint,
@@ -211,6 +257,8 @@ export class EventListener {
 			) => {
 				const topic = event.log.topics[0];
 				this.l.info("got settle event V1", { perpetualId, trader, topic });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onSettleEvent(
 					{
 						perpetualId: perpetualId,
@@ -220,7 +268,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
@@ -229,7 +277,7 @@ export class EventListener {
 		// Trade event
 		proxy.on(
 			"Trade",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				order: Order,
@@ -243,6 +291,8 @@ export class EventListener {
 			) => {
 				const topic = event.log.topics[0];
 				this.l.info("got trade event", { perpetualId, trader, topic });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onTradeEvent(
 					{
 						perpetualId: perpetualId,
@@ -257,7 +307,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
@@ -266,7 +316,7 @@ export class EventListener {
 		// SetOracles event
 		proxy.on(
 			"SetOracles",
-			(
+			async (
 				perpetualId: number,
 				baseQuoteS2: string[],
 				baseQuoteS3: string[],
@@ -274,6 +324,8 @@ export class EventListener {
 			) => {
 				const topic = event.log.topics[0];
 				this.l.info("got SetOracles event", { perpetualId, topic });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onSetOracleEvent(
 					{
 						perpetualId: perpetualId,
@@ -282,7 +334,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
@@ -290,7 +342,7 @@ export class EventListener {
 
 		proxy.on(
 			"Liquidate",
-			(
+			async (
 				perpetualId: number,
 				liquidator: string,
 				trader: string,
@@ -302,6 +354,8 @@ export class EventListener {
 				event: ethers.ContractEventPayload,
 			) => {
 				this.l.info("got liquidate event", { perpetualId, trader, liquidator });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onLiquidate(
 					{
 						perpetualId: perpetualId,
@@ -315,7 +369,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
@@ -323,7 +377,7 @@ export class EventListener {
 
 		proxy.on(
 			"UpdateMarginAccount",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				fFundingPaymentCC: bigint,
@@ -333,6 +387,8 @@ export class EventListener {
 					perpetualId,
 					trader,
 				});
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onUpdateMarginAccount(
 					{
 						perpetualId: perpetualId,
@@ -341,14 +397,14 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 				);
 			},
 		);
 
 		proxy.on(
 			"LiquidityAdded",
-			(
+			async (
 				poolId: number,
 				user: string,
 				tokenAmount: bigint,
@@ -359,6 +415,8 @@ export class EventListener {
 					poolId,
 					user,
 				});
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onLiquidityAdded(
 					{
 						poolId: BigInt(poolId),
@@ -368,14 +426,14 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 				);
 			},
 		);
 
 		proxy.on(
 			"LiquidityRemoved",
-			(
+			async (
 				poolId: number,
 				user: string,
 				tokenAmount: bigint,
@@ -386,6 +444,8 @@ export class EventListener {
 					poolId,
 					user,
 				});
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onLiquidityRemoved(
 					{
 						poolId: BigInt(poolId),
@@ -395,7 +455,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 				);
 			},
 		);
@@ -415,19 +475,21 @@ export class EventListener {
 			);
 			c.on(
 				"P2PTransfer",
-				(
+				async (
 					from: string,
 					to: string,
 					amountD18: bigint,
 					priceD18: bigint,
 					event: ethers.ContractEventPayload,
 				) => {
+					const ts = await this.getBlockTs(event);
+					if (ts === undefined) return;
 					this.onP2PTransfer(
 						{ from: from, to: to, amountD18: amountD18, priceD18: priceD18 },
 						poolId,
 						event.log.transactionHash,
 						IS_COLLECTED_BY_EVENT,
-						Math.round(new Date().getTime() / 1000),
+						ts,
 					);
 				},
 			);
@@ -438,12 +500,14 @@ export class EventListener {
 		);
 		proxy.on(
 			"LiquidityWithdrawalInitiated",
-			(
+			async (
 				poolId: number,
 				user: string,
 				shareAmount: bigint,
 				event: ethers.ContractEventPayload,
-			) =>
+			) => {
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onLiquidityWithdrawalInitiated(
 					{
 						poolId: BigInt(poolId),
@@ -452,8 +516,9 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
-				),
+					ts,
+				);
+			},
 		);
 	}
 

@@ -88,6 +88,8 @@ export class TokenFlow {
 			},
 			update: {
 				is_collected_by_event: isCollectedByEvent,
+				timestamp: new Date(evtBlockTimestamp * 1000),
+				updated_at: new Date(),
 			},
 			create: {
 				trader_addr: trader,
