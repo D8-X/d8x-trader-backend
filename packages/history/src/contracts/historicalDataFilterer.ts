@@ -132,8 +132,7 @@ export class HistoricalDataFilterer {
 		callbacks: Record<string, EventCallback<any>>,
 		eventTimestamps?: Map<string, Date>,
 	) {
-		// events in scope
-		const eventNames = [
+		const allEventNames = [
 			"Trade",
 			"Settle",
 			"SettleV2",
@@ -146,15 +145,19 @@ export class HistoricalDataFilterer {
 			"LiquidityWithdrawalInitiated",
 			"SetOracles",
 		];
+		const eventNames = allEventNames.filter((name) => {
+			try {
+				this.PerpManagerProxy.filters[name]();
+				return true;
+			} catch {
+				this.l.info(`event ${name} not in ABI, skipping`);
+				return false;
+			}
+		});
 		const cbKeys = Object.keys(callbacks);
 		for (const eventName of cbKeys) {
-			if (!eventNames.some((x) => x == eventName)) {
+			if (!allEventNames.some((x) => x == eventName)) {
 				throw new Error(`Unknown event ${eventName}`);
-			}
-		}
-		for (const eventName of eventNames) {
-			if (!cbKeys.some((x) => x == eventName)) {
-				throw new Error(`Missing event ${eventName}`);
 			}
 		}
 
