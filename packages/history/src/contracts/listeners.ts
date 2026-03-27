@@ -247,32 +247,35 @@ export class EventListener {
 				);
 			},
 		);
-		proxy.on(
-			"Settle",
-			async (
-				perpetualId: number,
-				trader: string,
-				amount: bigint,
-				event: ethers.ContractEventPayload,
-			) => {
-				const topic = event.log.topics[0];
-				this.l.info("got settle event V1", { perpetualId, trader, topic });
-				const ts = await this.getBlockTs(event);
-				if (ts === undefined) return;
-				this.onSettleEvent(
-					{
-						perpetualId: perpetualId,
-						trader: trader,
-						amount: amount,
-						cash: 0n,
-					},
-					event.log.transactionHash,
-					IS_COLLECTED_BY_EVENT,
-					ts,
-					event.log.blockNumber,
-				);
-			},
-		);
+
+		if (proxy.filters["Settle"]) {
+			proxy.on(
+				"Settle",
+				async (
+					perpetualId: number,
+					trader: string,
+					amount: bigint,
+					event: ethers.ContractEventPayload,
+				) => {
+					const topic = event.log.topics[0];
+					this.l.info("got settle event V1", { perpetualId, trader, topic });
+					const ts = await this.getBlockTs(event);
+					if (ts === undefined) return;
+					this.onSettleEvent(
+						{
+							perpetualId: perpetualId,
+							trader: trader,
+							amount: amount,
+							cash: 0n,
+						},
+						event.log.transactionHash,
+						IS_COLLECTED_BY_EVENT,
+						ts,
+						event.log.blockNumber,
+					);
+				},
+			);
+		}
 
 		// Trade event
 		proxy.on(
