@@ -14,7 +14,7 @@ import crypto from "crypto";
 import { IncomingMessage } from "http";
 import WebSocket from "ws";
 
-import { Contract, WebSocketProvider } from "ethers";
+import { Contract } from "ethers";
 
 import {
 	ExecutionFailed,
@@ -88,14 +88,13 @@ export default class EventListener extends IndexPriceInterface {
 	isInitialized = false;
 	fundingRate: Map<number, number>; // perpetualId -> funding rate
 	lastBlockChainEventTs: number; //here we log the event occurence time to guess whether the connection is alive
-	wsConn: any | undefined;
 	// subscription for perpetualId and trader address. Multiple websocket-clients can subscribe
 	// (hence array of websockets)
 	subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>; // perpetualId -> traderAddr -> ws[]
 	clients: Map<WebSocket.WebSocket, Array<ClientSubscription>>;
 
 	// Current active websocket provider
-	public currentWSRpcProvider: WebSocketProvider | undefined = undefined;
+	public currentWSRpcProvider: TrackedWebsocketsProvider | undefined = undefined;
 	// Whether resetRPCWebsocket is currently running
 	public rpcResetting = false;
 	// After how many calls to resetRPCWebsocket service will be restarted. This
@@ -191,7 +190,9 @@ export default class EventListener extends IndexPriceInterface {
 			this.logger.info("old rpc provider destroyed");
 		}
 
-		this.wsConn = new WebSocketProvider(
+		// Attempt to establish a ws connection to new RPC
+		this.logger.info("creating new websocket rpc provider");
+		this.currentWSRpcProvider = new TrackedWebsocketsProvider(
 			() =>
 				new SturdyWebSocket(this.wsRPC, {
 					wsConstructor: WebSocket,
@@ -199,10 +200,6 @@ export default class EventListener extends IndexPriceInterface {
 					maxReconnectAttempts: 3,
 				}),
 		);
-
-		// Attempt to establish a ws connection to new RPC
-		this.logger.info("creating new websocket rpc provider");
-		this.currentWSRpcProvider = new TrackedWebsocketsProvider(this.wsConn!);
 
 		// On provider error - retry after short cooldown
 		this.currentWSRpcProvider.on("error", (error: Error) => () => {

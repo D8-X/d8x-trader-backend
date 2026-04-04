@@ -10,6 +10,24 @@ export class SettleHistory {
 		public l: Logger,
 	) {}
 
+	public async getLatestTimestamp(): Promise<Date | undefined> {
+		const res = await this.prisma.settle.findFirst({
+			select: {
+				timestamp: true,
+			},
+			orderBy: {
+				timestamp: "desc",
+			},
+			where: {
+				is_collected_by_event: false,
+			},
+		});
+		if (res?.timestamp) {
+			return new Date(res.timestamp.getTime() - 3_600_000);
+		}
+		return undefined;
+	}
+
 	public async insertSettleHistoryRecord(
 		e: SettleEvent,
 		txHash: string,
@@ -30,12 +48,16 @@ export class SettleHistory {
 			},
 			update: {
 				is_collected_by_event: isCollectedByEvent,
+				cash_cc: e.cash.toString(),
 				quantity_cc: q.toString(),
+				timestamp: new Date(tradeBlockTimestamp * 1000),
+				updated_at: new Date(),
 			},
 			create: {
 				trader_addr: trader,
 				perpetual_id: Number(e.perpetualId),
 				chain_id: parseInt(this.chainId.toString()),
+				cash_cc: e.cash.toString(),
 				quantity_cc: q.toString(),
 				tx_hash,
 				timestamp: new Date(tradeBlockTimestamp * 1000),

@@ -27,6 +27,7 @@ import { LiquidityWithdrawals } from "../db/liquidity_withdrawals.js";
 import { IPerpetualManager } from "@d8-x/d8x-node-sdk";
 import { SettleHistory } from "../db/settle_history.js";
 import { TokenFlow } from "../db/token_flow.js";
+import { metrics } from "../svc/metrics.js";
 export interface EventListenerOptions {
 	logger: Logger;
 	// smart contract addresses which will be used to listen to incoming events
@@ -45,6 +46,7 @@ export class EventListener {
 	private opts: EventListenerOptions;
 	private lastEventTs: number;
 	public listeningMode: ListeningMode;
+	private blockTsCache: Map<number, number> = new Map();
 
 	constructor(
 		opts: EventListenerOptions,
@@ -62,6 +64,45 @@ export class EventListener {
 		this.opts = opts;
 		this.lastEventTs = Date.now();
 		this.listeningMode = ListeningMode.WS;
+	}
+
+	/**
+	 * Get the block timestamp for an event, using a cache to avoid redundant
+	 * RPC calls for events in the same block. Retries up to 3 times on failure.
+	 * Returns undefined if all retries fail. caller should skip the event
+	 * and let the backfill pick it up later with the correct timestamp.
+	 */
+	private async getBlockTs(
+		event: ethers.ContractEventPayload,
+	): Promise<number | undefined> {
+		const blockNum = event.log.blockNumber;
+		const cached = this.blockTsCache.get(blockNum);
+		if (cached !== undefined) {
+			return cached;
+		}
+		for (let attempt = 0; attempt < 3; attempt++) {
+			try {
+				const block = await event.getBlock();
+				if (this.blockTsCache.size > 200) {
+					this.blockTsCache.clear();
+				}
+				this.blockTsCache.set(blockNum, block.timestamp);
+				return block.timestamp;
+			} catch (e) {
+				this.l.warn(`getBlockTs attempt ${attempt + 1}/3 failed`, {
+					blockNumber: blockNum,
+					error: e,
+				});
+				if (attempt < 2) {
+					await new Promise((r) => setTimeout(r, (attempt + 1) * 1000));
+				}
+			}
+		}
+		this.l.error("getBlockTs failed after 3 retries, skipping event", {
+			blockNumber: blockNum,
+			txHash: event.log.transactionHash,
+		});
+		return undefined;
 	}
 
 	public checkHeartbeat(maxDelaySec: number) {
@@ -84,7 +125,13 @@ export class EventListener {
 	 */
 	public async listen(provider: WebSocketProvider | JsonRpcProvider) {
 		if (this.provider) {
-			await this.provider.removeAllListeners();
+			try {
+				await this.provider.removeAllListeners();
+			} catch (e) {
+				this.l.warn("failed to remove listeners from previous provider", {
+					error: e,
+				});
+			}
 		}
 		const IS_COLLECTED_BY_EVENT = true;
 		this.provider = provider;
@@ -98,9 +145,11 @@ export class EventListener {
 			},
 		);
 
+		metrics.connection = this.listeningMode;
 		provider.on("block", (blockNumber) => {
 			this.lastEventTs = Date.now();
 			this.blockNumber = blockNumber;
+			metrics.lastBlock = blockNumber;
 		});
 
 		// perpertual proxy manager - main contract
@@ -121,7 +170,7 @@ export class EventListener {
 
 		proxy.on(
 			"TokensWithdrawn",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				amount: bigint,
@@ -129,6 +178,8 @@ export class EventListener {
 			) => {
 				const topic = event.log.topics[0];
 				this.l.info("got withdraw event", { perpetualId, trader, topic });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onTokensWithdrawnEvent(
 					{
 						perpetualId: perpetualId,
@@ -137,7 +188,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
@@ -145,7 +196,7 @@ export class EventListener {
 
 		proxy.on(
 			"TokensDeposited",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				amount: bigint,
@@ -153,6 +204,8 @@ export class EventListener {
 			) => {
 				const topic = event.log.topics[0];
 				this.l.info("got deposit event", { perpetualId, trader, topic });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onTokensDepositedEvent(
 					{
 						perpetualId: perpetualId,
@@ -161,7 +214,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
@@ -169,7 +222,7 @@ export class EventListener {
 
 		proxy.on(
 			"SettleV2",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				amount: bigint,
@@ -178,6 +231,8 @@ export class EventListener {
 			) => {
 				const topic = event.log.topics[0];
 				this.l.info("got settle event V2", { perpetualId, trader, topic });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onSettleEvent(
 					{
 						perpetualId: perpetualId,
@@ -187,40 +242,45 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
-					event.log.blockNumber,
-				);
-			},
-		);
-		proxy.on(
-			"Settle",
-			(
-				perpetualId: number,
-				trader: string,
-				amount: bigint,
-				event: ethers.ContractEventPayload,
-			) => {
-				const topic = event.log.topics[0];
-				this.l.info("got settle event V1", { perpetualId, trader, topic });
-				this.onSettleEvent(
-					{
-						perpetualId: perpetualId,
-						trader: trader,
-						amount: amount,
-						cash: 0n,
-					},
-					event.log.transactionHash,
-					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
 		);
 
+		if (proxy.filters["Settle"]) {
+			proxy.on(
+				"Settle",
+				async (
+					perpetualId: number,
+					trader: string,
+					amount: bigint,
+					event: ethers.ContractEventPayload,
+				) => {
+					const topic = event.log.topics[0];
+					this.l.info("got settle event V1", { perpetualId, trader, topic });
+					const ts = await this.getBlockTs(event);
+					if (ts === undefined) return;
+					this.onSettleEvent(
+						{
+							perpetualId: perpetualId,
+							trader: trader,
+							amount: amount,
+							cash: 0n,
+						},
+						event.log.transactionHash,
+						IS_COLLECTED_BY_EVENT,
+						ts,
+						event.log.blockNumber,
+					);
+				},
+			);
+		}
+
 		// Trade event
 		proxy.on(
 			"Trade",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				order: Order,
@@ -234,6 +294,8 @@ export class EventListener {
 			) => {
 				const topic = event.log.topics[0];
 				this.l.info("got trade event", { perpetualId, trader, topic });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onTradeEvent(
 					{
 						perpetualId: perpetualId,
@@ -248,7 +310,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
@@ -257,7 +319,7 @@ export class EventListener {
 		// SetOracles event
 		proxy.on(
 			"SetOracles",
-			(
+			async (
 				perpetualId: number,
 				baseQuoteS2: string[],
 				baseQuoteS3: string[],
@@ -265,6 +327,8 @@ export class EventListener {
 			) => {
 				const topic = event.log.topics[0];
 				this.l.info("got SetOracles event", { perpetualId, topic });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onSetOracleEvent(
 					{
 						perpetualId: perpetualId,
@@ -273,7 +337,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
@@ -281,7 +345,7 @@ export class EventListener {
 
 		proxy.on(
 			"Liquidate",
-			(
+			async (
 				perpetualId: number,
 				liquidator: string,
 				trader: string,
@@ -293,6 +357,8 @@ export class EventListener {
 				event: ethers.ContractEventPayload,
 			) => {
 				this.l.info("got liquidate event", { perpetualId, trader, liquidator });
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onLiquidate(
 					{
 						perpetualId: perpetualId,
@@ -306,7 +372,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 					event.log.blockNumber,
 				);
 			},
@@ -314,7 +380,7 @@ export class EventListener {
 
 		proxy.on(
 			"UpdateMarginAccount",
-			(
+			async (
 				perpetualId: number,
 				trader: string,
 				fFundingPaymentCC: bigint,
@@ -324,6 +390,8 @@ export class EventListener {
 					perpetualId,
 					trader,
 				});
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onUpdateMarginAccount(
 					{
 						perpetualId: perpetualId,
@@ -332,14 +400,14 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 				);
 			},
 		);
 
 		proxy.on(
 			"LiquidityAdded",
-			(
+			async (
 				poolId: number,
 				user: string,
 				tokenAmount: bigint,
@@ -350,6 +418,8 @@ export class EventListener {
 					poolId,
 					user,
 				});
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onLiquidityAdded(
 					{
 						poolId: BigInt(poolId),
@@ -359,14 +429,14 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 				);
 			},
 		);
 
 		proxy.on(
 			"LiquidityRemoved",
-			(
+			async (
 				poolId: number,
 				user: string,
 				tokenAmount: bigint,
@@ -377,6 +447,8 @@ export class EventListener {
 					poolId,
 					user,
 				});
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onLiquidityRemoved(
 					{
 						poolId: BigInt(poolId),
@@ -386,7 +458,7 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
+					ts,
 				);
 			},
 		);
@@ -406,19 +478,21 @@ export class EventListener {
 			);
 			c.on(
 				"P2PTransfer",
-				(
+				async (
 					from: string,
 					to: string,
 					amountD18: bigint,
 					priceD18: bigint,
 					event: ethers.ContractEventPayload,
 				) => {
+					const ts = await this.getBlockTs(event);
+					if (ts === undefined) return;
 					this.onP2PTransfer(
 						{ from: from, to: to, amountD18: amountD18, priceD18: priceD18 },
 						poolId,
 						event.log.transactionHash,
 						IS_COLLECTED_BY_EVENT,
-						Math.round(new Date().getTime() / 1000),
+						ts,
 					);
 				},
 			);
@@ -429,12 +503,14 @@ export class EventListener {
 		);
 		proxy.on(
 			"LiquidityWithdrawalInitiated",
-			(
+			async (
 				poolId: number,
 				user: string,
 				shareAmount: bigint,
 				event: ethers.ContractEventPayload,
-			) =>
+			) => {
+				const ts = await this.getBlockTs(event);
+				if (ts === undefined) return;
 				this.onLiquidityWithdrawalInitiated(
 					{
 						poolId: BigInt(poolId),
@@ -443,8 +519,9 @@ export class EventListener {
 					},
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
-					Math.round(new Date().getTime() / 1000),
-				),
+					ts,
+				);
+			},
 		);
 	}
 
@@ -472,13 +549,17 @@ export class EventListener {
 		timestampSec: number,
 		blockNumber: number,
 	) {
-		console.log(`onSettleEvent`);
-		this.dbSettle.insertSettleHistoryRecord(
-			eventData,
-			txHash,
-			isCollectedByEvent,
-			timestampSec,
-		);
+		try {
+			await this.dbSettle.insertSettleHistoryRecord(
+				eventData,
+				txHash,
+				isCollectedByEvent,
+				timestampSec,
+			);
+		} catch (e) {
+			this.l.error("failed to insert settle record", { txHash, error: e });
+			metrics.trackError("db:settle", e);
+		}
 	}
 
 	public async onTokensDepositedEvent(
@@ -488,13 +569,17 @@ export class EventListener {
 		timestampSec: number,
 		blockNumber: number,
 	) {
-		console.log(`onTokensDepositedEvent`);
-		this.dbTokenFlow.insertTokenDepositRecord(
-			eventData,
-			txHash,
-			isCollectedByEvent,
-			timestampSec,
-		);
+		try {
+			await this.dbTokenFlow.insertTokenDepositRecord(
+				eventData,
+				txHash,
+				isCollectedByEvent,
+				timestampSec,
+			);
+		} catch (e) {
+			this.l.error("failed to insert token deposit record", { txHash, error: e });
+			metrics.trackError("db:tokenDeposit", e);
+		}
 	}
 	public async onTokensWithdrawnEvent(
 		eventData: TokensWithdrawnEvent,
@@ -503,13 +588,17 @@ export class EventListener {
 		timestampSec: number,
 		blockNumber: number,
 	) {
-		console.log(`onTokensWithdrawnEvent`);
-		this.dbTokenFlow.insertTokenWithdrawRecord(
-			eventData,
-			txHash,
-			isCollectedByEvent,
-			timestampSec,
-		);
+		try {
+			await this.dbTokenFlow.insertTokenWithdrawRecord(
+				eventData,
+				txHash,
+				isCollectedByEvent,
+				timestampSec,
+			);
+		} catch (e) {
+			this.l.error("failed to insert token withdraw record", { txHash, error: e });
+			metrics.trackError("db:tokenWithdraw", e);
+		}
 	}
 
 	public async onTradeEvent(
@@ -519,13 +608,18 @@ export class EventListener {
 		timestampSec: number,
 		blockNumber: number,
 	) {
-		this.dbTrades.insertTradeHistoryRecord(
-			eventData,
-			txHash,
-			isCollectedByEvent,
-			timestampSec,
-			blockNumber,
-		);
+		try {
+			await this.dbTrades.insertTradeHistoryRecord(
+				eventData,
+				txHash,
+				isCollectedByEvent,
+				timestampSec,
+				blockNumber,
+			);
+		} catch (e) {
+			this.l.error("failed to insert trade record", { txHash, error: e });
+			metrics.trackError("db:trade", e);
+		}
 	}
 
 	public async onSetOracleEvent(
