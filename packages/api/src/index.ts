@@ -45,6 +45,33 @@ async function start() {
 	}
 	logger.info(`loading configuration ${configName}`);
 	const sdkConfig: NodeSDKConfig = PerpetualDataHandler.readSDKConfig(configName);
+	// SDK 0.1.57+ fetches priceFeedConfig.json from configSource at init; probe it early so a hang is visible
+	if (sdkConfig.configSource) {
+		const probeUrl =
+			sdkConfig.configSource.replace(/\/$/, "") + "/priceFeedConfig.json";
+		logger.info(`probing configSource: ${probeUrl}`);
+		try {
+			const ctrl = new AbortController();
+			const tid = setTimeout(() => ctrl.abort(), 10_000);
+			const res = await fetch(probeUrl, { signal: ctrl.signal });
+			clearTimeout(tid);
+			if (!res.ok) {
+				logger.warn(
+					`configSource probe returned HTTP ${res.status} — SDK init may fail`,
+				);
+			} else {
+				logger.info(`configSource probe OK (HTTP ${res.status})`);
+			}
+		} catch (err: any) {
+			logger.error(
+				`configSource probe failed — SDK init will hang without this endpoint`,
+				{
+					url: probeUrl,
+					error: err?.message ?? String(err),
+				},
+			);
+		}
+	}
 	/*
 	const configPricesName: string = <string>process.env.CONFIG_PATH_PRICES || "";
 	if (configPricesName == "") {
