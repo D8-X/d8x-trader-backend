@@ -1,3 +1,5 @@
+import { formatErrorMessage } from "../utils/errors.js";
+
 const startTime = Date.now();
 
 function formatUptime(ms: number): string {
@@ -40,7 +42,7 @@ export const metrics = {
 	},
 
 	trackError(source: string, error: unknown) {
-		const msg = error instanceof Error ? error.message : String(error);
+		const msg = formatErrorMessage(error);
 		this.errors.push({
 			ts: new Date().toISOString(),
 			source,
