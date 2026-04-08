@@ -2,11 +2,8 @@ import * as winston from "winston";
 import { EventListener } from "../contracts/listeners.js";
 import * as dotenv from "dotenv";
 import { chooseRandomRPC, executeWithTimeout, loadConfigRPC, sleep } from "utils";
-import {
-	HistoricalDataFilterer,
-	isRateLimitError,
-	formatErrorMessage,
-} from "../contracts/historicalDataFilterer.js";
+import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer.js";
+import { isRateLimitError, formatErrorMessage } from "../utils/errors.js";
 import {
 	BigNumberish,
 	JsonRpcProvider,
