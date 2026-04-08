@@ -193,6 +193,8 @@ export const main = async () => {
 		}
 	}
 
+	metrics.status = "running";
+
 	// Start the historical data filterers on service start...
 	const hdOpts: hdFilterersOpt = {
 		dbEstimatedEarnings,
@@ -391,6 +393,8 @@ async function getCloseDeploymentBlock(
 				msg.includes("-32016") ||
 				msg.includes("429"); // usually, we don't recive this but just in case
 			if (isRateLimit) {
+				metrics.rateLimitsHit++;
+				metrics.lastRateLimitAt = new Date().toISOString();
 				const wait = Math.min(Math.pow(2, consecutiveErrors) * 2, 120);
 				logger.warn(
 					`getCloseDeploymentBlock: rate limited, waiting ${wait}s (attempt ${consecutiveErrors})`,
