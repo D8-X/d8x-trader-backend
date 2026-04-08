@@ -118,7 +118,7 @@ export const main = async () => {
 		network,
 		{
 			staticNetwork: network,
-			batchMaxCount: 25,
+			batchMaxCount: 1,
 			polling: true,
 		},
 	);
