@@ -30,12 +30,12 @@ import { metrics } from "../svc/metrics.js";
 
 global.Error.stackTraceLimit = Infinity;
 
-function formatErrorMessage(error: unknown) {
+export function formatErrorMessage(error: unknown) {
 	if (error instanceof Error) return error.message;
 	return String(error);
 }
 
-function isRateLimitError(error: unknown): boolean {
+export function isRateLimitError(error: unknown): boolean {
 	// I hate having to do this be we have no choice for now
 	const msg = formatErrorMessage(error);
 	if (msg.includes("rate limit") || msg.includes("-32016") || msg.includes("429")) {

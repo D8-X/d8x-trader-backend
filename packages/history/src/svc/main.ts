@@ -2,7 +2,10 @@ import * as winston from "winston";
 import { EventListener } from "../contracts/listeners.js";
 import * as dotenv from "dotenv";
 import { chooseRandomRPC, executeWithTimeout, loadConfigRPC, sleep } from "utils";
-import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer.js";
+import {
+	HistoricalDataFilterer,
+	isRateLimitError,
+} from "../contracts/historicalDataFilterer.js";
 import {
 	BigNumberish,
 	JsonRpcProvider,
@@ -387,12 +390,7 @@ async function getCloseDeploymentBlock(
 			consecutiveErrors = 0;
 		} catch (err) {
 			consecutiveErrors++;
-			const msg = err instanceof Error ? err.message : String(err);
-			const isRateLimit =
-				msg.includes("rate limit") ||
-				msg.includes("-32016") ||
-				msg.includes("429"); // usually, we don't recive this but just in case
-			if (isRateLimit) {
+			if (isRateLimitError(err)) {
 				metrics.rateLimitsHit++;
 				metrics.lastRateLimitAt = new Date().toISOString();
 				const wait = Math.min(Math.pow(2, consecutiveErrors) * 2, 120);
