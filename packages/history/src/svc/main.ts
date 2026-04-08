@@ -177,20 +177,7 @@ export const main = async () => {
 		dbTokenFlow,
 	);
 
-	let blk: { blockNumber: number; timestamp: number };
-	for (let attempt = 0; ; attempt++) {
-		try {
-			blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider);
-			break;
-		} catch (err) {
-			const wait = Math.min(Math.pow(2, attempt) * 5, 120);
-			logger.warn(
-				`getCloseDeploymentBlock failed (attempt ${attempt + 1}), retrying in ${wait}s`,
-				{ error: formatErrorMessage(err) },
-			);
-			await sleepForSec(wait);
-		}
-	}
+	const blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider);
 
 	metrics.status = "running";
 
@@ -386,24 +373,18 @@ async function getCloseDeploymentBlock(
 			consecutiveErrors = 0;
 		} catch (err) {
 			consecutiveErrors++;
+			const wait = isRateLimitError(err)
+				? Math.min(Math.pow(2, consecutiveErrors) * 2, 120)
+				: Math.min(consecutiveErrors * 10, 120);
 			if (isRateLimitError(err)) {
 				metrics.rateLimitsHit++;
 				metrics.lastRateLimitAt = new Date().toISOString();
-				const wait = Math.min(Math.pow(2, consecutiveErrors) * 2, 120);
-				logger.warn(
-					`getCloseDeploymentBlock: rate limited, waiting ${wait}s (attempt ${consecutiveErrors})`,
-				);
-				await sleepForSec(wait);
-				continue;
 			}
 			logger.warn(
-				`getCloseDeploymentBlock: error, waiting 10s (attempt ${consecutiveErrors})`,
+				`getCloseDeploymentBlock: ${isRateLimitError(err) ? "rate limited" : "error"}, waiting ${wait}s (attempt ${consecutiveErrors})`,
 				{ error: formatErrorMessage(err) },
 			);
-			if (consecutiveErrors > 10) {
-				throw new Error("too many errors in trying to getCloseDeploymentBlock");
-			}
-			await sleepForSec(10);
+			await sleepForSec(wait);
 			continue;
 		}
 		if (code === "0x") {
