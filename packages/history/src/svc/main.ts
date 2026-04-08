@@ -5,6 +5,7 @@ import { chooseRandomRPC, executeWithTimeout, loadConfigRPC, sleep } from "utils
 import {
 	HistoricalDataFilterer,
 	isRateLimitError,
+	formatErrorMessage,
 } from "../contracts/historicalDataFilterer.js";
 import {
 	BigNumberish,
@@ -149,11 +150,10 @@ export const main = async () => {
 			);
 			break;
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
 			const wait = Math.min(Math.pow(2, attempt) * 2, 120);
 			logger.warn(
 				`staticInfo.initialize failed (attempt ${attempt + 1}), retrying in ${wait}s`,
-				{ error: msg },
+				{ error: formatErrorMessage(err) },
 			);
 			await sleepForSec(wait);
 		}
@@ -186,11 +186,10 @@ export const main = async () => {
 			blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider);
 			break;
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
 			const wait = Math.min(Math.pow(2, attempt) * 5, 120);
 			logger.warn(
 				`getCloseDeploymentBlock failed (attempt ${attempt + 1}), retrying in ${wait}s`,
-				{ error: msg },
+				{ error: formatErrorMessage(err) },
 			);
 			await sleepForSec(wait);
 		}
