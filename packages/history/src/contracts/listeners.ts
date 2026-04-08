@@ -75,6 +75,12 @@ export class EventListener {
 	private async getBlockTs(
 		event: ethers.ContractEventPayload,
 	): Promise<number | undefined> {
+		if (!event?.log?.blockNumber) {
+			this.l.warn("getBlockTs: event.log.blockNumber is undefined", {
+				eventKeys: event ? Object.keys(event) : "null",
+			});
+			return undefined;
+		}
 		const blockNum = event.log.blockNumber;
 		const cached = this.blockTsCache.get(blockNum);
 		if (cached !== undefined) {

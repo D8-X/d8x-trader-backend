@@ -3,6 +3,7 @@ import { EventListener } from "../contracts/listeners.js";
 import * as dotenv from "dotenv";
 import { chooseRandomRPC, executeWithTimeout, loadConfigRPC, sleep } from "utils";
 import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer.js";
+import { isRateLimitError, formatErrorMessage } from "../utils/errors.js";
 import {
 	BigNumberish,
 	JsonRpcProvider,
@@ -137,12 +138,23 @@ export const main = async () => {
 	const dbTokenFlow = new TokenFlow(chainId, prisma, logger);
 	// get sharepool token info and margin token info
 	const staticInfo = new StaticInfo();
-	// the following call will throw an error on RPC timeout
-	await executeWithTimeout(
-		staticInfo.initialize(httpProvider, httpRpcUrl),
-		10_000,
-		"RPC call timeout",
-	);
+	for (let attempt = 0; ; attempt++) {
+		try {
+			await executeWithTimeout(
+				staticInfo.initialize(httpProvider, httpRpcUrl),
+				30_000,
+				"RPC call timeout",
+			);
+			break;
+		} catch (err) {
+			const wait = Math.min(Math.pow(2, attempt) * 2, 120);
+			logger.warn(
+				`staticInfo.initialize failed (attempt ${attempt + 1}), retrying in ${wait}s`,
+				{ error: formatErrorMessage(err) },
+			);
+			await sleepForSec(wait);
+		}
+	}
 	// store margin token info and perpetual info to DB
 	await staticInfo.checkAndWriteMarginTokenInfoToDB(dbMarginTokenInfo);
 
@@ -166,6 +178,8 @@ export const main = async () => {
 	);
 
 	const blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider);
+
+	metrics.status = "running";
 
 	// Start the historical data filterers on service start...
 	const hdOpts: hdFilterersOpt = {
@@ -352,24 +366,30 @@ async function getCloseDeploymentBlock(
 	let lastAvailBlock = blockNumber;
 	let lastNABlock = 0;
 	let code: string;
-	let errCount = 0;
+	let consecutiveErrors = 0;
 	while (lastAvailBlock - lastNABlock > 10_000) {
 		try {
 			code = await provider.getCode(contractAddress, blockNumber);
+			consecutiveErrors = 0;
 		} catch (err) {
-			console.log("getCloseDeploymentBlock error: waiting");
-			if (errCount > 10) {
-				throw new Error("too many errors in trying to getCloseDeploymentBlock");
+			consecutiveErrors++;
+			const wait = isRateLimitError(err)
+				? Math.min(Math.pow(2, consecutiveErrors) * 2, 120)
+				: Math.min(consecutiveErrors * 10, 120);
+			if (isRateLimitError(err)) {
+				metrics.rateLimitsHit++;
+				metrics.lastRateLimitAt = new Date().toISOString();
 			}
-			await sleepForSec(10);
-			errCount += 1;
+			logger.warn(
+				`getCloseDeploymentBlock: ${isRateLimitError(err) ? "rate limited" : "error"}, waiting ${wait}s (attempt ${consecutiveErrors})`,
+				{ error: formatErrorMessage(err) },
+			);
+			await sleepForSec(wait);
 			continue;
 		}
 		if (code === "0x") {
-			// not deployed yet
 			lastNABlock = blockNumber;
 		} else {
-			// deployed
 			lastAvailBlock = blockNumber;
 		}
 		blockNumber = lastNABlock + Math.floor((lastAvailBlock - lastNABlock) / 2);
