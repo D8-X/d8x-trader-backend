@@ -402,7 +402,7 @@ async function getCloseDeploymentBlock(
 			}
 			logger.warn(
 				`getCloseDeploymentBlock: error, waiting 10s (attempt ${consecutiveErrors})`,
-				{ error: msg },
+				{ error: err instanceof Error ? err.message : String(err) },
 			);
 			if (consecutiveErrors > 10) {
 				throw new Error("too many errors in trying to getCloseDeploymentBlock");
