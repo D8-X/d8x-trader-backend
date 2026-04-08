@@ -238,6 +238,23 @@ export default class D8XBrokerBackendApp {
 			}
 		});
 
+		this.express.get("/sdk-state", async (req: Request, res: Response) => {
+			res.setHeader("Content-Type", "application/json");
+			try {
+				this.lastRequestTsMs = Date.now();
+				const rsp = this.sdk.sdkState();
+				res.send(D8XBrokerBackendApp.JSONResponse("sdk-state", "", rsp));
+			} catch (err: any) {
+				console.log("Error in /sdk-state");
+				console.log(err);
+				res.send(
+					D8XBrokerBackendApp.JSONResponse("error", "sdk-state", {
+						error: "sdk state failed",
+					}),
+				);
+			}
+		});
+
 		this.express.get("/open-orders", async (req: Request, res: Response) => {
 			// open-orders?traderAddr=0xCafee&symbol=BTC-USD-MATIC
 			let rsp;
