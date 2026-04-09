@@ -245,8 +245,7 @@ export default class D8XBrokerBackendApp {
 				const rsp = this.sdk.sdkState();
 				res.send(D8XBrokerBackendApp.JSONResponse("sdk-state", "", rsp));
 			} catch (err: any) {
-				console.log("Error in /sdk-state");
-				console.log(err);
+				this.logger.error("Error in /sdk-state", { error: err?.message ?? err });
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "sdk-state", {
 						error: "sdk state failed",
