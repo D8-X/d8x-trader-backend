@@ -226,7 +226,7 @@ export const main = async () => {
 		const makeJsonProvider = () =>
 			new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
 				staticNetwork: network,
-				batchMaxCount: 25,
+				batchMaxCount: 1,
 				polling: true,
 			});
 
