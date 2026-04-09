@@ -142,9 +142,7 @@ export default class SDKInterface extends Observable {
 	 */
 	public sdkState() {
 		this.checkAPIInitialized();
-		const state = this.apiInterface!.exportState();
-		state.nodeURL = "";
-		return state;
+		return this.apiInterface!.exportState();
 	}
 
 	/**

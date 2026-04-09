@@ -61,6 +61,18 @@
     process "0.11.10"
     typechain "^8.3.2"
 
+"@d8-x/d8x-node-sdk@0.1.62":
+  version "0.1.62"
+  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.1.62/f179da9d1138f247144bd89b7de95ca4fa374a1b#f179da9d1138f247144bd89b7de95ca4fa374a1b"
+  integrity sha512-KqbLpBuUr0CIEp92Mjn4JZH11PM05L1zEeoCmUnscz8kCinBbDRntmmA7FU8ZRo+YfmPvgcbUlHENfm2F47pWA==
+  dependencies:
+    "@d8-x/d8x-price-wasm" "^1.0.33"
+    "@typechain/ethers-v6" "^0.5.1"
+    buffer "6.0.3"
+    ethers "^6.13.1"
+    process "0.11.10"
+    typechain "^8.3.2"
+
 "@d8-x/d8x-node-sdk@^0.1.60":
   version "0.1.60"
   resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.1.60/215d04c0636f613ad99b9e9652759600e50ead27#215d04c0636f613ad99b9e9652759600e50ead27"
