@@ -197,15 +197,34 @@ export const main = async () => {
 		eventListener: eventsListener,
 	};
 
-	const thirtyDaysAgoSec = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
-	runHistoricalDataFilterers(hdOpts, thirtyDaysAgoSec, false);
-	// runHistoricalDataFilterers(hdOpts, blk.timestamp, false);
+	let backfillRunning = false;
+	const runBackfillGuarded = async (startSec: number, skipUpToDate = true) => {
+		if (backfillRunning) {
+			logger.info("backfill already running, skipping");
+			return;
+		}
+		backfillRunning = true;
+		try {
+			await runHistoricalDataFilterers(hdOpts, startSec, skipUpToDate);
+		} finally {
+			backfillRunning = false;
+		}
+	};
 
-	const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
-	detectAndFillGaps(prisma, hdOpts, sevenDaysAgoSec).catch((e) => {
-		logger.warn("initial gap detection failed", { error: e });
-		metrics.trackError("gapDetection", e);
-	});
+	const thirtyDaysAgoSec = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
+	runBackfillGuarded(thirtyDaysAgoSec, false)
+		.catch((e) => {
+			logger.warn("initial backfill failed", { error: e });
+			metrics.trackError("backfill", e);
+		})
+		.then(() => {
+			const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
+			return detectAndFillGaps(prisma, hdOpts, sevenDaysAgoSec);
+		})
+		.catch((e) => {
+			logger.warn("initial gap detection failed", { error: e });
+			metrics.trackError("gapDetection", e);
+		});
 	eventsListener.listen(wsProvider);
 
 	// Websocket provider leaks memory, therefore as in main api, we will
@@ -309,11 +328,14 @@ export const main = async () => {
 	// every 4 hours poll (5 hours would leave us just under 10_000 blocks, so the call typically covers as many blocks as possible for a fixed RPC cost)
 	setInterval(async () => {
 		logger.info("running historical data filterers for redundancy");
-		// non-blocking, so no await
-		runHistoricalDataFilterers(hdOpts, blk.timestamp);
+		await runBackfillGuarded(blk.timestamp);
 	}, 14_400_000); // 4 * 60 * 60 * 1000 miliseconds
 
 	setInterval(async () => {
+		if (backfillRunning) {
+			logger.info("backfill running, skipping gap detection");
+			return;
+		}
 		try {
 			await detectAndFillGaps(prisma, hdOpts, blk.timestamp);
 		} catch (e) {
@@ -668,23 +690,22 @@ export async function runHistoricalDataFilterers(
 			p2pTs.push(p2pTimestamps[k]!);
 		}
 	}
-	promises.push(
-		hd.filterP2Ptransfers(
-			shareTokenAddresses,
-			p2pTs,
-			(eventData, txHash, blockNumber, blockTimeStamp, params) => {
-				dbEstimatedEarnings.insertShareTokenP2PTransfer(
-					eventData,
-					params?.poolId as unknown as number,
-					txHash,
-					IS_COLLECTED_BY_EVENT,
-					blockTimeStamp,
-					staticInfo,
-				);
-			},
-		),
-	);
 	await Promise.all(promises);
+
+	await hd.filterP2Ptransfers(
+		shareTokenAddresses,
+		p2pTs,
+		(eventData, txHash, blockNumber, blockTimeStamp, params) => {
+			dbEstimatedEarnings.insertShareTokenP2PTransfer(
+				eventData,
+				params?.poolId as unknown as number,
+				txHash,
+				IS_COLLECTED_BY_EVENT,
+				blockTimeStamp,
+				staticInfo,
+			);
+		},
+	);
 	// align timestamps in perpetual_long_id (because we have asynchronous events)
 	await dbSetOracles.alignTimestamps();
 }
