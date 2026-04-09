@@ -213,16 +213,17 @@ export const main = async () => {
 
 	const thirtyDaysAgoSec = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
 	runBackfillGuarded(thirtyDaysAgoSec, false)
-		.then(() => {
-			const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
-			detectAndFillGaps(prisma, hdOpts, sevenDaysAgoSec).catch((e) => {
-				logger.warn("initial gap detection failed", { error: e });
-				metrics.trackError("gapDetection", e);
-			});
-		})
 		.catch((e) => {
 			logger.warn("initial backfill failed", { error: e });
 			metrics.trackError("backfill", e);
+		})
+		.then(() => {
+			const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
+			return detectAndFillGaps(prisma, hdOpts, sevenDaysAgoSec);
+		})
+		.catch((e) => {
+			logger.warn("initial gap detection failed", { error: e });
+			metrics.trackError("gapDetection", e);
 		});
 	eventsListener.listen(wsProvider);
 
