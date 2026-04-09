@@ -137,6 +137,15 @@ export default class SDKInterface extends Observable {
 	}
 
 	/**
+	 * Get the current SDK state
+	 * @returns the current SDK state
+	 */
+	public sdkState() {
+		this.checkAPIInitialized();
+		return this.apiInterface!.exportState();
+	}
+
+	/**
 	 * Get the loyalty score of the trader
 	 * @param traderAddr address of the trader
 	 * @returns loyalty score
