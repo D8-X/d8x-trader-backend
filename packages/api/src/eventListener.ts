@@ -755,10 +755,11 @@ export default class EventListener extends IndexPriceInterface {
 	) {
 		this.lastBlockChainEventTs = Date.now();
 		const symbol = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
-		const pos = (<MarginAccount[]>(
+		const positions = <MarginAccount[]>(
 			JSON.parse(await this.sdkInterface!.positionRisk(trader, symbol))
-		))[0];
-		if (pos.positionNotionalBaseCCY == 0 && amount < 0) {
+		);
+		const pos = positions[0];
+		if (!pos || (pos.positionNotionalBaseCCY == 0 && amount < 0)) {
 			// position is zero after a withdrawal: this will be caught as a margin account update, ignore
 			return;
 		}
