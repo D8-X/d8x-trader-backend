@@ -358,7 +358,7 @@ export const main = async () => {
 		},
 		logger,
 	);
-	api.start(httpRpcUrl);
+	api.start(httpRpcUrl, staticInfo.sdkState);
 };
 
 export interface hdFilterersOpt {

@@ -49,22 +49,10 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@d8-x/d8x-node-sdk@0.1.61":
-  version "0.1.61"
-  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.1.61/67fdf93b40b3bdfb5f4f0dd6d89b7c95b77a2239#67fdf93b40b3bdfb5f4f0dd6d89b7c95b77a2239"
-  integrity sha512-QcvqXV4ZQ6YMJgJMykeBAm9gS6R9Eg5FkBrVNqj2X+TLw38Pq0lM1JCBL4npwJeaoI/6khRi/7K6ulVaoxU3+g==
-  dependencies:
-    "@d8-x/d8x-price-wasm" "^1.0.33"
-    "@typechain/ethers-v6" "^0.5.1"
-    buffer "6.0.3"
-    ethers "^6.13.1"
-    process "0.11.10"
-    typechain "^8.3.2"
-
-"@d8-x/d8x-node-sdk@0.1.62":
-  version "0.1.62"
-  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.1.62/f179da9d1138f247144bd89b7de95ca4fa374a1b#f179da9d1138f247144bd89b7de95ca4fa374a1b"
-  integrity sha512-KqbLpBuUr0CIEp92Mjn4JZH11PM05L1zEeoCmUnscz8kCinBbDRntmmA7FU8ZRo+YfmPvgcbUlHENfm2F47pWA==
+"@d8-x/d8x-node-sdk@0.1.65":
+  version "0.1.65"
+  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.1.65/cf4da30e9293f4ae3f74d4178c8c1f1f1034db00#cf4da30e9293f4ae3f74d4178c8c1f1f1034db00"
+  integrity sha512-cmey0sjv/j2thGCnKSfDNx2AGNpjwF/XEDGrwuhH5yxXcuyIYvcrESPpS/L9F8p3i61Bj/Sa+Gbu1apENBFv0g==
   dependencies:
     "@d8-x/d8x-price-wasm" "^1.0.33"
     "@typechain/ethers-v6" "^0.5.1"
