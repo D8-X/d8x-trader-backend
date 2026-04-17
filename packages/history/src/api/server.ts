@@ -22,7 +22,7 @@ import {
 	isValidAddress,
 } from "utils";
 
-import { getAddress } from "ethers";
+import { getAddress, JsonRpcProvider } from "ethers";
 import { MarketData } from "@d8-x/d8x-node-sdk";
 import { getSDKConfigFromEnv } from "../utils/abi.js";
 import dotenv from "dotenv";
@@ -98,12 +98,18 @@ export class HistoryRestAPI {
 	 *
 	 * @param httpRpcUrl
 	 */
-	public async init(httpRpcUrl: string) {
-		// Init marked data
+	public async init(httpRpcUrl: string, sdkState?: any) {
 		const config = getSDKConfigFromEnv();
 		config.nodeURL = httpRpcUrl;
 		const md = new MarketData(config);
-		await md.createProxyInstance();
+		if (sdkState) {
+			await md.createProxyInstanceFromState(
+				sdkState,
+				new JsonRpcProvider(httpRpcUrl),
+			);
+		} else {
+			await md.createProxyInstance();
+		}
 		this.md = md;
 	}
 
@@ -135,8 +141,8 @@ export class HistoryRestAPI {
 	/**
 	 * Starts the express app
 	 */
-	public async start(httpRPCUrl: string) {
-		await this.init(httpRPCUrl);
+	public async start(httpRPCUrl: string, sdkState?: any) {
+		await this.init(httpRPCUrl, sdkState);
 
 		this.app.listen(this.opts.port, () => {
 			this.l.info("starting history rest api server", { port: this.opts.port });

@@ -14,7 +14,7 @@ import crypto from "crypto";
 import { IncomingMessage } from "http";
 import WebSocket from "ws";
 
-import { Contract } from "ethers";
+import { Contract, JsonRpcProvider } from "ethers";
 
 import {
 	ExecutionFailed,
@@ -143,7 +143,16 @@ export default class EventListener extends IndexPriceInterface {
 	) {
 		await super.priceInterfaceInitialize(sdkInterface);
 		this.traderInterface = new TraderInterface(sdkConfig);
-		await this.traderInterface.createProxyInstance();
+		const existingSdk = sdkInterface.getTraderInterface();
+		if (existingSdk) {
+			const state = existingSdk.exportState();
+			await this.traderInterface.createProxyInstanceFromState(
+				state,
+				new JsonRpcProvider(sdkConfig.nodeURL),
+			);
+		} else {
+			await this.traderInterface.createProxyInstance();
+		}
 		this.wsRPC = wsRPC;
 		this.resetRPCWebsocket(this.wsRPC);
 		sdkInterface.registerObserver(this);

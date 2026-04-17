@@ -6,6 +6,7 @@ import { MarginTokenInfo, MarginTokenData } from "../db/margin_token_info.js";
 export default class StaticInfo {
 	public retrievedShareTokenAddresses: string[] = [];
 	public retrievedMarginTokenInfo: Map<number, MarginTokenData>; //pool->tokenInfo
+	public sdkState: any | undefined;
 
 	constructor() {
 		this.retrievedMarginTokenInfo = new Map<number, MarginTokenData>();
@@ -33,6 +34,7 @@ export default class StaticInfo {
 		const md = new MarketData(config);
 
 		await md.createProxyInstance();
+		this.sdkState = md.exportState();
 		const info = await md.exchangeInfo();
 		const addresses = info.pools.map((p) => p.poolShareTokenAddr);
 		this.retrievedShareTokenAddresses = addresses;

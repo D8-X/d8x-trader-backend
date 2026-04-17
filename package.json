@@ -1,6 +1,6 @@
 {
 	"dependencies": {
-		"@d8-x/d8x-node-sdk": "0.1.62",
+		"@d8-x/d8x-node-sdk": "0.1.65",
 		"axios": "^1.6.0",
 		"body-parser": "1.20.3",
 		"cors": "^2.8.5",
