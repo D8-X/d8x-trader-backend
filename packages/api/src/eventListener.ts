@@ -1156,10 +1156,9 @@ export default class EventListener extends IndexPriceInterface {
 	/**
 	 * Events: SetNormalState, SetEmergencyState, SettlementComplete
 	 * @param perpetualId
-	 * @param _state 'normal', 'emergency', 'settled'
+	 * @param state 'normal', 'emergency', 'settled'
 	 */
 	private onPerpetualState(perpetualId: number, state: string) {
-		console.log("restart: perpetual state changed", { perpetualId, state });
-		process.exit(1);
+		this.logger.info("perpetual state changed", { perpetualId, state });
 	}
 }
