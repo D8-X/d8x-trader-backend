@@ -37,6 +37,8 @@ export default class SDKInterface extends Observable {
 	private rpcManager: RPCManager | undefined;
 	private lastInitTs: number = 0;
 	private sdkConfig: NodeSDKConfig | undefined;
+	private refreshProxyInflight: Promise<boolean> | null = null;
+	private cacheExchangeInfoInflight: Promise<string> | null = null;
 
 	constructor(broker: BrokerIntegration) {
 		super();
@@ -72,36 +74,55 @@ export default class SDKInterface extends Observable {
 		if (now - this.lastInitTs < 5 * 60) {
 			return false;
 		}
-		await this.apiInterface!.createProxyInstance(
-			new TrackedJsonRpcProvider(this.sdkConfig!.nodeURL),
-		);
-		this.lastInitTs = now;
-		return true;
+		if (this.refreshProxyInflight) {
+			return this.refreshProxyInflight;
+		}
+		this.refreshProxyInflight = (async () => {
+			try {
+				await this.apiInterface!.createProxyInstance(
+					new TrackedJsonRpcProvider(this.sdkConfig!.nodeURL),
+				);
+				this.lastInitTs = Math.floor(Date.now() / 1000);
+				return true;
+			} finally {
+				this.refreshProxyInflight = null;
+			}
+		})();
+		return this.refreshProxyInflight;
 	}
 
-	private async cacheExchangeInfo() {
-		const tsQuery = Date.now();
-		await this.redisClient.hSet("exchangeInfo", "ts:query", tsQuery);
-		const xchInfo = await this.apiInterface!.exchangeInfo({
-			rpcURL: await this.rpcManager?.getRPC(),
-		});
-		// extend xchInfo with 24h OI
-		for (let j = 0; j < xchInfo.pools.length; j++) {
-			for (let k = 0; k < xchInfo.pools[j].perpetuals.length; k++) {
-				const id = xchInfo.pools[j].perpetuals[k].id;
-				const oi = await RedisOI.getMax24h(id, this.redisClient);
-				(xchInfo.pools[j].perpetuals[k] as any).openInterestBC24h = oi;
-			}
+	private async cacheExchangeInfo(): Promise<string> {
+		if (this.cacheExchangeInfoInflight) {
+			return this.cacheExchangeInfoInflight;
 		}
-		const info = JSON.stringify(xchInfo);
-		await this.redisClient.hSet("exchangeInfo", [
-			"ts:response",
-			Date.now(),
-			"content",
-			info,
-		]);
-		this.notifyObservers("exchangeInfo");
-		return info;
+		this.cacheExchangeInfoInflight = (async () => {
+			try {
+				const tsQuery = Date.now();
+				await this.redisClient.hSet("exchangeInfo", "ts:query", tsQuery);
+				const xchInfo = await this.apiInterface!.exchangeInfo({
+					rpcURL: await this.rpcManager?.getRPC(),
+				});
+				for (let j = 0; j < xchInfo.pools.length; j++) {
+					for (let k = 0; k < xchInfo.pools[j].perpetuals.length; k++) {
+						const id = xchInfo.pools[j].perpetuals[k].id;
+						const oi = await RedisOI.getMax24h(id, this.redisClient);
+						(xchInfo.pools[j].perpetuals[k] as any).openInterestBC24h = oi;
+					}
+				}
+				const info = JSON.stringify(xchInfo);
+				await this.redisClient.hSet("exchangeInfo", [
+					"ts:response",
+					Date.now(),
+					"content",
+					info,
+				]);
+				this.notifyObservers("exchangeInfo");
+				return info;
+			} finally {
+				this.cacheExchangeInfoInflight = null;
+			}
+		})();
+		return this.cacheExchangeInfoInflight;
 	}
 
 	public async exchangeInfo(): Promise<string> {
