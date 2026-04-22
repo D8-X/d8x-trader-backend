@@ -116,10 +116,8 @@ async function start() {
 		await sleep(1_000);
 		sdkConfig.nodeURL = await rpcManagerHttp.getRPC();
 
-		// restart everything if sdk is out of sync
 		if (!(await d8XBackend.checkSDKHeartbeat())) {
-			logger.error("SDK heartbeat check failed");
-			process.exit(1);
+			logger.warn("SDK heartbeat check failed. Will self heal on next refresh");
 		}
 
 		await sleep(1_000);
