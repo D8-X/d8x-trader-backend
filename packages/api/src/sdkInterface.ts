@@ -99,9 +99,19 @@ export default class SDKInterface extends Observable {
 			try {
 				const tsQuery = Date.now();
 				await this.redisClient.hSet("exchangeInfo", "ts:query", tsQuery);
-				const xchInfo = await this.apiInterface!.exchangeInfo({
-					rpcURL: await this.rpcManager?.getRPC(),
-				});
+				let xchInfo;
+				try {
+					xchInfo = await this.apiInterface!.exchangeInfo({
+						rpcURL: await this.rpcManager?.getRPC(),
+					});
+				} catch (err) {
+					console.error(
+						"cacheExchangeInfo: SDK exchangeInfo failed, keeping previous content",
+						extractErrorMsg(err),
+					);
+					const prev = await this.redisClient.hGet("exchangeInfo", "content");
+					return prev ?? "";
+				}
 				for (let j = 0; j < xchInfo.pools.length; j++) {
 					for (let k = 0; k < xchInfo.pools[j].perpetuals.length; k++) {
 						const id = xchInfo.pools[j].perpetuals[k].id;
