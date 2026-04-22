@@ -13,6 +13,7 @@ import { Numeric } from "ethers";
 import type { RedisClientType } from "redis";
 import { constructRedis, extractErrorMsg } from "utils";
 import BrokerIntegration from "./brokerIntegration.js";
+import { logger } from "./index.js";
 import Observable from "./observable.js";
 import { TrackedJsonRpcProvider } from "./providers.js";
 import RedisOI from "./redisOI.js";
@@ -105,9 +106,9 @@ export default class SDKInterface extends Observable {
 						rpcURL: await this.rpcManager?.getRPC(),
 					});
 				} catch (err) {
-					console.error(
+					logger.error(
 						"cacheExchangeInfo: SDK exchangeInfo failed, keeping previous content",
-						extractErrorMsg(err),
+						{ error: extractErrorMsg(err) },
 					);
 					const prev = await this.redisClient.hGet("exchangeInfo", "content");
 					return prev ?? "";
