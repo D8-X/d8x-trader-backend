@@ -108,6 +108,24 @@ export class HistoryRestAPI {
 		if (this.CORS_ON) {
 			this.app.use(cors());
 		}
+		this.app.use((req, resp, next) => {
+			const start = Date.now();
+			this.l.debug("request", {
+				method: req.method,
+				path: req.path,
+				query: req.query,
+				ip: req.ip,
+			});
+			resp.on("finish", () => {
+				this.l.debug("response", {
+					method: req.method,
+					path: req.path,
+					status: resp.statusCode,
+					durationMs: Date.now() - start,
+				});
+			});
+			next();
+		});
 	}
 
 	/**
