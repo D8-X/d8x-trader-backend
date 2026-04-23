@@ -1,28 +1,11 @@
 import * as winston from "winston";
 import { EventListener } from "../contracts/listeners.js";
 import * as dotenv from "dotenv";
-import { chooseRandomRPC, executeWithTimeout, loadConfigRPC, sleep } from "utils";
-import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer.js";
+import { chooseRandomRPC, executeWithTimeout, loadConfigRPC } from "utils";
 import { isRateLimitError, formatErrorMessage } from "../utils/errors.js";
-import {
-	BigNumberish,
-	JsonRpcProvider,
-	Network,
-	WebSocketProvider,
-	ethers,
-} from "ethers";
-import {
-	LiquidityAddedEvent,
-	LiquidityRemovedEvent,
-	TradeEvent,
-	LiquidateEvent,
-	UpdateMarginAccountEvent,
-	ListeningMode,
-	SetOraclesEvent,
-	SettleEvent,
-	SettleEventV1,
-} from "../contracts/types.js";
-import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
+import { JsonRpcProvider, Network, WebSocketProvider, ethers } from "ethers";
+import { ListeningMode } from "../contracts/types.js";
+import { PrismaClient } from "@prisma/client";
 import { TradingHistory } from "../db/trading_history.js";
 import { FundingRatePayments } from "../db/funding_rate.js";
 import { HistoryRestAPI } from "../api/server.js";
@@ -288,7 +271,7 @@ export const main = async () => {
 
 			// Wait for block event to happen on ws provider (~8sec), othwerwise
 			// switch back to HTTP
-			const wsAlive = await new Promise((resolve, reject) => {
+			const wsAlive = await new Promise((resolve, _reject) => {
 				wsProvider.once("block", () => {
 					resolve(true);
 				});
