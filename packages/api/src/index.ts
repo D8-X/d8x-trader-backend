@@ -19,6 +19,7 @@ import RPCManager from "./rpcManager.js";
 
 export { logger };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for the commented-out VAA endpoints flow below
 function loadVAAEndpoints(filename: string): string[] {
 	const fileContent = fs.readFileSync(filename).toString();
 	const f = JSON.parse(fileContent);

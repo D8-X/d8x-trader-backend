@@ -1,4 +1,4 @@
-import { BytesLike, Contract, JsonRpcProvider, WebSocketProvider, ethers } from "ethers";
+import { Contract, JsonRpcProvider, WebSocketProvider, ethers } from "ethers";
 import { Logger } from "winston";
 import {
 	LiquidateEvent,
@@ -24,7 +24,6 @@ import { PriceInfo } from "../db/price_info.js";
 import { dec18ToFloat, decNToFloat } from "utils";
 import StaticInfo from "./static_info.js";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals.js";
-import { IPerpetualManager } from "@d8-x/d8x-node-sdk";
 import { SettleHistory } from "../db/settle_history.js";
 import { TokenFlow } from "../db/token_flow.js";
 import { metrics } from "../svc/metrics.js";

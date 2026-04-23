@@ -535,7 +535,7 @@ export default class EventListener extends IndexPriceInterface {
 			}
 		} else {
 			// broadcast
-			for (const [trader, wsArr] of subscribers) {
+			for (const [_trader, wsArr] of subscribers) {
 				for (let k = 0; k < wsArr.length; k++) {
 					wsArr[k].send(message);
 				}
@@ -719,7 +719,7 @@ export default class EventListener extends IndexPriceInterface {
 	public async onUpdateMarginAccount(
 		perpetualId: number,
 		trader: string,
-		fFundingPaymentCC: bigint,
+		_fFundingPaymentCC: bigint,
 	): Promise<void> {
 		// Set the open interest from exchange info (1 min delay at max)
 		perpetualId = Number(perpetualId);

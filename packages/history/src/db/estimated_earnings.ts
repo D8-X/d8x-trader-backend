@@ -10,7 +10,7 @@ import {
 	LiquidityRemovedEvent,
 	P2PTransferEvent,
 } from "../contracts/types.js";
-import { dec18ToFloat, floatToDecN, decNToFloat } from "utils";
+import { dec18ToFloat, floatToDecN } from "utils";
 import StaticInfo from "../contracts/static_info.js";
 
 export class EstimatedEarnings {

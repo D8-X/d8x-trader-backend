@@ -1,14 +1,7 @@
-import { toJson } from "utils";
 import BrokerIntegration from "./brokerIntegration.js";
 import axios from "axios";
 import { logger } from "./logger.js";
-import {
-	BrokerTool,
-	NodeSDKConfig,
-	Order,
-	SmartContractOrder,
-	ZERO_ADDRESS,
-} from "@d8-x/d8x-node-sdk";
+import { NodeSDKConfig, Order, SmartContractOrder } from "@d8-x/d8x-node-sdk";
 
 /**
  * This is a remote broker that relays signature requests to a REST API.
@@ -32,7 +25,7 @@ export default class BrokerRemote extends BrokerIntegration {
 		this.apiURL = this.apiURL.replace(/\/+$/, "");
 	}
 
-	public async initialize(config: NodeSDKConfig): Promise<string> {
+	public async initialize(_config: NodeSDKConfig): Promise<string> {
 		return await this.getBrokerAddress();
 	}
 
@@ -51,7 +44,7 @@ export default class BrokerRemote extends BrokerIntegration {
 		return this.brokerAddr;
 	}
 
-	public async getBrokerFeeTBps(traderAddr: string, order?: Order): Promise<number> {
+	public async getBrokerFeeTBps(traderAddr: string, _order?: Order): Promise<number> {
 		const arg = "?addr=" + traderAddr + "&chain=" + this.chainId;
 		const endpoint = this.apiURL + this.endpointGetBrokerFee + arg;
 		try {

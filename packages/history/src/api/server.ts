@@ -1,16 +1,8 @@
-import {
-	FundingRatePayment,
-	Trade,
-	Prisma,
-	PrismaClient,
-	MarginTokenInfo,
-	Settle,
-} from "@prisma/client";
-import express, { Express, Request, Response, response } from "express";
-import { Logger, error } from "winston";
+import { FundingRatePayment, Trade, Prisma, PrismaClient, Settle } from "@prisma/client";
+import express, { Request, Response } from "express";
+import { Logger } from "winston";
 import { TradingHistory } from "../db/trading_history.js";
 import { FundingRatePayments } from "../db/funding_rate.js";
-import { MarginTokenData } from "../db/margin_token_info.js";
 import StaticInfo from "../contracts/static_info.js";
 import { correctQueryArgs, errorResp } from "../utils/response.js";
 import {
@@ -29,7 +21,6 @@ import dotenv from "dotenv";
 import cors from "cors";
 import { PriceInfo } from "../db/price_info.js";
 import { metrics } from "../svc/metrics.js";
-import { tokenToString } from "typescript";
 export const DECIMAL40_FORMAT_STRING = "FM9999999999999999999999999999999999999";
 
 // Make sure the decimal values are always return as normal numeric strings
@@ -643,8 +634,6 @@ export class HistoryRestAPI {
 		const usage =
 			"required query parameters: poolSymbol, optional: fromTimestamp (seconds), toTimestamp (seconds) ";
 		try {
-			const t1 = typeof req.query.fromTimestamp;
-			const t2 = typeof req.query.toTimestamp;
 			if (typeof req.query.poolSymbol != "string") {
 				resp.status(400);
 				throw Error("please provide correct query parameters");

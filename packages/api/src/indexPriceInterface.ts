@@ -177,7 +177,7 @@ export default abstract class IndexPriceInterface extends Observer {
 				if (px_ts !== null) {
 					// indices[k]: <source>:<symbol>, e.g. univ3:BERA-USD
 					// indices[k]: <source>:<symbol|mark>, e.g. sport:BERA-USD|mark; only for sport
-					const source = indices[k].split(":")[0];
+					const _source = indices[k].split(":")[0];
 					const symbol = indices[k].split(":").pop() + "";
 					const markSplit = symbol.split("|");
 					if (markSplit.length == 2) {
