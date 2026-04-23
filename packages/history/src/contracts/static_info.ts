@@ -12,8 +12,10 @@ export default class StaticInfo {
 		this.retrievedMarginTokenInfo = new Map<number, MarginTokenData>();
 	}
 
-	// Retrieves shared tokens contract addresses from exchange info. Each index in
-	// return array is the ith pool. Pool ids are counted from 1 in the contracts.
+	/**
+	 * Retrieves shared tokens contract addresses from exchange info. Each index in
+	 * @returns array of share token contract addresses, where index 0 corresponds to pool id 1
+	 */
 	public retrieveShareTokenContracts(): string[] {
 		if (this.retrievedShareTokenAddresses.length === 0) {
 			throw Error("initStaticData required");
@@ -82,18 +84,20 @@ export default class StaticInfo {
 		return val.tokenDecimals;
 	}
 
+	/**
+	 * Checks if margin token info in DB is up to date with the one retrieved from chain, and if not, updates the DB
+	 * @param dbHandler DB handler for margin token info
+	 */
 	public async checkAndWriteMarginTokenInfoToDB(dbHandler: MarginTokenInfo) {
 		if (this.retrievedMarginTokenInfo.size === 0) {
 			throw Error("initStaticData required");
 		}
-		// check db
 		for (let j = 0; j < this.retrievedMarginTokenInfo.size; j++) {
 			const poolId = j + 1;
 			const dbEntry = await dbHandler.getMarginTokenInfo(poolId);
 			if (dbEntry == undefined) {
 				await dbHandler.insert(this.retrievedMarginTokenInfo.get(poolId)!);
 			} else {
-				// check data
 				const el = this.retrievedMarginTokenInfo.get(poolId)!;
 				if (
 					dbEntry.poolId != poolId ||

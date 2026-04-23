@@ -535,7 +535,6 @@ export async function runHistoricalDataFilterers(
 						txHash,
 						IS_COLLECTED_BY_EVENT,
 						blockTimeStamp,
-						Number(blockNum.toString()),
 					);
 				},
 
@@ -550,7 +549,6 @@ export async function runHistoricalDataFilterers(
 						txHash,
 						IS_COLLECTED_BY_EVENT,
 						blockTimeStamp,
-						Number(blockNum.toString()),
 					);
 				},
 
@@ -569,7 +567,6 @@ export async function runHistoricalDataFilterers(
 						txHash,
 						IS_COLLECTED_BY_EVENT,
 						blockTimestamp,
-						Number(blockNum.toString()),
 					);
 				},
 
@@ -588,7 +585,6 @@ export async function runHistoricalDataFilterers(
 						txHash,
 						IS_COLLECTED_BY_EVENT,
 						blockTimestamp,
-						Number(blockNum.toString()),
 					);
 				},
 
