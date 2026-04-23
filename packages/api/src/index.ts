@@ -3,11 +3,11 @@ import dotenv from "dotenv";
 import fs from "fs";
 import { executeWithTimeout, loadConfigRPC, sleep } from "utils";
 import { RPCConfig } from "utils/dist/wsTypes.js";
-import * as winston from "winston";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp.js";
 import BrokerIntegration from "./brokerIntegration.js";
 import BrokerNone from "./brokerNone.js";
 import BrokerRemote from "./brokerRemote.js";
+import { logger } from "./logger.js";
 import {
 	JsonRpcEthCalls,
 	NumJsonRpcProviders,
@@ -17,16 +17,9 @@ import {
 } from "./providers.js";
 import RPCManager from "./rpcManager.js";
 
-const defaultLogger = () => {
-	return winston.createLogger({
-		level: "info",
-		format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-		defaultMeta: { service: "api" },
-		transports: [new winston.transports.Console()],
-	});
-};
-export const logger = defaultLogger();
+export { logger };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for the commented-out VAA endpoints flow below
 function loadVAAEndpoints(filename: string): string[] {
 	const fileContent = fs.readFileSync(filename).toString();
 	const f = JSON.parse(fileContent);
@@ -60,7 +53,9 @@ async function start() {
 	}
 	sdkConfig.priceFeedEndpoints = [{ type: type, endpoints: endpoints }];
 	*/
-	console.log("priceFeedEndpoints:", sdkConfig.priceFeedEndpoints);
+	logger.info("priceFeedEndpoints", {
+		priceFeedEndpoints: sdkConfig.priceFeedEndpoints,
+	});
 	const rpcConfig = loadConfigRPC() as RPCConfig[];
 	let broker: BrokerIntegration;
 	let remoteBrokerAddr = process.env.REMOTE_BROKER_HTTP;
@@ -71,7 +66,7 @@ async function start() {
 		logger.info("Creating remote broker for order signatures");
 		broker = new BrokerRemote(remoteBrokerAddr, brokerIdName, sdkConfig.chainId);
 	} else {
-		console.log("No broker PK/fee or remore broker defined, using empty broker.");
+		logger.info("No broker PK/fee or remote broker defined, using empty broker.");
 		broker = new BrokerNone();
 	}
 	const rpcManagerHttp = new RPCManager(
@@ -96,7 +91,9 @@ async function start() {
 			);
 			isSuccess = true;
 		} catch (error) {
-			logger.error("initializing d8xBackend", { error });
+			logger.error("initializing d8xBackend", {
+				error: error instanceof Error ? error.message : String(error),
+			});
 			await sleep(1000);
 			if (count > 10) {
 				throw error;
@@ -132,7 +129,7 @@ async function start() {
 
 		// Print out eth calls statistics
 		const currentTime = new Date();
-		console.log("statistics of eth_ calls", {
+		logger.info("statistics of eth_ calls", {
 			JsonRpcEthCalls: JsonRpcEthCalls,
 			WssEthCalls: WssEthCalls,
 			CurrentTime: currentTime.toISOString(),

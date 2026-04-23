@@ -1,4 +1,5 @@
 import { RedisClientType } from "redis";
+import { logger } from "./logger.js";
 
 const REDIS_OI_KEY = "oi-ts";
 /**
@@ -39,7 +40,7 @@ export default class RedisOI {
 				"LAST",
 			]);
 		} catch (err) {
-			console.error("Redis TimeSeries error:", err);
+			logger.error("Redis TimeSeries error:", err);
 		}
 	}
 
@@ -77,7 +78,7 @@ export default class RedisOI {
 				value.toString(),
 			]);
 		} catch (err) {
-			console.log("error in addOIObs:", err);
+			logger.info("error in addOIObs:", err);
 			return false;
 		}
 		return true;

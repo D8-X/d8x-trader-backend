@@ -1,13 +1,7 @@
-import { toJson } from "utils";
 import BrokerIntegration from "./brokerIntegration.js";
 import axios from "axios";
-import {
-	BrokerTool,
-	NodeSDKConfig,
-	Order,
-	SmartContractOrder,
-	ZERO_ADDRESS,
-} from "@d8-x/d8x-node-sdk";
+import { logger } from "./logger.js";
+import { NodeSDKConfig, Order, SmartContractOrder } from "@d8-x/d8x-node-sdk";
 
 /**
  * This is a remote broker that relays signature requests to a REST API.
@@ -31,7 +25,7 @@ export default class BrokerRemote extends BrokerIntegration {
 		this.apiURL = this.apiURL.replace(/\/+$/, "");
 	}
 
-	public async initialize(config: NodeSDKConfig): Promise<string> {
+	public async initialize(_config: NodeSDKConfig): Promise<string> {
 		return await this.getBrokerAddress();
 	}
 
@@ -44,13 +38,13 @@ export default class BrokerRemote extends BrokerIntegration {
 				const data = await response.json();
 				this.brokerAddr = data.brokerAddr;
 			} catch (error) {
-				console.log("brokerRemote: failed to fetch broker address");
+				logger.info("brokerRemote: failed to fetch broker address");
 			}
 		}
 		return this.brokerAddr;
 	}
 
-	public async getBrokerFeeTBps(traderAddr: string, order?: Order): Promise<number> {
+	public async getBrokerFeeTBps(traderAddr: string, _order?: Order): Promise<number> {
 		const arg = "?addr=" + traderAddr + "&chain=" + this.chainId;
 		const endpoint = this.apiURL + this.endpointGetBrokerFee + arg;
 		try {
@@ -58,7 +52,7 @@ export default class BrokerRemote extends BrokerIntegration {
 			const data = await response.json();
 			this.brokerFee = Number(data.BrokerFeeTbps);
 		} catch (error) {
-			console.log("brokerRemote: failed to fetch broker address");
+			logger.info("brokerRemote: failed to fetch broker address");
 		}
 
 		return this.brokerFee!;
@@ -108,7 +102,7 @@ export default class BrokerRemote extends BrokerIntegration {
 			} else if (error instanceof Error) {
 				errorMessage = "Unknown error";
 			}
-			console.log(`${query} failed: ${errorMessage}`);
+			logger.info(`${query} failed: ${errorMessage}`);
 			return { sig: "", digest: "", orderId: "", brokerFee: 0, brokerAddr: "" };
 		}
 	}
