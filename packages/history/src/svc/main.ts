@@ -38,6 +38,7 @@ import { sleepForSec } from "@d8-x/d8x-node-sdk";
 import { SettleHistory } from "../db/settle_history.js";
 import { TokenFlow } from "../db/token_flow.js";
 import { metrics } from "./metrics.js";
+import { detectAndFillGaps } from "./gaps.js";
 // workaround for CJS package
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
@@ -219,7 +220,12 @@ export const main = async () => {
 		})
 		.then(() => {
 			const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
-			return detectAndFillGaps(prisma, hdOpts, sevenDaysAgoSec);
+			return detectAndFillGaps(
+				prisma,
+				(sec) => runHistoricalDataFilterers(hdOpts, sec, false),
+				sevenDaysAgoSec,
+				logger,
+			);
 		})
 		.catch((e) => {
 			logger.warn("initial gap detection failed", { error: e });
@@ -337,7 +343,12 @@ export const main = async () => {
 			return;
 		}
 		try {
-			await detectAndFillGaps(prisma, hdOpts, blk.timestamp);
+			await detectAndFillGaps(
+				prisma,
+				(sec) => runHistoricalDataFilterers(hdOpts, sec, false),
+				blk.timestamp,
+				logger,
+			);
 		} catch (e) {
 			logger.warn("gap detection failed", { error: e });
 			metrics.trackError("gapDetection", e);
@@ -704,94 +715,4 @@ export async function runHistoricalDataFilterers(
 	);
 	// align timestamps in perpetual_long_id (because we have asynchronous events)
 	await dbSetOracles.alignTimestamps();
-}
-
-interface GapConfig {
-	table: string;
-	timestampCol: string;
-	thresholdSeconds: number;
-}
-
-const GAP_CONFIGS: GapConfig[] = [
-	{
-		table: "trades_history",
-		timestampCol: "trade_timestamp",
-		thresholdSeconds: 4 * 3600,
-	},
-	{ table: "token_flow", timestampCol: "timestamp", thresholdSeconds: 4 * 3600 },
-	{
-		table: "funding_rate_payments",
-		timestampCol: "payment_timestamp",
-		thresholdSeconds: 4 * 3600,
-	},
-	{ table: "settle_history", timestampCol: "timestamp", thresholdSeconds: 6 * 3600 },
-	{
-		table: "estimated_earnings_tokens",
-		timestampCol: "created_at",
-		thresholdSeconds: 12 * 3600,
-	},
-];
-
-async function detectGaps(
-	prisma: PrismaClient,
-	config: GapConfig,
-): Promise<{ gap_start: Date; gap_end: Date }[]> {
-	const gaps = await prisma.$queryRawUnsafe<{ gap_start: Date; gap_end: Date }[]>(
-		`WITH ordered AS (
-			SELECT ${config.timestampCol} as ts,
-				LEAD(${config.timestampCol}) OVER (ORDER BY ${config.timestampCol}) as next_ts
-			FROM ${config.table}
-			WHERE is_collected_by_event = false
-				AND ${config.timestampCol} > NOW() - interval '30 days'
-		)
-		SELECT ts as gap_start, next_ts as gap_end
-		FROM ordered
-		WHERE next_ts IS NOT NULL
-			AND EXTRACT(EPOCH FROM (next_ts - ts)) > $1
-		ORDER BY ts ASC`,
-		config.thresholdSeconds,
-	);
-	return gaps;
-}
-
-async function detectAndFillGaps(
-	prisma: PrismaClient,
-	opts: hdFilterersOpt,
-	startTimestampSec: number,
-) {
-	const allGapStarts = new Set<number>();
-
-	for (const config of GAP_CONFIGS) {
-		try {
-			const gaps = await detectGaps(prisma, config);
-			if (gaps.length > 0) {
-				logger.info(`detected ${gaps.length} gap(s) in ${config.table}`, {
-					earliest: `${gaps[0].gap_start.toISOString()} - ${gaps[0].gap_end.toISOString()}`,
-					latest: `${gaps[gaps.length - 1].gap_start.toISOString()} - ${gaps[gaps.length - 1].gap_end.toISOString()}`,
-				});
-				for (const gap of gaps) {
-					allGapStarts.add(Math.floor(gap.gap_start.getTime() / 1000));
-				}
-			}
-		} catch (e) {
-			logger.warn(`gap detection failed for ${config.table}`, { error: e });
-			metrics.trackError(`gapDetection:${config.table}`, e);
-		}
-	}
-
-	if (allGapStarts.size === 0) return;
-
-	metrics.gapDetection.lastRun = new Date().toISOString();
-	metrics.gapDetection.gapsDetected = allGapStarts.size;
-	const sorted = [...allGapStarts].sort((a, b) => b - a);
-	logger.info(`filling ${sorted.length} unique gap(s), most recent first`);
-
-	for (const gapStartSec of sorted) {
-		const sec = Math.max(gapStartSec, startTimestampSec);
-		logger.info("triggering backfill for gap", {
-			gap_start: new Date(sec * 1000).toISOString(),
-		});
-		await runHistoricalDataFilterers(opts, sec, false);
-		metrics.gapDetection.gapsFilled++;
-	}
 }
