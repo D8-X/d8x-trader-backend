@@ -256,12 +256,11 @@ export class HistoryRestAPI {
 			const nowTs = Math.round(Date.now() / 1000);
 			let ch: CacheLpPrice | undefined = this.lpPriceCash.get(poolIdNum);
 			if (ch != undefined && nowTs - ch!.ts < 5 * 120) {
-				console.log(
-					"returning cached lp prices for pool (10min cache)",
+				this.l.debug("returning cached lp prices for pool (10min cache)", {
 					poolIdNum,
-				);
+				});
 			} else {
-				console.log("sql query of lp prices for pool", poolIdNum);
+				this.l.debug("sql query of lp prices for pool", { poolIdNum });
 				const res = await this.opts.prisma.$queryRaw<LpPrice[]>`
 				select 
 					eet.created_at as time,
@@ -476,9 +475,10 @@ export class HistoryRestAPI {
                     count(trader_addr) as num_trades
                 FROM trades_history th
                 WHERE LOWER(th.trader_addr) = ${user_wallet};`;
-			console.log(
-				`hasTrades query for ${user_wallet}, data.length = ${data[0].num_trades}`,
-			);
+			this.l.debug("hasTrades query", {
+				user_wallet,
+				num_trades: data[0].num_trades,
+			});
 			const hasTrades = data[0].num_trades > 0;
 			// return response
 			resp.contentType("json");
