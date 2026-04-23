@@ -1,7 +1,7 @@
 import { NodeSDKConfig, PerpetualDataHandler } from "@d8-x/d8x-node-sdk";
 import dotenv from "dotenv";
 import fs from "fs";
-import { executeWithTimeout, loadConfigRPC, sleep } from "utils";
+import { executeWithTimeout, extractErrorMsg, loadConfigRPC, sleep } from "utils";
 import { RPCConfig } from "utils/dist/wsTypes.js";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp.js";
 import BrokerIntegration from "./brokerIntegration.js";
@@ -18,6 +18,34 @@ import {
 import RPCManager from "./rpcManager.js";
 
 export { logger };
+
+const INITIALIZE_TIMEOUT_BASE_MS = 160_000;
+const INITIALIZE_MAX_RETRIES = 10;
+const GET_RPC_TIMEOUT_MS = 15_000;
+const HEARTBEAT_LOOP_IDLE_MS = 60_000;
+const HEARTBEAT_LOOP_RETRY_MS = 1_000;
+const POST_ERROR_SLEEP_MS = 1_000;
+
+async function safeGetRPC(
+	mgr: RPCManager,
+	kind: "ws" | "http",
+	healthy: boolean,
+	fallback: string,
+): Promise<string> {
+	try {
+		return await executeWithTimeout(
+			mgr.getRPC(healthy),
+			GET_RPC_TIMEOUT_MS,
+			`${kind} getRPC timeout`,
+		);
+	} catch (err) {
+		logger.warn("getRPC timed out, keeping previous URL", {
+			kind,
+			error: extractErrorMsg(err),
+		});
+		return fallback;
+	}
+}
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for the commented-out VAA endpoints flow below
 function loadVAAEndpoints(filename: string): string[] {
@@ -86,7 +114,7 @@ async function start() {
 			logger.info(`RPC (WS)   = ${wsRPC}`);
 			await executeWithTimeout(
 				d8XBackend.initialize(sdkConfig, rpcManagerHttp, wsRPC),
-				(count + 1) * 160_000,
+				(count + 1) * INITIALIZE_TIMEOUT_BASE_MS,
 				"initialize timeout",
 			);
 			isSuccess = true;
@@ -94,8 +122,8 @@ async function start() {
 			logger.error("initializing d8xBackend", {
 				error: error instanceof Error ? error.message : String(error),
 			});
-			await sleep(1000);
-			if (count > 10) {
+			await sleep(POST_ERROR_SLEEP_MS);
+			if (count > INITIALIZE_MAX_RETRIES) {
 				throw error;
 			}
 			logger.info("retrying new rpc...");
@@ -105,26 +133,31 @@ async function start() {
 		count++;
 	}
 
-	let waitTime = 60_000;
+	let waitTime = HEARTBEAT_LOOP_IDLE_MS;
 	/* eslint-disable no-constant-condition */
 	while (true) {
 		await sleep(waitTime);
-		wsRPC = await rpcManagerWs.getRPC(false);
-		await sleep(1_000);
-		sdkConfig.nodeURL = await rpcManagerHttp.getRPC();
+		wsRPC = await safeGetRPC(rpcManagerWs, "ws", false, wsRPC);
+		await sleep(POST_ERROR_SLEEP_MS);
+		sdkConfig.nodeURL = await safeGetRPC(
+			rpcManagerHttp,
+			"http",
+			true,
+			sdkConfig.nodeURL,
+		);
 
 		if (!(await d8XBackend.checkSDKHeartbeat())) {
 			logger.warn("SDK heartbeat check failed. Will self heal on next refresh");
 		}
 
-		await sleep(1_000);
+		await sleep(POST_ERROR_SLEEP_MS);
 
 		// restart event listener if events are out of sync
 
 		if (!(await d8XBackend!.checkTradeEventListenerHeartbeat(wsRPC))) {
-			waitTime = 1000;
+			waitTime = HEARTBEAT_LOOP_RETRY_MS;
 		} else {
-			waitTime = 60_000;
+			waitTime = HEARTBEAT_LOOP_IDLE_MS;
 		}
 
 		// Print out eth calls statistics
