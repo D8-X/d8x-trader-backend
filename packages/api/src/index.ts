@@ -8,13 +8,6 @@ import BrokerIntegration from "./brokerIntegration.js";
 import BrokerNone from "./brokerNone.js";
 import BrokerRemote from "./brokerRemote.js";
 import { logger } from "./logger.js";
-import {
-	JsonRpcEthCalls,
-	NumJsonRpcProviders,
-	NumWssProviders,
-	ProvidersEthCallsStartTime,
-	WssEthCalls,
-} from "./providers.js";
 import RPCManager from "./rpcManager.js";
 
 export { logger };
@@ -159,22 +152,6 @@ async function start() {
 		} else {
 			waitTime = HEARTBEAT_LOOP_IDLE_MS;
 		}
-
-		// Print out eth calls statistics
-		const currentTime = new Date();
-		logger.info("statistics of eth_ calls", {
-			JsonRpcEthCalls: JsonRpcEthCalls,
-			WssEthCalls: WssEthCalls,
-			CurrentTime: currentTime.toISOString(),
-			StartTime: ProvidersEthCallsStartTime.toISOString(),
-			RunningFor:
-				(currentTime.getTime() - ProvidersEthCallsStartTime.getTime()) /
-					1000 /
-					60 +
-				" minutes",
-			NumJsonRpcProviders,
-			NumWssProviders,
-		});
 	}
 }
 start();

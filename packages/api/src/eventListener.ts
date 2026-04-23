@@ -362,16 +362,11 @@ export default class EventListener extends IndexPriceInterface {
 		}
 		const clientSubscriptions = this.clients.get(ws);
 
-		// check that not already subscribed
 		for (let k = 0; k < clientSubscriptions!.length; k++) {
 			if (
 				clientSubscriptions![k].perpetualId == id &&
 				clientSubscriptions![k].traderAddr == traderAddr
 			) {
-				// already subscribed
-				logger.info(
-					`client tried to subscribe again for perpetual ${id} and trader ${traderAddr}`,
-				);
 				return false;
 			}
 		}
@@ -414,25 +409,29 @@ export default class EventListener extends IndexPriceInterface {
 	}
 
 	public unsubscribe(ws: WebSocket.WebSocket, req: IncomingMessage) {
-		logger.info(
-			`${new Date(Date.now())}: #ws=${this.clients.size}, client unsubscribed`,
-		);
-		//subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>;
-		//clients: Map<WebSocket.WebSocket, Array<ClientSubscription>>;
 		const clientSubscriptions = this.clients.get(ws);
 		if (clientSubscriptions == undefined) {
-			logger.info("unknown client unsubscribed, ip=", this._getIP(req));
+			const ip = this._getIP(req);
+			if (ip && ip !== "(x-forwarded-for not defined)") {
+				logger.info("unknown client unsubscribed", { ip });
+			}
 			return;
 		}
-		this._unsubscribe(clientSubscriptions, undefined, ws);
+		const released = this._unsubscribe(clientSubscriptions, undefined, ws);
 		this.clients.delete(ws);
+		logger.info("client unsubscribed", {
+			remainingClients: this.clients.size,
+			releasedPerpetuals: released.length,
+			perpetualIds: released,
+		});
 	}
 
 	private _unsubscribe(
 		clientSubscriptions: ClientSubscription[],
 		exceptionPoolId: number | undefined,
 		ws: WebSocket.WebSocket,
-	) {
+	): number[] {
+		const released: number[] = [];
 		for (let k = 0; k < clientSubscriptions?.length; k++) {
 			const id = clientSubscriptions[k].perpetualId;
 			const poolId = Math.floor(id / 1e5);
@@ -454,11 +453,11 @@ export default class EventListener extends IndexPriceInterface {
 				traderMap.delete(clientSubscriptions[k].traderAddr);
 			}
 			if (this.subscriptions.get(id)?.size == 0) {
-				logger.info(`no more subscribers for perpetualId ${id}`);
-				// unsubscribe events
+				released.push(id);
 				this.removeOrderBookEventHandlers(clientSubscriptions[k].symbol);
 			}
 		}
+		return released;
 	}
 
 	public isWsKnown(ws: WebSocket.WebSocket): boolean {

@@ -11,6 +11,13 @@ import EventListener from "./eventListener.js";
 import RPCManager from "./rpcManager.js";
 import SDKInterface from "./sdkInterface.js";
 import { logger } from "./logger.js";
+import {
+	JsonRpcEthCalls,
+	NumJsonRpcProviders,
+	NumWssProviders,
+	ProvidersEthCallsStartTime,
+	WssEthCalls,
+} from "./providers.js";
 dotenv.config();
 //https://roger13.github.io/SwagDefGen/
 //setAllowance?
@@ -236,9 +243,25 @@ export default class D8XBrokerBackendApp {
 			);
 		});
 
-		this.express.post("/", (req: Request, res: Response) => {
-			res.status(201).send(
-				D8XBrokerBackendApp.JSONResponse("/", "Express + TypeScript Server", {}),
+		this.express.get("/health", (_req: Request, res: Response) => {
+			res.status(200).json({ ok: true });
+		});
+
+		this.express.get("/eth-stats", (_req: Request, res: Response) => {
+			const now = new Date();
+			const runningForMin =
+				(now.getTime() - ProvidersEthCallsStartTime.getTime()) / 1000 / 60;
+			res.setHeader("Content-Type", "application/json");
+			res.send(
+				D8XBrokerBackendApp.JSONResponse("eth-stats", "", {
+					jsonRpcEthCalls: Object.fromEntries(JsonRpcEthCalls),
+					wssEthCalls: Object.fromEntries(WssEthCalls),
+					numJsonRpcProviders: NumJsonRpcProviders,
+					numWssProviders: NumWssProviders,
+					startTime: ProvidersEthCallsStartTime.toISOString(),
+					currentTime: now.toISOString(),
+					runningForMinutes: runningForMin,
+				}),
 			);
 		});
 
