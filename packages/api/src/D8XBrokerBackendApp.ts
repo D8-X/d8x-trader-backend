@@ -141,8 +141,9 @@ export default class D8XBrokerBackendApp {
 					logger.error("ws error", { error: err?.message ?? err }),
 				);
 				ws.on("message", async (data: WebSocket.RawData) => {
+					let obj: { type?: string; traderAddr?: string; symbol?: string } = {};
 					try {
-						const obj = JSON.parse(data.toString());
+						obj = JSON.parse(data.toString());
 						if (obj.type == "ping") {
 							if (eventListener.isWsKnown(ws)) {
 								ws.send(
@@ -173,7 +174,7 @@ export default class D8XBrokerBackendApp {
 								await sdk.extractPerpetualStateFromExchangeInfo(
 									obj.symbol,
 								);
-							eventListener.subscribe(ws, obj.symbol, obj.traderAddr);
+							eventListener.subscribe(ws, obj.symbol, obj.traderAddr!);
 							ws.send(
 								D8XBrokerBackendApp.JSONResponse(
 									"subscription",
@@ -182,16 +183,30 @@ export default class D8XBrokerBackendApp {
 								),
 							);
 						}
-					} catch (err: any) {
-						logger.info("error on user request:", err);
+					} catch (err) {
+						const msg = extractErrorMsg(err);
+						const isUnknownSymbol = msg.startsWith(
+							"No perpetual found with symbol",
+						);
+						if (isUnknownSymbol) {
+							logger.warn("ws subscribe: unknown symbol", {
+								symbol: obj?.symbol,
+							});
+						} else {
+							logger.warn("ws subscribe error", { error: msg });
+						}
 						const usage = "{symbol: BTC-USD-MATIC, traderAddr: 0xCAFE...}";
 						ws.send(
 							D8XBrokerBackendApp.JSONResponse(
 								"error",
 								"websocket subscribe",
 								{
-									usage: usage,
-									error: extractErrorMsg(err),
+									code: isUnknownSymbol
+										? "UNKNOWN_SYMBOL"
+										: "SUBSCRIBE_ERROR",
+									symbol: obj?.symbol,
+									usage,
+									error: msg,
 								},
 							),
 						);

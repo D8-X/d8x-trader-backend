@@ -33,6 +33,7 @@ import RedisOI from "./redisOI.js";
 import SDKInterface from "./sdkInterface.js";
 
 import sturdyWebsocket from "sturdy-websocket";
+import { extractErrorMsg } from "utils";
 import { logger } from "./logger.js";
 const SturdyWebSocket = sturdyWebsocket.default;
 /**
@@ -169,7 +170,10 @@ export default class EventListener extends IndexPriceInterface {
 			return await this.resetRPCWebsocketInner(newWsRPC);
 		} catch (e) {
 			this.rpcResetting = false;
-			this.logger.error("resetRPCWebsocket failed", { error: e });
+			this.logger.error("resetRPCWebsocket failed", {
+				error: extractErrorMsg(e),
+				stack: e instanceof Error ? e.stack : undefined,
+			});
 		}
 		return false;
 	}
