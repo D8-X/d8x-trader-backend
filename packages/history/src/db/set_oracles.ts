@@ -1,7 +1,6 @@
 import { SetOraclesEvent } from "../contracts/types.js";
-import { BigNumberish, Contract } from "ethers";
+import { BigNumberish } from "ethers";
 import { PrismaClient } from "@prisma/client";
-import { IPerpetualManager } from "@d8-x/d8x-node-sdk";
 import { Logger } from "winston";
 
 // used for PerpetualLongId

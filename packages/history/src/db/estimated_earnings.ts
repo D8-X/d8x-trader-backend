@@ -1,8 +1,4 @@
-import {
-	PrismaClient,
-	EstimatedEarningTokens,
-	estimated_earnings_event_type,
-} from "@prisma/client";
+import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { BigNumberish } from "ethers";
 import { Logger } from "winston";
 import {
@@ -56,9 +52,8 @@ export class EstimatedEarnings {
 		});
 
 		if (exists === null) {
-			let earning: EstimatedEarningTokens;
 			try {
-				earning = await this.prisma.estimatedEarningTokens.create({
+				await this.prisma.estimatedEarningTokens.create({
 					data: {
 						pool_id: Number(pool_id),
 						token_amount: amount.toString(),
@@ -83,9 +78,8 @@ export class EstimatedEarnings {
 			});
 		} else if (!isCollectedByEvent) {
 			// update record
-			let earning: EstimatedEarningTokens;
 			try {
-				earning = await this.prisma.estimatedEarningTokens.update({
+				await this.prisma.estimatedEarningTokens.update({
 					where: {
 						pool_id_tx_hash: { pool_id: pool_id, tx_hash: txHash },
 					},
