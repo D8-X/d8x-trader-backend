@@ -192,10 +192,15 @@ export default abstract class IndexPriceInterface extends Observer {
 					}
 				}
 			} catch (error) {
-				logger.info("[Error in _onRedisFeedHandlerMsg]", {
-					error: extractErrorMsg(error),
-					index: indices[k],
-				});
+				const msg = extractErrorMsg(error);
+				if (msg.includes("TSDB: the key does not exist")) {
+					logger.debug("idx feed key missing", { index: indices[k] });
+				} else {
+					logger.warn("fetchIndicesFromRedis error", {
+						error: msg,
+						index: indices[k],
+					});
+				}
 			}
 		}
 		return updatedIndices;

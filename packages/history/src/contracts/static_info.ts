@@ -2,6 +2,7 @@ import { JsonRpcProvider, Contract } from "ethers";
 import { MarketData, SDKState } from "@d8-x/d8x-node-sdk";
 import { getSDKConfigFromEnv } from "../utils/abi.js";
 import { MarginTokenInfo, MarginTokenData } from "../db/margin_token_info.js";
+import { logger } from "../svc/logger.js";
 
 export default class StaticInfo {
 	public retrievedShareTokenAddresses: string[] = [];
@@ -61,7 +62,7 @@ export default class StaticInfo {
 				const perpId = info.pools[j].perpetuals[k].id;
 				const perpSymbol = md.getSymbolFromPerpId(perpId);
 				if (perpSymbol == undefined) {
-					console.log(`No symbol found for perpetual id=${perpId}`);
+					logger.warn("No symbol found for perpetual", { perpId });
 					continue;
 				}
 				await md.getPerpetualStaticInfo(perpSymbol);

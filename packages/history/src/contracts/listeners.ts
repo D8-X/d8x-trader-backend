@@ -1,3 +1,4 @@
+import { formatErrorMessage } from "../utils/errors.js";
 import { Contract, JsonRpcProvider, WebSocketProvider, ethers } from "ethers";
 import { Logger } from "winston";
 import {
@@ -98,7 +99,7 @@ export class EventListener {
 			} catch (e) {
 				this.l.warn(`getBlockTs attempt ${attempt + 1}/3 failed`, {
 					blockNumber: blockNum,
-					error: e,
+					error: formatErrorMessage(e),
 				});
 				if (attempt < 2) {
 					await new Promise((r) => setTimeout(r, (attempt + 1) * 1000));
@@ -144,7 +145,7 @@ export class EventListener {
 				await this.provider.removeAllListeners();
 			} catch (e) {
 				this.l.warn("failed to remove listeners from previous provider", {
-					error: e,
+					error: formatErrorMessage(e),
 				});
 			}
 		}
@@ -575,7 +576,10 @@ export class EventListener {
 				timestampSec,
 			);
 		} catch (e) {
-			this.l.error("failed to insert settle record", { txHash, error: e });
+			this.l.error("failed to insert settle record", {
+				txHash,
+				error: formatErrorMessage(e),
+			});
 			metrics.trackError("db:settle", e);
 		}
 	}
@@ -594,7 +598,10 @@ export class EventListener {
 				timestampSec,
 			);
 		} catch (e) {
-			this.l.error("failed to insert token deposit record", { txHash, error: e });
+			this.l.error("failed to insert token deposit record", {
+				txHash,
+				error: formatErrorMessage(e),
+			});
 			metrics.trackError("db:tokenDeposit", e);
 		}
 	}
@@ -612,7 +619,10 @@ export class EventListener {
 				timestampSec,
 			);
 		} catch (e) {
-			this.l.error("failed to insert token withdraw record", { txHash, error: e });
+			this.l.error("failed to insert token withdraw record", {
+				txHash,
+				error: formatErrorMessage(e),
+			});
 			metrics.trackError("db:tokenWithdraw", e);
 		}
 	}
@@ -633,7 +643,10 @@ export class EventListener {
 				blockNumber,
 			);
 		} catch (e) {
-			this.l.error("failed to insert trade record", { txHash, error: e });
+			this.l.error("failed to insert trade record", {
+				txHash,
+				error: formatErrorMessage(e),
+			});
 			metrics.trackError("db:trade", e);
 		}
 	}

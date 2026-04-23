@@ -1,7 +1,7 @@
-import * as winston from "winston";
 import { EventListener } from "../contracts/listeners.js";
 import * as dotenv from "dotenv";
 import { chooseRandomRPC, executeWithTimeout, loadConfigRPC } from "utils";
+import { logger } from "./logger.js";
 import { isRateLimitError, formatErrorMessage } from "../utils/errors.js";
 import { JsonRpcProvider, Network, WebSocketProvider, ethers } from "ethers";
 import { ListeningMode } from "../contracts/types.js";
@@ -26,19 +26,16 @@ import { hdFilterersOpt, runHistoricalDataFilterers } from "./backfillRunner.js"
 import sturdyWebsocket from "sturdy-websocket";
 const SturdyWebSocket = sturdyWebsocket.default;
 
-const defaultLogger = () => {
-	return winston.createLogger({
-		level: "info",
-		format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-		defaultMeta: { service: "history" },
-		transports: [
-			new winston.transports.Console(),
-			new winston.transports.File({ filename: "history.log" }),
-		],
-	});
-};
+export { logger };
 
-export const logger = defaultLogger();
+const STATIC_INFO_INIT_TIMEOUT_MS = 30_000;
+const STATIC_INFO_MAX_BACKOFF_SEC = 120;
+const WS_PROVIDER_DESTROY_TIMEOUT_MS = 10_000;
+const WS_ALIVE_PROBE_MS = 30_000;
+const HEARTBEAT_CHECK_INTERVAL_MS = 60_000;
+const HEARTBEAT_STALE_THRESHOLD_SEC = 30;
+const REDUNDANCY_BACKFILL_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4h
+const GAP_DETECTION_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2h
 
 export const loadEnv = (wantEnvs?: string[] | undefined) => {
 	const config = dotenv.config({
@@ -124,12 +121,12 @@ export const main = async () => {
 		try {
 			await executeWithTimeout(
 				staticInfo.initialize(httpProvider, httpRpcUrl),
-				30_000,
+				STATIC_INFO_INIT_TIMEOUT_MS,
 				"RPC call timeout",
 			);
 			break;
 		} catch (err) {
-			const wait = Math.min(Math.pow(2, attempt) * 2, 120);
+			const wait = Math.min(Math.pow(2, attempt) * 2, STATIC_INFO_MAX_BACKOFF_SEC);
 			logger.warn(
 				`staticInfo.initialize failed (attempt ${attempt + 1}), retrying in ${wait}s`,
 				{ error: formatErrorMessage(err) },
@@ -197,7 +194,7 @@ export const main = async () => {
 	const thirtyDaysAgoSec = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
 	runBackfillGuarded(thirtyDaysAgoSec, false)
 		.catch((e) => {
-			logger.warn("initial backfill failed", { error: e });
+			logger.warn("initial backfill failed", { error: formatErrorMessage(e) });
 			metrics.trackError("backfill", e);
 		})
 		.then(() => {
@@ -210,7 +207,7 @@ export const main = async () => {
 			);
 		})
 		.catch((e) => {
-			logger.warn("initial gap detection failed", { error: e });
+			logger.warn("initial gap detection failed", { error: formatErrorMessage(e) });
 			metrics.trackError("gapDetection", e);
 		});
 	eventsListener.listen(wsProvider);
@@ -221,7 +218,7 @@ export const main = async () => {
 	const maxWsResetCounter = 100 + Math.floor(Math.random() * 100);
 	let resetRpcRunning = false;
 	const resetRpcFunc = async () => {
-		if (eventsListener.checkHeartbeat(30)) {
+		if (eventsListener.checkHeartbeat(HEARTBEAT_STALE_THRESHOLD_SEC)) {
 			return;
 		}
 		if (resetRpcRunning) {
@@ -243,16 +240,28 @@ export const main = async () => {
 			logger.info(`switching to HTTP provider`);
 			eventsListener.listen(makeJsonProvider());
 			try {
-				await wsProvider.destroy();
+				await executeWithTimeout(
+					wsProvider.destroy(),
+					WS_PROVIDER_DESTROY_TIMEOUT_MS,
+					"wsProvider.destroy timeout",
+				);
 			} catch (e) {
-				logger.warn("error destroying ws provider", { error: e });
+				logger.warn("error destroying ws provider", {
+					error: formatErrorMessage(e),
+				});
 				metrics.trackError("wsProvider.destroy", e);
 			}
 		} else {
 			try {
-				await wsProvider.destroy();
+				await executeWithTimeout(
+					wsProvider.destroy(),
+					WS_PROVIDER_DESTROY_TIMEOUT_MS,
+					"wsProvider.destroy timeout",
+				);
 			} catch (e) {
-				logger.warn("error destroying ws provider", { error: e });
+				logger.warn("error destroying ws provider", {
+					error: formatErrorMessage(e),
+				});
 				metrics.trackError("wsProvider.destroy", e);
 			}
 
@@ -269,15 +278,13 @@ export const main = async () => {
 			);
 			wsResetCounter++;
 
-			// Wait for block event to happen on ws provider (~8sec), othwerwise
-			// switch back to HTTP
-			const wsAlive = await new Promise((resolve, _reject) => {
+			const wsAlive = await new Promise((resolve) => {
 				wsProvider.once("block", () => {
 					resolve(true);
 				});
 				setTimeout(() => {
 					resolve(false);
-				}, 30_000);
+				}, WS_ALIVE_PROBE_MS);
 			});
 			// WS works, switch providers
 			if (wsAlive) {
@@ -307,17 +314,15 @@ export const main = async () => {
 	setInterval(async () => {
 		try {
 			await resetRpcFunc();
-		} catch (e) {
+		} catch (_e) {
 			resetRpcRunning = false;
 		}
-	}, 60_000);
+	}, HEARTBEAT_CHECK_INTERVAL_MS);
 
-	// Re fetch  periodically for redundancy. This will ensure that any lost events will eventually be stored in db
-	// every 4 hours poll (5 hours would leave us just under 10_000 blocks, so the call typically covers as many blocks as possible for a fixed RPC cost)
 	setInterval(async () => {
 		logger.info("running historical data filterers for redundancy");
 		await runBackfillGuarded(blk.timestamp);
-	}, 14_400_000); // 4 * 60 * 60 * 1000 miliseconds
+	}, REDUNDANCY_BACKFILL_INTERVAL_MS);
 
 	setInterval(async () => {
 		if (backfillRunning) {
@@ -332,10 +337,10 @@ export const main = async () => {
 				logger,
 			);
 		} catch (e) {
-			logger.warn("gap detection failed", { error: e });
+			logger.warn("gap detection failed", { error: formatErrorMessage(e) });
 			metrics.trackError("gapDetection", e);
 		}
-	}, 7_200_000); // 2h in ms
+	}, GAP_DETECTION_INTERVAL_MS);
 
 	// Start the history api
 	const api = new HistoryRestAPI(

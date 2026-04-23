@@ -11,6 +11,13 @@ import EventListener from "./eventListener.js";
 import RPCManager from "./rpcManager.js";
 import SDKInterface from "./sdkInterface.js";
 import { logger } from "./logger.js";
+import {
+	JsonRpcEthCalls,
+	NumJsonRpcProviders,
+	NumWssProviders,
+	ProvidersEthCallsStartTime,
+	WssEthCalls,
+} from "./providers.js";
 dotenv.config();
 //https://roger13.github.io/SwagDefGen/
 //setAllowance?
@@ -141,8 +148,9 @@ export default class D8XBrokerBackendApp {
 					logger.error("ws error", { error: err?.message ?? err }),
 				);
 				ws.on("message", async (data: WebSocket.RawData) => {
+					let obj: { type?: string; traderAddr?: string; symbol?: string } = {};
 					try {
-						const obj = JSON.parse(data.toString());
+						obj = JSON.parse(data.toString());
 						if (obj.type == "ping") {
 							if (eventListener.isWsKnown(ws)) {
 								ws.send(
@@ -173,7 +181,7 @@ export default class D8XBrokerBackendApp {
 								await sdk.extractPerpetualStateFromExchangeInfo(
 									obj.symbol,
 								);
-							eventListener.subscribe(ws, obj.symbol, obj.traderAddr);
+							eventListener.subscribe(ws, obj.symbol, obj.traderAddr!);
 							ws.send(
 								D8XBrokerBackendApp.JSONResponse(
 									"subscription",
@@ -182,16 +190,30 @@ export default class D8XBrokerBackendApp {
 								),
 							);
 						}
-					} catch (err: any) {
-						logger.info("error on user request:", err);
+					} catch (err) {
+						const msg = extractErrorMsg(err);
+						const isUnknownSymbol = msg.startsWith(
+							"No perpetual found with symbol",
+						);
+						if (isUnknownSymbol) {
+							logger.warn("ws subscribe: unknown symbol", {
+								symbol: obj?.symbol,
+							});
+						} else {
+							logger.warn("ws subscribe error", { error: msg });
+						}
 						const usage = "{symbol: BTC-USD-MATIC, traderAddr: 0xCAFE...}";
 						ws.send(
 							D8XBrokerBackendApp.JSONResponse(
 								"error",
 								"websocket subscribe",
 								{
-									usage: usage,
-									error: extractErrorMsg(err),
+									code: isUnknownSymbol
+										? "UNKNOWN_SYMBOL"
+										: "SUBSCRIBE_ERROR",
+									symbol: obj?.symbol,
+									usage,
+									error: msg,
 								},
 							),
 						);
@@ -221,9 +243,25 @@ export default class D8XBrokerBackendApp {
 			);
 		});
 
-		this.express.post("/", (req: Request, res: Response) => {
-			res.status(201).send(
-				D8XBrokerBackendApp.JSONResponse("/", "Express + TypeScript Server", {}),
+		this.express.get("/health", (_req: Request, res: Response) => {
+			res.status(200).json({ ok: true });
+		});
+
+		this.express.get("/eth-stats", (_req: Request, res: Response) => {
+			const now = new Date();
+			const runningForMin =
+				(now.getTime() - ProvidersEthCallsStartTime.getTime()) / 1000 / 60;
+			res.setHeader("Content-Type", "application/json");
+			res.send(
+				D8XBrokerBackendApp.JSONResponse("eth-stats", "", {
+					jsonRpcEthCalls: Object.fromEntries(JsonRpcEthCalls),
+					wssEthCalls: Object.fromEntries(WssEthCalls),
+					numJsonRpcProviders: NumJsonRpcProviders,
+					numWssProviders: NumWssProviders,
+					startTime: ProvidersEthCallsStartTime.toISOString(),
+					currentTime: now.toISOString(),
+					runningForMinutes: runningForMin,
+				}),
 			);
 		});
 

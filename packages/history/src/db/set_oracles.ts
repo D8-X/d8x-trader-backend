@@ -1,3 +1,4 @@
+import { formatErrorMessage } from "../utils/errors.js";
 import { SetOraclesEvent } from "../contracts/types.js";
 import { BigNumberish } from "ethers";
 import { PrismaClient } from "@prisma/client";
@@ -58,9 +59,14 @@ export class SetOracles {
 			// or quanto: btc-usd eth-usd
 			name = name + "-" + S3.split("-")[0];
 		}
-		console.log(
-			`${evtName} at block ${blockNumber} ts ${blockTimestamp} ${perpId} ${S2} ${S3} -> ${name}`,
-		);
+		this.l.info(`${evtName} event`, {
+			blockNumber,
+			blockTimestamp,
+			perpId,
+			S2,
+			S3,
+			name,
+		});
 		txHash = txHash.toLowerCase();
 		const exists = await this.prisma.perpetualLongId.findFirst({
 			where: {
@@ -124,7 +130,7 @@ export class SetOracles {
 			}
 		} catch (e) {
 			this.l.error(`insertPerpetualLongId`, {
-				error: e,
+				error: formatErrorMessage(e),
 			});
 			return;
 		}
