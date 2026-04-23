@@ -1,7 +1,7 @@
 import { toJson } from "utils";
 import BrokerIntegration from "./brokerIntegration.js";
 import axios from "axios";
-import { logger } from "./index.js";
+import { logger } from "./logger.js";
 import {
 	BrokerTool,
 	NodeSDKConfig,

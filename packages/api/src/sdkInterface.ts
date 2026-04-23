@@ -13,7 +13,7 @@ import { Numeric } from "ethers";
 import type { RedisClientType } from "redis";
 import { constructRedis, extractErrorMsg } from "utils";
 import BrokerIntegration from "./brokerIntegration.js";
-import { logger } from "./index.js";
+import { logger } from "./logger.js";
 import Observable from "./observable.js";
 import { TrackedJsonRpcProvider } from "./providers.js";
 import RedisOI from "./redisOI.js";

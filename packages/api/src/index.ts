@@ -3,11 +3,11 @@ import dotenv from "dotenv";
 import fs from "fs";
 import { executeWithTimeout, loadConfigRPC, sleep } from "utils";
 import { RPCConfig } from "utils/dist/wsTypes.js";
-import * as winston from "winston";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp.js";
 import BrokerIntegration from "./brokerIntegration.js";
 import BrokerNone from "./brokerNone.js";
 import BrokerRemote from "./brokerRemote.js";
+import { logger } from "./logger.js";
 import {
 	JsonRpcEthCalls,
 	NumJsonRpcProviders,
@@ -17,15 +17,7 @@ import {
 } from "./providers.js";
 import RPCManager from "./rpcManager.js";
 
-const defaultLogger = () => {
-	return winston.createLogger({
-		level: "info",
-		format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-		defaultMeta: { service: "api" },
-		transports: [new winston.transports.Console()],
-	});
-};
-export const logger = defaultLogger();
+export { logger };
 
 function loadVAAEndpoints(filename: string): string[] {
 	const fileContent = fs.readFileSync(filename).toString();

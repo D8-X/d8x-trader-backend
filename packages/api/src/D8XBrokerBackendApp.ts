@@ -10,7 +10,7 @@ import BrokerIntegration from "./brokerIntegration.js";
 import EventListener from "./eventListener.js";
 import RPCManager from "./rpcManager.js";
 import SDKInterface from "./sdkInterface.js";
-import { logger } from "./index.js";
+import { logger } from "./logger.js";
 dotenv.config();
 //https://roger13.github.io/SwagDefGen/
 //setAllowance?

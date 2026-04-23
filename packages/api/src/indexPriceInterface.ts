@@ -3,7 +3,7 @@ import type { RedisClientType } from "redis";
 import { constructRedis, extractErrorMsg } from "utils";
 import Observer from "./observer.js";
 import SDKInterface from "./sdkInterface.js";
-import { logger } from "./index.js";
+import { logger } from "./logger.js";
 
 /**
  * This class handles the communication with the websocket client

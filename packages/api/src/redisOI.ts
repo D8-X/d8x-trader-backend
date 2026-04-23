@@ -1,5 +1,5 @@
 import { RedisClientType } from "redis";
-import { logger } from "./index.js";
+import { logger } from "./logger.js";
 
 const REDIS_OI_KEY = "oi-ts";
 /**
