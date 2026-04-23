@@ -32,12 +32,9 @@ import { TrackedWebsocketsProvider } from "./providers.js";
 import RedisOI from "./redisOI.js";
 import SDKInterface from "./sdkInterface.js";
 
-// workaround for CJS package
-import { createRequire } from "node:module";
-import { logger } from "./index.js";
-const require = createRequire(import.meta.url);
-const mod = require("sturdy-websocket");
-const SturdyWebSocket = mod.default ?? mod.SturdyWebSocket ?? mod;
+import sturdyWebsocket from "sturdy-websocket";
+import { logger } from "./logger.js";
+const SturdyWebSocket = sturdyWebsocket.default;
 /**
  * Class that listens to blockchain events on
  * - limitorder books
@@ -177,11 +174,10 @@ export default class EventListener extends IndexPriceInterface {
 		return false;
 	}
 
-	// Perform the RPC reset
-	private async resetRPCWebsocketInner(newWsRPC: string) {
+	private async resetRPCWebsocketInner(newWsRPC: string): Promise<boolean> {
 		if (this.rpcResetting) {
 			this.logger.warn("resetRPCWebsocket is already running, not resetting...");
-			return;
+			return false;
 		}
 		this.rpcResetting = true;
 
@@ -265,6 +261,7 @@ export default class EventListener extends IndexPriceInterface {
 				resetRPCWebsocket_calls_until_restart: diff,
 			});
 		}
+		return true;
 	}
 
 	/**

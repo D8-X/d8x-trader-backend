@@ -39,11 +39,8 @@ import { SettleHistory } from "../db/settle_history.js";
 import { TokenFlow } from "../db/token_flow.js";
 import { metrics } from "./metrics.js";
 import { detectAndFillGaps } from "./gaps.js";
-// workaround for CJS package
-import { createRequire } from "node:module";
-const require = createRequire(import.meta.url);
-const mod = require("sturdy-websocket");
-const SturdyWebSocket = mod.default ?? mod.SturdyWebSocket ?? mod;
+import sturdyWebsocket from "sturdy-websocket";
+const SturdyWebSocket = sturdyWebsocket.default;
 
 const defaultLogger = () => {
 	return winston.createLogger({
@@ -222,7 +219,7 @@ export const main = async () => {
 			const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
 			return detectAndFillGaps(
 				prisma,
-				(sec) => runHistoricalDataFilterers(hdOpts, sec, false),
+				(sec: number) => runHistoricalDataFilterers(hdOpts, sec, false),
 				sevenDaysAgoSec,
 				logger,
 			);
@@ -345,7 +342,7 @@ export const main = async () => {
 		try {
 			await detectAndFillGaps(
 				prisma,
-				(sec) => runHistoricalDataFilterers(hdOpts, sec, false),
+				(sec: number) => runHistoricalDataFilterers(hdOpts, sec, false),
 				blk.timestamp,
 				logger,
 			);
