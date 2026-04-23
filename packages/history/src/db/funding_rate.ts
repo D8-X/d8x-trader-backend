@@ -1,3 +1,4 @@
+import { formatErrorMessage } from "../utils/errors.js";
 import { PrismaClient, Prisma, FundingRatePayment } from "@prisma/client";
 import { BigNumberish } from "ethers";
 import { Logger } from "winston";
@@ -62,7 +63,9 @@ export class FundingRatePayments {
 					data,
 				});
 			} catch (e) {
-				this.l.error("inserting new funding rate payment", { error: e });
+				this.l.error("inserting new funding rate payment", {
+					error: formatErrorMessage(e),
+				});
 				return;
 			}
 			this.l.info("inserted new funding rate payment", {
@@ -81,7 +84,9 @@ export class FundingRatePayments {
 					},
 				});
 			} catch (e) {
-				this.l.error("updating funding rate payment", { error: e });
+				this.l.error("updating funding rate payment", {
+					error: formatErrorMessage(e),
+				});
 				return;
 			}
 			this.l.info("updated funding rate payment", {

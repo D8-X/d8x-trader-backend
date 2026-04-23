@@ -1,3 +1,4 @@
+import { formatErrorMessage } from "../utils/errors.js";
 import { SetOraclesEvent } from "../contracts/types.js";
 import { BigNumberish } from "ethers";
 import { PrismaClient } from "@prisma/client";
@@ -124,7 +125,7 @@ export class SetOracles {
 			}
 		} catch (e) {
 			this.l.error(`insertPerpetualLongId`, {
-				error: e,
+				error: formatErrorMessage(e),
 			});
 			return;
 		}

@@ -1,3 +1,4 @@
+import { formatErrorMessage } from "../utils/errors.js";
 import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { BigNumberish } from "ethers";
 import { Logger } from "winston";
@@ -68,7 +69,9 @@ export class EstimatedEarnings {
 					},
 				});
 			} catch (e) {
-				this.l.error("inserting new estimated earning record", { error: e });
+				this.l.error("inserting new estimated earning record", {
+					error: formatErrorMessage(e),
+				});
 				return;
 			}
 			this.l.info("inserted new estimated earning record", {
@@ -89,7 +92,9 @@ export class EstimatedEarnings {
 					},
 				});
 			} catch (e) {
-				this.l.error("inserting new estimated earning record", { error: e });
+				this.l.error("inserting new estimated earning record", {
+					error: formatErrorMessage(e),
+				});
 				return;
 			}
 			this.l.info("updated estimated earning record", { type });
