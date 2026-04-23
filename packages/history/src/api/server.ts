@@ -23,7 +23,7 @@ import {
 } from "utils";
 
 import { getAddress, JsonRpcProvider } from "ethers";
-import { MarketData } from "@d8-x/d8x-node-sdk";
+import { MarketData, SDKState } from "@d8-x/d8x-node-sdk";
 import { getSDKConfigFromEnv } from "../utils/abi.js";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -98,7 +98,7 @@ export class HistoryRestAPI {
 	 *
 	 * @param httpRpcUrl
 	 */
-	public async init(httpRpcUrl: string, sdkState?: any) {
+	public async init(httpRpcUrl: string, sdkState?: SDKState) {
 		const config = getSDKConfigFromEnv();
 		config.nodeURL = httpRpcUrl;
 		const md = new MarketData(config);
@@ -141,7 +141,7 @@ export class HistoryRestAPI {
 	/**
 	 * Starts the express app
 	 */
-	public async start(httpRPCUrl: string, sdkState?: any) {
+	public async start(httpRPCUrl: string, sdkState?: SDKState) {
 		await this.init(httpRPCUrl, sdkState);
 
 		this.app.listen(this.opts.port, () => {

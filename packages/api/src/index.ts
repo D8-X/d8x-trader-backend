@@ -60,7 +60,9 @@ async function start() {
 	}
 	sdkConfig.priceFeedEndpoints = [{ type: type, endpoints: endpoints }];
 	*/
-	console.log("priceFeedEndpoints:", sdkConfig.priceFeedEndpoints);
+	logger.info("priceFeedEndpoints", {
+		priceFeedEndpoints: sdkConfig.priceFeedEndpoints,
+	});
 	const rpcConfig = loadConfigRPC() as RPCConfig[];
 	let broker: BrokerIntegration;
 	let remoteBrokerAddr = process.env.REMOTE_BROKER_HTTP;
@@ -71,7 +73,7 @@ async function start() {
 		logger.info("Creating remote broker for order signatures");
 		broker = new BrokerRemote(remoteBrokerAddr, brokerIdName, sdkConfig.chainId);
 	} else {
-		console.log("No broker PK/fee or remore broker defined, using empty broker.");
+		logger.info("No broker PK/fee or remote broker defined, using empty broker.");
 		broker = new BrokerNone();
 	}
 	const rpcManagerHttp = new RPCManager(
@@ -96,7 +98,9 @@ async function start() {
 			);
 			isSuccess = true;
 		} catch (error) {
-			logger.error("initializing d8xBackend", { error });
+			logger.error("initializing d8xBackend", {
+				error: error instanceof Error ? error.message : String(error),
+			});
 			await sleep(1000);
 			if (count > 10) {
 				throw error;
@@ -132,7 +136,7 @@ async function start() {
 
 		// Print out eth calls statistics
 		const currentTime = new Date();
-		console.log("statistics of eth_ calls", {
+		logger.info("statistics of eth_ calls", {
 			JsonRpcEthCalls: JsonRpcEthCalls,
 			WssEthCalls: WssEthCalls,
 			CurrentTime: currentTime.toISOString(),

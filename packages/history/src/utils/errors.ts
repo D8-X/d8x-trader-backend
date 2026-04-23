@@ -3,6 +3,14 @@ export function formatErrorMessage(error: unknown): string {
 	return String(error);
 }
 
+interface RpcErrorShape {
+	code?: string;
+	error?: {
+		code?: number;
+		message?: string;
+	};
+}
+
 export function isRateLimitError(error: unknown): boolean {
 	const msg = formatErrorMessage(error);
 	if (
@@ -15,18 +23,16 @@ export function isRateLimitError(error: unknown): boolean {
 	) {
 		return true;
 	}
-	const err = error as Record<string, any>;
-	const code = err?.error?.code;
+	const err = (error ?? {}) as RpcErrorShape;
+	const code = err.error?.code;
 	if (code === -32016 || code === -32007) {
 		return true;
 	}
-	if (
-		err?.error?.message?.includes("rate limit") ||
-		err?.error?.message?.includes("request limit")
-	) {
+	const innerMsg = err.error?.message;
+	if (innerMsg?.includes("rate limit") || innerMsg?.includes("request limit")) {
 		return true;
 	}
-	if (err?.code === "UNKNOWN_ERROR" && (code === -32016 || code === -32007)) {
+	if (err.code === "UNKNOWN_ERROR" && (code === -32016 || code === -32007)) {
 		return true;
 	}
 	return false;

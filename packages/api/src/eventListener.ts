@@ -34,6 +34,7 @@ import SDKInterface from "./sdkInterface.js";
 
 // workaround for CJS package
 import { createRequire } from "node:module";
+import { logger } from "./index.js";
 const require = createRequire(import.meta.url);
 const mod = require("sturdy-websocket");
 const SturdyWebSocket = mod.default ?? mod.SturdyWebSocket ?? mod;
@@ -367,7 +368,7 @@ export default class EventListener extends IndexPriceInterface {
 				clientSubscriptions![k].traderAddr == traderAddr
 			) {
 				// already subscribed
-				console.log(
+				logger.info(
 					`client tried to subscribe again for perpetual ${id} and trader ${traderAddr}`,
 				);
 				return false;
@@ -379,7 +380,7 @@ export default class EventListener extends IndexPriceInterface {
 			traderAddr: traderAddr,
 		});
 
-		console.log(
+		logger.info(
 			`${new Date(Date.now())}: #ws=${this.clients.size}, new client ${traderAddr}`,
 		);
 		let perpSubscribers = this.subscriptions.get(id);
@@ -394,7 +395,7 @@ export default class EventListener extends IndexPriceInterface {
 			traderSubscribers = perpSubscribers!.get(traderAddr);
 		}
 		traderSubscribers!.push(ws);
-		console.log(`subscribed to perp ${perpetualsSymbol} with id ${id}`);
+		logger.info(`subscribed to perp ${perpetualsSymbol} with id ${id}`);
 		return true;
 	}
 
@@ -405,21 +406,21 @@ export default class EventListener extends IndexPriceInterface {
 			v = String(headers);
 			v = v!.split(",")[0].trim();
 		} else {
-			console.log(req.headers);
+			logger.info(req.headers);
 		}
 
 		return v;
 	}
 
 	public unsubscribe(ws: WebSocket.WebSocket, req: IncomingMessage) {
-		console.log(
+		logger.info(
 			`${new Date(Date.now())}: #ws=${this.clients.size}, client unsubscribed`,
 		);
 		//subscriptions: Map<number, Map<string, WebSocket.WebSocket[]>>;
 		//clients: Map<WebSocket.WebSocket, Array<ClientSubscription>>;
 		const clientSubscriptions = this.clients.get(ws);
 		if (clientSubscriptions == undefined) {
-			console.log("unknown client unsubscribed, ip=", this._getIP(req));
+			logger.info("unknown client unsubscribed, ip=", this._getIP(req));
 			return;
 		}
 		this._unsubscribe(clientSubscriptions, undefined, ws);
@@ -452,7 +453,7 @@ export default class EventListener extends IndexPriceInterface {
 				traderMap.delete(clientSubscriptions[k].traderAddr);
 			}
 			if (this.subscriptions.get(id)?.size == 0) {
-				console.log(`no more subscribers for perpetualId ${id}`);
+				logger.info(`no more subscribers for perpetualId ${id}`);
 				// unsubscribe events
 				this.removeOrderBookEventHandlers(clientSubscriptions[k].symbol);
 			}
@@ -478,7 +479,7 @@ export default class EventListener extends IndexPriceInterface {
 		if (!this.isInitialized && !firstTimeUpdate) {
 			return;
 		}
-		console.log("received update from sdkInterface", msg);
+		logger.info("received update from sdkInterface", msg);
 		const info: ExchangeInfo = await this.traderInterface.exchangeInfo();
 		// update fundingRate: Map<number, number>; // perpetualId -> funding rate
 		const pools = info.pools;
@@ -501,7 +502,7 @@ export default class EventListener extends IndexPriceInterface {
 				maxOI = Math.max(maxOI, maxOI);
 			}
 		}
-		console.log(`[_update] setting fundingRate and openInterest`, {
+		logger.info(`[_update] setting fundingRate and openInterest`, {
 			maxFunding: maxFunding / 1e4,
 			minFunding: minFunding / 1e4,
 			maxOpenInterest: maxOI,
@@ -520,13 +521,13 @@ export default class EventListener extends IndexPriceInterface {
 		const subscribers: Map<string, WebSocket.WebSocket[]> | undefined =
 			this.subscriptions.get(perpetualId);
 		if (subscribers == undefined) {
-			// console.log(`no subscribers for perpetual ${perpetualId}`);
+			// logger.info(`no subscribers for perpetual ${perpetualId}`);
 			return;
 		}
 		if (traderAddr != undefined) {
 			const traderWs: WebSocket[] | undefined = subscribers.get(traderAddr);
 			if (traderWs == undefined) {
-				console.log(
+				logger.info(
 					`no subscriber to trader ${traderAddr} in perpetual ${perpetualId}`,
 				);
 				return;
@@ -581,7 +582,7 @@ export default class EventListener extends IndexPriceInterface {
 		proxyContract.on(
 			"TransferAddressTo",
 			(module: string, oldAddress: string, newAddress: string) => {
-				console.log("restart: module update", { module, oldAddress, newAddress });
+				logger.info("restart: module update", { module, oldAddress, newAddress });
 				process.exit(1);
 			},
 		);
@@ -727,7 +728,7 @@ export default class EventListener extends IndexPriceInterface {
 		perpetualId = Number(perpetualId);
 		const symbol = this.symbolFromPerpetualId(perpetualId);
 		if (symbol == "") {
-			console.log(
+			logger.info(
 				"onUpdateMarginAccount: no symbol found for perpetual id ",
 				perpetualId,
 			);
@@ -818,7 +819,7 @@ export default class EventListener extends IndexPriceInterface {
 		fMarkIndexPrice: bigint,
 	): void {
 		if (!this.isInitialized) {
-			console.log("onUpdateMarkPrice: eventListener not initialized");
+			logger.info("onUpdateMarkPrice: eventListener not initialized");
 			return;
 		}
 		perpetualId = Number(perpetualId.toString());
@@ -830,7 +831,7 @@ export default class EventListener extends IndexPriceInterface {
 			(fMidPricePremium + fMarkPricePremium + fMarkIndexPrice).toString() +
 			perpetualId.toString();
 		if (!this.grantEventControlPassage(hash, "onUpdateMarkPrice")) {
-			console.log("onUpdateMarkPrice duplicate");
+			logger.info("onUpdateMarkPrice duplicate");
 			return;
 		}
 
@@ -841,7 +842,7 @@ export default class EventListener extends IndexPriceInterface {
 
 		let pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId);
 		if (pxIdxName == undefined) {
-			console.log("onUpdateMarkPrice: no index defined for perpetual", perpetualId);
+			logger.info("onUpdateMarkPrice: no index defined for perpetual", perpetualId);
 			return;
 		}
 		const parts = pxIdxName.split("-");
@@ -849,14 +850,14 @@ export default class EventListener extends IndexPriceInterface {
 		// ensure index price availability
 		let currIdx = this.idxPrices.get(pxIdxName);
 		if (currIdx == undefined) {
-			console.log("onUpdateMarkPrice: index name=", pxIdxName, "currIdx undefined");
+			logger.info("onUpdateMarkPrice: index name=", pxIdxName, "currIdx undefined");
 			return;
 		}
 		let newMarkPrice, newMidPrice: number;
 		if (isPred) {
 			// for pred markets, currIdx == spot probability
 			// --> convert all to price to send over WS and update xchg info
-			console.log("index name=", pxIdxName, "currIdx=", currIdx);
+			logger.info("index name=", pxIdxName, "currIdx=", currIdx);
 			newMidPrice = probToPrice(currIdx) + midPrem;
 			let markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
 			markPx = probToPrice(markPx);
@@ -868,11 +869,11 @@ export default class EventListener extends IndexPriceInterface {
 			newMarkPrice = currIdx * (1 + mrkPrem);
 			newMidPrice = currIdx * (1 + midPrem);
 		}
-		console.log("eventListener: onUpdateMarkPrice");
+		logger.info("eventListener: onUpdateMarkPrice");
 
 		// notify websocket listeners (using prices based on most recent websocket price)
 
-		console.log(
+		logger.info(
 			"onUpdateMarkPrice: ",
 			perpetualId,
 			"miPremium",
@@ -930,7 +931,7 @@ export default class EventListener extends IndexPriceInterface {
 		newIndexPrice: number,
 	) {
 		if (!this.isInitialized) {
-			console.log("updateMarkPrice: eventListener not initialized");
+			logger.info("updateMarkPrice: eventListener not initialized");
 			return;
 		}
 
@@ -976,9 +977,9 @@ export default class EventListener extends IndexPriceInterface {
 		const isMarketOrder = containsFlag(BigInt(order.flags), MASK_MARKET_ORDER);
 		if (isMarketOrder) {
 			this.mktOrderFrequency.executedCount += 1;
-			console.log(`onTrade ${trader} Market Order in perpetual ${perpetualId}`);
+			logger.info(`onTrade ${trader} Market Order in perpetual ${perpetualId}`);
 		} else {
-			console.log(
+			logger.info(
 				`onTrade ${trader} Conditional Order in perpetual ${perpetualId}`,
 			);
 		}
@@ -986,7 +987,7 @@ export default class EventListener extends IndexPriceInterface {
 
 		const orderHash = this.hashOrder(order);
 		if (!this.grantEventControlPassage(orderHash, "onTrade")) {
-			console.log("onTrade duplicate");
+			logger.info("onTrade duplicate");
 			return;
 		}
 
@@ -1066,10 +1067,10 @@ export default class EventListener extends IndexPriceInterface {
 		}
 		const orderHash = this.hashOrder(order);
 		if (!this.grantEventControlPassage(orderHash, "onPerpetualLimitOrderCreated")) {
-			console.log("onPerpetualLimitOrderCreated duplicate");
+			logger.info("onPerpetualLimitOrderCreated duplicate");
 			return;
 		}
-		console.log("onPerpetualLimitOrderCreated");
+		logger.info("onPerpetualLimitOrderCreated");
 		// send to subscriber who sent the order
 		const symbol = this.symbolFromPerpetualId(perpetualId);
 		const obj: LimitOrderCreated = {
@@ -1097,7 +1098,7 @@ export default class EventListener extends IndexPriceInterface {
 	public onPerpetualLimitOrderCancelled(perpetualId: number, orderId: string) {
 		this.lastBlockChainEventTs = Date.now();
 
-		console.log("onPerpetualLimitOrderCancelled");
+		logger.info("onPerpetualLimitOrderCancelled");
 		const wsMsg: WSMsg = {
 			name: "PerpetualLimitOrderCancelled",
 			obj: { orderId: orderId },
@@ -1131,10 +1132,10 @@ export default class EventListener extends IndexPriceInterface {
 	) {
 		this.lastBlockChainEventTs = Date.now();
 		if (!this.grantEventControlPassage(digest, "onExecutionFailed")) {
-			console.log("onExecutionFailed duplicate");
+			logger.info("onExecutionFailed duplicate");
 			return;
 		}
-		console.log("onExecutionFailed:", reason);
+		logger.info("onExecutionFailed:", reason);
 		const symbol = this.symbolFromPerpetualId(perpetualId);
 		const obj: ExecutionFailed = {
 			symbol: symbol,

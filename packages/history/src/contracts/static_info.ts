@@ -1,12 +1,12 @@
 import { JsonRpcProvider, Contract } from "ethers";
-import { MarketData, PerpetualStaticInfo } from "@d8-x/d8x-node-sdk";
+import { MarketData, PerpetualStaticInfo, SDKState } from "@d8-x/d8x-node-sdk";
 import { getSDKConfigFromEnv } from "../utils/abi.js";
 import { MarginTokenInfo, MarginTokenData } from "../db/margin_token_info.js";
 
 export default class StaticInfo {
 	public retrievedShareTokenAddresses: string[] = [];
 	public retrievedMarginTokenInfo: Map<number, MarginTokenData>; //pool->tokenInfo
-	public sdkState: any | undefined;
+	public sdkState: SDKState | undefined;
 
 	constructor() {
 		this.retrievedMarginTokenInfo = new Map<number, MarginTokenData>();

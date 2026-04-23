@@ -1,6 +1,7 @@
 import { toJson } from "utils";
 import BrokerIntegration from "./brokerIntegration.js";
 import axios from "axios";
+import { logger } from "./index.js";
 import {
 	BrokerTool,
 	NodeSDKConfig,
@@ -44,7 +45,7 @@ export default class BrokerRemote extends BrokerIntegration {
 				const data = await response.json();
 				this.brokerAddr = data.brokerAddr;
 			} catch (error) {
-				console.log("brokerRemote: failed to fetch broker address");
+				logger.info("brokerRemote: failed to fetch broker address");
 			}
 		}
 		return this.brokerAddr;
@@ -58,7 +59,7 @@ export default class BrokerRemote extends BrokerIntegration {
 			const data = await response.json();
 			this.brokerFee = Number(data.BrokerFeeTbps);
 		} catch (error) {
-			console.log("brokerRemote: failed to fetch broker address");
+			logger.info("brokerRemote: failed to fetch broker address");
 		}
 
 		return this.brokerFee!;
@@ -108,7 +109,7 @@ export default class BrokerRemote extends BrokerIntegration {
 			} else if (error instanceof Error) {
 				errorMessage = "Unknown error";
 			}
-			console.log(`${query} failed: ${errorMessage}`);
+			logger.info(`${query} failed: ${errorMessage}`);
 			return { sig: "", digest: "", orderId: "", brokerFee: 0, brokerAddr: "" };
 		}
 	}
