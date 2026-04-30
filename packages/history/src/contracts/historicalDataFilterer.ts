@@ -1,5 +1,6 @@
 import { Logger } from "winston";
 import { calculateBlockFromTime, executeWithTimeout } from "utils";
+import { formatErrorMessage, isRateLimitError } from "../utils/errors.js";
 import {
 	LiquidityAddedEvent,
 	LiquidityRemovedEvent,
@@ -29,27 +30,6 @@ import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi.j
 import { metrics } from "../svc/metrics.js";
 
 global.Error.stackTraceLimit = Infinity;
-
-function formatErrorMessage(error: unknown) {
-	if (error instanceof Error) return error.message;
-	return String(error);
-}
-
-function isRateLimitError(error: unknown): boolean {
-	// I hate having to do this be we have no choice for now
-	const msg = formatErrorMessage(error);
-	if (msg.includes("rate limit") || msg.includes("-32016") || msg.includes("429")) {
-		return true;
-	}
-	const err = error as Record<string, any>;
-	if (err?.error?.code === -32016 || err?.error?.message?.includes("rate limit")) {
-		return true;
-	}
-	if (err?.code === "UNKNOWN_ERROR" && err?.error?.code === -32016) {
-		return true;
-	}
-	return false;
-}
 
 /**
  * HistoricalDataFilterer retrieves historical data for trades, liquidations and

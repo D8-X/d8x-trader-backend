@@ -1,4 +1,5 @@
-import { BytesLike, Contract, JsonRpcProvider, WebSocketProvider, ethers } from "ethers";
+import { formatErrorMessage } from "../utils/errors.js";
+import { Contract, JsonRpcProvider, WebSocketProvider, ethers } from "ethers";
 import { Logger } from "winston";
 import {
 	LiquidateEvent,
@@ -24,7 +25,6 @@ import { PriceInfo } from "../db/price_info.js";
 import { dec18ToFloat, decNToFloat } from "utils";
 import StaticInfo from "./static_info.js";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals.js";
-import { IPerpetualManager } from "@d8-x/d8x-node-sdk";
 import { SettleHistory } from "../db/settle_history.js";
 import { TokenFlow } from "../db/token_flow.js";
 import { metrics } from "../svc/metrics.js";
@@ -71,10 +71,18 @@ export class EventListener {
 	 * RPC calls for events in the same block. Retries up to 3 times on failure.
 	 * Returns undefined if all retries fail. caller should skip the event
 	 * and let the backfill pick it up later with the correct timestamp.
+	 * @param event the event to get the block timestamp for
+	 * @returns the block timestamp in seconds, or undefined if it fails to get it
 	 */
 	private async getBlockTs(
 		event: ethers.ContractEventPayload,
 	): Promise<number | undefined> {
+		if (!event?.log?.blockNumber) {
+			this.l.warn("getBlockTs: event.log.blockNumber is undefined", {
+				eventKeys: event ? Object.keys(event) : "null",
+			});
+			return undefined;
+		}
 		const blockNum = event.log.blockNumber;
 		const cached = this.blockTsCache.get(blockNum);
 		if (cached !== undefined) {
@@ -91,7 +99,7 @@ export class EventListener {
 			} catch (e) {
 				this.l.warn(`getBlockTs attempt ${attempt + 1}/3 failed`, {
 					blockNumber: blockNum,
-					error: e,
+					error: formatErrorMessage(e),
 				});
 				if (attempt < 2) {
 					await new Promise((r) => setTimeout(r, (attempt + 1) * 1000));
@@ -105,6 +113,12 @@ export class EventListener {
 		return undefined;
 	}
 
+	/**
+	 * Checks if the listener is still receiving events by comparing the current time with the timestamp of the last received event.
+	 * If the difference exceeds the specified maximum delay, it logs that the connection has ended and returns false; otherwise, it returns true.
+	 * @param maxDelaySec the maximum acceptable delay in seconds since the last received event before considering the listener to be not alive
+	 * @returns boolean indicating whether the listener is still receiving events within the acceptable delay threshold
+	 */
 	public checkHeartbeat(maxDelaySec: number) {
 		const nowTs = Date.now();
 		const secSinceEvt = Math.round((nowTs - this.lastEventTs) / 1000);
@@ -122,6 +136,8 @@ export class EventListener {
 
 	/**
 	 * listen starts all event listeners
+	 * @param provider	the provider to listen to events from, can be either WebSocketProvider or JsonRpcProvider.
+	 * @remark If a provider was previously set, it removes all listeners from the old provider before setting up the new one.
 	 */
 	public async listen(provider: WebSocketProvider | JsonRpcProvider) {
 		if (this.provider) {
@@ -129,7 +145,7 @@ export class EventListener {
 				await this.provider.removeAllListeners();
 			} catch (e) {
 				this.l.warn("failed to remove listeners from previous provider", {
-					error: e,
+					error: formatErrorMessage(e),
 				});
 			}
 		}
@@ -189,7 +205,6 @@ export class EventListener {
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
 					ts,
-					event.log.blockNumber,
 				);
 			},
 		);
@@ -215,7 +230,6 @@ export class EventListener {
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
 					ts,
-					event.log.blockNumber,
 				);
 			},
 		);
@@ -243,7 +257,6 @@ export class EventListener {
 					event.log.transactionHash,
 					IS_COLLECTED_BY_EVENT,
 					ts,
-					event.log.blockNumber,
 				);
 			},
 		);
@@ -271,7 +284,6 @@ export class EventListener {
 						event.log.transactionHash,
 						IS_COLLECTED_BY_EVENT,
 						ts,
-						event.log.blockNumber,
 					);
 				},
 			);
@@ -524,7 +536,15 @@ export class EventListener {
 			},
 		);
 	}
-
+	/**
+	 * Listener for P2PTransfer events emitted by share token contracts. Updates estimated earnings for the sender and receiver of the transfer,
+	 * and also updates price info for the share token if the price is above 0.
+	 * @param eventData the data from the P2PTransfer event, including sender, receiver, amount, and price
+	 * @param poolId the ID of the liquidity pool associated with the share token contract that emitted the event
+	 * @param txHash the transaction hash of the event, used for logging and database records
+	 * @param isCollectedByEvent a boolean indicating whether the event was collected directly from the blockchain event listener (true) or from historical data backfill (false)
+	 * @param timestampSec the timestamp of the event in seconds, typically the block timestamp, used for database records and time-based calculations
+	 */
 	public async onP2PTransfer(
 		eventData: P2PTransferEvent,
 		poolId: number,
@@ -547,7 +567,6 @@ export class EventListener {
 		txHash: string,
 		isCollectedByEvent: boolean,
 		timestampSec: number,
-		blockNumber: number,
 	) {
 		try {
 			await this.dbSettle.insertSettleHistoryRecord(
@@ -557,7 +576,10 @@ export class EventListener {
 				timestampSec,
 			);
 		} catch (e) {
-			this.l.error("failed to insert settle record", { txHash, error: e });
+			this.l.error("failed to insert settle record", {
+				txHash,
+				error: formatErrorMessage(e),
+			});
 			metrics.trackError("db:settle", e);
 		}
 	}
@@ -567,7 +589,6 @@ export class EventListener {
 		txHash: string,
 		isCollectedByEvent: boolean,
 		timestampSec: number,
-		blockNumber: number,
 	) {
 		try {
 			await this.dbTokenFlow.insertTokenDepositRecord(
@@ -577,7 +598,10 @@ export class EventListener {
 				timestampSec,
 			);
 		} catch (e) {
-			this.l.error("failed to insert token deposit record", { txHash, error: e });
+			this.l.error("failed to insert token deposit record", {
+				txHash,
+				error: formatErrorMessage(e),
+			});
 			metrics.trackError("db:tokenDeposit", e);
 		}
 	}
@@ -586,7 +610,6 @@ export class EventListener {
 		txHash: string,
 		isCollectedByEvent: boolean,
 		timestampSec: number,
-		blockNumber: number,
 	) {
 		try {
 			await this.dbTokenFlow.insertTokenWithdrawRecord(
@@ -596,7 +619,10 @@ export class EventListener {
 				timestampSec,
 			);
 		} catch (e) {
-			this.l.error("failed to insert token withdraw record", { txHash, error: e });
+			this.l.error("failed to insert token withdraw record", {
+				txHash,
+				error: formatErrorMessage(e),
+			});
 			metrics.trackError("db:tokenWithdraw", e);
 		}
 	}
@@ -617,7 +643,10 @@ export class EventListener {
 				blockNumber,
 			);
 		} catch (e) {
-			this.l.error("failed to insert trade record", { txHash, error: e });
+			this.l.error("failed to insert trade record", {
+				txHash,
+				error: formatErrorMessage(e),
+			});
 			metrics.trackError("db:trade", e);
 		}
 	}

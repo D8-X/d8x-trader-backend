@@ -13,6 +13,7 @@ import { Numeric } from "ethers";
 import type { RedisClientType } from "redis";
 import { constructRedis, extractErrorMsg } from "utils";
 import BrokerIntegration from "./brokerIntegration.js";
+import { logger } from "./logger.js";
 import Observable from "./observable.js";
 import { TrackedJsonRpcProvider } from "./providers.js";
 import RedisOI from "./redisOI.js";
@@ -37,6 +38,8 @@ export default class SDKInterface extends Observable {
 	private rpcManager: RPCManager | undefined;
 	private lastInitTs: number = 0;
 	private sdkConfig: NodeSDKConfig | undefined;
+	private refreshProxyInflight: Promise<boolean> | null = null;
+	private cacheExchangeInfoInflight: Promise<string> | null = null;
 
 	constructor(broker: BrokerIntegration) {
 		super();
@@ -59,8 +62,8 @@ export default class SDKInterface extends Observable {
 		}
 		this.redisClient.del("exchangeInfo");
 		this.lastInitTs = Math.floor(Date.now() / 1000);
-		console.log(`Main API initialized broker address=`, brokerAddress);
-		console.log(`SDK v${D8X_SDK_VERSION} API initialized`);
+		logger.info(`Main API initialized broker address=`, brokerAddress);
+		logger.info(`SDK v${D8X_SDK_VERSION} API initialized`);
 	}
 
 	public getTraderInterface(): TraderInterface | undefined {
@@ -72,36 +75,67 @@ export default class SDKInterface extends Observable {
 		if (now - this.lastInitTs < 5 * 60) {
 			return false;
 		}
-		await this.apiInterface!.createProxyInstance(
-			new TrackedJsonRpcProvider(this.sdkConfig!.nodeURL),
-		);
-		this.lastInitTs = now;
-		return true;
+		if (this.refreshProxyInflight) {
+			return this.refreshProxyInflight;
+		}
+		this.refreshProxyInflight = (async () => {
+			try {
+				await this.apiInterface!.createProxyInstance(
+					new TrackedJsonRpcProvider(this.sdkConfig!.nodeURL),
+				);
+				this.lastInitTs = Math.floor(Date.now() / 1000);
+				return true;
+			} finally {
+				this.refreshProxyInflight = null;
+			}
+		})();
+		return this.refreshProxyInflight;
 	}
 
-	private async cacheExchangeInfo() {
-		const tsQuery = Date.now();
-		await this.redisClient.hSet("exchangeInfo", "ts:query", tsQuery);
-		const xchInfo = await this.apiInterface!.exchangeInfo({
-			rpcURL: await this.rpcManager?.getRPC(),
-		});
-		// extend xchInfo with 24h OI
-		for (let j = 0; j < xchInfo.pools.length; j++) {
-			for (let k = 0; k < xchInfo.pools[j].perpetuals.length; k++) {
-				const id = xchInfo.pools[j].perpetuals[k].id;
-				const oi = await RedisOI.getMax24h(id, this.redisClient);
-				(xchInfo.pools[j].perpetuals[k] as any).openInterestBC24h = oi;
-			}
+	private async cacheExchangeInfo(): Promise<string> {
+		if (this.cacheExchangeInfoInflight) {
+			return this.cacheExchangeInfoInflight;
 		}
-		const info = JSON.stringify(xchInfo);
-		await this.redisClient.hSet("exchangeInfo", [
-			"ts:response",
-			Date.now(),
-			"content",
-			info,
-		]);
-		this.notifyObservers("exchangeInfo");
-		return info;
+		this.cacheExchangeInfoInflight = (async () => {
+			try {
+				const tsQuery = Date.now();
+				await this.redisClient.hSet("exchangeInfo", "ts:query", tsQuery);
+				let xchInfo;
+				try {
+					xchInfo = await this.apiInterface!.exchangeInfo({
+						rpcURL: await this.rpcManager?.getRPC(),
+					});
+				} catch (err) {
+					logger.error(
+						"cacheExchangeInfo: SDK exchangeInfo failed, keeping previous content",
+						{ error: extractErrorMsg(err) },
+					);
+					const prev = await this.redisClient.hGet("exchangeInfo", "content");
+					return prev ?? "";
+				}
+				for (let j = 0; j < xchInfo.pools.length; j++) {
+					for (let k = 0; k < xchInfo.pools[j].perpetuals.length; k++) {
+						const perp = xchInfo.pools[j].perpetuals[k] as PerpetualState & {
+							openInterestBC24h?: number;
+						};
+						const oi = await RedisOI.getMax24h(perp.id, this.redisClient);
+						perp.openInterestBC24h = oi;
+					}
+				}
+				const info = JSON.stringify(xchInfo);
+				await this.redisClient.hSet("exchangeInfo", [
+					"ts:response",
+					Date.now(),
+					"content",
+					info,
+				]);
+				this.notifyObservers("exchangeInfo");
+				return info;
+			} finally {
+				this.cacheExchangeInfoInflight = null;
+			}
+		})();
+		return this.cacheExchangeInfoInflight;
 	}
 
 	public async exchangeInfo(): Promise<string> {
@@ -109,11 +143,11 @@ export default class SDKInterface extends Observable {
 		let info: string = "";
 		this.checkAPIInitialized(); // can throw
 		if (!Object.prototype.hasOwnProperty.call(obj, "ts:query")) {
-			console.log("first time query");
+			logger.info("first time query");
 
 			info = await this.cacheExchangeInfo();
 		} else if (!Object.prototype.hasOwnProperty.call(obj, "content")) {
-			console.log("re-query exchange info (latest: invalid)");
+			logger.info("re-query exchange info (latest: invalid)");
 			info = await this.cacheExchangeInfo();
 		} else {
 			let timeElapsedS = (Date.now() - parseInt(obj["ts:query"])) / 1000;
@@ -127,13 +161,22 @@ export default class SDKInterface extends Observable {
 				this.MUTEX_TS_EXCHANGE_INFO = Date.now();
 				// reload data through API
 				// no await
-				console.log("re-query exchange info (latest: expired)");
+				logger.info("re-query exchange info (latest: expired)");
 				this.cacheExchangeInfo();
 			}
 			info = obj["content"];
 		}
 
 		return info;
+	}
+
+	/**
+	 * Get the current SDK state
+	 * @returns the current SDK state
+	 */
+	public sdkState() {
+		this.checkAPIInitialized();
+		return this.apiInterface!.exportState();
 	}
 
 	/**
@@ -190,7 +233,7 @@ export default class SDKInterface extends Observable {
 		try {
 			[k, j] = SDKInterface.findPoolAndPerpIdx(symbol, info);
 		} catch (err) {
-			console.log(err);
+			logger.info(err);
 			return;
 		}
 		const perpState: PerpetualState = info.pools[k].perpetuals[j];
@@ -371,7 +414,7 @@ export default class SDKInterface extends Observable {
 
 	public async orderDigest(orders: Order[], traderAddr: string): Promise<string> {
 		this.checkAPIInitialized();
-		//console.log("order=", orders);
+		//logger.info("order=", orders);
 		if (!orders.every((order: Order) => order.symbol == orders[0].symbol)) {
 			throw Error("orders must have the same symbol");
 		}
@@ -408,7 +451,7 @@ export default class SDKInterface extends Observable {
 			brokerFeeTbps,
 			brokerSignatures: brokerSignatures,
 		});
-		console.log("signed order response:", resp);
+		logger.info("signed order response:", resp);
 		return resp;
 	}
 

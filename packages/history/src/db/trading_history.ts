@@ -1,4 +1,5 @@
-import { PrismaClient, Trade, trade_side, Prisma } from "@prisma/client";
+import { formatErrorMessage } from "../utils/errors.js";
+import { PrismaClient, trade_side, Prisma } from "@prisma/client";
 import { BigNumberish } from "ethers";
 import { TradeEvent } from "../contracts/types.js";
 import { Logger } from "winston";
@@ -101,7 +102,7 @@ export class TradingHistory {
 			});
 		} catch (e) {
 			this.l.error(`inserting new ${isLiquidation ? "liquidation" : "trade"}`, {
-				error: e,
+				error: formatErrorMessage(e),
 			});
 			metrics.trackError("db:trade_upsert", e);
 		}

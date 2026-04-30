@@ -1,8 +1,5 @@
-import {
-	PrismaClient,
-	EstimatedEarningTokens,
-	estimated_earnings_event_type,
-} from "@prisma/client";
+import { formatErrorMessage } from "../utils/errors.js";
+import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
 import { BigNumberish } from "ethers";
 import { Logger } from "winston";
 import {
@@ -10,7 +7,7 @@ import {
 	LiquidityRemovedEvent,
 	P2PTransferEvent,
 } from "../contracts/types.js";
-import { dec18ToFloat, floatToDecN, decNToFloat } from "utils";
+import { dec18ToFloat, floatToDecN } from "utils";
 import StaticInfo from "../contracts/static_info.js";
 
 export class EstimatedEarnings {
@@ -56,9 +53,8 @@ export class EstimatedEarnings {
 		});
 
 		if (exists === null) {
-			let earning: EstimatedEarningTokens;
 			try {
-				earning = await this.prisma.estimatedEarningTokens.create({
+				await this.prisma.estimatedEarningTokens.create({
 					data: {
 						pool_id: Number(pool_id),
 						token_amount: amount.toString(),
@@ -73,7 +69,9 @@ export class EstimatedEarnings {
 					},
 				});
 			} catch (e) {
-				this.l.error("inserting new estimated earning record", { error: e });
+				this.l.error("inserting new estimated earning record", {
+					error: formatErrorMessage(e),
+				});
 				return;
 			}
 			this.l.info("inserted new estimated earning record", {
@@ -83,9 +81,8 @@ export class EstimatedEarnings {
 			});
 		} else if (!isCollectedByEvent) {
 			// update record
-			let earning: EstimatedEarningTokens;
 			try {
-				earning = await this.prisma.estimatedEarningTokens.update({
+				await this.prisma.estimatedEarningTokens.update({
 					where: {
 						pool_id_tx_hash: { pool_id: pool_id, tx_hash: txHash },
 					},
@@ -95,7 +92,9 @@ export class EstimatedEarnings {
 					},
 				});
 			} catch (e) {
-				this.l.error("inserting new estimated earning record", { error: e });
+				this.l.error("inserting new estimated earning record", {
+					error: formatErrorMessage(e),
+				});
 				return;
 			}
 			this.l.info("updated estimated earning record", { type });

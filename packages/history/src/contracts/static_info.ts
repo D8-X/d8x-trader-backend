@@ -1,18 +1,22 @@
 import { JsonRpcProvider, Contract } from "ethers";
-import { MarketData, PerpetualStaticInfo } from "@d8-x/d8x-node-sdk";
+import { MarketData, SDKState } from "@d8-x/d8x-node-sdk";
 import { getSDKConfigFromEnv } from "../utils/abi.js";
 import { MarginTokenInfo, MarginTokenData } from "../db/margin_token_info.js";
+import { logger } from "../svc/logger.js";
 
 export default class StaticInfo {
 	public retrievedShareTokenAddresses: string[] = [];
 	public retrievedMarginTokenInfo: Map<number, MarginTokenData>; //pool->tokenInfo
+	public sdkState: SDKState | undefined;
 
 	constructor() {
 		this.retrievedMarginTokenInfo = new Map<number, MarginTokenData>();
 	}
 
-	// Retrieves shared tokens contract addresses from exchange info. Each index in
-	// return array is the ith pool. Pool ids are counted from 1 in the contracts.
+	/**
+	 * Retrieves shared tokens contract addresses from exchange info. Each index in
+	 * @returns array of share token contract addresses, where index 0 corresponds to pool id 1
+	 */
 	public retrieveShareTokenContracts(): string[] {
 		if (this.retrievedShareTokenAddresses.length === 0) {
 			throw Error("initStaticData required");
@@ -33,6 +37,7 @@ export default class StaticInfo {
 		const md = new MarketData(config);
 
 		await md.createProxyInstance();
+		this.sdkState = md.exportState();
 		const info = await md.exchangeInfo();
 		const addresses = info.pools.map((p) => p.poolShareTokenAddr);
 		this.retrievedShareTokenAddresses = addresses;
@@ -57,11 +62,10 @@ export default class StaticInfo {
 				const perpId = info.pools[j].perpetuals[k].id;
 				const perpSymbol = md.getSymbolFromPerpId(perpId);
 				if (perpSymbol == undefined) {
-					console.log(`No symbol found for perpetual id=${perpId}`);
+					logger.warn("No symbol found for perpetual", { perpId });
 					continue;
 				}
-				const perpInfo: PerpetualStaticInfo =
-					await md.getPerpetualStaticInfo(perpSymbol);
+				await md.getPerpetualStaticInfo(perpSymbol);
 			}
 		}
 	}
@@ -80,18 +84,20 @@ export default class StaticInfo {
 		return val.tokenDecimals;
 	}
 
+	/**
+	 * Checks if margin token info in DB is up to date with the one retrieved from chain, and if not, updates the DB
+	 * @param dbHandler DB handler for margin token info
+	 */
 	public async checkAndWriteMarginTokenInfoToDB(dbHandler: MarginTokenInfo) {
 		if (this.retrievedMarginTokenInfo.size === 0) {
 			throw Error("initStaticData required");
 		}
-		// check db
 		for (let j = 0; j < this.retrievedMarginTokenInfo.size; j++) {
 			const poolId = j + 1;
 			const dbEntry = await dbHandler.getMarginTokenInfo(poolId);
 			if (dbEntry == undefined) {
 				await dbHandler.insert(this.retrievedMarginTokenInfo.get(poolId)!);
 			} else {
-				// check data
 				const el = this.retrievedMarginTokenInfo.get(poolId)!;
 				if (
 					dbEntry.poolId != poolId ||

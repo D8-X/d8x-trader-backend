@@ -19,9 +19,8 @@
 		"postinstall": "patch-package"
 	},
 	"dependencies": {
-		"@d8-x/d8x-node-sdk": "^0.1.59",
+		"@d8-x/d8x-node-sdk": "0.1.65",
 		"@prisma/client": "^5.17.0",
-		"prisma": "^5.17.0",
 		"@types/ws": "^8.5.5",
 		"cors": "^2.8.5",
 		"cron-schedule": "^4.0.0",
@@ -29,13 +28,14 @@
 		"ethers": "^6.13.1",
 		"express": "^4.19.2",
 		"node-fetch": "^3.3.1",
+		"prisma": "^5.17.0",
 		"sturdy-websocket": "^0.2.1",
 		"ts-node": "^10.9.1",
 		"utils": "*",
 		"winston": "^3.8.2"
 	},
 	"devDependencies": {
-		"nodemon": "^3.1.4",
-		"cron-schedule": "^4.0.0"
+		"cron-schedule": "^4.0.0",
+		"nodemon": "^3.1.4"
 	}
 }

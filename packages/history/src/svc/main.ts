@@ -1,27 +1,11 @@
-import * as winston from "winston";
 import { EventListener } from "../contracts/listeners.js";
 import * as dotenv from "dotenv";
-import { chooseRandomRPC, executeWithTimeout, loadConfigRPC, sleep } from "utils";
-import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer.js";
-import {
-	BigNumberish,
-	JsonRpcProvider,
-	Network,
-	WebSocketProvider,
-	ethers,
-} from "ethers";
-import {
-	LiquidityAddedEvent,
-	LiquidityRemovedEvent,
-	TradeEvent,
-	LiquidateEvent,
-	UpdateMarginAccountEvent,
-	ListeningMode,
-	SetOraclesEvent,
-	SettleEvent,
-	SettleEventV1,
-} from "../contracts/types.js";
-import { PrismaClient, estimated_earnings_event_type } from "@prisma/client";
+import { chooseRandomRPC, executeWithTimeout, loadConfigRPC } from "utils";
+import { logger } from "./logger.js";
+import { isRateLimitError, formatErrorMessage } from "../utils/errors.js";
+import { JsonRpcProvider, Network, WebSocketProvider, ethers } from "ethers";
+import { ListeningMode } from "../contracts/types.js";
+import { PrismaClient } from "@prisma/client";
 import { TradingHistory } from "../db/trading_history.js";
 import { FundingRatePayments } from "../db/funding_rate.js";
 import { HistoryRestAPI } from "../api/server.js";
@@ -37,25 +21,21 @@ import { sleepForSec } from "@d8-x/d8x-node-sdk";
 import { SettleHistory } from "../db/settle_history.js";
 import { TokenFlow } from "../db/token_flow.js";
 import { metrics } from "./metrics.js";
-// workaround for CJS package
-import { createRequire } from "node:module";
-const require = createRequire(import.meta.url);
-const mod = require("sturdy-websocket");
-const SturdyWebSocket = mod.default ?? mod.SturdyWebSocket ?? mod;
+import { detectAndFillGaps } from "./gaps.js";
+import { hdFilterersOpt, runHistoricalDataFilterers } from "./backfillRunner.js";
+import sturdyWebsocket from "sturdy-websocket";
+const SturdyWebSocket = sturdyWebsocket.default;
 
-const defaultLogger = () => {
-	return winston.createLogger({
-		level: "info",
-		format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-		defaultMeta: { service: "history" },
-		transports: [
-			new winston.transports.Console(),
-			new winston.transports.File({ filename: "history.log" }),
-		],
-	});
-};
+export { logger };
 
-export const logger = defaultLogger();
+const STATIC_INFO_INIT_TIMEOUT_MS = 30_000;
+const STATIC_INFO_MAX_BACKOFF_SEC = 120;
+const WS_PROVIDER_DESTROY_TIMEOUT_MS = 10_000;
+const WS_ALIVE_PROBE_MS = 30_000;
+const HEARTBEAT_CHECK_INTERVAL_MS = 60_000;
+const HEARTBEAT_STALE_THRESHOLD_SEC = 30;
+const REDUNDANCY_BACKFILL_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4h
+const GAP_DETECTION_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2h
 
 export const loadEnv = (wantEnvs?: string[] | undefined) => {
 	const config = dotenv.config({
@@ -117,7 +97,7 @@ export const main = async () => {
 		network,
 		{
 			staticNetwork: network,
-			batchMaxCount: 25,
+			batchMaxCount: 1,
 			polling: true,
 		},
 	);
@@ -137,12 +117,23 @@ export const main = async () => {
 	const dbTokenFlow = new TokenFlow(chainId, prisma, logger);
 	// get sharepool token info and margin token info
 	const staticInfo = new StaticInfo();
-	// the following call will throw an error on RPC timeout
-	await executeWithTimeout(
-		staticInfo.initialize(httpProvider, httpRpcUrl),
-		10_000,
-		"RPC call timeout",
-	);
+	for (let attempt = 0; ; attempt++) {
+		try {
+			await executeWithTimeout(
+				staticInfo.initialize(httpProvider, httpRpcUrl),
+				STATIC_INFO_INIT_TIMEOUT_MS,
+				"RPC call timeout",
+			);
+			break;
+		} catch (err) {
+			const wait = Math.min(Math.pow(2, attempt) * 2, STATIC_INFO_MAX_BACKOFF_SEC);
+			logger.warn(
+				`staticInfo.initialize failed (attempt ${attempt + 1}), retrying in ${wait}s`,
+				{ error: formatErrorMessage(err) },
+			);
+			await sleepForSec(wait);
+		}
+	}
 	// store margin token info and perpetual info to DB
 	await staticInfo.checkAndWriteMarginTokenInfoToDB(dbMarginTokenInfo);
 
@@ -167,6 +158,8 @@ export const main = async () => {
 
 	const blk = await getCloseDeploymentBlock(proxyContractAddr, httpProvider);
 
+	metrics.status = "running";
+
 	// Start the historical data filterers on service start...
 	const hdOpts: hdFilterersOpt = {
 		dbEstimatedEarnings,
@@ -181,17 +174,42 @@ export const main = async () => {
 		proxyContractAddr,
 		staticInfo: staticInfo,
 		eventListener: eventsListener,
+		logger,
+	};
+
+	let backfillRunning = false;
+	const runBackfillGuarded = async (startSec: number, skipUpToDate = true) => {
+		if (backfillRunning) {
+			logger.info("backfill already running, skipping");
+			return;
+		}
+		backfillRunning = true;
+		try {
+			await runHistoricalDataFilterers(hdOpts, startSec, skipUpToDate);
+		} finally {
+			backfillRunning = false;
+		}
 	};
 
 	const thirtyDaysAgoSec = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
-	runHistoricalDataFilterers(hdOpts, thirtyDaysAgoSec, false);
-	// runHistoricalDataFilterers(hdOpts, blk.timestamp, false);
-
-	const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
-	detectAndFillGaps(prisma, hdOpts, sevenDaysAgoSec).catch((e) => {
-		logger.warn("initial gap detection failed", { error: e });
-		metrics.trackError("gapDetection", e);
-	});
+	runBackfillGuarded(thirtyDaysAgoSec, false)
+		.catch((e) => {
+			logger.warn("initial backfill failed", { error: formatErrorMessage(e) });
+			metrics.trackError("backfill", e);
+		})
+		.then(() => {
+			const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
+			return detectAndFillGaps(
+				prisma,
+				(sec: number) => runHistoricalDataFilterers(hdOpts, sec, false),
+				sevenDaysAgoSec,
+				logger,
+			);
+		})
+		.catch((e) => {
+			logger.warn("initial gap detection failed", { error: formatErrorMessage(e) });
+			metrics.trackError("gapDetection", e);
+		});
 	eventsListener.listen(wsProvider);
 
 	// Websocket provider leaks memory, therefore as in main api, we will
@@ -200,7 +218,7 @@ export const main = async () => {
 	const maxWsResetCounter = 100 + Math.floor(Math.random() * 100);
 	let resetRpcRunning = false;
 	const resetRpcFunc = async () => {
-		if (eventsListener.checkHeartbeat(30)) {
+		if (eventsListener.checkHeartbeat(HEARTBEAT_STALE_THRESHOLD_SEC)) {
 			return;
 		}
 		if (resetRpcRunning) {
@@ -212,7 +230,7 @@ export const main = async () => {
 		const makeJsonProvider = () =>
 			new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
 				staticNetwork: network,
-				batchMaxCount: 25,
+				batchMaxCount: 1,
 				polling: true,
 			});
 
@@ -222,16 +240,28 @@ export const main = async () => {
 			logger.info(`switching to HTTP provider`);
 			eventsListener.listen(makeJsonProvider());
 			try {
-				await wsProvider.destroy();
+				await executeWithTimeout(
+					wsProvider.destroy(),
+					WS_PROVIDER_DESTROY_TIMEOUT_MS,
+					"wsProvider.destroy timeout",
+				);
 			} catch (e) {
-				logger.warn("error destroying ws provider", { error: e });
+				logger.warn("error destroying ws provider", {
+					error: formatErrorMessage(e),
+				});
 				metrics.trackError("wsProvider.destroy", e);
 			}
 		} else {
 			try {
-				await wsProvider.destroy();
+				await executeWithTimeout(
+					wsProvider.destroy(),
+					WS_PROVIDER_DESTROY_TIMEOUT_MS,
+					"wsProvider.destroy timeout",
+				);
 			} catch (e) {
-				logger.warn("error destroying ws provider", { error: e });
+				logger.warn("error destroying ws provider", {
+					error: formatErrorMessage(e),
+				});
 				metrics.trackError("wsProvider.destroy", e);
 			}
 
@@ -248,15 +278,13 @@ export const main = async () => {
 			);
 			wsResetCounter++;
 
-			// Wait for block event to happen on ws provider (~8sec), othwerwise
-			// switch back to HTTP
-			const wsAlive = await new Promise((resolve, reject) => {
+			const wsAlive = await new Promise((resolve) => {
 				wsProvider.once("block", () => {
 					resolve(true);
 				});
 				setTimeout(() => {
 					resolve(false);
-				}, 30_000);
+				}, WS_ALIVE_PROBE_MS);
 			});
 			// WS works, switch providers
 			if (wsAlive) {
@@ -286,27 +314,33 @@ export const main = async () => {
 	setInterval(async () => {
 		try {
 			await resetRpcFunc();
-		} catch (e) {
+		} catch (_e) {
 			resetRpcRunning = false;
 		}
-	}, 60_000);
+	}, HEARTBEAT_CHECK_INTERVAL_MS);
 
-	// Re fetch  periodically for redundancy. This will ensure that any lost events will eventually be stored in db
-	// every 4 hours poll (5 hours would leave us just under 10_000 blocks, so the call typically covers as many blocks as possible for a fixed RPC cost)
 	setInterval(async () => {
 		logger.info("running historical data filterers for redundancy");
-		// non-blocking, so no await
-		runHistoricalDataFilterers(hdOpts, blk.timestamp);
-	}, 14_400_000); // 4 * 60 * 60 * 1000 miliseconds
+		await runBackfillGuarded(blk.timestamp);
+	}, REDUNDANCY_BACKFILL_INTERVAL_MS);
 
 	setInterval(async () => {
+		if (backfillRunning) {
+			logger.info("backfill running, skipping gap detection");
+			return;
+		}
 		try {
-			await detectAndFillGaps(prisma, hdOpts, blk.timestamp);
+			await detectAndFillGaps(
+				prisma,
+				(sec: number) => runHistoricalDataFilterers(hdOpts, sec, false),
+				blk.timestamp,
+				logger,
+			);
 		} catch (e) {
-			logger.warn("gap detection failed", { error: e });
+			logger.warn("gap detection failed", { error: formatErrorMessage(e) });
 			metrics.trackError("gapDetection", e);
 		}
-	}, 7_200_000); // 2h in ms
+	}, GAP_DETECTION_INTERVAL_MS);
 
 	// Start the history api
 	const api = new HistoryRestAPI(
@@ -322,23 +356,8 @@ export const main = async () => {
 		},
 		logger,
 	);
-	api.start(httpRpcUrl);
+	api.start(httpRpcUrl, staticInfo.sdkState);
 };
-
-export interface hdFilterersOpt {
-	httpProvider: ethers.Provider;
-	proxyContractAddr: string;
-	dbTrades: TradingHistory;
-	dbSetOracles: SetOracles;
-	dbFundingRatePayments: FundingRatePayments;
-	dbEstimatedEarnings: EstimatedEarnings;
-	dbPriceInfo: PriceInfo;
-	dbLPWithdrawals: LiquidityWithdrawals;
-	dbSettle: SettleHistory;
-	dbTokenFlow: TokenFlow;
-	staticInfo: StaticInfo; //<---- TODO: remove, available via EventListener
-	eventListener: EventListener;
-}
 
 //getCloseDeploymentBlock finds a block that is a few blocks before the proxy contract
 //was deployed.
@@ -352,24 +371,30 @@ async function getCloseDeploymentBlock(
 	let lastAvailBlock = blockNumber;
 	let lastNABlock = 0;
 	let code: string;
-	let errCount = 0;
+	let consecutiveErrors = 0;
 	while (lastAvailBlock - lastNABlock > 10_000) {
 		try {
 			code = await provider.getCode(contractAddress, blockNumber);
+			consecutiveErrors = 0;
 		} catch (err) {
-			console.log("getCloseDeploymentBlock error: waiting");
-			if (errCount > 10) {
-				throw new Error("too many errors in trying to getCloseDeploymentBlock");
+			consecutiveErrors++;
+			const wait = isRateLimitError(err)
+				? Math.min(Math.pow(2, consecutiveErrors) * 2, 120)
+				: Math.min(consecutiveErrors * 10, 120);
+			if (isRateLimitError(err)) {
+				metrics.rateLimitsHit++;
+				metrics.lastRateLimitAt = new Date().toISOString();
 			}
-			await sleepForSec(10);
-			errCount += 1;
+			logger.warn(
+				`getCloseDeploymentBlock: ${isRateLimitError(err) ? "rate limited" : "error"}, waiting ${wait}s (attempt ${consecutiveErrors})`,
+				{ error: formatErrorMessage(err) },
+			);
+			await sleepForSec(wait);
 			continue;
 		}
 		if (code === "0x") {
-			// not deployed yet
 			lastNABlock = blockNumber;
 		} else {
-			// deployed
 			lastAvailBlock = blockNumber;
 		}
 		blockNumber = lastNABlock + Math.floor((lastAvailBlock - lastNABlock) / 2);
@@ -380,381 +405,4 @@ async function getCloseDeploymentBlock(
 		blockNumber: lastNABlock,
 		timestamp: block!.timestamp,
 	};
-}
-
-export async function runHistoricalDataFilterers(
-	opts: hdFilterersOpt,
-	startTimestampSec: number,
-	skipUpToDate = true,
-) {
-	const {
-		httpProvider,
-		proxyContractAddr,
-		dbTrades,
-		dbSetOracles,
-		dbFundingRatePayments,
-		dbEstimatedEarnings,
-		dbPriceInfo,
-		dbLPWithdrawals,
-		dbSettle,
-		dbTokenFlow,
-		staticInfo,
-		eventListener,
-	} = opts;
-
-	const defaultDate = new Date(startTimestampSec * 1000);
-	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
-
-	// Share token contracts
-	const shareTokenAddresses = await staticInfo.retrieveShareTokenContracts();
-
-	const promises: Array<Promise<void>> = [];
-	const IS_COLLECTED_BY_EVENT = false;
-
-	const eventTimestamps = new Map<string, Date>();
-
-	const tradeTs = await dbTrades.getLatestTradeTimestamp();
-	if (tradeTs) eventTimestamps.set("Trade", tradeTs);
-
-	const liqTs = await dbTrades.getLatestLiquidateTimestamp();
-	if (liqTs) eventTimestamps.set("Liquidate", liqTs);
-
-	const settleTs = await dbSettle.getLatestTimestamp();
-	if (settleTs) {
-		eventTimestamps.set("Settle", settleTs);
-		eventTimestamps.set("SettleV2", settleTs);
-	}
-
-	const tokenFlowTs = await dbTokenFlow.getLatestTimestamp();
-	if (tokenFlowTs) {
-		eventTimestamps.set("TokensDeposited", tokenFlowTs);
-		eventTimestamps.set("TokensWithdrawn", tokenFlowTs);
-	}
-
-	const fundingTs = await dbFundingRatePayments.getLatestTimestamp();
-	if (fundingTs) eventTimestamps.set("UpdateMarginAccount", fundingTs);
-
-	const earningsTs = await dbEstimatedEarnings.getLatestTimestamp("liquidity_added");
-	if (earningsTs) {
-		eventTimestamps.set("LiquidityAdded", earningsTs);
-		eventTimestamps.set("LiquidityRemoved", earningsTs);
-	}
-
-	const lpWithdrawalTs = await dbLPWithdrawals.getLatestTimestampInitiation();
-	if (lpWithdrawalTs)
-		eventTimestamps.set("LiquidityWithdrawalInitiated", lpWithdrawalTs);
-
-	const oracleTs = await dbSetOracles.getLatestTimestamp();
-	if (oracleTs) eventTimestamps.set("SetOracles", oracleTs);
-
-	const allTimestamps = [...eventTimestamps.values()];
-	allTimestamps.push(defaultDate);
-	const ts = allTimestamps.reduce((a, b) => (a < b ? a : b));
-
-	const tsInfo: Record<string, string> = {};
-	for (const [k, v] of eventTimestamps) {
-		tsInfo[k] = v.toISOString();
-	}
-	logger.info("per-event-type timestamps", tsInfo);
-	logger.info(`starting filterer at ts = ${ts.toISOString()}`);
-
-	promises.push(
-		hd.filterProxyEvents(
-			ts,
-			{
-				Trade: async (
-					eventData: TradeEvent,
-					txHash: string,
-					blockNum: BigNumberish,
-					blockTimestamp: number,
-				) => {
-					await eventListener.onTradeEvent(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
-						Number(blockNum.toString()),
-					);
-				},
-
-				Settle: async (
-					eventData: SettleEventV1,
-					txHash: string,
-					blockNum: BigNumberish,
-					blockTimeStamp: number,
-				) => {
-					await eventListener.onSettleEvent(
-						{
-							perpetualId: eventData.perpetualId,
-							trader: eventData.trader,
-							amount: eventData.amount,
-							cash: 0n,
-						},
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimeStamp,
-						Number(blockNum.toString()),
-					);
-				},
-
-				SettleV2: async (
-					eventData: SettleEvent,
-					txHash: string,
-					blockNum: BigNumberish,
-					blockTimeStamp: number,
-				) => {
-					await eventListener.onSettleEvent(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimeStamp,
-						Number(blockNum.toString()),
-					);
-				},
-
-				TokensDeposited: async (
-					eventData: Record<string, any>,
-					txHash: string,
-					blockNum: BigNumberish,
-					blockTimestamp: number,
-				) => {
-					await eventListener.onTokensDepositedEvent(
-						{
-							perpetualId: eventData.perpetualId,
-							trader: eventData.trader,
-							amountCC: eventData.amount,
-						},
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
-						Number(blockNum.toString()),
-					);
-				},
-
-				TokensWithdrawn: async (
-					eventData: Record<string, any>,
-					txHash: string,
-					blockNum: BigNumberish,
-					blockTimestamp: number,
-				) => {
-					await eventListener.onTokensWithdrawnEvent(
-						{
-							perpetualId: eventData.perpetualId,
-							trader: eventData.trader,
-							amountCC: eventData.amount,
-						},
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
-						Number(blockNum.toString()),
-					);
-				},
-
-				SetOracles: async (
-					eventData: SetOraclesEvent,
-					txHash: string,
-					blockNum: BigNumberish,
-					blockTimestamp: number,
-				) => {
-					await eventListener.onSetOracleEvent(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
-						Number(blockNum.toString()),
-					);
-				},
-
-				Liquidate: async (
-					eventData: LiquidateEvent,
-					txHash: string,
-					blockNum: BigNumberish,
-					blockTimestamp: number,
-				) => {
-					await eventListener.onLiquidate(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
-						Number(blockNum.toString()),
-					);
-				},
-				UpdateMarginAccount: async (
-					eventData: UpdateMarginAccountEvent,
-					txHash: string,
-					_blockNum: BigNumberish,
-					blockTimestamp: number,
-				) => {
-					await eventListener.onUpdateMarginAccount(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
-					);
-				},
-				LiquidityAdded: async (
-					eventData: LiquidityAddedEvent,
-					txHash: string,
-					_blockNum: BigNumberish,
-					blockTimestamp: number,
-				) => {
-					await eventListener.onLiquidityAdded(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
-					);
-				},
-				LiquidityRemoved: async (
-					eventData: LiquidityRemovedEvent,
-					txHash: string,
-					_blockNum: BigNumberish,
-					blockTimestamp: number,
-				) => {
-					await eventListener.onLiquidityRemoved(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
-					);
-				},
-				LiquidityWithdrawalInitiated: async (
-					eventData,
-					txHash,
-					_blockNumber,
-					blockTimeStamp,
-					_params,
-				) => {
-					await eventListener.onLiquidityWithdrawalInitiated(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimeStamp,
-					);
-				},
-			},
-			skipUpToDate ? eventTimestamps : undefined,
-		),
-	);
-	// Share tokens p2p transfers
-	const p2pTimestamps = await dbEstimatedEarnings.getLatestTimestampsP2PTransfer(
-		shareTokenAddresses.length,
-	);
-	const p2pTs: Date[] = [];
-	for (let k = 0; k < shareTokenAddresses.length; k++) {
-		if (p2pTimestamps[k] == undefined) {
-			p2pTs.push(defaultDate);
-		} else {
-			p2pTs.push(p2pTimestamps[k]!);
-		}
-	}
-	promises.push(
-		hd.filterP2Ptransfers(
-			shareTokenAddresses,
-			p2pTs,
-			(eventData, txHash, blockNumber, blockTimeStamp, params) => {
-				dbEstimatedEarnings.insertShareTokenP2PTransfer(
-					eventData,
-					params?.poolId as unknown as number,
-					txHash,
-					IS_COLLECTED_BY_EVENT,
-					blockTimeStamp,
-					staticInfo,
-				);
-			},
-		),
-	);
-	await Promise.all(promises);
-	// align timestamps in perpetual_long_id (because we have asynchronous events)
-	await dbSetOracles.alignTimestamps();
-}
-
-interface GapConfig {
-	table: string;
-	timestampCol: string;
-	thresholdSeconds: number;
-}
-
-const GAP_CONFIGS: GapConfig[] = [
-	{
-		table: "trades_history",
-		timestampCol: "trade_timestamp",
-		thresholdSeconds: 4 * 3600,
-	},
-	{ table: "token_flow", timestampCol: "timestamp", thresholdSeconds: 4 * 3600 },
-	{
-		table: "funding_rate_payments",
-		timestampCol: "payment_timestamp",
-		thresholdSeconds: 4 * 3600,
-	},
-	{ table: "settle_history", timestampCol: "timestamp", thresholdSeconds: 6 * 3600 },
-	{
-		table: "estimated_earnings_tokens",
-		timestampCol: "created_at",
-		thresholdSeconds: 12 * 3600,
-	},
-];
-
-async function detectGaps(
-	prisma: PrismaClient,
-	config: GapConfig,
-): Promise<{ gap_start: Date; gap_end: Date }[]> {
-	const gaps = await prisma.$queryRawUnsafe<{ gap_start: Date; gap_end: Date }[]>(
-		`WITH ordered AS (
-			SELECT ${config.timestampCol} as ts,
-				LEAD(${config.timestampCol}) OVER (ORDER BY ${config.timestampCol}) as next_ts
-			FROM ${config.table}
-			WHERE is_collected_by_event = false
-				AND ${config.timestampCol} > NOW() - interval '30 days'
-		)
-		SELECT ts as gap_start, next_ts as gap_end
-		FROM ordered
-		WHERE next_ts IS NOT NULL
-			AND EXTRACT(EPOCH FROM (next_ts - ts)) > $1
-		ORDER BY ts ASC`,
-		config.thresholdSeconds,
-	);
-	return gaps;
-}
-
-async function detectAndFillGaps(
-	prisma: PrismaClient,
-	opts: hdFilterersOpt,
-	startTimestampSec: number,
-) {
-	const allGapStarts = new Set<number>();
-
-	for (const config of GAP_CONFIGS) {
-		try {
-			const gaps = await detectGaps(prisma, config);
-			if (gaps.length > 0) {
-				logger.info(`detected ${gaps.length} gap(s) in ${config.table}`, {
-					earliest: `${gaps[0].gap_start.toISOString()} - ${gaps[0].gap_end.toISOString()}`,
-					latest: `${gaps[gaps.length - 1].gap_start.toISOString()} - ${gaps[gaps.length - 1].gap_end.toISOString()}`,
-				});
-				for (const gap of gaps) {
-					allGapStarts.add(Math.floor(gap.gap_start.getTime() / 1000));
-				}
-			}
-		} catch (e) {
-			logger.warn(`gap detection failed for ${config.table}`, { error: e });
-			metrics.trackError(`gapDetection:${config.table}`, e);
-		}
-	}
-
-	if (allGapStarts.size === 0) return;
-
-	metrics.gapDetection.lastRun = new Date().toISOString();
-	metrics.gapDetection.gapsDetected = allGapStarts.size;
-	const sorted = [...allGapStarts].sort((a, b) => b - a);
-	logger.info(`filling ${sorted.length} unique gap(s), most recent first`);
-
-	for (const gapStartSec of sorted) {
-		const sec = Math.max(gapStartSec, startTimestampSec);
-		logger.info("triggering backfill for gap", {
-			gap_start: new Date(sec * 1000).toISOString(),
-		});
-		await runHistoricalDataFilterers(opts, sec, false);
-		metrics.gapDetection.gapsFilled++;
-	}
 }

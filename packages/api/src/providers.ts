@@ -34,7 +34,7 @@ export class TrackedWebsocketsProvider extends WebSocketProvider {
 		NumWssProviders++;
 	}
 
-	send(method: string, params: any[] | Record<string, any>): Promise<any> {
+	override send(method: string, params: any[] | Record<string, any>): Promise<any> {
 		if (!WssEthCalls.has(method)) {
 			WssEthCalls.set(method, 0);
 		}
@@ -50,7 +50,7 @@ export class TrackedJsonRpcProvider extends JsonRpcProvider {
 		NumJsonRpcProviders++;
 	}
 
-	send(method: string, params: Array<any>): Promise<any> {
+	override send(method: string, params: Array<any>): Promise<any> {
 		if (!JsonRpcEthCalls.has(method)) {
 			JsonRpcEthCalls.set(method, 0);
 		}

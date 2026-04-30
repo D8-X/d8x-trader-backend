@@ -3,6 +3,7 @@ import type { RedisClientType } from "redis";
 import { constructRedis, extractErrorMsg } from "utils";
 import Observer from "./observer.js";
 import SDKInterface from "./sdkInterface.js";
+import { logger } from "./logger.js";
 
 /**
  * This class handles the communication with the websocket client
@@ -36,9 +37,9 @@ export default abstract class IndexPriceInterface extends Observer {
 
 	public async priceInterfaceInitialize(sdkInterface: SDKInterface) {
 		if (!this.redisSubClient.isOpen) {
-			console.log("Connecting to REDIS PUB/SUB...");
+			logger.info("Connecting to REDIS PUB/SUB...");
 			await this.redisSubClient.connect();
-			console.log("done");
+			logger.info("done");
 		}
 		if (!this.redisClient.isOpen) {
 			await this.redisClient.connect();
@@ -92,7 +93,7 @@ export default abstract class IndexPriceInterface extends Observer {
 	 * @param msg from observable
 	 */
 	public async update(msg: String) {
-		console.log("update");
+		logger.info("update");
 		this._update(msg);
 	}
 
@@ -105,7 +106,7 @@ export default abstract class IndexPriceInterface extends Observer {
 	 * @param info exchange-info
 	 */
 	private async _initIdxNamesToPerpetualIds(info: ExchangeInfo) {
-		console.log("Initialize index names");
+		logger.info("Initialize index names");
 		// gather perpetuals index-names from exchange data
 		const indices: string[] = [];
 		for (let k = 0; k < info.pools.length; k++) {
@@ -155,7 +156,7 @@ export default abstract class IndexPriceInterface extends Observer {
 
 	public async _onRedisFeedHandlerMsg(message: string) {
 		// message must be indices separated by semicolon
-		// console.log("Received REDIS message" + message);
+		// logger.info("Received REDIS message" + message);
 		const indices = message.split(";");
 		const updatedIndices = await this.fetchIndicesFromRedis(indices);
 		const isRecent = await this.isMappingRecent(updatedIndices);
@@ -176,7 +177,7 @@ export default abstract class IndexPriceInterface extends Observer {
 				if (px_ts !== null) {
 					// indices[k]: <source>:<symbol>, e.g. univ3:BERA-USD
 					// indices[k]: <source>:<symbol|mark>, e.g. sport:BERA-USD|mark; only for sport
-					const source = indices[k].split(":")[0];
+					const _source = indices[k].split(":")[0];
 					const symbol = indices[k].split(":").pop() + "";
 					const markSplit = symbol.split("|");
 					if (markSplit.length == 2) {
@@ -191,10 +192,15 @@ export default abstract class IndexPriceInterface extends Observer {
 					}
 				}
 			} catch (error) {
-				console.log("[Error in _onRedisFeedHandlerMsg]", {
-					error: extractErrorMsg(error),
-					index: indices[k],
-				});
+				const msg = extractErrorMsg(error);
+				if (msg.includes("TSDB: the key does not exist")) {
+					logger.debug("idx feed key missing", { index: indices[k] });
+				} else {
+					logger.warn("fetchIndicesFromRedis error", {
+						error: msg,
+						index: indices[k],
+					});
+				}
 			}
 		}
 		return updatedIndices;

@@ -10,14 +10,25 @@ import BrokerIntegration from "./brokerIntegration.js";
 import EventListener from "./eventListener.js";
 import RPCManager from "./rpcManager.js";
 import SDKInterface from "./sdkInterface.js";
+import { logger } from "./logger.js";
+import {
+	JsonRpcEthCalls,
+	NumJsonRpcProviders,
+	NumWssProviders,
+	ProvidersEthCallsStartTime,
+	WssEthCalls,
+} from "./providers.js";
 dotenv.config();
 //https://roger13.github.io/SwagDefGen/
 //setAllowance?
 
 // Make sure bigint is serialized to string when stringifying. Without this we
 // get "unable to serialize bigint" error.
-//
-//@ts-ignore
+declare global {
+	interface BigInt {
+		toJSON(): string;
+	}
+}
 BigInt.prototype.toJSON = function () {
 	return this.toString();
 };
@@ -89,7 +100,6 @@ export default class D8XBrokerBackendApp {
 			Math.floor((Date.now() - lastEventTs) / 1000 / 6) / 10
 		}mins.`;
 		const msgFreq2 = ` Order posted vs executed : ${c}:${d} `;
-		console.log();
 
 		if (lastEventTooOld || !checkMktOrderFreq) {
 			// no event since timeSeconds, restart listener
@@ -130,13 +140,17 @@ export default class D8XBrokerBackendApp {
 	private initWebSocket() {
 		const eventListener = this.eventListener;
 		const sdk = this.sdk;
+		const logger = this.logger;
 		this.wss.on(
 			"connection",
 			function connection(ws: WebSocket.WebSocket, req: IncomingMessage) {
-				ws.on("error", console.error);
+				ws.on("error", (err) =>
+					logger.error("ws error", { error: err?.message ?? err }),
+				);
 				ws.on("message", async (data: WebSocket.RawData) => {
+					let obj: { type?: string; traderAddr?: string; symbol?: string } = {};
 					try {
-						const obj = JSON.parse(data.toString());
+						obj = JSON.parse(data.toString());
 						if (obj.type == "ping") {
 							if (eventListener.isWsKnown(ws)) {
 								ws.send(
@@ -167,7 +181,7 @@ export default class D8XBrokerBackendApp {
 								await sdk.extractPerpetualStateFromExchangeInfo(
 									obj.symbol,
 								);
-							eventListener.subscribe(ws, obj.symbol, obj.traderAddr);
+							eventListener.subscribe(ws, obj.symbol, obj.traderAddr!);
 							ws.send(
 								D8XBrokerBackendApp.JSONResponse(
 									"subscription",
@@ -176,16 +190,30 @@ export default class D8XBrokerBackendApp {
 								),
 							);
 						}
-					} catch (err: any) {
-						console.log("error on user request:", err);
+					} catch (err) {
+						const msg = extractErrorMsg(err);
+						const isUnknownSymbol = msg.startsWith(
+							"No perpetual found with symbol",
+						);
+						if (isUnknownSymbol) {
+							logger.warn("ws subscribe: unknown symbol", {
+								symbol: obj?.symbol,
+							});
+						} else {
+							logger.warn("ws subscribe error", { error: msg });
+						}
 						const usage = "{symbol: BTC-USD-MATIC, traderAddr: 0xCAFE...}";
 						ws.send(
 							D8XBrokerBackendApp.JSONResponse(
 								"error",
 								"websocket subscribe",
 								{
-									usage: usage,
-									error: extractErrorMsg(err),
+									code: isUnknownSymbol
+										? "UNKNOWN_SYMBOL"
+										: "SUBSCRIBE_ERROR",
+									symbol: obj?.symbol,
+									usage,
+									error: msg,
 								},
 							),
 						);
@@ -215,9 +243,25 @@ export default class D8XBrokerBackendApp {
 			);
 		});
 
-		this.express.post("/", (req: Request, res: Response) => {
-			res.status(201).send(
-				D8XBrokerBackendApp.JSONResponse("/", "Express + TypeScript Server", {}),
+		this.express.get("/health", (_req: Request, res: Response) => {
+			res.status(200).json({ ok: true });
+		});
+
+		this.express.get("/eth-stats", (_req: Request, res: Response) => {
+			const now = new Date();
+			const runningForMin =
+				(now.getTime() - ProvidersEthCallsStartTime.getTime()) / 1000 / 60;
+			res.setHeader("Content-Type", "application/json");
+			res.send(
+				D8XBrokerBackendApp.JSONResponse("eth-stats", "", {
+					jsonRpcEthCalls: Object.fromEntries(JsonRpcEthCalls),
+					wssEthCalls: Object.fromEntries(WssEthCalls),
+					numJsonRpcProviders: NumJsonRpcProviders,
+					numWssProviders: NumWssProviders,
+					startTime: ProvidersEthCallsStartTime.toISOString(),
+					currentTime: now.toISOString(),
+					runningForMinutes: runningForMin,
+				}),
 			);
 		});
 
@@ -228,11 +272,29 @@ export default class D8XBrokerBackendApp {
 				const rsp = await this.sdk.exchangeInfo();
 				res.send(D8XBrokerBackendApp.JSONResponse("exchange-info", "", rsp));
 			} catch (err: any) {
-				console.log("Error in /exchange-info");
-				console.log(err);
+				logger.info("Error in /exchange-info");
+				logger.info(err);
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "exchange-info", {
 						error: "exchange info failed",
+					}),
+				);
+			}
+		});
+
+		this.express.get("/sdk-state", async (req: Request, res: Response) => {
+			res.setHeader("Content-Type", "application/json");
+			try {
+				this.lastRequestTsMs = Date.now();
+				const rsp = this.sdk.sdkState();
+				res.send(D8XBrokerBackendApp.JSONResponse("sdk-state", "", rsp));
+			} catch (err) {
+				this.logger.error("Error in /sdk-state", {
+					error: err instanceof Error ? err.message : String(err),
+				});
+				res.send(
+					D8XBrokerBackendApp.JSONResponse("error", "sdk-state", {
+						error: "sdk state failed",
 					}),
 				);
 			}
@@ -263,8 +325,8 @@ export default class D8XBrokerBackendApp {
 				res.send(D8XBrokerBackendApp.JSONResponse("open-orders", "", rsp));
 			} catch (err: any) {
 				const usg = "open-orders?traderAddr=0xCafee&symbol=BTC-USD-MATIC";
-				console.log("error open-orders");
-				console.log(err);
+				logger.info("error open-orders");
+				logger.info(err);
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "open-orders", {
 						error: "error for open-orders",
@@ -297,7 +359,7 @@ export default class D8XBrokerBackendApp {
 				}
 			} catch (err: any) {
 				const usg = "trading-fee?traderAddr=0xCafee&poolSymbol=MATIC";
-				console.log("error trading-fee", extractErrorMsg(err));
+				logger.info("error trading-fee", extractErrorMsg(err));
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "trading-fee", {
 						error: "error for trading-fee",
@@ -330,7 +392,7 @@ export default class D8XBrokerBackendApp {
 				}
 			} catch (err: any) {
 				const usg = "position-risk?traderAddr=0xCafee&symbol=MATIC-USD-MATIC";
-				console.log("error for position-risk:", extractErrorMsg(err));
+				logger.info("error for position-risk:", extractErrorMsg(err));
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "position-risk", {
 						error: "error for position risk",
@@ -373,7 +435,7 @@ export default class D8XBrokerBackendApp {
 						);
 					}
 				} catch (err: any) {
-					console.log(
+					logger.info(
 						"error for max-order-size-for-trader:",
 						extractErrorMsg(err),
 					);
@@ -412,7 +474,7 @@ export default class D8XBrokerBackendApp {
 					);
 				} catch (err: any) {
 					const usg = "perpetual-static-info?symbol=BTC-USD-MATIC";
-					console.log(
+					logger.info(
 						"error for max-order-size-for-trader:",
 						extractErrorMsg(err),
 					);
@@ -441,7 +503,7 @@ export default class D8XBrokerBackendApp {
 				res.send(D8XBrokerBackendApp.JSONResponse("order-digest", "", rsp));
 			} catch (err: any) {
 				const usg = "{orders: <orderstruct>, traderAddr: string}";
-				console.log("error for order-digest:", extractErrorMsg(err));
+				logger.info("error for order-digest:", extractErrorMsg(err));
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "order-digest", {
 						error: "error for order digest",
@@ -475,7 +537,7 @@ export default class D8XBrokerBackendApp {
 			} catch (err: any) {
 				const usg =
 					"{traderAddr: string, amount: number, positionRisk: <MarginAccount struct>}";
-				console.log(
+				logger.info(
 					"error for position-risk-on-collateral-action:",
 					extractErrorMsg(err),
 				);
@@ -504,7 +566,7 @@ export default class D8XBrokerBackendApp {
 				res.send(D8XBrokerBackendApp.JSONResponse("add-collateral", "", rsp));
 			} catch (err: any) {
 				const usg = "add-collateral?symbol=MATIC-USDC-USDC";
-				console.log("error for add-collateral:", extractErrorMsg(err));
+				logger.info("error for add-collateral:", extractErrorMsg(err));
 				res.setHeader("Content-Type", "application/json");
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "add-collateral", {
@@ -527,7 +589,7 @@ export default class D8XBrokerBackendApp {
 				res.send(D8XBrokerBackendApp.JSONResponse("order-books", "", rsp));
 			} catch (err: any) {
 				const usg = "order-book?symbol=WOKB-USD-WOKB";
-				console.log("order-book:", extractErrorMsg(err));
+				logger.info("order-book:", extractErrorMsg(err));
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "order-book", {
 						error: "error",
@@ -548,7 +610,7 @@ export default class D8XBrokerBackendApp {
 				res.send(D8XBrokerBackendApp.JSONResponse("remove-collateral", "", rsp));
 			} catch (err: any) {
 				const usg = "remove-collateral?symbol=MATIC";
-				console.log("error for remove-collateral:", extractErrorMsg(err));
+				logger.info("error for remove-collateral:", extractErrorMsg(err));
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "remove-collateral", {
 						error: "error",
@@ -578,7 +640,7 @@ export default class D8XBrokerBackendApp {
 				res.send(D8XBrokerBackendApp.JSONResponse("available-margin", "", rsp));
 			} catch (err: any) {
 				const usg = "available-margin?symbol=BTC-USD-MATIC&traderAddr=0xCaffEe";
-				console.log("error for available-margin:", extractErrorMsg(err));
+				logger.info("error for available-margin:", extractErrorMsg(err));
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "available-margin", {
 						error: "",
@@ -607,7 +669,7 @@ export default class D8XBrokerBackendApp {
 				res.send(D8XBrokerBackendApp.JSONResponse("cancel-order", "", rsp));
 			} catch (err: any) {
 				const usg = "cancel-order?symbol=BTC-USD-MATIC&orderId=0xCaffEe";
-				console.log("error for cancel-order:", extractErrorMsg(err));
+				logger.info("error for cancel-order:", extractErrorMsg(err));
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "cancel-order", {
 						error: "",

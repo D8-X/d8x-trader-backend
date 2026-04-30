@@ -1,8 +1,8 @@
 {
 	"dependencies": {
-		"@d8-x/d8x-node-sdk": "^0.1.59",
+		"@d8-x/d8x-node-sdk": "0.1.65",
 		"axios": "^1.6.0",
-		"body-parser": "1.20.1",
+		"body-parser": "1.20.3",
 		"cors": "^2.8.5",
 		"dotenv": "16.0.3",
 		"express": "^4.19.2",
@@ -37,7 +37,7 @@
 		"startWSClient": "node dist/src/indexPXWSClient/startIndexPXWSClient.js",
 		"start": "node dist/src/index.js",
 		"postinstall": "patch-package",
-		"lint": "eslint . --ignore-path .gitignore --ext .ts,.tsx,.js",
+		"lint": "eslint . --ignore-path .gitignore --ext .ts,.tsx,.js  --max-warnings=0",
 		"lint:fix": "yarn lint --fix",
 		"prepack": "pinst --disable",
 		"postpack": "pinst --enable",

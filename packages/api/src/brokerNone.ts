@@ -1,4 +1,3 @@
-import { ethers } from "ethers";
 import BrokerIntegration from "./brokerIntegration.js";
 import {
 	Order,
@@ -11,11 +10,11 @@ export default class BrokerNone extends BrokerIntegration {
 	public async getBrokerAddress(): Promise<string> {
 		return ZERO_ADDRESS;
 	}
-	public async getBrokerFeeTBps(traderAddr: string, order?: Order): Promise<number> {
+	public async getBrokerFeeTBps(_traderAddr: string, _order?: Order): Promise<number> {
 		return 0;
 	}
 
-	public async signOrder(SCOrder: SmartContractOrder): Promise<{
+	public async signOrder(_SCOrder: SmartContractOrder): Promise<{
 		sig: string;
 		digest: string;
 		orderId: string;
@@ -25,7 +24,7 @@ export default class BrokerNone extends BrokerIntegration {
 		return { sig: "", digest: "", orderId: "", brokerFee: 0, brokerAddr: "" };
 	}
 
-	public async initialize(config: NodeSDKConfig): Promise<string> {
+	public async initialize(_config: NodeSDKConfig): Promise<string> {
 		return Promise.resolve("");
 	}
 }

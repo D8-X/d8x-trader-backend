@@ -1,32 +1,46 @@
 import { NodeSDKConfig, PerpetualDataHandler } from "@d8-x/d8x-node-sdk";
 import dotenv from "dotenv";
 import fs from "fs";
-import { executeWithTimeout, loadConfigRPC, sleep } from "utils";
+import { executeWithTimeout, extractErrorMsg, loadConfigRPC, sleep } from "utils";
 import { RPCConfig } from "utils/dist/wsTypes.js";
-import * as winston from "winston";
 import D8XBrokerBackendApp from "./D8XBrokerBackendApp.js";
 import BrokerIntegration from "./brokerIntegration.js";
 import BrokerNone from "./brokerNone.js";
 import BrokerRemote from "./brokerRemote.js";
-import {
-	JsonRpcEthCalls,
-	NumJsonRpcProviders,
-	NumWssProviders,
-	ProvidersEthCallsStartTime,
-	WssEthCalls,
-} from "./providers.js";
+import { logger } from "./logger.js";
 import RPCManager from "./rpcManager.js";
 
-const defaultLogger = () => {
-	return winston.createLogger({
-		level: "info",
-		format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-		defaultMeta: { service: "api" },
-		transports: [new winston.transports.Console()],
-	});
-};
-export const logger = defaultLogger();
+export { logger };
 
+const INITIALIZE_TIMEOUT_BASE_MS = 160_000;
+const INITIALIZE_MAX_RETRIES = 10;
+const GET_RPC_TIMEOUT_MS = 15_000;
+const HEARTBEAT_LOOP_IDLE_MS = 60_000;
+const HEARTBEAT_LOOP_RETRY_MS = 1_000;
+const POST_ERROR_SLEEP_MS = 1_000;
+
+async function safeGetRPC(
+	mgr: RPCManager,
+	kind: "ws" | "http",
+	healthy: boolean,
+	fallback: string,
+): Promise<string> {
+	try {
+		return await executeWithTimeout(
+			mgr.getRPC(healthy),
+			GET_RPC_TIMEOUT_MS,
+			`${kind} getRPC timeout`,
+		);
+	} catch (err) {
+		logger.warn("getRPC timed out, keeping previous URL", {
+			kind,
+			error: extractErrorMsg(err),
+		});
+		return fallback;
+	}
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for the commented-out VAA endpoints flow below
 function loadVAAEndpoints(filename: string): string[] {
 	const fileContent = fs.readFileSync(filename).toString();
 	const f = JSON.parse(fileContent);
@@ -60,7 +74,9 @@ async function start() {
 	}
 	sdkConfig.priceFeedEndpoints = [{ type: type, endpoints: endpoints }];
 	*/
-	console.log("priceFeedEndpoints:", sdkConfig.priceFeedEndpoints);
+	logger.info("priceFeedEndpoints", {
+		priceFeedEndpoints: sdkConfig.priceFeedEndpoints,
+	});
 	const rpcConfig = loadConfigRPC() as RPCConfig[];
 	let broker: BrokerIntegration;
 	let remoteBrokerAddr = process.env.REMOTE_BROKER_HTTP;
@@ -71,7 +87,7 @@ async function start() {
 		logger.info("Creating remote broker for order signatures");
 		broker = new BrokerRemote(remoteBrokerAddr, brokerIdName, sdkConfig.chainId);
 	} else {
-		console.log("No broker PK/fee or remore broker defined, using empty broker.");
+		logger.info("No broker PK/fee or remote broker defined, using empty broker.");
 		broker = new BrokerNone();
 	}
 	const rpcManagerHttp = new RPCManager(
@@ -91,14 +107,16 @@ async function start() {
 			logger.info(`RPC (WS)   = ${wsRPC}`);
 			await executeWithTimeout(
 				d8XBackend.initialize(sdkConfig, rpcManagerHttp, wsRPC),
-				(count + 1) * 160_000,
+				(count + 1) * INITIALIZE_TIMEOUT_BASE_MS,
 				"initialize timeout",
 			);
 			isSuccess = true;
 		} catch (error) {
-			logger.error("initializing d8xBackend", { error });
-			await sleep(1000);
-			if (count > 10) {
+			logger.error("initializing d8xBackend", {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			await sleep(POST_ERROR_SLEEP_MS);
+			if (count > INITIALIZE_MAX_RETRIES) {
 				throw error;
 			}
 			logger.info("retrying new rpc...");
@@ -108,45 +126,32 @@ async function start() {
 		count++;
 	}
 
-	let waitTime = 60_000;
+	let waitTime = HEARTBEAT_LOOP_IDLE_MS;
 	/* eslint-disable no-constant-condition */
 	while (true) {
 		await sleep(waitTime);
-		wsRPC = await rpcManagerWs.getRPC(false);
-		await sleep(1_000);
-		sdkConfig.nodeURL = await rpcManagerHttp.getRPC();
+		wsRPC = await safeGetRPC(rpcManagerWs, "ws", false, wsRPC);
+		await sleep(POST_ERROR_SLEEP_MS);
+		sdkConfig.nodeURL = await safeGetRPC(
+			rpcManagerHttp,
+			"http",
+			true,
+			sdkConfig.nodeURL,
+		);
 
-		// restart everything if sdk is out of sync
 		if (!(await d8XBackend.checkSDKHeartbeat())) {
-			logger.error("SDK heartbeat check failed");
-			process.exit(1);
+			logger.warn("SDK heartbeat check failed. Will self heal on next refresh");
 		}
 
-		await sleep(1_000);
+		await sleep(POST_ERROR_SLEEP_MS);
 
 		// restart event listener if events are out of sync
 
 		if (!(await d8XBackend!.checkTradeEventListenerHeartbeat(wsRPC))) {
-			waitTime = 1000;
+			waitTime = HEARTBEAT_LOOP_RETRY_MS;
 		} else {
-			waitTime = 60_000;
+			waitTime = HEARTBEAT_LOOP_IDLE_MS;
 		}
-
-		// Print out eth calls statistics
-		const currentTime = new Date();
-		console.log("statistics of eth_ calls", {
-			JsonRpcEthCalls: JsonRpcEthCalls,
-			WssEthCalls: WssEthCalls,
-			CurrentTime: currentTime.toISOString(),
-			StartTime: ProvidersEthCallsStartTime.toISOString(),
-			RunningFor:
-				(currentTime.getTime() - ProvidersEthCallsStartTime.getTime()) /
-					1000 /
-					60 +
-				" minutes",
-			NumJsonRpcProviders,
-			NumWssProviders,
-		});
 	}
 }
 start();

@@ -1,16 +1,8 @@
-import {
-	FundingRatePayment,
-	Trade,
-	Prisma,
-	PrismaClient,
-	MarginTokenInfo,
-	Settle,
-} from "@prisma/client";
-import express, { Express, Request, Response, response } from "express";
-import { Logger, error } from "winston";
+import { FundingRatePayment, Trade, Prisma, PrismaClient, Settle } from "@prisma/client";
+import express, { Request, Response } from "express";
+import { Logger } from "winston";
 import { TradingHistory } from "../db/trading_history.js";
 import { FundingRatePayments } from "../db/funding_rate.js";
-import { MarginTokenData } from "../db/margin_token_info.js";
 import StaticInfo from "../contracts/static_info.js";
 import { correctQueryArgs, errorResp } from "../utils/response.js";
 import {
@@ -22,14 +14,13 @@ import {
 	isValidAddress,
 } from "utils";
 
-import { getAddress } from "ethers";
-import { MarketData } from "@d8-x/d8x-node-sdk";
+import { getAddress, JsonRpcProvider } from "ethers";
+import { MarketData, SDKState } from "@d8-x/d8x-node-sdk";
 import { getSDKConfigFromEnv } from "../utils/abi.js";
 import dotenv from "dotenv";
 import cors from "cors";
 import { PriceInfo } from "../db/price_info.js";
 import { metrics } from "../svc/metrics.js";
-import { tokenToString } from "typescript";
 export const DECIMAL40_FORMAT_STRING = "FM9999999999999999999999999999999999999";
 
 // Make sure the decimal values are always return as normal numeric strings
@@ -98,12 +89,18 @@ export class HistoryRestAPI {
 	 *
 	 * @param httpRpcUrl
 	 */
-	public async init(httpRpcUrl: string) {
-		// Init marked data
+	public async init(httpRpcUrl: string, sdkState?: SDKState) {
 		const config = getSDKConfigFromEnv();
 		config.nodeURL = httpRpcUrl;
 		const md = new MarketData(config);
-		await md.createProxyInstance();
+		if (sdkState) {
+			await md.createProxyInstanceFromState(
+				sdkState,
+				new JsonRpcProvider(httpRpcUrl),
+			);
+		} else {
+			await md.createProxyInstance();
+		}
 		this.md = md;
 	}
 
@@ -111,6 +108,24 @@ export class HistoryRestAPI {
 		if (this.CORS_ON) {
 			this.app.use(cors());
 		}
+		this.app.use((req, resp, next) => {
+			const start = Date.now();
+			this.l.debug("request", {
+				method: req.method,
+				path: req.path,
+				query: req.query,
+				ip: req.ip,
+			});
+			resp.on("finish", () => {
+				this.l.debug("response", {
+					method: req.method,
+					path: req.path,
+					status: resp.statusCode,
+					durationMs: Date.now() - start,
+				});
+			});
+			next();
+		});
 	}
 
 	/**
@@ -135,8 +150,8 @@ export class HistoryRestAPI {
 	/**
 	 * Starts the express app
 	 */
-	public async start(httpRPCUrl: string) {
-		await this.init(httpRPCUrl);
+	public async start(httpRPCUrl: string, sdkState?: SDKState) {
+		await this.init(httpRPCUrl, sdkState);
 
 		this.app.listen(this.opts.port, () => {
 			this.l.info("starting history rest api server", { port: this.opts.port });
@@ -259,12 +274,11 @@ export class HistoryRestAPI {
 			const nowTs = Math.round(Date.now() / 1000);
 			let ch: CacheLpPrice | undefined = this.lpPriceCash.get(poolIdNum);
 			if (ch != undefined && nowTs - ch!.ts < 5 * 120) {
-				console.log(
-					"returning cached lp prices for pool (10min cache)",
+				this.l.debug("returning cached lp prices for pool (10min cache)", {
 					poolIdNum,
-				);
+				});
 			} else {
-				console.log("sql query of lp prices for pool", poolIdNum);
+				this.l.debug("sql query of lp prices for pool", { poolIdNum });
 				const res = await this.opts.prisma.$queryRaw<LpPrice[]>`
 				select 
 					eet.created_at as time,
@@ -479,9 +493,10 @@ export class HistoryRestAPI {
                     count(trader_addr) as num_trades
                 FROM trades_history th
                 WHERE LOWER(th.trader_addr) = ${user_wallet};`;
-			console.log(
-				`hasTrades query for ${user_wallet}, data.length = ${data[0].num_trades}`,
-			);
+			this.l.debug("hasTrades query", {
+				user_wallet,
+				num_trades: data[0].num_trades,
+			});
 			const hasTrades = data[0].num_trades > 0;
 			// return response
 			resp.contentType("json");
@@ -637,8 +652,6 @@ export class HistoryRestAPI {
 		const usage =
 			"required query parameters: poolSymbol, optional: fromTimestamp (seconds), toTimestamp (seconds) ";
 		try {
-			const t1 = typeof req.query.fromTimestamp;
-			const t2 = typeof req.query.toTimestamp;
 			if (typeof req.query.poolSymbol != "string") {
 				resp.status(400);
 				throw Error("please provide correct query parameters");

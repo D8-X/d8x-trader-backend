@@ -1,3 +1,5 @@
+import { formatErrorMessage } from "../utils/errors.js";
+
 const startTime = Date.now();
 
 function formatUptime(ms: number): string {
@@ -15,9 +17,11 @@ function formatUptime(ms: number): string {
 }
 
 export const metrics = {
+	status: "initializing" as string,
 	connection: "unknown" as string,
 	lastBlock: 0,
 	rateLimitsHit: 0,
+	lastRateLimitAt: null as string | null,
 	errors: [] as { ts: string; source: string; msg: string }[],
 	backfill: {
 		running: false,
@@ -38,7 +42,7 @@ export const metrics = {
 	},
 
 	trackError(source: string, error: unknown) {
-		const msg = error instanceof Error ? error.message : String(error);
+		const msg = formatErrorMessage(error);
 		this.errors.push({
 			ts: new Date().toISOString(),
 			source,
@@ -52,11 +56,13 @@ export const metrics = {
 	toJSON() {
 		const uptimeMs = Date.now() - startTime;
 		return {
+			status: this.status,
 			uptime: formatUptime(uptimeMs),
 			uptime_seconds: Math.floor(uptimeMs / 1000),
 			connection: this.connection,
 			last_block: this.lastBlock,
 			rate_limits_hit: this.rateLimitsHit,
+			last_rate_limit_at: this.lastRateLimitAt,
 			backfill: this.backfill,
 			gap_detection: this.gapDetection,
 			events_processed: this.eventsProcessed,

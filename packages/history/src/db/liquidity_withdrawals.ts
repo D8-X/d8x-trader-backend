@@ -1,3 +1,4 @@
+import { formatErrorMessage } from "../utils/errors.js";
 import { LiquidityWithdrawal, PrismaClient } from "@prisma/client";
 import { Logger } from "winston";
 import {
@@ -60,7 +61,7 @@ export class LiquidityWithdrawals {
 				});
 			} catch (e) {
 				this.l.error("inserting new liquidity withdrawal record", {
-					error: e,
+					error: formatErrorMessage(e),
 				});
 				return;
 			}
@@ -86,7 +87,7 @@ export class LiquidityWithdrawals {
 				});
 			} catch (e) {
 				this.l.error("updating liquidity withdrawal record", {
-					error: e,
+					error: formatErrorMessage(e),
 				});
 				return;
 			}
