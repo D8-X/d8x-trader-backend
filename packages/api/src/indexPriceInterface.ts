@@ -243,6 +243,15 @@ export default abstract class IndexPriceInterface extends Observer {
 				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
 				const markPremium = this.mrkPremium.get(perpetualIds[j]);
 				const midPremium = this.midPremium.get(perpetualIds[j]);
+				if (isPred === undefined) {
+					logger.error(
+						"perpetualId missing from isPredictionMkt. Restarting to refresh mapping",
+						{
+							perpetualId: perpetualIds[j],
+						},
+					);
+					process.exit(1);
+				}
 				if (
 					px == undefined ||
 					markPremium == undefined ||
@@ -253,11 +262,11 @@ export default abstract class IndexPriceInterface extends Observer {
 				let midPx, markPx: number;
 				if (isPred) {
 					// for pred markets, px and emaPrices are probabilities (set by candles)
-					markPx = probToPrice(this.emaPrices.get(indices[k]) ?? px);
 					px = probToPrice(px);
-					// premia are additive
+					// per contract: mid = index + additive premium (clamped),
+					// mark = index (no premium)
 					midPx = Math.min(Math.max(1, px + midPremium), 2);
-					markPx = Math.min(Math.max(1, markPx + markPremium), 2); //clamp
+					markPx = px;
 				} else {
 					// premia are relative
 					midPx = px * (1 + midPremium);

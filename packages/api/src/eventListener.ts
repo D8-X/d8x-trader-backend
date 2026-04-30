@@ -823,7 +823,13 @@ export default class EventListener extends IndexPriceInterface {
 			return;
 		}
 		perpetualId = Number(perpetualId.toString());
-		const isPred = this.isPredictionMkt.get(perpetualId)!;
+		const isPred = this.isPredictionMkt.get(perpetualId);
+		if (isPred === undefined) {
+			logger.error(
+				"perpetualId missing from isPredictionMkt. Restarting service to refresh mapping.",
+			);
+			process.exit(1);
+		}
 
 		this.lastBlockChainEventTs = Date.now();
 
@@ -857,12 +863,12 @@ export default class EventListener extends IndexPriceInterface {
 		if (isPred) {
 			// for pred markets, currIdx == spot probability
 			// --> convert all to price to send over WS and update xchg info
+			// per contract: mid = index + _fCurrentPremiumRate
+			// mark = index
 			logger.info("index name=", pxIdxName, "currIdx=", currIdx);
-			newMidPrice = probToPrice(currIdx) + midPrem;
-			let markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
-			markPx = probToPrice(markPx);
-			newMarkPrice = Math.min(Math.max(1, markPx + mrkPrem), 2); //clamp
 			currIdx = probToPrice(currIdx);
+			newMidPrice = Math.min(Math.max(1, currIdx + midPrem), 2); //clamp
+			newMarkPrice = currIdx;
 		} else {
 			// we don't set the index price for regular markets as this
 			// would be outdated
