@@ -858,11 +858,11 @@ export default class EventListener extends IndexPriceInterface {
 			// for pred markets, currIdx == spot probability
 			// --> convert all to price to send over WS and update xchg info
 			logger.info("index name=", pxIdxName, "currIdx=", currIdx);
-			newMidPrice = probToPrice(currIdx) + midPrem;
-			let markPx = this.emaPrices.get(pxIdxName) ?? currIdx;
-			markPx = probToPrice(markPx);
-			newMarkPrice = Math.min(Math.max(1, markPx + mrkPrem), 2); //clamp
-			currIdx = probToPrice(currIdx);
+			const idxPx = probToPrice(currIdx);
+			const emaPx = probToPrice(this.emaPrices.get(pxIdxName) ?? currIdx);
+			newMidPrice = Math.min(Math.max(1, idxPx * (1 + midPrem)), 2); //clamp
+			newMarkPrice = Math.min(Math.max(1, emaPx * (1 + mrkPrem)), 2); //clamp
+			currIdx = idxPx;
 		} else {
 			// we don't set the index price for regular markets as this
 			// would be outdated

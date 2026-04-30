@@ -138,8 +138,8 @@ export default abstract class IndexPriceInterface extends Observer {
 					indices[indices.length - 1] = "sport:" + indices[indices.length - 1];
 					indices.push("sport:" + pxIdxName + "|mark");
 					this.idxPrices.set(pxIdxName, px - 1);
-					this.mrkPremium.set(perpId, perpState.markPrice - px);
-					this.midPremium.set(perpId, perpState.midPrice - px);
+					this.mrkPremium.set(perpId, perpState.markPrice / px - 1);
+					this.midPremium.set(perpId, perpState.midPrice / px - 1);
 				} else {
 					// set price and relative premia
 					this.idxPrices.set(pxIdxName, px);
@@ -255,9 +255,9 @@ export default abstract class IndexPriceInterface extends Observer {
 					// for pred markets, px and emaPrices are probabilities (set by candles)
 					markPx = probToPrice(this.emaPrices.get(indices[k]) ?? px);
 					px = probToPrice(px);
-					// premia are additive
-					midPx = Math.min(Math.max(1, px + midPremium), 2);
-					markPx = Math.min(Math.max(1, markPx + markPremium), 2); //clamp
+					// premia are relative
+					midPx = Math.min(Math.max(1, px * (1 + midPremium)), 2);
+					markPx = Math.min(Math.max(1, markPx * (1 + markPremium)), 2);
 				} else {
 					// premia are relative
 					midPx = px * (1 + midPremium);
