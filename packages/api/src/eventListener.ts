@@ -823,7 +823,13 @@ export default class EventListener extends IndexPriceInterface {
 			return;
 		}
 		perpetualId = Number(perpetualId.toString());
-		const isPred = this.isPredictionMkt.get(perpetualId) ?? false;
+		const isPred = this.isPredictionMkt.get(perpetualId);
+		if (isPred === undefined) {
+			logger.error(
+				"perpetualId missing from isPredictionMkt. Restarting service to refresh mapping.",
+			);
+			process.exit(1);
+		}
 
 		this.lastBlockChainEventTs = Date.now();
 

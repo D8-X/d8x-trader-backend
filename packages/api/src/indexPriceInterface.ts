@@ -243,6 +243,15 @@ export default abstract class IndexPriceInterface extends Observer {
 				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
 				const markPremium = this.mrkPremium.get(perpetualIds[j]);
 				const midPremium = this.midPremium.get(perpetualIds[j]);
+				if (isPred === undefined) {
+					logger.error(
+						"perpetualId missing from isPredictionMkt. Restarting to refresh mapping",
+						{
+							perpetualId: perpetualIds[j],
+						},
+					);
+					process.exit(1);
+				}
 				if (
 					px == undefined ||
 					markPremium == undefined ||
