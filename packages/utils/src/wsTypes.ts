@@ -107,16 +107,6 @@ export interface MarginAccount {
 
 /**
  * Emitted when a perpetual transitions to a non-trading lifecycle state.
- *
- * The three values map to contract events, NOT to the full SDK lifecycle
- * enum (INVALID/INITIALIZING/NORMAL/EMERGENCY/SETTLE/CLEARED):
- *  - "normal"    → SetNormalState
- *  - "emergency" → SetEmergencyState
- *  - "settled"   → SettlementComplete (i.e. SDK state CLEARED, not SETTLE)
- *
- * indexPrice / markPrice / midPrice are populated when the cached prices
- * are available; they may be omitted if the perpetual hasn't received an
- * index/premium update yet.
  */
 export interface PerpetualStateChange {
 	perpetualId: number;
