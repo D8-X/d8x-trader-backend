@@ -217,13 +217,16 @@ export default abstract class IndexPriceInterface extends Observer {
 				if (px_ts !== null) {
 					hits++;
 					sourceHits.set(source, (sourceHits.get(source) ?? 0) + 1);
-					const symbol = indices[k].split(":").pop() + "";
-					const markSplit = symbol.split("|");
+					const rawSymbol = indices[k].split(":").pop() + "";
+					const markSplit = rawSymbol.split("|");
 					if (markSplit.length == 2) {
-						const idxSym = markSplit[0];
+						const parts = markSplit[0].split("-");
+						const idxSym = parts[0] + "-" + parts[1];
 						this.emaPrices.set(idxSym, px_ts.value);
 					} else {
 						const px = px_ts.value;
+						const parts = rawSymbol.split("-");
+						const symbol = parts[0] + "-" + parts[1];
 						this.idxPrices.set(symbol, px);
 						updatedIndices.push(symbol);
 					}
