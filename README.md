@@ -49,6 +49,13 @@ yarn
 npx lerna exec npm run build
 ```
 
+## Debug
+- cp .envExample to .env and edit, change REDIS_URL=redis://localhost:6379, no REDIS_PASSWORD
+- cp example.rpc.json to live.rpc.json and add RPCs
+- build (see above)
+- start redis locally `docker run -d --name redis -p 6379:6379 redis redis-server`
+- `npx tsx packages/api/src/index.ts`
+
 # localhost:3001/order-digest
 
 ```
