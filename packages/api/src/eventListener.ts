@@ -19,6 +19,7 @@ import { Contract, JsonRpcProvider } from "ethers";
 import {
 	ExecutionFailed,
 	LimitOrderCreated,
+	PerpetualStateChange,
 	PriceUpdate,
 	Trade,
 	UpdateMarginAccount,
@@ -1165,7 +1166,62 @@ export default class EventListener extends IndexPriceInterface {
 	 * @param perpetualId
 	 * @param state 'normal', 'emergency', 'settled'
 	 */
-	private onPerpetualState(perpetualId: number, state: string) {
+	private onPerpetualState(
+		perpetualId: number,
+		state: "normal" | "emergency" | "settled",
+	) {
 		this.logger.info("perpetual state changed", { perpetualId, state });
+		const symbol = this.symbolFromPerpetualId(perpetualId);
+		const obj: PerpetualStateChange = {
+			perpetualId,
+			symbol,
+			state,
+		};
+		const prices = this.lastCachedPrices(perpetualId);
+		if (prices !== undefined) {
+			obj.indexPrice = prices.indexPrice;
+			obj.markPrice = prices.markPrice;
+			obj.midPrice = prices.midPrice;
+		}
+		const wsMsg: WSMsg = { name: "PerpetualStateChange", obj };
+		const jsonMsg: string = D8XBrokerBackendApp.JSONResponse(
+			"onPerpetualStateChange",
+			"",
+			wsMsg,
+		);
+		this.sendToSubscribers(perpetualId, jsonMsg);
+	}
+
+	/**
+	 * Read the latest cached index/mark/mid for a perpl from the
+	 * IndexPriceInterface state. Returns undefined if any required component
+	 * is missing
+	 */
+	private lastCachedPrices(
+		perpetualId: number,
+	): { indexPrice: number; markPrice: number; midPrice: number } | undefined {
+		const fullSym = this.sdkInterface?.getSymbolFromPerpId(perpetualId);
+		if (fullSym === undefined) return undefined;
+		const parts = fullSym.split("-");
+		const pxIdxName = parts[0] + "-" + parts[1];
+		const currIdx = this.idxPrices.get(pxIdxName);
+		const midPrem = this.midPremium.get(perpetualId);
+		const mrkPrem = this.mrkPremium.get(perpetualId);
+		if (currIdx === undefined || midPrem === undefined) return undefined;
+		const isPred = this.isPredictionMkt.get(perpetualId) ?? false;
+		if (isPred) {
+			const idxPx = probToPrice(currIdx);
+			return {
+				indexPrice: idxPx,
+				markPrice: idxPx,
+				midPrice: Math.min(Math.max(1, idxPx + midPrem), 2),
+			};
+		}
+		if (mrkPrem === undefined) return undefined;
+		return {
+			indexPrice: currIdx,
+			markPrice: currIdx * (1 + mrkPrem),
+			midPrice: currIdx * (1 + midPrem),
+		};
 	}
 }

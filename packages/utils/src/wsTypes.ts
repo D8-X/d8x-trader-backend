@@ -106,6 +106,19 @@ export interface MarginAccount {
  */
 
 /**
+ * Emitted when a perpetual transitions between
+ * NORMAL / EMERGENCY / SETTLED states.
+ */
+export interface PerpetualStateChange {
+	perpetualId: number;
+	symbol: string;
+	state: "normal" | "emergency" | "settled";
+	indexPrice?: number;
+	markPrice?: number;
+	midPrice?: number;
+}
+
+/**
  * This event message is generated on
  * UpdateMarginAccount
  * You may want to call positionRisk
