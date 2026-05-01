@@ -812,12 +812,12 @@ export default class EventListener extends IndexPriceInterface {
 	 * @param fMarkPricePremium premium rate in ABDK format
 	 * @param fMarkIndexPrice spot index price or ema used for mark price in ABDK format
 	 */
-	public onUpdateMarkPrice(
+	public async onUpdateMarkPrice(
 		perpetualId: number,
 		fMidPricePremium: bigint,
 		fMarkPricePremium: bigint,
 		fMarkIndexPrice: bigint,
-	): void {
+	): Promise<void> {
 		if (!this.isInitialized) {
 			logger.info("onUpdateMarkPrice: eventListener not initialized");
 			return;
@@ -851,10 +851,23 @@ export default class EventListener extends IndexPriceInterface {
 			logger.info("onUpdateMarkPrice: no index defined for perpetual", perpetualId);
 			return;
 		}
-		const parts = pxIdxName.split("-");
-		pxIdxName = parts[0] + "-" + parts[1];
-		// ensure index price availability
+		if (!isPred) {
+			const parts = pxIdxName.split("-");
+			pxIdxName = parts[0] + "-" + parts[1];
+		}
 		let currIdx = this.idxPrices.get(pxIdxName);
+		if (currIdx == undefined && isPred) {
+			await this.fetchIndicesFromRedis([
+				"sport:" + pxIdxName,
+				"sport:" + pxIdxName + "|mark",
+			]);
+			currIdx = this.idxPrices.get(pxIdxName);
+			logger.info("onUpdateMarkPrice redis fallback", {
+				perpetualId,
+				pxIdxName,
+				hit: currIdx !== undefined,
+			});
+		}
 		if (currIdx == undefined) {
 			logger.info("onUpdateMarkPrice: index name=", pxIdxName, "currIdx undefined");
 			return;
