@@ -829,7 +829,7 @@ export default class EventListener extends IndexPriceInterface {
 		fMarkPricePremium: bigint,
 		fMarkIndexPrice: bigint,
 	): void {
-		perpetualId = Number(perpetualId.toString());
+		perpetualId = Number(perpetualId);
 		logger.info("[@onUpdateMarkPrice] entry", {
 			perpetualId,
 			isInitialized: this.isInitialized,
