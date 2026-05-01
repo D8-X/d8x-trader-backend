@@ -60,8 +60,14 @@ export default abstract class IndexPriceInterface extends Observer {
 	}
 
 	private async refreshIndexNames() {
+		logger.info("[@refreshIndexNames] start", {
+			beforeIdxNamesCount: this.idxNamesToPerpetualIds.size,
+			beforeIdxPricesCount: this.idxPrices.size,
+		});
+		const t0 = Date.now();
 		const info = await this.sdkInterface!.exchangeInfo();
 		await this._initIdxNamesToPerpetualIds(<ExchangeInfo>JSON.parse(info));
+		logger.info("[@refreshIndexNames] done", { elapsedMs: Date.now() - t0 });
 	}
 
 	/**
@@ -93,7 +99,7 @@ export default abstract class IndexPriceInterface extends Observer {
 	 * @param msg from observable
 	 */
 	public async update(msg: String) {
-		logger.info("update");
+		logger.info("[@update] sdk observer notified", { msg });
 		this._update(msg);
 	}
 
@@ -106,12 +112,17 @@ export default abstract class IndexPriceInterface extends Observer {
 	 * @param info exchange-info
 	 */
 	private async _initIdxNamesToPerpetualIds(info: ExchangeInfo) {
-		logger.info("Initialize index names");
+		logger.info("[@_initIdxNamesToPerpetualIds] start", {
+			pools: info.pools.length,
+		});
 		// gather perpetuals index-names from exchange data
 		const indices: string[] = [];
 		for (let k = 0; k < info.pools.length; k++) {
 			const pool = info.pools[k];
 			if (!pool.isRunning) {
+				logger.info("[@_initIdxNamesToPerpetualIds] skip pool (not running)", {
+					poolSymbol: pool.poolSymbol,
+				});
 				continue;
 			}
 			for (let j = 0; j < pool.perpetuals.length; j++) {
@@ -148,41 +159,67 @@ export default abstract class IndexPriceInterface extends Observer {
 				}
 				// ^--- todo: other types than sport
 				this.isPredictionMkt.set(perpId, isPred);
+				logger.info("[@_initIdxNamesToPerpetualIds] perp registered", {
+					perpId,
+					poolSymbol: pool.poolSymbol,
+					baseCurrency: perpState.baseCurrency,
+					quoteCurrency: perpState.quoteCurrency,
+					pxIdxName,
+					isPred,
+					indexPrice: px,
+					markPrice: perpState.markPrice,
+					midPrice: perpState.midPrice,
+				});
 			}
 			// initialize index prices
 			await this.fetchIndicesFromRedis(indices);
 		}
+		logger.info("[@_initIdxNamesToPerpetualIds] done", {
+			idxNamesCount: this.idxNamesToPerpetualIds.size,
+			idxPricesCount: this.idxPrices.size,
+			emaPricesCount: this.emaPrices.size,
+			isPredCount: this.isPredictionMkt.size,
+			idxNamesToPerpetualIds: Object.fromEntries(this.idxNamesToPerpetualIds),
+			idxPriceKeys: [...this.idxPrices.keys()],
+			emaPriceKeys: [...this.emaPrices.keys()],
+		});
 	}
 
 	public async _onRedisFeedHandlerMsg(message: string) {
-		// message must be indices separated by semicolon
-		// logger.info("Received REDIS message" + message);
 		const indices = message.split(";");
+		logger.info("[@_onRedisFeedHandlerMsg] px_update received", { indices });
 		const updatedIndices = await this.fetchIndicesFromRedis(indices);
 		const isRecent = await this.isMappingRecent(updatedIndices);
 		if (!isRecent) {
+			logger.info(
+				"[@_onRedisFeedHandlerMsg] mapping stale, refreshing index names",
+			);
 			await this.refreshIndexNames();
 		}
+		logger.info("[@_onRedisFeedHandlerMsg] px_update fetched", { updatedIndices });
 		this._updatePricesOnIndexPrice(updatedIndices);
 	}
 
 	protected async fetchIndicesFromRedis(indices: string[]): Promise<string[]> {
-		// Create new updated indices and only send those that were updated.
 		const updatedIndices: string[] = [];
+		let hits = 0;
+		let nullReplies = 0;
+		let missing = 0;
+		let errors = 0;
+		const sources = new Map<string, number>();
+		const sourceHits = new Map<string, number>();
 
 		for (let k = 0; k < indices.length; k++) {
-			// get price from redit
+			const source = indices[k].split(":")[0];
+			sources.set(source, (sources.get(source) ?? 0) + 1);
 			try {
 				const px_ts = await this.redisClient.ts.get(indices[k]);
 				if (px_ts !== null) {
-					// indices[k]: <source>:<symbol>, e.g. univ3:BERA-USD
-					// indices[k]: <source>:<symbol|mark>, e.g. sport:BERA-USD|mark; only for sport
-					const _source = indices[k].split(":")[0];
+					hits++;
+					sourceHits.set(source, (sourceHits.get(source) ?? 0) + 1);
 					const symbol = indices[k].split(":").pop() + "";
 					const markSplit = symbol.split("|");
 					if (markSplit.length == 2) {
-						// mark price is sent by candles
-						// backend for sports
 						const idxSym = markSplit[0];
 						this.emaPrices.set(idxSym, px_ts.value);
 					} else {
@@ -190,19 +227,33 @@ export default abstract class IndexPriceInterface extends Observer {
 						this.idxPrices.set(symbol, px);
 						updatedIndices.push(symbol);
 					}
+				} else {
+					nullReplies++;
 				}
 			} catch (error) {
 				const msg = extractErrorMsg(error);
 				if (msg.includes("TSDB: the key does not exist")) {
-					logger.debug("idx feed key missing", { index: indices[k] });
+					missing++;
+					logger.info("idx feed key missing", { index: indices[k] });
 				} else {
-					logger.warn("fetchIndicesFromRedis error", {
+					errors++;
+					logger.warn("[@fetchIndicesFromRedis] error", {
 						error: msg,
 						index: indices[k],
 					});
 				}
 			}
 		}
+		logger.info("[@fetchIndicesFromRedis] stats", {
+			requested: indices.length,
+			hits,
+			nullReplies,
+			missing,
+			errors,
+			updated: updatedIndices.length,
+			bySource: Object.fromEntries(sources),
+			hitsBySource: Object.fromEntries(sourceHits),
+		});
 		return updatedIndices;
 	}
 
@@ -236,9 +287,17 @@ export default abstract class IndexPriceInterface extends Observer {
 				indices[k],
 			);
 			if (perpetualIds == undefined) {
+				logger.info("[@_updatePricesOnIndexPrice] no perp mapping", {
+					index: indices[k],
+				});
 				continue;
 			}
 			let px = this.idxPrices.get(indices[k]);
+			logger.info("[@_updatePricesOnIndexPrice] routing", {
+				index: indices[k],
+				perpetualIds,
+				px,
+			});
 			for (let j = 0; j < perpetualIds.length; j++) {
 				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
 				const markPremium = this.mrkPremium.get(perpetualIds[j]);
@@ -246,9 +305,7 @@ export default abstract class IndexPriceInterface extends Observer {
 				if (isPred === undefined) {
 					logger.error(
 						"perpetualId missing from isPredictionMkt. Restarting to refresh mapping",
-						{
-							perpetualId: perpetualIds[j],
-						},
+						{ perpetualId: perpetualIds[j] },
 					);
 					process.exit(1);
 				}
@@ -257,6 +314,12 @@ export default abstract class IndexPriceInterface extends Observer {
 					markPremium == undefined ||
 					midPremium == undefined
 				) {
+					logger.info("[@_updatePricesOnIndexPrice] missing values, skip", {
+						perpetualId: perpetualIds[j],
+						px,
+						markPremium,
+						midPremium,
+					});
 					continue;
 				}
 				let midPx, markPx: number;
