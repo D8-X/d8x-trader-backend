@@ -875,8 +875,13 @@ export default class EventListener extends IndexPriceInterface {
 			logger.info("[@onUpdateMarkPrice] no index defined", { perpetualId });
 			return;
 		}
-		const parts = longSym.split("-");
-		const pxIdxName = parts[0] + "-" + parts[1];
+		let pxIdxName: string;
+		if (isPred) {
+			pxIdxName = longSym;
+		} else {
+			const parts = longSym.split("-");
+			pxIdxName = parts[0] + "-" + parts[1];
+		}
 		const cachedKeys = [...this.idxPrices.keys()];
 		let currIdx = this.idxPrices.get(pxIdxName);
 		logger.info("[@onUpdateMarkPrice] lookup", {

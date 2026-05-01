@@ -130,7 +130,10 @@ export default abstract class IndexPriceInterface extends Observer {
 				const perpId: number = perpState.id;
 				// Use letter-case as it comes from the exchange info. Symbols should be
 				// in uppercase by default.
-				const pxIdxName = perpState.baseCurrency + "-" + perpState.quoteCurrency;
+				const baseQuote = perpState.baseCurrency + "-" + perpState.quoteCurrency;
+				const longSym = baseQuote + "-" + pool.poolSymbol; // <-- needs the pool symbole
+				const isPred = this.sdkInterface!.isPredictionMarket(longSym);
+				const pxIdxName = isPred ? longSym : baseQuote;
 				const idxs = this.idxNamesToPerpetualIds.get(pxIdxName);
 				if (idxs == undefined) {
 					const idx: number[] = [perpState.id];
@@ -141,9 +144,6 @@ export default abstract class IndexPriceInterface extends Observer {
 				const px = perpState.indexPrice; // price, even for pred markets (prob + 1)
 
 				indices.push(pxIdxName);
-				const isPred = this.sdkInterface!.isPredictionMarket(
-					pxIdxName + "-" + pool.poolSymbol,
-				);
 				if (isPred) {
 					// save prob and additive premia
 					indices[indices.length - 1] = "sport:" + indices[indices.length - 1];
