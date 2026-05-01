@@ -11,6 +11,11 @@ interface RpcErrorShape {
 	};
 }
 
+export function isNoHistoricalStateError(error: unknown): boolean {
+	const msg = formatErrorMessage(error);
+	return msg.includes("historical state") && msg.includes("is not available");
+}
+
 export function isRateLimitError(error: unknown): boolean {
 	const msg = formatErrorMessage(error);
 	if (
@@ -18,8 +23,7 @@ export function isRateLimitError(error: unknown): boolean {
 		msg.includes("request limit") ||
 		msg.includes("-32016") ||
 		msg.includes("-32007") ||
-		msg.includes("429") ||
-		msg.includes("could not coalesce error")
+		msg.includes("429")
 	) {
 		return true;
 	}
