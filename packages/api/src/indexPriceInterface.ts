@@ -226,6 +226,44 @@ export default abstract class IndexPriceInterface extends Observer {
 	}
 
 	/**
+	 * Index/mark/mid from cached values. undefined if any are missing.
+	 */
+	protected getCachedPrices(
+		perpetualId: number,
+		idxName?: string,
+	): { indexPrice: number; markPrice: number; midPrice: number } | undefined {
+		const fullSym = idxName ?? this.sdkInterface?.getSymbolFromPerpId(perpetualId);
+		if (fullSym === undefined) return undefined;
+		const parts = fullSym.split("-");
+		const pxIdxName = parts[0] + "-" + parts[1];
+		const isPred = this.isPredictionMkt.get(perpetualId);
+		const markPremium = this.mrkPremium.get(perpetualId);
+		const midPremium = this.midPremium.get(perpetualId);
+		let px = this.idxPrices.get(pxIdxName);
+		if (
+			isPred === undefined ||
+			px === undefined ||
+			midPremium === undefined ||
+			(!isPred && markPremium === undefined)
+		) {
+			return undefined;
+		}
+		if (isPred) {
+			px = probToPrice(px);
+			return {
+				indexPrice: px,
+				markPrice: px,
+				midPrice: Math.min(Math.max(1, px + midPremium), 2),
+			};
+		}
+		return {
+			indexPrice: px,
+			markPrice: px * (1 + markPremium!),
+			midPrice: px * (1 + midPremium),
+		};
+	}
+
+	/**
 	 * Upon receipt of new index prices, the index prices are factored into
 	 * mid-price and mark-price and the 3 prices are sent to ws-subscribers
 	 * @param indices index names, such as BTC-USDC
@@ -238,42 +276,15 @@ export default abstract class IndexPriceInterface extends Observer {
 			if (perpetualIds == undefined) {
 				continue;
 			}
-			let px = this.idxPrices.get(indices[k]);
 			for (let j = 0; j < perpetualIds.length; j++) {
-				const isPred = this.isPredictionMkt.get(perpetualIds[j]);
-				const markPremium = this.mrkPremium.get(perpetualIds[j]);
-				const midPremium = this.midPremium.get(perpetualIds[j]);
-				if (isPred === undefined) {
-					logger.error(
-						"perpetualId missing from isPredictionMkt. Restarting to refresh mapping",
-						{
-							perpetualId: perpetualIds[j],
-						},
-					);
-					process.exit(1);
-				}
-				if (
-					px == undefined ||
-					markPremium == undefined ||
-					midPremium == undefined
-				) {
-					continue;
-				}
-				let midPx, markPx: number;
-				if (isPred) {
-					// for pred markets, px and emaPrices are probabilities (set by candles)
-					px = probToPrice(px);
-					// per contract: mid = index + additive premium (clamped),
-					// mark = index (no premium)
-					midPx = Math.min(Math.max(1, px + midPremium), 2);
-					markPx = px;
-				} else {
-					// premia are relative
-					midPx = px * (1 + midPremium);
-					markPx = px * (1 + markPremium);
-				}
-				// call update to inform websocket
-				this.updateMarkPrice(perpetualIds[j], midPx, markPx!, px!);
+				const prices = this.getCachedPrices(perpetualIds[j], indices[k]);
+				if (prices === undefined) continue;
+				this.updateMarkPrice(
+					perpetualIds[j],
+					prices.midPrice,
+					prices.markPrice,
+					prices.indexPrice,
+				);
 			}
 		}
 	}

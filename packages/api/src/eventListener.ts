@@ -6,7 +6,6 @@ import {
 	MASK_MARKET_ORDER,
 	NodeSDKConfig,
 	PerpetualState,
-	probToPrice,
 	SmartContractOrder,
 	TraderInterface,
 } from "@d8-x/d8x-node-sdk";
@@ -521,29 +520,52 @@ export default class EventListener extends IndexPriceInterface {
 
 		const subscribers: Map<string, WebSocket.WebSocket[]> | undefined =
 			this.subscriptions.get(perpetualId);
+		const totalWs = subscribers
+			? [...subscribers.values()].reduce((n, arr) => n + arr.length, 0)
+			: 0;
+		logger.info("sendToSubscribers", {
+			perpetualId,
+			traderAddr: traderAddr ?? "broadcast",
+			subscriberMapSize: subscribers?.size ?? 0,
+			totalWs,
+		});
 		if (subscribers == undefined) {
-			// logger.info(`no subscribers for perpetual ${perpetualId}`);
+			logger.info("sendToSubscribers: no subscribers for perpetual", {
+				perpetualId,
+				traderAddr: traderAddr ?? "broadcast",
+			});
 			return;
 		}
 		if (traderAddr != undefined) {
 			const traderWs: WebSocket[] | undefined = subscribers.get(traderAddr);
 			if (traderWs == undefined) {
-				logger.info(
-					`no subscriber to trader ${traderAddr} in perpetual ${perpetualId}`,
-				);
+				logger.info("sendToSubscribers: no subscriber for trader in perpetual", {
+					perpetualId,
+					traderAddr,
+					knownTraders: [...subscribers.keys()],
+				});
 				return;
 			}
-			// send to all subscribers of this perpetualId and traderAddress
+			logger.info("sendToSubscribers: per-trader send", {
+				perpetualId,
+				traderAddr,
+				wsCount: traderWs.length,
+			});
 			for (let k = 0; k < traderWs.length; k++) {
 				traderWs[k].send(message);
 			}
 		} else {
-			// broadcast
+			let sent = 0;
 			for (const [_trader, wsArr] of subscribers) {
 				for (let k = 0; k < wsArr.length; k++) {
 					wsArr[k].send(message);
+					sent++;
 				}
 			}
+			logger.info("sendToSubscribers: broadcast send", {
+				perpetualId,
+				sent,
+			});
 		}
 	}
 
@@ -844,68 +866,47 @@ export default class EventListener extends IndexPriceInterface {
 
 		const midPrem = ABK64x64ToFloat(fMidPricePremium);
 		const mrkPrem = ABK64x64ToFloat(fMarkPricePremium);
+		const indexPrice = ABK64x64ToFloat(fMarkIndexPrice);
 		this.midPremium.set(perpetualId, midPrem);
 		this.mrkPremium.set(perpetualId, mrkPrem);
 
-		let pxIdxName = this.sdkInterface!.getSymbolFromPerpId(perpetualId);
-		if (pxIdxName == undefined) {
-			logger.info("onUpdateMarkPrice: no index defined for perpetual", perpetualId);
-			return;
-		}
-		const parts = pxIdxName.split("-");
-		pxIdxName = parts[0] + "-" + parts[1];
-		// ensure index price availability
-		let currIdx = this.idxPrices.get(pxIdxName);
-		if (currIdx == undefined) {
-			logger.info("onUpdateMarkPrice: index name=", pxIdxName, "currIdx undefined");
-			return;
-		}
-		let newMarkPrice, newMidPrice: number;
+		let newIndexPrice: number;
+		let newMarkPrice: number;
+		let newMidPrice: number;
 		if (isPred) {
-			// for pred markets, currIdx == spot probability
-			// --> convert all to price to send over WS and update xchg info
-			// per contract: mid = index + _fCurrentPremiumRate
-			// mark = index
-			logger.info("index name=", pxIdxName, "currIdx=", currIdx);
-			currIdx = probToPrice(currIdx);
-			newMidPrice = Math.min(Math.max(1, currIdx + midPrem), 2); //clamp
-			newMarkPrice = currIdx;
+			newIndexPrice = indexPrice;
+			newMarkPrice = indexPrice;
+			newMidPrice = Math.min(Math.max(1, indexPrice + midPrem), 2);
 		} else {
-			// we don't set the index price for regular markets as this
-			// would be outdated
-			newMarkPrice = currIdx * (1 + mrkPrem);
-			newMidPrice = currIdx * (1 + midPrem);
+			newIndexPrice = indexPrice;
+			newMarkPrice = indexPrice * (1 + mrkPrem);
+			newMidPrice = indexPrice * (1 + midPrem);
 		}
-		logger.info("eventListener: onUpdateMarkPrice");
 
-		// notify websocket listeners (using prices based on most recent websocket price)
-
-		logger.info(
-			"onUpdateMarkPrice: ",
-			perpetualId,
-			"miPremium",
-			midPrem,
-			"markPrem",
-			mrkPrem,
-			"mid=",
-			newMidPrice,
-			"mark=",
-			newMarkPrice,
-			"idx=",
-			currIdx,
-		);
-		this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, currIdx);
-
-		// update data in sdkInterface's exchangeInfo
-		const fundingRate = this.fundingRate.get(perpetualId) || 0;
-
-		const oi = this.redisOITimeSeries.get(perpetualId);
 		const symbol = this.symbolFromPerpetualId(perpetualId);
+		if (symbol !== undefined) {
+			const parts = symbol.split("-");
+			const pxIdxName = parts[0] + "-" + parts[1];
+			this.idxPrices.set(pxIdxName, isPred ? indexPrice - 1 : indexPrice);
+		}
+
+		logger.info("onUpdateMarkPrice", {
+			perpetualId,
+			midPrem,
+			mrkPrem,
+			newIndexPrice,
+			newMarkPrice,
+			newMidPrice,
+		});
+		this.updateMarkPrice(perpetualId, newMidPrice, newMarkPrice, newIndexPrice);
+
+		const fundingRate = this.fundingRate.get(perpetualId) || 0;
+		const oi = this.redisOITimeSeries.get(perpetualId);
 
 		if (this.sdkInterface != undefined && symbol != undefined) {
 			this.sdkInterface.updateExchangeInfoNumbersOfPerpetual(
 				symbol,
-				[newMidPrice, newMarkPrice, currIdx, oi, fundingRate * 1e4],
+				[newMidPrice, newMarkPrice, newIndexPrice, oi, fundingRate * 1e4],
 				[
 					"midPrice",
 					"markPrice",
@@ -1171,13 +1172,12 @@ export default class EventListener extends IndexPriceInterface {
 		state: "normal" | "emergency" | "settled",
 	) {
 		this.logger.info("perpetual state changed", { perpetualId, state });
-		const symbol = this.symbolFromPerpetualId(perpetualId);
 		const obj: PerpetualStateChange = {
 			perpetualId,
-			symbol,
+			symbol: this.symbolFromPerpetualId(perpetualId),
 			state,
 		};
-		const prices = this.lastCachedPrices(perpetualId);
+		const prices = this.getCachedPrices(perpetualId);
 		if (prices !== undefined) {
 			obj.indexPrice = prices.indexPrice;
 			obj.markPrice = prices.markPrice;
@@ -1190,38 +1190,5 @@ export default class EventListener extends IndexPriceInterface {
 			wsMsg,
 		);
 		this.sendToSubscribers(perpetualId, jsonMsg);
-	}
-
-	/**
-	 * Read the latest cached index/mark/mid for a perpl from the
-	 * IndexPriceInterface state. Returns undefined if any required component
-	 * is missing
-	 */
-	private lastCachedPrices(
-		perpetualId: number,
-	): { indexPrice: number; markPrice: number; midPrice: number } | undefined {
-		const fullSym = this.sdkInterface?.getSymbolFromPerpId(perpetualId);
-		if (fullSym === undefined) return undefined;
-		const parts = fullSym.split("-");
-		const pxIdxName = parts[0] + "-" + parts[1];
-		const currIdx = this.idxPrices.get(pxIdxName);
-		const midPrem = this.midPremium.get(perpetualId);
-		const mrkPrem = this.mrkPremium.get(perpetualId);
-		if (currIdx === undefined || midPrem === undefined) return undefined;
-		const isPred = this.isPredictionMkt.get(perpetualId) ?? false;
-		if (isPred) {
-			const idxPx = probToPrice(currIdx);
-			return {
-				indexPrice: idxPx,
-				markPrice: idxPx,
-				midPrice: Math.min(Math.max(1, idxPx + midPrem), 2),
-			};
-		}
-		if (mrkPrem === undefined) return undefined;
-		return {
-			indexPrice: currIdx,
-			markPrice: currIdx * (1 + mrkPrem),
-			midPrice: currIdx * (1 + midPrem),
-		};
 	}
 }
