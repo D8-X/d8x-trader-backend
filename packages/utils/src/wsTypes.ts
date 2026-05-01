@@ -107,6 +107,7 @@ export interface MarginAccount {
 
 /**
  * Emitted when a perpetual transitions to a non-trading lifecycle state.
+ * indexPrice / markPrice / midPrice are populated when the cached prices are available
  */
 export interface PerpetualStateChange {
 	perpetualId: number;
