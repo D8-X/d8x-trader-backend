@@ -6,6 +6,7 @@ import {
 	MASK_MARKET_ORDER,
 	NodeSDKConfig,
 	PerpetualState,
+	priceToProb,
 	SmartContractOrder,
 	TraderInterface,
 } from "@d8-x/d8x-node-sdk";
@@ -523,7 +524,7 @@ export default class EventListener extends IndexPriceInterface {
 		const totalWs = subscribers
 			? [...subscribers.values()].reduce((n, arr) => n + arr.length, 0)
 			: 0;
-		logger.info("sendToSubscribers", {
+		logger.debug("sendToSubscribers", {
 			perpetualId,
 			traderAddr: traderAddr ?? "broadcast",
 			subscriberMapSize: subscribers?.size ?? 0,
@@ -870,25 +871,20 @@ export default class EventListener extends IndexPriceInterface {
 		this.midPremium.set(perpetualId, midPrem);
 		this.mrkPremium.set(perpetualId, mrkPrem);
 
-		let newIndexPrice: number;
-		let newMarkPrice: number;
-		let newMidPrice: number;
-		if (isPred) {
-			newIndexPrice = indexPrice;
-			newMarkPrice = indexPrice;
-			newMidPrice = Math.min(Math.max(1, indexPrice + midPrem), 2);
-		} else {
-			newIndexPrice = indexPrice;
-			newMarkPrice = indexPrice * (1 + mrkPrem);
-			newMidPrice = indexPrice * (1 + midPrem);
-		}
-
+		const idxRaw = isPred ? priceToProb(indexPrice) : indexPrice;
+		this.setCachedIndex(perpetualId, idxRaw);
 		const symbol = this.symbolFromPerpetualId(perpetualId);
-		if (symbol !== undefined) {
-			const parts = symbol.split("-");
-			const pxIdxName = parts[0] + "-" + parts[1];
-			this.idxPrices.set(pxIdxName, isPred ? indexPrice - 1 : indexPrice);
+
+		const prices = this.computePrices(perpetualId, idxRaw);
+		if (prices === undefined) {
+			logger.warn("onUpdateMarkPrice: computePrices undefined", { perpetualId });
+			return;
 		}
+		const {
+			indexPrice: newIndexPrice,
+			markPrice: newMarkPrice,
+			midPrice: newMidPrice,
+		} = prices;
 
 		logger.info("onUpdateMarkPrice", {
 			perpetualId,

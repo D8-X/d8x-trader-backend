@@ -1,4 +1,9 @@
-import { ExchangeInfo, PerpetualState, probToPrice } from "@d8-x/d8x-node-sdk";
+import {
+	ExchangeInfo,
+	PerpetualState,
+	priceToProb,
+	probToPrice,
+} from "@d8-x/d8x-node-sdk";
 import type { RedisClientType } from "redis";
 import { constructRedis, extractErrorMsg } from "utils";
 import Observer from "./observer.js";
@@ -137,7 +142,7 @@ export default abstract class IndexPriceInterface extends Observer {
 					// save prob and additive premia
 					indices[indices.length - 1] = "sport:" + indices[indices.length - 1];
 					indices.push("sport:" + pxIdxName + "|mark");
-					this.idxPrices.set(pxIdxName, px - 1);
+					this.idxPrices.set(pxIdxName, priceToProb(px));
 					this.mrkPremium.set(perpId, perpState.markPrice - px);
 					this.midPremium.set(perpId, perpState.midPrice - px);
 				} else {
@@ -226,30 +231,25 @@ export default abstract class IndexPriceInterface extends Observer {
 	}
 
 	/**
-	 * Index/mark/mid from cached values. undefined if any are missing.
+	 * derive index/mark/mid from a raw idx value
+	 * Returns undefined if the perp's metadata isn't ready.
 	 */
-	protected getCachedPrices(
+	protected computePrices(
 		perpetualId: number,
-		idxName?: string,
+		idxRaw: number,
 	): { indexPrice: number; markPrice: number; midPrice: number } | undefined {
-		const fullSym = idxName ?? this.sdkInterface?.getSymbolFromPerpId(perpetualId);
-		if (fullSym === undefined) return undefined;
-		const parts = fullSym.split("-");
-		const pxIdxName = parts[0] + "-" + parts[1];
 		const isPred = this.isPredictionMkt.get(perpetualId);
 		const markPremium = this.mrkPremium.get(perpetualId);
 		const midPremium = this.midPremium.get(perpetualId);
-		let px = this.idxPrices.get(pxIdxName);
 		if (
 			isPred === undefined ||
-			px === undefined ||
 			midPremium === undefined ||
 			(!isPred && markPremium === undefined)
 		) {
 			return undefined;
 		}
 		if (isPred) {
-			px = probToPrice(px);
+			const px = probToPrice(idxRaw);
 			return {
 				indexPrice: px,
 				markPrice: px,
@@ -257,10 +257,37 @@ export default abstract class IndexPriceInterface extends Observer {
 			};
 		}
 		return {
-			indexPrice: px,
-			markPrice: px * (1 + markPremium!),
-			midPrice: px * (1 + midPremium),
+			indexPrice: idxRaw,
+			markPrice: idxRaw * (1 + markPremium!),
+			midPrice: idxRaw * (1 + midPremium),
 		};
+	}
+
+	/**
+	 * Read the latest cached idx for a perpetual and compute prices.
+	 * for pred markets idxPrices stores the probability.
+	 */
+	protected getCachedPrices(
+		perpetualId: number,
+	): { indexPrice: number; markPrice: number; midPrice: number } | undefined {
+		const fullSym = this.sdkInterface?.getSymbolFromPerpId(perpetualId);
+		if (fullSym === undefined) return undefined;
+		const parts = fullSym.split("-");
+		const pxIdxName = parts[0] + "-" + parts[1];
+		const idxRaw = this.idxPrices.get(pxIdxName);
+		if (idxRaw === undefined) return undefined;
+		return this.computePrices(perpetualId, idxRaw);
+	}
+
+	/**
+	 * Write the latest oracle value into idxPrices.
+	 */
+	protected setCachedIndex(perpetualId: number, idxRaw: number): void {
+		const fullSym = this.sdkInterface?.getSymbolFromPerpId(perpetualId);
+		if (fullSym === undefined) return;
+		const parts = fullSym.split("-");
+		const pxIdxName = parts[0] + "-" + parts[1];
+		this.idxPrices.set(pxIdxName, idxRaw);
 	}
 
 	/**
@@ -277,8 +304,14 @@ export default abstract class IndexPriceInterface extends Observer {
 				continue;
 			}
 			for (let j = 0; j < perpetualIds.length; j++) {
-				const prices = this.getCachedPrices(perpetualIds[j], indices[k]);
-				if (prices === undefined) continue;
+				const prices = this.getCachedPrices(perpetualIds[j]);
+				if (prices === undefined) {
+					logger.debug("_updatePricesOnIndexPrice: cached prices missing", {
+						perpetualId: perpetualIds[j],
+						idx: indices[k],
+					});
+					continue;
+				}
 				this.updateMarkPrice(
 					perpetualIds[j],
 					prices.midPrice,
