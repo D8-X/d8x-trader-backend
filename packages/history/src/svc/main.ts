@@ -2,7 +2,11 @@ import { EventListener } from "../contracts/listeners.js";
 import * as dotenv from "dotenv";
 import { chooseRandomRPC, executeWithTimeout, loadConfigRPC } from "utils";
 import { logger } from "./logger.js";
-import { isRateLimitError, formatErrorMessage } from "../utils/errors.js";
+import {
+	isRateLimitError,
+	isNoHistoricalStateError,
+	formatErrorMessage,
+} from "../utils/errors.js";
 import { JsonRpcProvider, Network, WebSocketProvider, ethers } from "ethers";
 import { ListeningMode } from "../contracts/types.js";
 import { PrismaClient } from "@prisma/client";
@@ -359,25 +363,27 @@ export const main = async () => {
 	api.start(httpRpcUrl, staticInfo.sdkState);
 };
 
-//getCloseDeploymentBlock finds a block that is a few blocks before the proxy contract
-//was deployed.
-async function getCloseDeploymentBlock(
+async function getCodeAt(
 	contractAddress: string,
+	blockNumber: number,
 	provider: ethers.Provider,
-): Promise<{ blockNumber: number; timestamp: number }> {
-	let blockNumber = await provider.getBlockNumber();
-	const delta = 1000;
-	blockNumber = blockNumber - delta;
-	let lastAvailBlock = blockNumber;
-	let lastNABlock = 0;
-	let code: string;
+): Promise<string> {
 	let consecutiveErrors = 0;
-	while (lastAvailBlock - lastNABlock > 10_000) {
+	for (;;) {
 		try {
-			code = await provider.getCode(contractAddress, blockNumber);
-			consecutiveErrors = 0;
+			return await provider.getCode(contractAddress, blockNumber);
 		} catch (err) {
+			if (isNoHistoricalStateError(err)) {
+				throw new Error(
+					`RPC node is not an archive node (no historical state at block ${blockNumber}). Use an archive-capable RPC endpoint.`,
+				);
+			}
 			consecutiveErrors++;
+			if (consecutiveErrors > 10) {
+				throw new Error(
+					`getCodeAt: giving up after ${consecutiveErrors} errors at block ${blockNumber}: ${formatErrorMessage(err)}`,
+				);
+			}
 			const wait = isRateLimitError(err)
 				? Math.min(Math.pow(2, consecutiveErrors) * 2, 120)
 				: Math.min(consecutiveErrors * 10, 120);
@@ -386,23 +392,51 @@ async function getCloseDeploymentBlock(
 				metrics.lastRateLimitAt = new Date().toISOString();
 			}
 			logger.warn(
-				`getCloseDeploymentBlock: ${isRateLimitError(err) ? "rate limited" : "error"}, waiting ${wait}s (attempt ${consecutiveErrors})`,
-				{ error: formatErrorMessage(err) },
+				`getCodeAt: ${isRateLimitError(err) ? "rate limited" : "error"}, waiting ${wait}s`,
+				{
+					blockNumber,
+					attempt: consecutiveErrors,
+					error: formatErrorMessage(err),
+				},
 			);
 			await sleepForSec(wait);
-			continue;
 		}
-		if (code === "0x") {
-			lastNABlock = blockNumber;
-		} else {
-			lastAvailBlock = blockNumber;
-		}
-		blockNumber = lastNABlock + Math.floor((lastAvailBlock - lastNABlock) / 2);
 	}
-	const block = await provider.getBlock(lastNABlock);
+}
 
-	return {
-		blockNumber: lastNABlock,
-		timestamp: block!.timestamp,
-	};
+// Walk backwards from the current block in exponentially growing steps until
+// getCode returns "0x" (contract not yet deployed), then binary-search the
+// exact boundary. Throws immediately if the node lacks archive state.
+async function getCloseDeploymentBlock(
+	contractAddress: string,
+	provider: ethers.Provider,
+): Promise<{ blockNumber: number; timestamp: number }> {
+	const currentBlock = await provider.getBlockNumber();
+
+	let upper = currentBlock - 1000;
+	let step = 10_000;
+	let lower = upper - step;
+
+	// Walk back until we find a block where the contract doesn't exist yet.
+	while (lower > 0) {
+		const code = await getCodeAt(contractAddress, lower, provider);
+		if (code === "0x") break;
+		upper = lower;
+		step = Math.min(step * 2, 2_000_000);
+		lower = Math.max(0, upper - step);
+	}
+
+	// Binary search the deployment boundary between lower ("0x") and upper (bytecode).
+	while (upper - lower > 1) {
+		const mid = lower + Math.floor((upper - lower) / 2);
+		const code = await getCodeAt(contractAddress, mid, provider);
+		if (code === "0x") {
+			lower = mid;
+		} else {
+			upper = mid;
+		}
+	}
+
+	const block = await provider.getBlock(lower);
+	return { blockNumber: lower, timestamp: block!.timestamp };
 }
