@@ -72,18 +72,29 @@ export default class SDKInterface extends Observable {
 
 	private async refreshProxyInstance(): Promise<boolean> {
 		const now = Math.floor(Date.now() / 1000);
-		if (now - this.lastInitTs < 5 * 60) {
+		const ageSec = now - this.lastInitTs;
+		if (ageSec < 5 * 60) {
+			logger.info("[@refreshProxyInstance] skip (cooldown)", {
+				ageSec,
+				cooldownSec: 5 * 60,
+			});
 			return false;
 		}
 		if (this.refreshProxyInflight) {
+			logger.info("[@refreshProxyInstance] reuse inflight");
 			return this.refreshProxyInflight;
 		}
+		logger.info("[@refreshProxyInstance] start", { ageSec });
+		const t0 = Date.now();
 		this.refreshProxyInflight = (async () => {
 			try {
 				await this.apiInterface!.createProxyInstance(
 					new TrackedJsonRpcProvider(this.sdkConfig!.nodeURL),
 				);
 				this.lastInitTs = Math.floor(Date.now() / 1000);
+				logger.info("[@refreshProxyInstance] done", {
+					elapsedMs: Date.now() - t0,
+				});
 				return true;
 			} finally {
 				this.refreshProxyInflight = null;
@@ -94,8 +105,11 @@ export default class SDKInterface extends Observable {
 
 	private async cacheExchangeInfo(): Promise<string> {
 		if (this.cacheExchangeInfoInflight) {
+			logger.info("[@cacheExchangeInfo] reuse inflight");
 			return this.cacheExchangeInfoInflight;
 		}
+		logger.info("[@cacheExchangeInfo] start");
+		const tStart = Date.now();
 		this.cacheExchangeInfoInflight = (async () => {
 			try {
 				const tsQuery = Date.now();
@@ -107,12 +121,13 @@ export default class SDKInterface extends Observable {
 					});
 				} catch (err) {
 					logger.error(
-						"cacheExchangeInfo: SDK exchangeInfo failed, keeping previous content",
+						"[@cacheExchangeInfo] SDK exchangeInfo failed, keeping previous content",
 						{ error: extractErrorMsg(err) },
 					);
 					const prev = await this.redisClient.hGet("exchangeInfo", "content");
 					return prev ?? "";
 				}
+				let totalPerps = 0;
 				for (let j = 0; j < xchInfo.pools.length; j++) {
 					for (let k = 0; k < xchInfo.pools[j].perpetuals.length; k++) {
 						const perp = xchInfo.pools[j].perpetuals[k] as PerpetualState & {
@@ -120,6 +135,7 @@ export default class SDKInterface extends Observable {
 						};
 						const oi = await RedisOI.getMax24h(perp.id, this.redisClient);
 						perp.openInterestBC24h = oi;
+						totalPerps++;
 					}
 				}
 				const info = JSON.stringify(xchInfo);
@@ -129,6 +145,12 @@ export default class SDKInterface extends Observable {
 					"content",
 					info,
 				]);
+				logger.info("[@cacheExchangeInfo] done, notifying observers", {
+					elapsedMs: Date.now() - tStart,
+					pools: xchInfo.pools.length,
+					totalPerps,
+					perpIds: xchInfo.pools.flatMap((p) => p.perpetuals.map((x) => x.id)),
+				});
 				this.notifyObservers("exchangeInfo");
 				return info;
 			} finally {
