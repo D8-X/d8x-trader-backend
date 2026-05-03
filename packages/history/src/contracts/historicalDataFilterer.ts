@@ -325,7 +325,7 @@ export class HistoricalDataFilterer {
 		let totalEventsFound = 0;
 		let lastWaitSeconds = 2;
 		const maxWaitSeconds = 32;
-		const blockTimestamp = new Map<Number, number>();
+		const blockTimestamp = new Map<number, number>();
 		let count = 0;
 		for (let i = Number(fromBlock); i < endBlock; ) {
 			const _startBlock = i;
@@ -405,7 +405,7 @@ export class HistoricalDataFilterer {
 		topicHashes: string[],
 		events: ethers.EventLog[],
 		c: Contract,
-		blockTimestamp: Map<Number, number>,
+		blockTimestamp: Map<number, number>,
 		cb: (
 			decodedEvent: Record<string, any>,
 			event: ethers.EventLog,
