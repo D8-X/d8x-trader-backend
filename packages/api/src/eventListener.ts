@@ -471,7 +471,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * initialized
 	 * @returns
 	 */
-	protected async _update(msg: String, firstTimeUpdate: boolean = false) {
+	protected async _update(msg: string, firstTimeUpdate: boolean = false) {
 		// we receive a message from the observable sdk on update exchange info;
 		// we update price info and inform subscribers. Whenever this is a first
 		// time update - allow it to pass through to initialize the funding rate

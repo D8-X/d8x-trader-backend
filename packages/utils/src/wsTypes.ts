@@ -16,7 +16,7 @@ export interface SubscriptionInterface {
  */
 export interface WSMsg {
 	name: string;
-	obj: Object;
+	obj: object;
 }
 
 /**

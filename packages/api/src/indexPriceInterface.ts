@@ -90,7 +90,7 @@ export default abstract class IndexPriceInterface extends Observer {
 	 * websocket client. Must call super._update(msg)
 	 * @param msg from observable
 	 */
-	protected abstract _update(msg: String): void;
+	protected abstract _update(msg: string): void;
 
 	/**
 	 * Handles updates from sdk interface
@@ -98,7 +98,7 @@ export default abstract class IndexPriceInterface extends Observer {
 	 * websocket client
 	 * @param msg from observable
 	 */
-	public async update(msg: String) {
+	public async update(msg: string) {
 		logger.info("[@update] sdk observer notified", { msg });
 		this._update(msg);
 	}
