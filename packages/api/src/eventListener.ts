@@ -247,9 +247,8 @@ export default class EventListener extends IndexPriceInterface {
 			try {
 				this.addOrderBookEventHandlers(symbol);
 			} catch (err) {
-				delete this.orderBookContracts[symbol];
 				this.logger.warn(
-					"dropping symbol from orderBookContracts during RPC reset",
+					"addOrderBookEventHandlers failed during RPC reset, skipping symbol",
 					{
 						symbol,
 						error: err instanceof Error ? err.message : String(err),
