@@ -244,7 +244,17 @@ export default class EventListener extends IndexPriceInterface {
 
 		this.addProxyEventHandlers();
 		for (const symbol of Object.keys(this.orderBookContracts)) {
-			this.addOrderBookEventHandlers(symbol);
+			try {
+				this.addOrderBookEventHandlers(symbol);
+			} catch (err) {
+				this.logger.warn(
+					"addOrderBookEventHandlers failed during RPC reset, skipping symbol",
+					{
+						symbol,
+						error: err instanceof Error ? err.message : String(err),
+					},
+				);
+			}
 		}
 		this.lastBlockChainEventTs = Date.now();
 		this.resetEventFrequencies(this.mktOrderFrequency);
