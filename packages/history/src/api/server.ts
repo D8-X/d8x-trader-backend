@@ -583,11 +583,15 @@ export class HistoryRestAPI {
 			}
 			type TradeEnh = Trade & {
 				perpetual_long_id: string;
+				deposit_cc: number;
 			};
 			const data: TradeEnh[] = await this.opts.prisma.$queryRaw`
-				SELECT * 
-				FROM trades_view 
-				WHERE trader_addr = ${user_wallet}
+				SELECT tv.*, tf.amount_cc as deposit_cc
+				FROM trades_view tv
+				LEFT JOIN token_flow tf
+				ON tv.tx_hash = tf.tx_hash 
+				AND tv.trader_addr=tf.trader_addr
+				WHERE tv.trader_addr = ${user_wallet}
 				ORDER BY trade_timestamp DESC
 			`;
 
@@ -605,6 +609,7 @@ export class HistoryRestAPI {
 						price: ABK64x64ToFloat(BigInt(t.price.toFixed())),
 						quantity: ABK64x64ToFloat(BigInt(t.quantity.toFixed())),
 						leverage: t.leverage == null ? 0 : t.leverage / 100, //tdr
+						deposit_cc: ABK64x64ToFloat(BigInt(t.deposit_cc.toFixed())),
 						newPosBc: ABK64x64ToFloat(BigInt(t.new_pos_bc!.toFixed())),
 						fee: ABK64x64ToFloat(BigInt(t.fee.toFixed())),
 						realizedPnl: ABK64x64ToFloat(BigInt(t.realized_profit.toFixed())),
