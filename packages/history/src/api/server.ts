@@ -583,7 +583,7 @@ export class HistoryRestAPI {
 			}
 			type TradeEnh = Trade & {
 				perpetual_long_id: string;
-				deposit_cc: number;
+				deposit_cc: Prisma.Decimal | null;
 			};
 			const data: TradeEnh[] = await this.opts.prisma.$queryRaw`
 				SELECT tv.*, tf.amount_cc as deposit_cc
@@ -609,7 +609,10 @@ export class HistoryRestAPI {
 						price: ABK64x64ToFloat(BigInt(t.price.toFixed())),
 						quantity: ABK64x64ToFloat(BigInt(t.quantity.toFixed())),
 						leverage: t.leverage == null ? 0 : t.leverage / 100, //tdr
-						deposit_cc: ABK64x64ToFloat(BigInt(t.deposit_cc.toFixed())),
+						deposit_cc:
+							t.deposit_cc == null
+								? 0
+								: ABK64x64ToFloat(BigInt(t.deposit_cc.toFixed())),
 						newPosBc: ABK64x64ToFloat(BigInt(t.new_pos_bc!.toFixed())),
 						fee: ABK64x64ToFloat(BigInt(t.fee.toFixed())),
 						realizedPnl: ABK64x64ToFloat(BigInt(t.realized_profit.toFixed())),
