@@ -586,12 +586,20 @@ export class HistoryRestAPI {
 				deposit_cc: Prisma.Decimal | null;
 			};
 			const data: TradeEnh[] = await this.opts.prisma.$queryRaw`
-				SELECT tv.*, tf.amount_cc as deposit_cc
+				WITH tf AS (
+					SELECT trader_addr,
+						   tx_hash,
+						   sum(amount_cc) AS amount_cc
+					FROM token_flow
+					WHERE trader_addr = lower(${user_wallet})
+					GROUP BY trader_addr, tx_hash
+				)
+				SELECT tv.*, tf.amount_cc AS deposit_cc
 				FROM trades_view tv
-				LEFT JOIN token_flow tf
-				ON tv.tx_hash = tf.tx_hash 
-				AND tv.trader_addr=tf.trader_addr
-				WHERE tv.trader_addr = ${user_wallet}
+				LEFT JOIN tf
+				ON tv.tx_hash = tf.tx_hash
+				AND tv.trader_addr = tf.trader_addr
+				WHERE tv.trader_addr = lower(${user_wallet})
 				ORDER BY trade_timestamp DESC
 			`;
 
