@@ -785,6 +785,7 @@ export default class EventListener extends IndexPriceInterface {
 		trader: string,
 		amount: bigint,
 	) {
+		perpetualId = Number(perpetualId);
 		this.lastBlockChainEventTs = Date.now();
 		const symbol = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
 		const positions = <MarginAccount[]>(
