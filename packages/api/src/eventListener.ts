@@ -732,6 +732,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * @param fFundingRate
 	 */
 	private onUpdateFundingRate(perpetualId: number, fFundingRate: bigint) {
+		perpetualId = Number(perpetualId);
 		this.lastBlockChainEventTs = Date.now();
 		const rate = ABK64x64ToFloat(fFundingRate);
 		this.fundingRate.set(perpetualId, rate);
