@@ -349,7 +349,7 @@ export default class EventListener extends IndexPriceInterface {
 	}
 
 	private symbolFromPerpetualId(perpetualId: number): string {
-		const symbol = this.traderInterface.getSymbolFromPerpId(perpetualId);
+		const symbol = this.traderInterface.getSymbolFromPerpId(Number(perpetualId));
 		return symbol || "";
 	}
 
@@ -526,6 +526,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * @param traderAddr optional: only send to this trader. Otherwise broadcast
 	 */
 	private sendToSubscribers(perpetualId: number, message: string, traderAddr?: string) {
+		perpetualId = Number(perpetualId);
 		const subscribers: Map<string, WebSocket.WebSocket[]> | undefined =
 			this.subscriptions.get(perpetualId);
 		if (subscribers == undefined) {
@@ -1107,6 +1108,7 @@ export default class EventListener extends IndexPriceInterface {
 		order: SmartContractOrder,
 		digest: string,
 	): void {
+		perpetualId = Number(perpetualId);
 		this.lastBlockChainEventTs = Date.now();
 		const isMarketOrder = containsFlag(BigInt(order.flags), MASK_MARKET_ORDER);
 		if (isMarketOrder) {
@@ -1177,6 +1179,7 @@ export default class EventListener extends IndexPriceInterface {
 		digest: string,
 		reason: string,
 	) {
+		perpetualId = Number(perpetualId);
 		this.lastBlockChainEventTs = Date.now();
 		if (!this.grantEventControlPassage(digest, "onExecutionFailed")) {
 			logger.info("onExecutionFailed duplicate");
