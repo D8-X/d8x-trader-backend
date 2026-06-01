@@ -1024,6 +1024,7 @@ export default class EventListener extends IndexPriceInterface {
 		newPositionSizeBC: bigint,
 		price: bigint,
 	) {
+		perpetualId = Number(perpetualId);
 		const isMarketOrder = containsFlag(BigInt(order.flags), MASK_MARKET_ORDER);
 		if (isMarketOrder) {
 			this.mktOrderFrequency.executedCount += 1;
