@@ -1213,6 +1213,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * @param state 'normal', 'emergency', 'settled'
 	 */
 	private onPerpetualState(perpetualId: number, state: string) {
+		perpetualId = Number(perpetualId);
 		this.logger.info("perpetual state changed", { perpetualId, state });
 	}
 }
