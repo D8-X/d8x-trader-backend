@@ -19,9 +19,9 @@ const skip = !(PK && WS_URL && RPC) && "set KEY, WS_URL_TESTNET, RPC_TESTNET";
 function connect(url) {
 	return new Promise((resolve, reject) => {
 		const ws = new WebSocket(url, ORIGIN ? { origin: ORIGIN } : {});
-		const to = setTimeout(() => (ws.terminate(), reject(new Error("connect timeout"))), 20000);
+		const to = setTimeout(() => (ws.terminate(), reject(new Error("ws connect timeout"))), 20000);
 		ws.once("open", () => (clearTimeout(to), resolve(ws)));
-		ws.once("error", (e) => (clearTimeout(to), reject(e)));
+		ws.once("error", () => (clearTimeout(to), reject(new Error("ws connect error"))));
 	});
 }
 
@@ -34,7 +34,7 @@ async function waitFor(fn, timeoutMs) {
 	return false;
 }
 
-describe("WS trade events — base sepolia", { skip }, () => {
+describe("WS trade events base sepolia", { skip }, () => {
 	let symbol, trader, accTrade, failQty;
 
 	before(async () => {

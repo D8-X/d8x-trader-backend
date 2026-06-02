@@ -42,9 +42,9 @@ jobs:
         working-directory: packages/api
         continue-on-error: true
         env:
-          WS_URL_TESTNET: ${{ vars.WS_URL_TESTNET }}
+          WS_URL_TESTNET: ${{ secrets.WS_URL_TESTNET }}
           WS_TEST_ORIGIN: ${{ vars.WS_TEST_ORIGIN }}
-          GAME_MAPPER_URL: ${{ vars.GAME_MAPPER_URL }}
+          GAME_MAPPER_URL: ${{ secrets.GAME_MAPPER_URL }}
           GAME_MAPPER_API_KEY: ${{ secrets.GAME_MAPPER_API_KEY }}
         run: node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=integration-report.xml test/ws.integration.test.mjs
 

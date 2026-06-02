@@ -19,7 +19,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: yarn workspace api run test:ws:trade
         env:
-          WS_URL_TESTNET: ${{ vars.WS_URL_TESTNET }}
+          WS_URL_TESTNET: ${{ secrets.WS_URL_TESTNET }}
           RPC_TESTNET: ${{ vars.RPC_TESTNET }}
           WS_TEST_ORIGIN: ${{ vars.WS_TEST_ORIGIN }}
           KEY: ${{ secrets.KEY }}

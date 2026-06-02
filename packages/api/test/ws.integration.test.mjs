@@ -47,10 +47,10 @@ function connect(url) {
 		const ws = new WebSocket(url, ORIGIN ? { origin: ORIGIN } : {});
 		const to = setTimeout(() => {
 			ws.terminate();
-			reject(new Error(`connect timeout: ${url}`));
+			reject(new Error("ws connect timeout"));
 		}, TIMEOUT_MS);
 		ws.once("open", () => (clearTimeout(to), resolve(ws)));
-		ws.once("error", (e) => (clearTimeout(to), reject(e)));
+		ws.once("error", () => (clearTimeout(to), reject(new Error("ws connect error"))));
 	});
 }
 
@@ -78,7 +78,7 @@ if (targets.length === 0) {
 }
 
 for (const t of targets) {
-	describe(`WS subscription — ${t.net} (${t.url})`, () => {
+	describe(`WS subscription ${t.net}`, () => {
 		let symbol = t.symbol;
 
 		before(async () => {
