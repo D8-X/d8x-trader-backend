@@ -27,10 +27,28 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: yarn workspace api run build
-      - run: yarn workspace api run test:unit
-      - run: yarn workspace api run test:ws
+
+      - name: Unit tests
+        working-directory: packages/api
+        continue-on-error: true
+        run: node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=unit-report.xml test/unit/
+
+      - name: Integration tests
+        working-directory: packages/api
+        continue-on-error: true
         env:
           WS_URL_TESTNET: ${{ vars.WS_URL_TESTNET }}
           WS_TEST_ORIGIN: ${{ vars.WS_TEST_ORIGIN }}
           GAME_MAPPER_URL: ${{ vars.GAME_MAPPER_URL }}
           GAME_MAPPER_API_KEY: ${{ secrets.GAME_MAPPER_API_KEY }}
+        run: node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=integration-report.xml test/ws.integration.test.mjs
+
+      - name: Test report
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: "packages/api/*-report.xml"
+          check_name: WS test report
+          detailed_summary: true
+          include_passed: true
+          fail_on_failure: true
