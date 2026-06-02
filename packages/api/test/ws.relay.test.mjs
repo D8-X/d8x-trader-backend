@@ -2,10 +2,10 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import EventListener from "../dist/eventListener.js";
 
-const PID_NUM = 100012;
-const PID_STR = "100012";
-const SYM = "BTC-USD-USD";
-const TRADER = "0xeD7cAac542367a209126625e5E0B6272700216F5";
+const PID_NUM = 1;
+const PID_STR = "1";
+const SYM = "TEST-PERP";
+const TRADER = "0x1111111111111111111111111111111111111111";
 const order = { flags: "0", iPerpetualId: PID_STR, traderAddr: TRADER };
 
 function makeListener() {
