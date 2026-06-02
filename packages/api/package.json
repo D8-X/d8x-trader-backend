@@ -21,7 +21,8 @@
 	"scripts": {
 		"build": "rimraf ./dist && tsc",
 		"watch": "nodemon ./src/index.ts",
-		"test:ws": "node --test test/ws.integration.test.mjs test/ws.relay.test.mjs",
+		"test:unit": "node --test test/unit/",
+		"test:ws": "node --test test/ws.integration.test.mjs",
 		"test:ws:trade": "node --test test/ws.events.test.mjs"
 	},
 	"bugs": {

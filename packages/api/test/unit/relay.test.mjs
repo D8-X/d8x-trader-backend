@@ -1,6 +1,8 @@
+process.env.REDIS_URL ??= "redis://localhost:6379";
+
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import EventListener from "../dist/eventListener.js";
+import EventListener from "../../dist/eventListener.js";
 
 const PID_NUM = 1;
 const PID_STR = "1";

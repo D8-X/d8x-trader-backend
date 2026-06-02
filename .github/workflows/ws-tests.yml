@@ -27,9 +27,9 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: yarn workspace api run build
+      - run: yarn workspace api run test:unit
       - run: yarn workspace api run test:ws
         env:
           WS_URL_TESTNET: ${{ vars.WS_URL_TESTNET }}
           API_URL_TESTNET: ${{ vars.API_URL_TESTNET }}
           WS_TEST_ORIGIN: ${{ vars.WS_TEST_ORIGIN }}
-          REDIS_URL: redis://localhost:6379
