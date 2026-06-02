@@ -1,18 +1,9 @@
-// WebSocket subscription integration tests.
-//
-// Per backend, set: WS_URL_<NET> and one of
-//   SYMBOL_<NET>   explicit perp symbol, or
-//   API_URL_<NET>  rest api base to auto-pick a live market from /exchange-info.
-// Optional: WS_TEST_ORIGIN (default https://predictex.com), WS_TEST_TRADER.
-//
-// Run: node --test test/
-
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 import WebSocket from "ws";
 
 const TIMEOUT_MS = Number(process.env.WS_TEST_TIMEOUT_MS ?? 20000);
-const ORIGIN = process.env.WS_TEST_ORIGIN ?? "https://predictex.com";
+const ORIGIN = process.env.WS_TEST_ORIGIN;
 const TRADER = process.env.WS_TEST_TRADER ?? "0x0000000000000000000000000000000000000001";
 
 const targets = Object.entries(process.env)
@@ -27,10 +18,9 @@ const targets = Object.entries(process.env)
 		};
 	});
 
-// first NORMAL, open market from the backend's /exchange-info
 async function findActiveMarket(apiUrl) {
 	const res = await fetch(`${apiUrl.replace(/\/$/, "")}/exchange-info`, {
-		headers: { Origin: ORIGIN },
+		headers: ORIGIN ? { Origin: ORIGIN } : {},
 		signal: AbortSignal.timeout(TIMEOUT_MS),
 	});
 	const info = (await res.json()).data;
@@ -43,7 +33,7 @@ async function findActiveMarket(apiUrl) {
 
 function connect(url) {
 	return new Promise((resolve, reject) => {
-		const ws = new WebSocket(url, { origin: ORIGIN });
+		const ws = new WebSocket(url, ORIGIN ? { origin: ORIGIN } : {});
 		const to = setTimeout(() => {
 			ws.terminate();
 			reject(new Error(`connect timeout: ${url}`));
@@ -53,7 +43,6 @@ function connect(url) {
 	});
 }
 
-// resolve with the first parsed message matching `pred`
 function waitFor(ws, pred) {
 	return new Promise((resolve, reject) => {
 		const to = setTimeout(() => reject(new Error("timed out waiting for ws message")), TIMEOUT_MS);

@@ -1,0 +1,34 @@
+name: WS tests
+
+on:
+  pull_request:
+    types: [opened, reopened]
+    paths:
+      - "packages/api/src/eventListener.ts"
+      - "packages/api/src/D8XBrokerBackendApp.ts"
+      - "packages/api/src/indexPriceInterface.ts"
+      - "packages/api/src/sdkInterface.ts"
+      - "packages/api/test/**"
+
+jobs:
+  ws-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+      - run: yarn install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: yarn workspace utils run build
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: yarn workspace api run build
+      - run: yarn workspace api run test:ws
+        env:
+          WS_URL_TESTNET: ${{ vars.WS_URL_TESTNET }}
+          API_URL_TESTNET: ${{ vars.API_URL_TESTNET }}
+          WS_TEST_ORIGIN: ${{ vars.WS_TEST_ORIGIN }}
+          REDIS_URL: redis://localhost:6379
