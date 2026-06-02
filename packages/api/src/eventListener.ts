@@ -349,7 +349,7 @@ export default class EventListener extends IndexPriceInterface {
 	}
 
 	private symbolFromPerpetualId(perpetualId: number): string {
-		const symbol = this.traderInterface.getSymbolFromPerpId(perpetualId);
+		const symbol = this.traderInterface.getSymbolFromPerpId(Number(perpetualId));
 		return symbol || "";
 	}
 
@@ -526,6 +526,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * @param traderAddr optional: only send to this trader. Otherwise broadcast
 	 */
 	private sendToSubscribers(perpetualId: number, message: string, traderAddr?: string) {
+		perpetualId = Number(perpetualId);
 		const subscribers: Map<string, WebSocket.WebSocket[]> | undefined =
 			this.subscriptions.get(perpetualId);
 		if (subscribers == undefined) {
@@ -731,6 +732,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * @param fFundingRate
 	 */
 	private onUpdateFundingRate(perpetualId: number, fFundingRate: bigint) {
+		perpetualId = Number(perpetualId);
 		this.lastBlockChainEventTs = Date.now();
 		const rate = ABK64x64ToFloat(fFundingRate);
 		this.fundingRate.set(perpetualId, rate);
@@ -784,6 +786,7 @@ export default class EventListener extends IndexPriceInterface {
 		trader: string,
 		amount: bigint,
 	) {
+		perpetualId = Number(perpetualId);
 		this.lastBlockChainEventTs = Date.now();
 		const symbol = this.sdkInterface!.getSymbolFromPerpId(perpetualId)!;
 		const positions = <MarginAccount[]>(
@@ -1021,6 +1024,7 @@ export default class EventListener extends IndexPriceInterface {
 		newPositionSizeBC: bigint,
 		price: bigint,
 	) {
+		perpetualId = Number(perpetualId);
 		const isMarketOrder = containsFlag(BigInt(order.flags), MASK_MARKET_ORDER);
 		if (isMarketOrder) {
 			this.mktOrderFrequency.executedCount += 1;
@@ -1107,6 +1111,7 @@ export default class EventListener extends IndexPriceInterface {
 		order: SmartContractOrder,
 		digest: string,
 	): void {
+		perpetualId = Number(perpetualId);
 		this.lastBlockChainEventTs = Date.now();
 		const isMarketOrder = containsFlag(BigInt(order.flags), MASK_MARKET_ORDER);
 		if (isMarketOrder) {
@@ -1177,6 +1182,7 @@ export default class EventListener extends IndexPriceInterface {
 		digest: string,
 		reason: string,
 	) {
+		perpetualId = Number(perpetualId);
 		this.lastBlockChainEventTs = Date.now();
 		if (!this.grantEventControlPassage(digest, "onExecutionFailed")) {
 			logger.info("onExecutionFailed duplicate");
@@ -1207,6 +1213,7 @@ export default class EventListener extends IndexPriceInterface {
 	 * @param state 'normal', 'emergency', 'settled'
 	 */
 	private onPerpetualState(perpetualId: number, state: string) {
+		perpetualId = Number(perpetualId);
 		this.logger.info("perpetual state changed", { perpetualId, state });
 	}
 }
