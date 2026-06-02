@@ -14,6 +14,10 @@ on:
 jobs:
   ws-tests:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,4 +55,6 @@ jobs:
           check_name: WS test report
           detailed_summary: true
           include_passed: true
+          comment: true
+          updateComment: true
           fail_on_failure: true
