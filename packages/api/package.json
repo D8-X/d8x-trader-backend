@@ -20,7 +20,8 @@
 	},
 	"scripts": {
 		"build": "rimraf ./dist && tsc",
-		"watch": "nodemon ./src/index.ts"
+		"watch": "nodemon ./src/index.ts",
+		"test:ws": "node --test test/"
 	},
 	"bugs": {
 		"url": "https://github.com/D8-X/d8x-trader-backend/issues"
