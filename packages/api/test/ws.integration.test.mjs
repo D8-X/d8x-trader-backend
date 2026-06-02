@@ -5,29 +5,40 @@ import WebSocket from "ws";
 const TIMEOUT_MS = Number(process.env.WS_TEST_TIMEOUT_MS ?? 20000);
 const ORIGIN = process.env.WS_TEST_ORIGIN;
 const TRADER = process.env.WS_TEST_TRADER ?? "0x0000000000000000000000000000000000000001";
+const MAPPER_URL = process.env.GAME_MAPPER_URL;
+const MAPPER_KEY = process.env.GAME_MAPPER_API_KEY;
 
 const targets = Object.entries(process.env)
 	.filter(([k, v]) => k.startsWith("WS_URL_") && !!v)
 	.map(([k, v]) => {
 		const net = k.slice("WS_URL_".length);
-		return {
-			net,
-			url: v,
-			symbol: process.env[`SYMBOL_${net}`],
-			apiUrl: process.env[`API_URL_${net}`],
-		};
+		return { net, url: v, symbol: process.env[`SYMBOL_${net}`] };
 	});
 
-async function findActiveMarket(apiUrl) {
-	const res = await fetch(`${apiUrl.replace(/\/$/, "")}/exchange-info`, {
-		headers: ORIGIN ? { Origin: ORIGIN } : {},
-		signal: AbortSignal.timeout(TIMEOUT_MS),
-	});
-	const info = (await res.json()).data;
-	for (const pool of info.pools)
-		for (const p of pool.perpetuals)
-			if (p.state === "NORMAL" && !p.isMarketClosed)
-				return `${p.baseCurrency}-${p.quoteCurrency}-${pool.poolSymbol}`;
+async function findGameSymbol() {
+	if (!MAPPER_URL || !MAPPER_KEY) return undefined;
+	const rpc = (method, params) =>
+		fetch(MAPPER_URL, {
+			method: "POST",
+			headers: { "x-api-key": MAPPER_KEY, "content-type": "application/json" },
+			body: JSON.stringify({ jsonrpc: "2.0", method, params, id: 1 }),
+			signal: AbortSignal.timeout(TIMEOUT_MS),
+		})
+			.then((r) => r.json())
+			.then((j) => j.result);
+	try {
+		const today = new Date().toISOString().slice(0, 10);
+		const ymd = today.slice(2).replace(/-/g, "");
+		const status = await rpc("game_getStatus", {});
+		for (const league of Object.keys(status.leagues ?? {})) {
+			const games = await rpc("game_listGames", { league });
+			for (const g of games)
+				if (g.polymarket?.event_date === today)
+					return `${league}_${g.away_abbr}_${g.home_abbr}_${ymd}-PUSD-PUSD`;
+		}
+	} catch {
+		return undefined;
+	}
 	return undefined;
 }
 
@@ -71,7 +82,7 @@ for (const t of targets) {
 		let symbol = t.symbol;
 
 		before(async () => {
-			if (!symbol && t.apiUrl) symbol = await findActiveMarket(t.apiUrl);
+			if (!symbol) symbol = await findGameSymbol();
 		});
 
 		test("connects and greets with connect:success", async () => {
@@ -107,7 +118,7 @@ for (const t of targets) {
 		});
 
 		test("subscribe returns subscription + perpetual state", async (tc) => {
-			if (!symbol) return tc.skip(`set SYMBOL_${t.net} or API_URL_${t.net}`);
+			if (!symbol) return tc.skip(`set SYMBOL_${t.net} or GAME_MAPPER_URL/GAME_MAPPER_API_KEY`);
 			const ws = await connect(t.url);
 			try {
 				send(ws, { traderAddr: TRADER, symbol });
@@ -120,7 +131,7 @@ for (const t of targets) {
 		});
 
 		test("ping after subscribe returns pong", async (tc) => {
-			if (!symbol) return tc.skip(`set SYMBOL_${t.net} or API_URL_${t.net}`);
+			if (!symbol) return tc.skip(`set SYMBOL_${t.net} or GAME_MAPPER_URL/GAME_MAPPER_API_KEY`);
 			const ws = await connect(t.url);
 			try {
 				send(ws, { traderAddr: TRADER, symbol });
@@ -134,7 +145,7 @@ for (const t of targets) {
 		});
 
 		test("unsubscribe then resubscribe acks again", async (tc) => {
-			if (!symbol) return tc.skip(`set SYMBOL_${t.net} or API_URL_${t.net}`);
+			if (!symbol) return tc.skip(`set SYMBOL_${t.net} or GAME_MAPPER_URL/GAME_MAPPER_API_KEY`);
 			const ws = await connect(t.url);
 			try {
 				send(ws, { traderAddr: TRADER, symbol });

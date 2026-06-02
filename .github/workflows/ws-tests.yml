@@ -31,5 +31,6 @@ jobs:
       - run: yarn workspace api run test:ws
         env:
           WS_URL_TESTNET: ${{ vars.WS_URL_TESTNET }}
-          API_URL_TESTNET: ${{ vars.API_URL_TESTNET }}
           WS_TEST_ORIGIN: ${{ vars.WS_TEST_ORIGIN }}
+          GAME_MAPPER_URL: ${{ vars.GAME_MAPPER_URL }}
+          GAME_MAPPER_API_KEY: ${{ secrets.GAME_MAPPER_API_KEY }}
