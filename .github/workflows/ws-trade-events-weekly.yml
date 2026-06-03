@@ -1,0 +1,25 @@
+name: WS trade events (weekly)
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  trade-events:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+      - run: yarn install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: yarn workspace api run test:ws:trade
+        env:
+          WS_URL_TESTNET: ${{ secrets.WS_URL_TESTNET }}
+          RPC_TESTNET: ${{ vars.RPC_TESTNET }}
+          WS_TEST_ORIGIN: ${{ vars.WS_TEST_ORIGIN }}
+          KEY: ${{ secrets.KEY }}
