@@ -465,6 +465,7 @@ export default class EventListener extends IndexPriceInterface {
 			if (this.subscriptions.get(id)?.size == 0) {
 				released.push(id);
 				this.removeOrderBookEventHandlers(clientSubscriptions[k].symbol);
+				this.subscriptions.delete(id);
 			}
 		}
 		return released;
