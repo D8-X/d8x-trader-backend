@@ -212,7 +212,7 @@ export default class EventListener extends IndexPriceInterface {
 		);
 
 		// On provider error - retry after short cooldown
-		this.currentWSRpcProvider.on("error", (error: Error) => () => {
+		this.currentWSRpcProvider.on("error", (error: Error) => {
 			this.logger.error(
 				`[ERROR] resetRPCWebsocket provider error: ${error.message}`,
 			);
