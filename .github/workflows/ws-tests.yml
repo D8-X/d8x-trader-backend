@@ -1,0 +1,62 @@
+name: WS tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "packages/api/src/eventListener.ts"
+      - "packages/api/src/D8XBrokerBackendApp.ts"
+      - "packages/api/src/indexPriceInterface.ts"
+      - "packages/api/src/sdkInterface.ts"
+      - "packages/api/test/**"
+
+jobs:
+  ws-tests:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+      checks: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+      - run: yarn install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: yarn workspace utils run build
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: yarn workspace api run build
+
+      - name: Unit tests
+        working-directory: packages/api
+        continue-on-error: true
+        run: node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=unit-report.xml test/unit/
+
+      - name: Integration tests
+        working-directory: packages/api
+        continue-on-error: true
+        env:
+          WS_URL_TESTNET: ${{ secrets.WS_URL_TESTNET }}
+          WS_TEST_ORIGIN: ${{ vars.WS_TEST_ORIGIN }}
+          GAME_MAPPER_URL: ${{ secrets.GAME_MAPPER_URL }}
+          GAME_MAPPER_API_KEY: ${{ secrets.GAME_MAPPER_API_KEY }}
+        run: node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=integration-report.xml test/ws.integration.test.mjs
+
+      - name: Test report
+        if: always()
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: "packages/api/*-report.xml"
+          check_name: WS test report
+          detailed_summary: true
+          include_passed: true
+          group_suite: true
+          comment: true
+          updateComment: true
+          fail_on_failure: true
