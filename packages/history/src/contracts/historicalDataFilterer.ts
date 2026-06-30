@@ -32,6 +32,8 @@ import { getCachedBlockTs, setCachedBlockTs } from "./blockTimestampCache.js";
 
 global.Error.stackTraceLimit = Infinity;
 
+const END_BLOCK_MARGIN = 256;
+
 /**
  * HistoricalDataFilterer retrieves historical data for trades, liquidations and
  * other events from perpetual manager proxy contract
@@ -64,8 +66,18 @@ export class HistoricalDataFilterer {
 		shareTokenContracts: string[],
 		since: Array<Date>,
 		cb: P2PTransferFilteredCb,
+		until?: Date,
 	) {
 		const shareTokenAbi = await getShareTokenContractABI();
+		let untilBlock: number | undefined;
+		if (until) {
+			const untilBlocks: [number, number] = await executeWithTimeout(
+				calculateBlockFromTime(this.provider, until),
+				10_000,
+				"RPC call timeout",
+			);
+			untilBlock = untilBlocks[0] + END_BLOCK_MARGIN;
+		}
 		for (let i = 0; i < shareTokenContracts.length; i++) {
 			const currentAddress = shareTokenContracts[i];
 			this.l.info("starting p2p transfer filtering", {
@@ -98,7 +110,9 @@ export class HistoricalDataFilterer {
 						{ poolId },
 					);
 				},
-				sinceBlocks[1],
+				untilBlock !== undefined
+					? Math.min(sinceBlocks[1], untilBlock)
+					: sinceBlocks[1],
 			);
 		}
 	}
@@ -112,6 +126,7 @@ export class HistoricalDataFilterer {
 		since: Date,
 		callbacks: Record<string, EventCallback<any>>,
 		eventTimestamps?: Map<string, Date>,
+		until?: Date,
 	) {
 		const allEventNames = [
 			"Trade",
@@ -274,13 +289,23 @@ export class HistoricalDataFilterer {
 			10_000,
 			"RPC call timeout",
 		);
+
+		let endBlock = sinceBlocks[1];
+		if (until) {
+			const untilBlocks: [number, number] = await executeWithTimeout(
+				calculateBlockFromTime(this.provider, until),
+				10_000,
+				"RPC call timeout",
+			);
+			endBlock = Math.min(sinceBlocks[1], untilBlocks[0] + END_BLOCK_MARGIN);
+		}
 		await this.genericFilterer(
 			topicFilters!,
 			sinceBlocks[0],
 			topicHashes,
 			this.PerpManagerProxy,
 			cb,
-			sinceBlocks[1],
+			endBlock,
 		);
 
 		if (skipCounts.size > 0) {

@@ -205,7 +205,8 @@ export const main = async () => {
 			const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
 			return detectAndFillGaps(
 				prisma,
-				(sec: number) => runHistoricalDataFilterers(hdOpts, sec, false),
+				(sec: number, endSec?: number) =>
+					runHistoricalDataFilterers(hdOpts, sec, false, endSec),
 				sevenDaysAgoSec,
 				logger,
 			);
@@ -336,7 +337,8 @@ export const main = async () => {
 		try {
 			await detectAndFillGaps(
 				prisma,
-				(sec: number) => runHistoricalDataFilterers(hdOpts, sec, false),
+				(sec: number, endSec?: number) =>
+					runHistoricalDataFilterers(hdOpts, sec, false, endSec),
 				blk.timestamp,
 				logger,
 			);

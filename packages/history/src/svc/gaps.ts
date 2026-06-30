@@ -26,7 +26,10 @@ export interface GapConfig {
 	thresholdSeconds: number;
 }
 
-export type BackfillRunner = (startTimestampSec: number) => Promise<void>;
+export type BackfillRunner = (
+	startTimestampSec: number,
+	endTimestampSec?: number,
+) => Promise<void>;
 
 export const GAP_CONFIGS: GapConfig[] = [
 	{
@@ -76,7 +79,7 @@ export async function detectAndFillGaps(
 	startTimestampSec: number,
 	logger: Logger,
 ): Promise<void> {
-	const allGapStarts = new Set<number>();
+	const gapWindows = new Map<number, number>();
 
 	for (const config of GAP_CONFIGS) {
 		try {
@@ -87,7 +90,13 @@ export async function detectAndFillGaps(
 					latest: `${gaps[gaps.length - 1].gap_start.toISOString()} - ${gaps[gaps.length - 1].gap_end.toISOString()}`,
 				});
 				for (const gap of gaps) {
-					allGapStarts.add(Math.floor(gap.gap_start.getTime() / 1000));
+					const startSec = Math.floor(gap.gap_start.getTime() / 1000);
+					const endSec = Math.ceil(gap.gap_end.getTime() / 1000);
+					const prev = gapWindows.get(startSec);
+					gapWindows.set(
+						startSec,
+						prev === undefined ? endSec : Math.max(prev, endSec),
+					);
 				}
 			}
 		} catch (e) {
@@ -98,19 +107,21 @@ export async function detectAndFillGaps(
 		}
 	}
 
-	if (allGapStarts.size === 0) return;
+	if (gapWindows.size === 0) return;
 
 	metrics.gapDetection.lastRun = new Date().toISOString();
-	metrics.gapDetection.gapsDetected = allGapStarts.size;
-	const sorted = [...allGapStarts].sort((a, b) => b - a);
+	metrics.gapDetection.gapsDetected = gapWindows.size;
+	const sorted = [...gapWindows.keys()].sort((a, b) => b - a);
 	logger.info(`filling ${sorted.length} unique gap(s), most recent first`);
 
 	for (const gapStartSec of sorted) {
 		const sec = Math.max(gapStartSec, startTimestampSec);
+		const endSec = gapWindows.get(gapStartSec)!;
 		logger.info("triggering backfill for gap", {
 			gap_start: new Date(sec * 1000).toISOString(),
+			gap_end: new Date(endSec * 1000).toISOString(),
 		});
-		await runBackfill(sec);
+		await runBackfill(sec, endSec);
 		metrics.gapDetection.gapsFilled++;
 	}
 }
