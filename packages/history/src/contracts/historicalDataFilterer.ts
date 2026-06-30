@@ -28,6 +28,7 @@ import {
 } from "ethers";
 import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi.js";
 import { metrics } from "../svc/metrics.js";
+import { getCachedBlockTs, setCachedBlockTs } from "./blockTimestampCache.js";
 
 global.Error.stackTraceLimit = Infinity;
 
@@ -434,14 +435,19 @@ export class HistoricalDataFilterer {
 						event.topics,
 					);
 					if (blockTimestamp.get(event.blockNumber) == undefined) {
+						const cachedTs = getCachedBlockTs(event.blockNumber);
+						if (cachedTs !== undefined) {
+							blockTimestamp.set(event.blockNumber, cachedTs);
+						}
+					}
+					if (blockTimestamp.get(event.blockNumber) == undefined) {
 						getBlockCalls++;
 						let retries = 0;
 						for (;;) {
 							try {
-								blockTimestamp.set(
-									event.blockNumber,
-									(await event.getBlock()).timestamp,
-								);
+								const blockTs = (await event.getBlock()).timestamp;
+								blockTimestamp.set(event.blockNumber, blockTs);
+								setCachedBlockTs(event.blockNumber, blockTs);
 								break;
 							} catch (e) {
 								if (isRateLimitError(e) && retries < 5) {
