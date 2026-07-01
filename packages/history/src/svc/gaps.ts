@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import type { Logger } from "winston";
 import { metrics } from "./metrics.js";
+import { GapMemory } from "./gapMemory.js";
 
 export interface GapRow {
 	gap_start: Date;
@@ -26,7 +27,10 @@ export interface GapConfig {
 	thresholdSeconds: number;
 }
 
-export type BackfillRunner = (startTimestampSec: number) => Promise<void>;
+export type BackfillRunner = (
+	startTimestampSec: number,
+	endTimestampSec?: number,
+) => Promise<void>;
 
 export const GAP_CONFIGS: GapConfig[] = [
 	{
@@ -75,8 +79,12 @@ export async function detectAndFillGaps(
 	runBackfill: BackfillRunner,
 	startTimestampSec: number,
 	logger: Logger,
+	gapMemory: GapMemory,
 ): Promise<void> {
-	const allGapStarts = new Set<number>();
+	const nowSec = Math.floor(Date.now() / 1000);
+	await gapMemory.cleanup(nowSec);
+
+	const gapWindows = new Map<number, number>();
 
 	for (const config of GAP_CONFIGS) {
 		try {
@@ -87,7 +95,13 @@ export async function detectAndFillGaps(
 					latest: `${gaps[gaps.length - 1].gap_start.toISOString()} - ${gaps[gaps.length - 1].gap_end.toISOString()}`,
 				});
 				for (const gap of gaps) {
-					allGapStarts.add(Math.floor(gap.gap_start.getTime() / 1000));
+					const startSec = Math.floor(gap.gap_start.getTime() / 1000);
+					const endSec = Math.ceil(gap.gap_end.getTime() / 1000);
+					const prev = gapWindows.get(startSec);
+					gapWindows.set(
+						startSec,
+						prev === undefined ? endSec : Math.max(prev, endSec),
+					);
 				}
 			}
 		} catch (e) {
@@ -98,19 +112,31 @@ export async function detectAndFillGaps(
 		}
 	}
 
-	if (allGapStarts.size === 0) return;
+	if (gapWindows.size === 0) return;
 
 	metrics.gapDetection.lastRun = new Date().toISOString();
-	metrics.gapDetection.gapsDetected = allGapStarts.size;
-	const sorted = [...allGapStarts].sort((a, b) => b - a);
+	metrics.gapDetection.gapsDetected = gapWindows.size;
+	const sorted = [...gapWindows.keys()].sort((a, b) => b - a);
 	logger.info(`filling ${sorted.length} unique gap(s), most recent first`);
 
 	for (const gapStartSec of sorted) {
 		const sec = Math.max(gapStartSec, startTimestampSec);
+		const endSec = gapWindows.get(gapStartSec)!;
+		if (await gapMemory.hasTried(sec, endSec)) {
+			logger.info("skipping gap already attempted", {
+				gap_start: new Date(sec * 1000).toISOString(),
+				gap_end: new Date(endSec * 1000).toISOString(),
+			});
+			metrics.gapDetection.gapsSkipped++;
+			continue;
+		}
 		logger.info("triggering backfill for gap", {
 			gap_start: new Date(sec * 1000).toISOString(),
+			gap_end: new Date(endSec * 1000).toISOString(),
 		});
-		await runBackfill(sec);
+		// we record the attempt before running so a gap that crashes or persists is not rescanned every cycle
+		await gapMemory.markTried(sec, endSec, nowSec);
+		await runBackfill(sec, endSec);
 		metrics.gapDetection.gapsFilled++;
 	}
 }
