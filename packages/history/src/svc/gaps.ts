@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import type { Logger } from "winston";
 import { metrics } from "./metrics.js";
+import { GapMemory } from "./gapMemory.js";
 
 export interface GapRow {
 	gap_start: Date;
@@ -78,7 +79,11 @@ export async function detectAndFillGaps(
 	runBackfill: BackfillRunner,
 	startTimestampSec: number,
 	logger: Logger,
+	gapMemory: GapMemory,
 ): Promise<void> {
+	const nowSec = Math.floor(Date.now() / 1000);
+	await gapMemory.cleanup(nowSec);
+
 	const gapWindows = new Map<number, number>();
 
 	for (const config of GAP_CONFIGS) {
@@ -117,10 +122,20 @@ export async function detectAndFillGaps(
 	for (const gapStartSec of sorted) {
 		const sec = Math.max(gapStartSec, startTimestampSec);
 		const endSec = gapWindows.get(gapStartSec)!;
+		if (await gapMemory.hasTried(gapStartSec, endSec)) {
+			logger.info("skipping gap already attempted", {
+				gap_start: new Date(gapStartSec * 1000).toISOString(),
+				gap_end: new Date(endSec * 1000).toISOString(),
+			});
+			metrics.gapDetection.gapsSkipped++;
+			continue;
+		}
 		logger.info("triggering backfill for gap", {
 			gap_start: new Date(sec * 1000).toISOString(),
 			gap_end: new Date(endSec * 1000).toISOString(),
 		});
+		// we record the attempt before running so a gap that crashes or persists is not rescanned every cycle
+		await gapMemory.markTried(gapStartSec, endSec, nowSec);
 		await runBackfill(sec, endSec);
 		metrics.gapDetection.gapsFilled++;
 	}
