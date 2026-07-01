@@ -122,9 +122,9 @@ export async function detectAndFillGaps(
 	for (const gapStartSec of sorted) {
 		const sec = Math.max(gapStartSec, startTimestampSec);
 		const endSec = gapWindows.get(gapStartSec)!;
-		if (await gapMemory.hasTried(gapStartSec, endSec)) {
+		if (await gapMemory.hasTried(sec, endSec)) {
 			logger.info("skipping gap already attempted", {
-				gap_start: new Date(gapStartSec * 1000).toISOString(),
+				gap_start: new Date(sec * 1000).toISOString(),
 				gap_end: new Date(endSec * 1000).toISOString(),
 			});
 			metrics.gapDetection.gapsSkipped++;
@@ -135,7 +135,7 @@ export async function detectAndFillGaps(
 			gap_end: new Date(endSec * 1000).toISOString(),
 		});
 		// we record the attempt before running so a gap that crashes or persists is not rescanned every cycle
-		await gapMemory.markTried(gapStartSec, endSec, nowSec);
+		await gapMemory.markTried(sec, endSec, nowSec);
 		await runBackfill(sec, endSec);
 		metrics.gapDetection.gapsFilled++;
 	}
