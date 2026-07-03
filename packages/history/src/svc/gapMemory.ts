@@ -2,6 +2,7 @@ import type { RedisClientType } from "redis";
 import type { Logger } from "winston";
 
 const GAP_TRIED_KEY = "history:gap:tried";
+const GAP_FAIL_KEY = "history:gap:fails";
 const RETENTION_SEC = 30 * 24 * 3600;
 
 /**
@@ -40,6 +41,18 @@ export class GapMemory {
 			score: nowSec,
 			value: GapMemory.key(gapStartSec, gapEndSec),
 		});
+	}
+
+	async recordFailure(gapStartSec: number, gapEndSec: number): Promise<number> {
+		return this.client.hIncrBy(
+			GAP_FAIL_KEY,
+			GapMemory.key(gapStartSec, gapEndSec),
+			1,
+		);
+	}
+
+	async clearFailure(gapStartSec: number, gapEndSec: number): Promise<void> {
+		await this.client.hDel(GAP_FAIL_KEY, GapMemory.key(gapStartSec, gapEndSec));
 	}
 
 	/** Drop attempts older than the retention window. */

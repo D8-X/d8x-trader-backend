@@ -32,6 +32,8 @@ export type BackfillRunner = (
 	endTimestampSec?: number,
 ) => Promise<void>;
 
+const MAX_GAP_FAILURES = 3;
+
 export const GAP_CONFIGS: GapConfig[] = [
 	{
 		table: "trades_history",
@@ -134,9 +136,30 @@ export async function detectAndFillGaps(
 			gap_start: new Date(sec * 1000).toISOString(),
 			gap_end: new Date(endSec * 1000).toISOString(),
 		});
-		// we record the attempt before running so a gap that crashes or persists is not rescanned every cycle
+		try {
+			await runBackfill(sec, endSec);
+		} catch (e) {
+			const failures = await gapMemory.recordFailure(gapStartSec, endSec);
+			logger.warn("gap backfill failed", {
+				gap_start: new Date(sec * 1000).toISOString(),
+				gap_end: new Date(endSec * 1000).toISOString(),
+				consecutiveFailures: failures,
+				error: e instanceof Error ? e.message : String(e),
+			});
+			metrics.trackError("gapBackfill", e);
+			if (failures >= MAX_GAP_FAILURES) {
+				logger.warn("giving up on gap after repeated failures", {
+					gap_start: new Date(gapStartSec * 1000).toISOString(),
+					gap_end: new Date(endSec * 1000).toISOString(),
+					consecutiveFailures: failures,
+				});
+				await gapMemory.markTried(gapStartSec, endSec, nowSec);
+				await gapMemory.clearFailure(gapStartSec, endSec);
+			}
+			continue;
+		}
 		await gapMemory.markTried(gapStartSec, endSec, nowSec);
-		await runBackfill(sec, endSec);
+		await gapMemory.clearFailure(gapStartSec, endSec);
 		metrics.gapDetection.gapsFilled++;
 	}
 }
