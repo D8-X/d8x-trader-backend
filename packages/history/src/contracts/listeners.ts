@@ -28,6 +28,7 @@ import { LiquidityWithdrawals } from "../db/liquidity_withdrawals.js";
 import { SettleHistory } from "../db/settle_history.js";
 import { TokenFlow } from "../db/token_flow.js";
 import { metrics } from "../svc/metrics.js";
+import { getCachedBlockTs, setCachedBlockTs } from "./blockTimestampCache.js";
 export interface EventListenerOptions {
 	logger: Logger;
 	// smart contract addresses which will be used to listen to incoming events
@@ -84,7 +85,7 @@ export class EventListener {
 			return undefined;
 		}
 		const blockNum = event.log.blockNumber;
-		const cached = this.blockTsCache.get(blockNum);
+		const cached = this.blockTsCache.get(blockNum) ?? getCachedBlockTs(blockNum);
 		if (cached !== undefined) {
 			return cached;
 		}
@@ -95,6 +96,7 @@ export class EventListener {
 					this.blockTsCache.clear();
 				}
 				this.blockTsCache.set(blockNum, block.timestamp);
+				setCachedBlockTs(blockNum, block.timestamp);
 				return block.timestamp;
 			} catch (e) {
 				this.l.warn(`getBlockTs attempt ${attempt + 1}/3 failed`, {

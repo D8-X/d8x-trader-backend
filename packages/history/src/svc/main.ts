@@ -1,6 +1,11 @@
 import { EventListener } from "../contracts/listeners.js";
 import * as dotenv from "dotenv";
-import { chooseRandomRPC, executeWithTimeout, loadConfigRPC } from "utils";
+import {
+	chooseRandomRPC,
+	constructRedis,
+	executeWithTimeout,
+	loadConfigRPC,
+} from "utils";
 import { logger } from "./logger.js";
 import {
 	isRateLimitError,
@@ -26,6 +31,7 @@ import { SettleHistory } from "../db/settle_history.js";
 import { TokenFlow } from "../db/token_flow.js";
 import { metrics } from "./metrics.js";
 import { detectAndFillGaps } from "./gaps.js";
+import { GapMemory } from "./gapMemory.js";
 import { hdFilterersOpt, runHistoricalDataFilterers } from "./backfillRunner.js";
 import sturdyWebsocket from "sturdy-websocket";
 const SturdyWebSocket = sturdyWebsocket.default;
@@ -53,6 +59,7 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 		"SDK_CONFIG_NAME",
 		"CHAIN_ID",
 		"HISTORY_API_PORT_HTTP",
+		"REDIS_URL",
 	];
 	required.forEach((e) => {
 		if (!(e in process.env)) {
@@ -181,6 +188,18 @@ export const main = async () => {
 		logger,
 	};
 
+	const redisClient = constructRedis("history-gaps");
+	try {
+		await redisClient.connect();
+	} catch (e) {
+		logger.error("gap memory: could not connect to redis", {
+			error: formatErrorMessage(e),
+		});
+		process.exit(1);
+	}
+	const gapMemory = new GapMemory(redisClient, logger);
+	logger.info("gap memory: connected to redis");
+
 	let backfillRunning = false;
 	const runBackfillGuarded = async (startSec: number, skipUpToDate = true) => {
 		if (backfillRunning) {
@@ -205,9 +224,11 @@ export const main = async () => {
 			const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
 			return detectAndFillGaps(
 				prisma,
-				(sec: number) => runHistoricalDataFilterers(hdOpts, sec, false),
+				(sec: number, endSec?: number) =>
+					runHistoricalDataFilterers(hdOpts, sec, false, endSec),
 				sevenDaysAgoSec,
 				logger,
+				gapMemory,
 			);
 		})
 		.catch((e) => {
@@ -336,9 +357,11 @@ export const main = async () => {
 		try {
 			await detectAndFillGaps(
 				prisma,
-				(sec: number) => runHistoricalDataFilterers(hdOpts, sec, false),
+				(sec: number, endSec?: number) =>
+					runHistoricalDataFilterers(hdOpts, sec, false, endSec),
 				blk.timestamp,
 				logger,
+				gapMemory,
 			);
 		} catch (e) {
 			logger.warn("gap detection failed", { error: formatErrorMessage(e) });

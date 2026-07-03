@@ -43,6 +43,7 @@ export async function runHistoricalDataFilterers(
 	opts: hdFilterersOpt,
 	startTimestampSec: number,
 	skipUpToDate = true,
+	endTimestampSec?: number,
 ) {
 	const {
 		httpProvider,
@@ -61,6 +62,8 @@ export async function runHistoricalDataFilterers(
 	} = opts;
 
 	const defaultDate = new Date(startTimestampSec * 1000);
+	const untilDate =
+		endTimestampSec !== undefined ? new Date(endTimestampSec * 1000) : undefined;
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
 
 	// Share token contracts
@@ -288,6 +291,7 @@ export async function runHistoricalDataFilterers(
 				},
 			},
 			skipUpToDate ? eventTimestamps : undefined,
+			untilDate,
 		),
 	);
 	// Share tokens p2p transfers
@@ -317,6 +321,7 @@ export async function runHistoricalDataFilterers(
 				staticInfo,
 			);
 		},
+		untilDate,
 	);
 	// align timestamps in perpetual_long_id (because we have asynchronous events)
 	await dbSetOracles.alignTimestamps();

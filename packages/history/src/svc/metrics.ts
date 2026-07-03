@@ -31,6 +31,8 @@ export const metrics = {
 	gapDetection: {
 		gapsDetected: 0,
 		gapsFilled: 0,
+		gapsSkipped: 0,
+		gapsGivenUp: 0,
 		lastRun: null as string | null,
 	},
 	eventsProcessed: {} as Record<string, number>,
