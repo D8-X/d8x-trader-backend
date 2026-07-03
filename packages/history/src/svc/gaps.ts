@@ -141,7 +141,7 @@ export async function detectAndFillGaps(
 		} catch (e) {
 			const failures = await gapMemory.recordFailure(gapStartSec, endSec);
 			logger.warn("gap backfill failed", {
-				gap_start: new Date(sec * 1000).toISOString(),
+				gap_start: new Date(gapStartSec * 1000).toISOString(),
 				gap_end: new Date(endSec * 1000).toISOString(),
 				consecutiveFailures: failures,
 				error: e instanceof Error ? e.message : String(e),
@@ -155,6 +155,7 @@ export async function detectAndFillGaps(
 				});
 				await gapMemory.markTried(gapStartSec, endSec, nowSec);
 				await gapMemory.clearFailure(gapStartSec, endSec);
+				metrics.gapDetection.gapsGivenUp++;
 			}
 			continue;
 		}

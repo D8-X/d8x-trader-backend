@@ -44,15 +44,14 @@ export class GapMemory {
 	}
 
 	async recordFailure(gapStartSec: number, gapEndSec: number): Promise<number> {
-		return this.client.hIncrBy(
-			GAP_FAIL_KEY,
-			GapMemory.key(gapStartSec, gapEndSec),
-			1,
-		);
+		const key = `${GAP_FAIL_KEY}:${GapMemory.key(gapStartSec, gapEndSec)}`;
+		const count = await this.client.incr(key);
+		await this.client.expire(key, RETENTION_SEC);
+		return count;
 	}
 
 	async clearFailure(gapStartSec: number, gapEndSec: number): Promise<void> {
-		await this.client.hDel(GAP_FAIL_KEY, GapMemory.key(gapStartSec, gapEndSec));
+		await this.client.del(`${GAP_FAIL_KEY}:${GapMemory.key(gapStartSec, gapEndSec)}`);
 	}
 
 	/** Drop attempts older than the retention window. */
