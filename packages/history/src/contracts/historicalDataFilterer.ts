@@ -33,6 +33,7 @@ import { getCachedBlockTs, setCachedBlockTs } from "./blockTimestampCache.js";
 global.Error.stackTraceLimit = Infinity;
 
 const END_BLOCK_MARGIN = 256;
+const HEAD_SAFETY_MARGIN = Number(process.env.HEAD_SAFETY_MARGIN ?? 16);
 
 /**
  * HistoricalDataFilterer retrieves historical data for trades, liquidations and
@@ -363,7 +364,15 @@ export class HistoricalDataFilterer {
 		eventBlockWatermarks?: Map<string, number>,
 	) {
 		let deltaBlocks = 9_999;
-		const endBlock: number = currentBlock;
+		let endBlock: number = currentBlock;
+		try {
+			const head = await this.provider.getBlockNumber();
+			endBlock = Math.min(endBlock, head - HEAD_SAFETY_MARGIN);
+		} catch (e) {
+			this.l.warn("could not fetch head to clamp endBlock", {
+				error: formatErrorMessage(e),
+			});
+		}
 		const eventNames = topicHashes.map((topic0) => c.interface.getEventName(topic0));
 
 		this.l.info("querying historical logs", {
