@@ -375,6 +375,7 @@ export class HistoricalDataFilterer {
 		let totalEventsFound = 0;
 		let lastWaitSeconds = 2;
 		const maxWaitSeconds = 32;
+		const throttleMs = Number(process.env.BACKFILL_CHUNK_THROTTLE_MS ?? 250);
 		const blockTimestamp = new Map<number, number>();
 		let count = 0;
 		for (let i = Number(fromBlock); i < endBlock; ) {
@@ -412,8 +413,9 @@ export class HistoricalDataFilterer {
 					cb,
 					eventBlockWatermarks,
 				);
-				// throttle just in case avoid RPC ban, for about ~10 rps
-				await new Promise((resolve) => setTimeout(resolve, 250));
+				if (throttleMs > 0 && _events.length > 0) {
+					await new Promise((resolve) => setTimeout(resolve, throttleMs));
+				}
 			} catch (error) {
 				const errMsg = formatErrorMessage(error);
 				this.l.warn("Caught error in genericFilterer:" + errMsg);
