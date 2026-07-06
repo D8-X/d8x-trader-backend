@@ -85,6 +85,8 @@ export function isTransientError(error: unknown): boolean {
 		msg.includes("socket hang up") ||
 		msg.includes("request timeout") ||
 		msg.includes("code=timeout") ||
+		msg.includes("beyond current head") ||
+		msg.includes("-32602") ||
 		isRateLimitError(error)
 	);
 }
