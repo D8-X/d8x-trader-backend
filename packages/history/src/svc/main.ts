@@ -283,7 +283,12 @@ export const main = async () => {
 	const maxWsResetCounter = 100 + Math.floor(Math.random() * 100);
 	let resetRpcRunning = false;
 	const resetRpcFunc = async () => {
-		if (eventsListener.checkHeartbeat(HEARTBEAT_STALE_THRESHOLD_SEC)) {
+		if (
+			await eventsListener.checkHeartbeat(
+				HEARTBEAT_STALE_THRESHOLD_SEC,
+				MAX_WS_HEAD_AGE_SEC,
+			)
+		) {
 			return;
 		}
 		if (resetRpcRunning) {
