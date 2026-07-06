@@ -56,7 +56,16 @@ export function isTransientError(error: unknown): boolean {
 		.map((c) => c.toUpperCase());
 	if (
 		codes.some((c) =>
-			["P2024", "P1001", "P1002", "P1008", "P1017", "40P01", "40001"].includes(c),
+			[
+				"P2024",
+				"P2034",
+				"P1001",
+				"P1002",
+				"P1008",
+				"P1017",
+				"40P01",
+				"40001",
+			].includes(c),
 		)
 	) {
 		return true;
@@ -66,9 +75,7 @@ export function isTransientError(error: unknown): boolean {
 		msg.includes("connection pool") ||
 		msg.includes("timed out fetching a new connection") ||
 		msg.includes("deadlock") ||
-		msg.includes("40p01") ||
 		msg.includes("could not serialize") ||
-		msg.includes("40001") ||
 		msg.includes("can't reach database server") ||
 		msg.includes("server has closed the connection") ||
 		msg.includes("connection closed") ||
