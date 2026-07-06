@@ -111,6 +111,11 @@ const installDbRetry = (prisma: PrismaClient) => {
 // Entrypoint of history service
 export const main = async () => {
 	process.on("unhandledRejection", (reason) => {
+		const msg = formatErrorMessage(reason).toLowerCase();
+		if (msg.includes("beyond current head") || msg.includes("-32602")) {
+			logger.debug("transient unhandled rejection", { error: msg });
+			return;
+		}
 		logger.warn("unhandled rejection", { error: reason });
 		metrics.trackError("unhandledRejection", reason);
 	});
