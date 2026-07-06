@@ -3,7 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express, { Request, Response } from "express";
 import { IncomingMessage } from "http";
-import { extractErrorMsg, isValidAddress, isValidPerpSymbol } from "utils";
+import { extractErrorMsg, isValidAddress, isValidPerpSymbol, requestLogger } from "utils";
 import { Logger } from "winston";
 import WebSocket, { WebSocketServer } from "ws";
 import BrokerIntegration from "./brokerIntegration.js";
@@ -229,6 +229,7 @@ export default class D8XBrokerBackendApp {
 	}
 
 	private middleWare() {
+		this.express.use(requestLogger(this.logger));
 		this.express.use(express.urlencoded({ extended: false }));
 		if (this.CORS_ON) {
 			this.express.use(cors()); //needs to be above express.json
