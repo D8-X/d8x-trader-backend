@@ -626,3 +626,39 @@ export const loadConfigFile = (cfgName: string, cfgEnvKey: string): any => {
 		throw Error(`Configuration file ${defaultPath} could not be loaded`);
 	}
 };
+
+export interface LeveledLogger {
+	log(level: string, message: string, meta?: unknown): void;
+}
+
+export interface RequestLoggerOptions {
+	level?: string;
+}
+
+interface LoggableRequest {
+	method: string;
+	path: string;
+}
+
+interface LoggableResponse {
+	statusCode: number;
+	on(event: "finish", listener: () => void): unknown;
+}
+
+export function requestLogger(logger: LeveledLogger, options: RequestLoggerOptions = {}) {
+	const { level = "http" } = options;
+	return (req: LoggableRequest, res: LoggableResponse, next: () => void): void => {
+		const startNs = process.hrtime.bigint();
+		res.on("finish", () => {
+			const durationMs =
+				Math.round(Number(process.hrtime.bigint() - startNs) / 1e5) / 10;
+			logger.log(level, "HTTP_REQUEST", {
+				method: req.method,
+				path: req.path,
+				status: res.statusCode,
+				durationMs,
+			});
+		});
+		next();
+	};
+}
