@@ -43,6 +43,7 @@ const STATIC_INFO_INIT_TIMEOUT_MS = 30_000;
 const STATIC_INFO_MAX_BACKOFF_SEC = 120;
 const WS_PROVIDER_DESTROY_TIMEOUT_MS = 10_000;
 const WS_ALIVE_PROBE_MS = 30_000;
+const MAX_WS_HEAD_AGE_SEC = Number(process.env.MAX_WS_HEAD_AGE_SEC ?? 120);
 const HEARTBEAT_CHECK_INTERVAL_MS = 60_000;
 const HEARTBEAT_STALE_THRESHOLD_SEC = 30;
 const REDUNDANCY_BACKFILL_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4h
@@ -342,9 +343,33 @@ export const main = async () => {
 			);
 			wsResetCounter++;
 
-			const wsAlive = await new Promise((resolve) => {
-				wsProvider.once("block", () => {
-					resolve(true);
+			const wsAlive = await new Promise<boolean>((resolve) => {
+				wsProvider.once("block", async (blockNumber: number) => {
+					try {
+						const blk = await wsProvider.getBlock(blockNumber);
+						const ageSec =
+							Math.floor(Date.now() / 1000) - (blk?.timestamp ?? 0);
+						if (!blk || ageSec > MAX_WS_HEAD_AGE_SEC) {
+							logger.warn(
+								"new WS provider head is stale, staying on HTTP",
+								{
+									blockNumber,
+									head_age_seconds: ageSec,
+								},
+							);
+							resolve(false);
+						} else {
+							resolve(true);
+						}
+					} catch (e) {
+						logger.warn(
+							"could not verify WS provider freshness, staying on HTTP",
+							{
+								error: formatErrorMessage(e),
+							},
+						);
+						resolve(false);
+					}
 				});
 				setTimeout(() => {
 					resolve(false);
