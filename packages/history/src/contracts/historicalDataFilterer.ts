@@ -172,6 +172,24 @@ export class HistoricalDataFilterer {
 			(eventName) => this.PerpManagerProxy.filters[eventName]().fragment.topicHash,
 		);
 
+		const eventBlockWatermarks = new Map<string, number>();
+		if (eventTimestamps) {
+			for (const [name, wmDate] of eventTimestamps) {
+				try {
+					const [wmBlock] = await calculateBlockFromTime(this.provider, wmDate);
+					eventBlockWatermarks.set(name, wmBlock);
+				} catch (e) {
+					this.l.warn(
+						"could not resolve watermark block, skipping block-skip",
+						{
+							event: name,
+							error: formatErrorMessage(e),
+						},
+					);
+				}
+			}
+		}
+
 		// callbacks
 		const skipCounts = new Map<string, number>();
 		const cb = async (
@@ -306,6 +324,7 @@ export class HistoricalDataFilterer {
 			this.PerpManagerProxy,
 			cb,
 			endBlock,
+			eventBlockWatermarks,
 		);
 
 		if (skipCounts.size > 0) {
@@ -337,6 +356,7 @@ export class HistoricalDataFilterer {
 			blockTimestamp: number,
 		) => void,
 		currentBlock: number,
+		eventBlockWatermarks?: Map<string, number>,
 	) {
 		let deltaBlocks = 9_999;
 		const endBlock: number = currentBlock;
@@ -380,7 +400,14 @@ export class HistoricalDataFilterer {
 				if (deltaBlocks < 9_999 * 0.75) {
 					deltaBlocks = Math.min(9_999, Math.round(deltaBlocks * 1.25));
 				}
-				await this.saveEvents(topicHashes, _events, c, blockTimestamp, cb);
+				await this.saveEvents(
+					topicHashes,
+					_events,
+					c,
+					blockTimestamp,
+					cb,
+					eventBlockWatermarks,
+				);
 				// throttle just in case avoid RPC ban, for about ~10 rps
 				await new Promise((resolve) => setTimeout(resolve, 250));
 			} catch (error) {
@@ -437,6 +464,7 @@ export class HistoricalDataFilterer {
 			event: ethers.EventLog,
 			blockTimestamp: number,
 		) => void,
+		eventBlockWatermarks?: Map<string, number>,
 	) {
 		if (events.length < 1) {
 			return;
@@ -454,6 +482,12 @@ export class HistoricalDataFilterer {
 			const event = events[i];
 			for (let j = 0; j < topicHashes.length; j++) {
 				if (topicHashes[j] == event.topics[0]) {
+					const wmBlock = eventBlockWatermarks?.get(
+						c.interface.getEventName(event.topics[0]),
+					);
+					if (wmBlock !== undefined && event.blockNumber < wmBlock) {
+						break;
+					}
 					const log = c.interface.decodeEventLog(
 						eventFragments[j],
 						event.data,

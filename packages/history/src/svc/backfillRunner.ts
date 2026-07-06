@@ -110,7 +110,17 @@ export async function runHistoricalDataFilterers(
 
 	const allTimestamps = [...eventTimestamps.values()];
 	allTimestamps.push(defaultDate);
-	const ts = allTimestamps.reduce((a, b) => (a < b ? a : b));
+	let ts = allTimestamps.reduce((a, b) => (a < b ? a : b));
+
+	const lookbackDays = Number(process.env.BACKFILL_MAX_LOOKBACK_DAYS ?? 30);
+	const floorMs = Date.now() - lookbackDays * 24 * 3600 * 1000;
+	if (ts.getTime() < floorMs) {
+		const floored = new Date(floorMs);
+		logger.info(
+			`flooring backfill start from ${ts.toISOString()} to ${floored.toISOString()} (${lookbackDays}d lookback)`,
+		);
+		ts = floored;
+	}
 
 	const tsInfo: Record<string, string> = {};
 	for (const [k, v] of eventTimestamps) {

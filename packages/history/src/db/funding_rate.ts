@@ -1,5 +1,5 @@
 import { formatErrorMessage } from "../utils/errors.js";
-import { PrismaClient, Prisma, FundingRatePayment } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { BigNumberish } from "ethers";
 import { Logger } from "winston";
 import { UpdateMarginAccountEvent } from "../contracts/types.js";
@@ -31,66 +31,32 @@ export class FundingRatePayments {
 		// Only insert those UpdateMarginAccount events which have payment
 		// amount not 0
 		if (e.fFundingPaymentCC.toString() === "0") {
+			this.l.debug("skipping zero funding payment", { tx_hash: txHash });
 			return;
 		}
 		const trader = e.trader.toLowerCase();
 		const tx_hash = txHash.toLowerCase();
 
-		const exists = await this.prisma.fundingRatePayment.findFirst({
-			where: {
-				tx_hash: {
-					equals: tx_hash,
-				},
-				trader_addr: {
-					equals: trader,
-				},
-			},
-		});
+		const data: Prisma.FundingRatePaymentCreateInput = {
+			payment_amount: e.fFundingPaymentCC.toString(),
+			trader_addr: trader,
+			perpetual_id: Number(e.perpetualId),
+			tx_hash: tx_hash,
+			payment_timestamp: new Date(blockTimestamp * 1000),
+			is_collected_by_event: isCollectedByEvent,
+		};
 
-		if (exists === null) {
-			let fundingRatePayment: FundingRatePayment;
-			try {
-				const data: Prisma.FundingRatePaymentCreateInput = {
-					payment_amount: e.fFundingPaymentCC.toString(),
-					trader_addr: trader,
-					perpetual_id: Number(e.perpetualId),
-					tx_hash: tx_hash,
-					payment_timestamp: new Date(blockTimestamp * 1000),
-					is_collected_by_event: isCollectedByEvent,
-				};
-
-				fundingRatePayment = await this.prisma.fundingRatePayment.create({
-					data,
-				});
-			} catch (e) {
-				this.l.error("inserting new funding rate payment", {
-					error: formatErrorMessage(e),
-				});
-				return;
-			}
-			this.l.info("inserted new funding rate payment", {
-				trader_addr: fundingRatePayment.trader_addr,
+		try {
+			await this.prisma.fundingRatePayment.upsert({
+				where: {
+					trader_addr_tx_hash: { trader_addr: trader, tx_hash: tx_hash },
+				},
+				create: data,
+				update: isCollectedByEvent ? {} : { is_collected_by_event: false },
 			});
-		} else if (!isCollectedByEvent) {
-			// update
-			let fundingRatePayment: FundingRatePayment;
-			try {
-				fundingRatePayment = await this.prisma.fundingRatePayment.update({
-					where: {
-						trader_addr_tx_hash: { trader_addr: trader, tx_hash: txHash },
-					},
-					data: {
-						is_collected_by_event: false,
-					},
-				});
-			} catch (e) {
-				this.l.error("updating funding rate payment", {
-					error: formatErrorMessage(e),
-				});
-				return;
-			}
-			this.l.info("updated funding rate payment", {
-				trader_addr: fundingRatePayment.trader_addr,
+		} catch (e) {
+			this.l.error("inserting funding rate payment", {
+				error: formatErrorMessage(e),
 			});
 		}
 	}
