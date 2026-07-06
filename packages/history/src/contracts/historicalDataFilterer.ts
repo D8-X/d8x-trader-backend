@@ -78,6 +78,7 @@ export class HistoricalDataFilterer {
 			);
 			untilBlock = untilBlocks[0] + END_BLOCK_MARGIN;
 		}
+		const promises: Array<Promise<void>> = [];
 		for (let i = 0; i < shareTokenContracts.length; i++) {
 			const currentAddress = shareTokenContracts[i];
 			this.l.info("starting p2p transfer filtering", {
@@ -92,29 +93,32 @@ export class HistoricalDataFilterer {
 				10_000,
 				"RPC call timeout",
 			);
-			this.genericFilterer(
-				filter,
-				sinceBlocks[0],
-				[filter.fragment.topicHash],
-				c,
-				(
-					decodedTradeEvent: Record<string, any>,
-					e: ethers.EventLog,
-					blockTimestamp: number,
-				) => {
-					cb(
-						decodedTradeEvent as P2PTransferEvent,
-						e.transactionHash,
-						e.blockNumber,
-						blockTimestamp,
-						{ poolId },
-					);
-				},
-				untilBlock !== undefined
-					? Math.min(sinceBlocks[1], untilBlock)
-					: sinceBlocks[1],
+			promises.push(
+				this.genericFilterer(
+					filter,
+					sinceBlocks[0],
+					[filter.fragment.topicHash],
+					c,
+					(
+						decodedTradeEvent: Record<string, any>,
+						e: ethers.EventLog,
+						blockTimestamp: number,
+					) => {
+						cb(
+							decodedTradeEvent as P2PTransferEvent,
+							e.transactionHash,
+							e.blockNumber,
+							blockTimestamp,
+							{ poolId },
+						);
+					},
+					untilBlock !== undefined
+						? Math.min(sinceBlocks[1], untilBlock)
+						: sinceBlocks[1],
+				),
 			);
 		}
+		await Promise.all(promises);
 	}
 
 	/**
