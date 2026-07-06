@@ -10,6 +10,7 @@ import { logger } from "./logger.js";
 import {
 	isRateLimitError,
 	isNoHistoricalStateError,
+	isTransientError,
 	formatErrorMessage,
 } from "../utils/errors.js";
 import { JsonRpcProvider, Network, WebSocketProvider, ethers } from "ethers";
@@ -72,6 +73,40 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 	});
 };
 
+const buildHistoryDbUrl = (): string | undefined => {
+	const base = process.env.DATABASE_DSN_HISTORY;
+	if (!base) {
+		return undefined;
+	}
+	const url = new URL(base);
+	if (!url.searchParams.has("connection_limit")) {
+		url.searchParams.set("connection_limit", process.env.DB_CONNECTION_LIMIT ?? "20");
+	}
+	if (!url.searchParams.has("pool_timeout")) {
+		url.searchParams.set("pool_timeout", process.env.DB_POOL_TIMEOUT ?? "20");
+	}
+	return url.toString();
+};
+
+const DB_MAX_RETRIES = 3;
+const installDbRetry = (prisma: PrismaClient) => {
+	prisma.$use(async (params, next) => {
+		for (let attempt = 0; ; attempt++) {
+			try {
+				return await next(params);
+			} catch (e) {
+				if (!isTransientError(e) || attempt >= DB_MAX_RETRIES) {
+					throw e;
+				}
+				const backoffMs =
+					50 * Math.pow(2, attempt) + Math.floor(Math.random() * 50);
+				metrics.trackError(`db:retry:${params.model ?? params.action}`, e);
+				await sleepForSec(backoffMs / 1000);
+			}
+		}
+	});
+};
+
 // Entrypoint of history service
 export const main = async () => {
 	process.on("unhandledRejection", (reason) => {
@@ -83,7 +118,11 @@ export const main = async () => {
 	logger.info("starting history service");
 
 	// Initialize db client
-	const prisma = new PrismaClient();
+	const historyDbUrl = buildHistoryDbUrl();
+	const prisma = historyDbUrl
+		? new PrismaClient({ datasources: { db: { url: historyDbUrl } } })
+		: new PrismaClient();
+	installDbRetry(prisma);
 
 	// Init blockchain provider
 	const rpcConfig = loadConfigRPC();

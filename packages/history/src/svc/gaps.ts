@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import type { Logger } from "winston";
 import { metrics } from "./metrics.js";
 import { GapMemory } from "./gapMemory.js";
+import { isTransientError } from "../utils/errors.js";
 
 export interface GapRow {
 	gap_start: Date;
@@ -139,6 +140,15 @@ export async function detectAndFillGaps(
 		try {
 			await runBackfill(sec, endSec);
 		} catch (e) {
+			if (isTransientError(e)) {
+				logger.warn("gap backfill hit transient error, will retry", {
+					gap_start: new Date(gapStartSec * 1000).toISOString(),
+					gap_end: new Date(endSec * 1000).toISOString(),
+					error: e instanceof Error ? e.message : String(e),
+				});
+				metrics.trackError("gapBackfill:transient", e);
+				continue;
+			}
 			const failures = await gapMemory.recordFailure(gapStartSec, endSec);
 			logger.warn("gap backfill failed", {
 				gap_start: new Date(gapStartSec * 1000).toISOString(),
