@@ -67,7 +67,7 @@ export async function runHistoricalDataFilterers(
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
 
 	// Share token contracts
-	const shareTokenAddresses = await staticInfo.retrieveShareTokenContracts();
+	const shareTokenAddresses = staticInfo.retrieveShareTokenContracts();
 
 	const promises: Array<Promise<void>> = [];
 	const IS_COLLECTED_BY_EVENT = false;
