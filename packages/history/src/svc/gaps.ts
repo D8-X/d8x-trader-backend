@@ -64,8 +64,7 @@ export async function detectGaps(
 			SELECT ${config.timestampCol} as ts,
 				LEAD(${config.timestampCol}) OVER (ORDER BY ${config.timestampCol}) as next_ts
 			FROM ${config.table}
-			WHERE is_collected_by_event = false
-				AND ${config.timestampCol} > NOW() - interval '30 days'
+			WHERE ${config.timestampCol} > NOW() - interval '30 days'
 		)
 		SELECT ts as gap_start, next_ts as gap_end
 		FROM ordered
