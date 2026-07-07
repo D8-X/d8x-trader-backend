@@ -47,7 +47,6 @@ const MAX_WS_HEAD_AGE_SEC = Number(process.env.MAX_WS_HEAD_AGE_SEC ?? 120);
 const HEARTBEAT_CHECK_INTERVAL_MS = 60_000;
 const HEARTBEAT_STALE_THRESHOLD_SEC = 30;
 const REDUNDANCY_BACKFILL_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4h
-const GAP_DETECTION_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2h
 
 export const loadEnv = (wantEnvs?: string[] | undefined) => {
 	const config = dotenv.config({
@@ -421,17 +420,15 @@ export const main = async () => {
 		}
 	}, HEARTBEAT_CHECK_INTERVAL_MS);
 
-	setInterval(async () => {
-		logger.info("running historical data filterers for redundancy");
-		await runBackfillGuarded(blk.timestamp);
-	}, REDUNDANCY_BACKFILL_INTERVAL_MS);
-
-	setInterval(async () => {
+	const runMaintenanceCycle = async () => {
 		if (backfillRunning) {
-			logger.info("backfill running, skipping gap detection");
+			logger.info("maintenance cycle already running, skipping");
 			return;
 		}
+		backfillRunning = true;
 		try {
+			logger.info("running historical data filterers for redundancy");
+			await runHistoricalDataFilterers(hdOpts, blk.timestamp);
 			await detectAndFillGaps(
 				prisma,
 				(sec: number, endSec?: number) =>
@@ -441,10 +438,15 @@ export const main = async () => {
 				gapMemory,
 			);
 		} catch (e) {
-			logger.warn("gap detection failed", { error: formatErrorMessage(e) });
-			metrics.trackError("gapDetection", e);
+			logger.warn("maintenance cycle failed", {
+				error: formatErrorMessage(e),
+			});
+			metrics.trackError("maintenanceCycle", e);
+		} finally {
+			backfillRunning = false;
 		}
-	}, GAP_DETECTION_INTERVAL_MS);
+	};
+	setInterval(runMaintenanceCycle, REDUNDANCY_BACKFILL_INTERVAL_MS);
 
 	// Start the history api
 	const api = new HistoryRestAPI(
