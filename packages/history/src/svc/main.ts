@@ -431,21 +431,30 @@ export const main = async () => {
 		}
 		backfillRunning = true;
 		try {
-			logger.info("running historical data filterers for redundancy");
-			await runHistoricalDataFilterers(hdOpts, blk.timestamp);
-			await detectAndFillGaps(
-				prisma,
-				(sec: number, endSec?: number) =>
-					runHistoricalDataFilterers(hdOpts, sec, false, endSec),
-				blk.timestamp,
-				logger,
-				gapMemory,
-			);
-		} catch (e) {
-			logger.warn("maintenance cycle failed", {
-				error: formatErrorMessage(e),
-			});
-			metrics.trackError("maintenanceCycle", e);
+			try {
+				logger.info("running historical data filterers for redundancy");
+				await runHistoricalDataFilterers(hdOpts, blk.timestamp);
+			} catch (e) {
+				logger.warn("redundancy backfill failed", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("backfill", e);
+			}
+			try {
+				await detectAndFillGaps(
+					prisma,
+					(sec: number, endSec?: number) =>
+						runHistoricalDataFilterers(hdOpts, sec, false, endSec),
+					blk.timestamp,
+					logger,
+					gapMemory,
+				);
+			} catch (e) {
+				logger.warn("gap detection failed", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("gapDetection", e);
+			}
 		} finally {
 			backfillRunning = false;
 		}
