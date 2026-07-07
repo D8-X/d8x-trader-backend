@@ -25,6 +25,7 @@ export const metrics = {
 	errors: [] as { ts: string; source: string; msg: string }[],
 	backfill: {
 		running: false,
+		activeScans: 0,
 		progress: 0,
 		eventsFound: 0,
 	},

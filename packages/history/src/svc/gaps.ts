@@ -86,7 +86,7 @@ export async function detectAndFillGaps(
 	const nowSec = Math.floor(Date.now() / 1000);
 	await gapMemory.cleanup(nowSec);
 
-	const gapWindows = new Map<number, number>();
+	const rawWindows: Array<[number, number]> = [];
 
 	for (const config of GAP_CONFIGS) {
 		try {
@@ -97,13 +97,10 @@ export async function detectAndFillGaps(
 					latest: `${gaps[gaps.length - 1].gap_start.toISOString()} - ${gaps[gaps.length - 1].gap_end.toISOString()}`,
 				});
 				for (const gap of gaps) {
-					const startSec = Math.floor(gap.gap_start.getTime() / 1000);
-					const endSec = Math.ceil(gap.gap_end.getTime() / 1000);
-					const prev = gapWindows.get(startSec);
-					gapWindows.set(
-						startSec,
-						prev === undefined ? endSec : Math.max(prev, endSec),
-					);
+					rawWindows.push([
+						Math.floor(gap.gap_start.getTime() / 1000),
+						Math.ceil(gap.gap_end.getTime() / 1000),
+					]);
 				}
 			}
 		} catch (e) {
@@ -114,16 +111,28 @@ export async function detectAndFillGaps(
 		}
 	}
 
-	if (gapWindows.size === 0) return;
+	if (rawWindows.length === 0) return;
+
+	// we merge overlapping windows so the same block range is not backfilled twice
+	rawWindows.sort((a, b) => a[0] - b[0]);
+	const merged: Array<[number, number]> = [];
+	for (const [start, end] of rawWindows) {
+		const last = merged[merged.length - 1];
+		if (last && start <= last[1]) {
+			last[1] = Math.max(last[1], end);
+		} else {
+			merged.push([start, end]);
+		}
+	}
 
 	metrics.gapDetection.lastRun = new Date().toISOString();
-	metrics.gapDetection.gapsDetected = gapWindows.size;
-	const sorted = [...gapWindows.keys()].sort((a, b) => b - a);
-	logger.info(`filling ${sorted.length} unique gap(s), most recent first`);
+	metrics.gapDetection.gapsDetected = merged.length;
+	// most recent first
+	merged.sort((a, b) => b[0] - a[0]);
+	logger.info(`filling ${merged.length} merged gap(s), most recent first`);
 
-	for (const gapStartSec of sorted) {
+	for (const [gapStartSec, endSec] of merged) {
 		const sec = Math.max(gapStartSec, startTimestampSec);
-		const endSec = gapWindows.get(gapStartSec)!;
 		if (await gapMemory.hasTried(gapStartSec, endSec)) {
 			logger.info("skipping gap already attempted", {
 				gap_start: new Date(gapStartSec * 1000).toISOString(),

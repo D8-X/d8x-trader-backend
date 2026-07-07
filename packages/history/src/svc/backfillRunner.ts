@@ -170,7 +170,7 @@ export async function runHistoricalDataFilterers(
 				Settle: async (
 					eventData: SettleEventV1,
 					txHash: string,
-					blockNum: BigNumberish,
+					_blockNum: BigNumberish,
 					blockTimeStamp: number,
 				) => {
 					settleBatch.push({
@@ -188,7 +188,7 @@ export async function runHistoricalDataFilterers(
 				SettleV2: async (
 					eventData: SettleEvent,
 					txHash: string,
-					blockNum: BigNumberish,
+					_blockNum: BigNumberish,
 					blockTimeStamp: number,
 				) => {
 					settleBatch.push({
@@ -201,7 +201,7 @@ export async function runHistoricalDataFilterers(
 				TokensDeposited: async (
 					eventData: Record<string, any>,
 					txHash: string,
-					blockNum: BigNumberish,
+					_blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
 					tokenFlowBatch.push({
@@ -217,7 +217,7 @@ export async function runHistoricalDataFilterers(
 				TokensWithdrawn: async (
 					eventData: Record<string, any>,
 					txHash: string,
-					blockNum: BigNumberish,
+					_blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
 					tokenFlowBatch.push({
@@ -346,7 +346,7 @@ export async function runHistoricalDataFilterers(
 	await hd.filterP2Ptransfers(
 		shareTokenAddresses,
 		p2pTs,
-		(eventData, txHash, blockNumber, blockTimeStamp, params) => {
+		(eventData, txHash, _blockNumber, blockTimeStamp, params) => {
 			dbEstimatedEarnings.insertShareTokenP2PTransfer(
 				eventData,
 				params?.poolId as unknown as number,
