@@ -332,7 +332,7 @@ export async function runHistoricalDataFilterers(
 	);
 	const p2pTs: Date[] = [];
 	for (let k = 0; k < shareTokenAddresses.length; k++) {
-		if (p2pTimestamps[k] == undefined) {
+		if (untilDate !== undefined || p2pTimestamps[k] == undefined) {
 			p2pTs.push(defaultDate);
 		} else {
 			p2pTs.push(p2pTimestamps[k]!);

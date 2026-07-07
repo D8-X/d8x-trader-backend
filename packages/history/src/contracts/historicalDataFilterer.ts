@@ -375,6 +375,15 @@ export class HistoricalDataFilterer {
 		}
 		const eventNames = topicHashes.map((topic0) => c.interface.getEventName(topic0));
 
+		if (endBlock <= Number(fromBlock)) {
+			this.l.info("nothing to scan, skipping", {
+				events: eventNames,
+				fromBlock: Number(fromBlock),
+				endBlock: endBlock,
+			});
+			return;
+		}
+
 		this.l.info("querying historical logs", {
 			events: eventNames,
 			fromBlock: fromBlock,
