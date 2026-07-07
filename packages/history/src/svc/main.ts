@@ -81,7 +81,7 @@ const buildHistoryDbUrl = (): string | undefined => {
 	}
 	const url = new URL(base);
 	if (!url.searchParams.has("connection_limit")) {
-		url.searchParams.set("connection_limit", process.env.DB_CONNECTION_LIMIT ?? "20");
+		url.searchParams.set("connection_limit", process.env.DB_CONNECTION_LIMIT ?? "10");
 	}
 	if (!url.searchParams.has("pool_timeout")) {
 		url.searchParams.set("pool_timeout", process.env.DB_POOL_TIMEOUT ?? "20");
