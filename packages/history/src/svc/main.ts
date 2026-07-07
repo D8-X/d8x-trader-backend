@@ -46,6 +46,7 @@ const WS_ALIVE_PROBE_MS = 30_000;
 const MAX_WS_HEAD_AGE_SEC = Number(process.env.MAX_WS_HEAD_AGE_SEC ?? 120);
 const HEARTBEAT_CHECK_INTERVAL_MS = 60_000;
 const HEARTBEAT_STALE_THRESHOLD_SEC = 30;
+const WS_PROMOTE_INTERVAL_MS = Number(process.env.WS_PROMOTE_INTERVAL_MS ?? 300_000);
 const REDUNDANCY_BACKFILL_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4h
 
 export const loadEnv = (wantEnvs?: string[] | undefined) => {
@@ -293,13 +294,16 @@ export const main = async () => {
 	let wsResetCounter = 0;
 	const maxWsResetCounter = 100 + Math.floor(Math.random() * 100);
 	let resetRpcRunning = false;
+	let lastWsPromoteAt = 0;
 	const resetRpcFunc = async () => {
-		if (
-			await eventsListener.checkHeartbeat(
-				HEARTBEAT_STALE_THRESHOLD_SEC,
-				MAX_WS_HEAD_AGE_SEC,
-			)
-		) {
+		const healthy = await eventsListener.checkHeartbeat(
+			HEARTBEAT_STALE_THRESHOLD_SEC,
+			MAX_WS_HEAD_AGE_SEC,
+		);
+		const onHttp = eventsListener.listeningMode !== ListeningMode.WS;
+		const promoteToWs =
+			healthy && onHttp && Date.now() - lastWsPromoteAt >= WS_PROMOTE_INTERVAL_MS;
+		if (healthy && !promoteToWs) {
 			return;
 		}
 		if (resetRpcRunning) {
@@ -307,6 +311,10 @@ export const main = async () => {
 			return;
 		}
 		resetRpcRunning = true;
+		if (promoteToWs) {
+			lastWsPromoteAt = Date.now();
+			logger.info("healthy on HTTP, trying WS");
+		}
 
 		const makeJsonProvider = () =>
 			new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
@@ -357,7 +365,6 @@ export const main = async () => {
 					}),
 				network,
 			);
-			wsResetCounter++;
 
 			const wsAlive = await new Promise<boolean>((resolve) => {
 				wsProvider.once("block", async (blockNumber: number) => {
@@ -393,8 +400,12 @@ export const main = async () => {
 			});
 			// WS works, switch providers
 			if (wsAlive) {
+				wsResetCounter++;
 				logger.info(`switching to WS provider`);
 				eventsListener.listen(wsProvider!);
+			} else if (promoteToWs) {
+				// opportunistic probe failed: keep the working HTTP connection
+				logger.info("WS still unavailable, staying on HTTP");
 			} else {
 				// WS didn't work, stay on HTTP
 				logger.info(`switching HTTP providers`);
