@@ -90,23 +90,26 @@ const buildHistoryDbUrl = (): string | undefined => {
 };
 
 const DB_MAX_RETRIES = 3;
-const installDbRetry = (prisma: PrismaClient) => {
-	prisma.$use(async (params, next) => {
-		for (let attempt = 0; ; attempt++) {
-			try {
-				return await next(params);
-			} catch (e) {
-				if (!isTransientError(e) || attempt >= DB_MAX_RETRIES) {
-					throw e;
+const installDbRetry = (prisma: PrismaClient) =>
+	prisma.$extends({
+		query: {
+			async $allOperations({ model, operation, args, query }) {
+				for (let attempt = 0; ; attempt++) {
+					try {
+						return await query(args);
+					} catch (e) {
+						if (!isTransientError(e) || attempt >= DB_MAX_RETRIES) {
+							throw e;
+						}
+						const backoffMs =
+							50 * Math.pow(2, attempt) + Math.floor(Math.random() * 50);
+						metrics.trackError(`db:retry:${model ?? operation}`, e);
+						await sleepForSec(backoffMs / 1000);
+					}
 				}
-				const backoffMs =
-					50 * Math.pow(2, attempt) + Math.floor(Math.random() * 50);
-				metrics.trackError(`db:retry:${params.model ?? params.action}`, e);
-				await sleepForSec(backoffMs / 1000);
-			}
-		}
+			},
+		},
 	});
-};
 
 // Entrypoint of history service
 export const main = async () => {
@@ -125,10 +128,10 @@ export const main = async () => {
 
 	// Initialize db client
 	const historyDbUrl = buildHistoryDbUrl();
-	const prisma = historyDbUrl
+	const basePrisma = historyDbUrl
 		? new PrismaClient({ datasources: { db: { url: historyDbUrl } } })
 		: new PrismaClient();
-	installDbRetry(prisma);
+	const prisma = installDbRetry(basePrisma) as unknown as PrismaClient;
 
 	// Init blockchain provider
 	const rpcConfig = loadConfigRPC();
