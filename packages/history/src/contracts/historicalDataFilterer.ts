@@ -518,14 +518,15 @@ export class HistoricalDataFilterer {
 
 		const needed = new Set<number>();
 		for (const { event } of relevant) {
-			if (blockTimestamp.get(event.blockNumber) !== undefined) {
+			const bn = event.blockNumber;
+			if (blockTimestamp.get(bn) !== undefined || needed.has(bn)) {
 				continue;
 			}
-			const cachedTs = getCachedBlockTs(event.blockNumber);
+			const cachedTs = getCachedBlockTs(bn);
 			if (cachedTs !== undefined) {
-				blockTimestamp.set(event.blockNumber, cachedTs);
+				blockTimestamp.set(bn, cachedTs);
 			} else {
-				needed.add(event.blockNumber);
+				needed.add(bn);
 			}
 		}
 		if (needed.size >= 100) {
