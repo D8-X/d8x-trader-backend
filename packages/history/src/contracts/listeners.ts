@@ -84,6 +84,7 @@ export class EventListener {
 			});
 			return undefined;
 		}
+		metrics.trackEvent(event.fragment?.name ?? "unknown");
 		const blockNum = event.log.blockNumber;
 		const cached = this.blockTsCache.get(blockNum) ?? getCachedBlockTs(blockNum);
 		if (cached !== undefined) {
@@ -121,7 +122,7 @@ export class EventListener {
 	 * @param maxDelaySec the maximum acceptable delay in seconds since the last received event before considering the listener to be not alive
 	 * @returns boolean indicating whether the listener is still receiving events within the acceptable delay threshold
 	 */
-	public checkHeartbeat(maxDelaySec: number) {
+	public async checkHeartbeat(maxDelaySec: number, maxHeadAgeSec?: number) {
 		const nowTs = Date.now();
 		const secSinceEvt = Math.round((nowTs - this.lastEventTs) / 1000);
 		const isAlive = secSinceEvt < maxDelaySec;
@@ -132,6 +133,27 @@ export class EventListener {
 		if (!isAlive) {
 			this.l.info(`${this.listeningMode} connection ended`);
 			return false;
+		}
+		if (
+			maxHeadAgeSec !== undefined &&
+			this.provider &&
+			this.blockNumber !== Infinity
+		) {
+			try {
+				const blk = await this.provider.getBlock(this.blockNumber);
+				const headAgeSec = Math.floor(Date.now() / 1000) - (blk?.timestamp ?? 0);
+				if (!blk || headAgeSec > maxHeadAgeSec) {
+					this.l.warn(`${this.listeningMode} head is stale`, {
+						block: this.blockNumber,
+						head_age_seconds: headAgeSec,
+					});
+					return false;
+				}
+			} catch (e) {
+				this.l.warn("[@checkHeartbeat]: failed to verify head freshness", {
+					error: formatErrorMessage(e),
+				});
+			}
 		}
 		return true;
 	}
@@ -397,6 +419,9 @@ export class EventListener {
 			async (
 				perpetualId: number,
 				trader: string,
+				_fLockedInValueQC: bigint,
+				_fCashCC: bigint,
+				_fPositionBC: bigint,
 				fFundingPaymentCC: bigint,
 				event: ethers.ContractEventPayload,
 			) => {

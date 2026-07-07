@@ -33,6 +33,7 @@ import { getCachedBlockTs, setCachedBlockTs } from "./blockTimestampCache.js";
 global.Error.stackTraceLimit = Infinity;
 
 const END_BLOCK_MARGIN = 256;
+const HEAD_SAFETY_MARGIN = Number(process.env.HEAD_SAFETY_MARGIN ?? 16);
 
 /**
  * HistoricalDataFilterer retrieves historical data for trades, liquidations and
@@ -78,6 +79,7 @@ export class HistoricalDataFilterer {
 			);
 			untilBlock = untilBlocks[0] + END_BLOCK_MARGIN;
 		}
+		const promises: Array<Promise<void>> = [];
 		for (let i = 0; i < shareTokenContracts.length; i++) {
 			const currentAddress = shareTokenContracts[i];
 			this.l.info("starting p2p transfer filtering", {
@@ -92,29 +94,32 @@ export class HistoricalDataFilterer {
 				10_000,
 				"RPC call timeout",
 			);
-			this.genericFilterer(
-				filter,
-				sinceBlocks[0],
-				[filter.fragment.topicHash],
-				c,
-				(
-					decodedTradeEvent: Record<string, any>,
-					e: ethers.EventLog,
-					blockTimestamp: number,
-				) => {
-					cb(
-						decodedTradeEvent as P2PTransferEvent,
-						e.transactionHash,
-						e.blockNumber,
-						blockTimestamp,
-						{ poolId },
-					);
-				},
-				untilBlock !== undefined
-					? Math.min(sinceBlocks[1], untilBlock)
-					: sinceBlocks[1],
+			promises.push(
+				this.genericFilterer(
+					filter,
+					sinceBlocks[0],
+					[filter.fragment.topicHash],
+					c,
+					(
+						decodedTradeEvent: Record<string, any>,
+						e: ethers.EventLog,
+						blockTimestamp: number,
+					) => {
+						cb(
+							decodedTradeEvent as P2PTransferEvent,
+							e.transactionHash,
+							e.blockNumber,
+							blockTimestamp,
+							{ poolId },
+						);
+					},
+					untilBlock !== undefined
+						? Math.min(sinceBlocks[1], untilBlock)
+						: sinceBlocks[1],
+				),
 			);
 		}
+		await Promise.all(promises);
 	}
 
 	/**
@@ -171,6 +176,24 @@ export class HistoricalDataFilterer {
 		const topicHashes = eventNames.map(
 			(eventName) => this.PerpManagerProxy.filters[eventName]().fragment.topicHash,
 		);
+
+		const eventBlockWatermarks = new Map<string, number>();
+		if (eventTimestamps) {
+			for (const [name, wmDate] of eventTimestamps) {
+				try {
+					const [wmBlock] = await calculateBlockFromTime(this.provider, wmDate);
+					eventBlockWatermarks.set(name, wmBlock);
+				} catch (e) {
+					this.l.warn(
+						"could not resolve watermark block, skipping block-skip",
+						{
+							event: name,
+							error: formatErrorMessage(e),
+						},
+					);
+				}
+			}
+		}
 
 		// callbacks
 		const skipCounts = new Map<string, number>();
@@ -306,6 +329,7 @@ export class HistoricalDataFilterer {
 			this.PerpManagerProxy,
 			cb,
 			endBlock,
+			eventBlockWatermarks,
 		);
 
 		if (skipCounts.size > 0) {
@@ -337,10 +361,28 @@ export class HistoricalDataFilterer {
 			blockTimestamp: number,
 		) => void,
 		currentBlock: number,
+		eventBlockWatermarks?: Map<string, number>,
 	) {
 		let deltaBlocks = 9_999;
-		const endBlock: number = currentBlock;
+		let endBlock: number = currentBlock;
+		try {
+			const head = await this.provider.getBlockNumber();
+			endBlock = Math.min(endBlock, head - HEAD_SAFETY_MARGIN);
+		} catch (e) {
+			this.l.warn("could not fetch head to clamp endBlock", {
+				error: formatErrorMessage(e),
+			});
+		}
 		const eventNames = topicHashes.map((topic0) => c.interface.getEventName(topic0));
+
+		if (endBlock <= Number(fromBlock)) {
+			this.l.info("nothing to scan, skipping", {
+				events: eventNames,
+				fromBlock: Number(fromBlock),
+				endBlock: endBlock,
+			});
+			return;
+		}
 
 		this.l.info("querying historical logs", {
 			events: eventNames,
@@ -351,76 +393,92 @@ export class HistoricalDataFilterer {
 		let totalEventsFound = 0;
 		let lastWaitSeconds = 2;
 		const maxWaitSeconds = 32;
+		const throttleMs = Number(process.env.BACKFILL_CHUNK_THROTTLE_MS ?? 250);
 		const blockTimestamp = new Map<number, number>();
 		let count = 0;
-		for (let i = Number(fromBlock); i < endBlock; ) {
-			const _startBlock = i;
-			const _endBlock = Math.min(endBlock, i + deltaBlocks - 1);
-			const percProgress = Math.round(
-				((i - Number(fromBlock)) / (endBlock - Number(fromBlock))) * 100,
-			);
-			metrics.backfill.running = true;
-			metrics.backfill.progress = percProgress;
-			metrics.backfill.eventsFound = totalEventsFound;
-			if (count % 100 == 0) {
-				this.l.info(
-					`historical blocks ${_startBlock}-${_endBlock}, ${percProgress}% progress`,
+		metrics.backfill.activeScans += 1;
+		metrics.backfill.running = true;
+		try {
+			for (let i = Number(fromBlock); i < endBlock; ) {
+				const _startBlock = i;
+				const _endBlock = Math.min(endBlock, i + deltaBlocks - 1);
+				const percProgress = Math.round(
+					((i - Number(fromBlock)) / (endBlock - Number(fromBlock))) * 100,
 				);
-			}
-			count += 1;
-			try {
-				const _events = (await c.queryFilter(
-					filter,
-					_startBlock,
-					_endBlock,
-				)) as ethers.EventLog[];
-				totalEventsFound += _events.length;
-				i += deltaBlocks;
-				lastWaitSeconds = 2;
-				if (deltaBlocks < 9_999 * 0.75) {
-					deltaBlocks = Math.min(9_999, Math.round(deltaBlocks * 1.25));
-				}
-				await this.saveEvents(topicHashes, _events, c, blockTimestamp, cb);
-				// throttle just in case avoid RPC ban, for about ~10 rps
-				await new Promise((resolve) => setTimeout(resolve, 250));
-			} catch (error) {
-				const errMsg = formatErrorMessage(error);
-				this.l.warn("Caught error in genericFilterer:" + errMsg);
-				metrics.trackError("genericFilterer", error);
-				if (errMsg.includes("413")) {
-					deltaBlocks = Math.max(100, Math.round(deltaBlocks * 0.75));
+				metrics.backfill.progress = percProgress;
+				metrics.backfill.eventsFound = totalEventsFound;
+				if (count % 100 == 0) {
 					this.l.info(
-						"reduced deltaBlocks to " + String(deltaBlocks) + " ... retrying",
+						`historical blocks ${_startBlock}-${_endBlock}, ${percProgress}% progress`,
 					);
-					continue;
 				}
-				if (isRateLimitError(error)) {
-					metrics.rateLimitsHit++;
-					this.l.warn("rate limited by RPC, backing off", {
-						wait_seconds: lastWaitSeconds,
-					});
-					await new Promise((resolve) =>
-						setTimeout(resolve, lastWaitSeconds * 1000),
+				count += 1;
+				try {
+					const _events = (await c.queryFilter(
+						filter,
+						_startBlock,
+						_endBlock,
+					)) as ethers.EventLog[];
+					totalEventsFound += _events.length;
+					i += deltaBlocks;
+					lastWaitSeconds = 2;
+					if (deltaBlocks < 9_999 * 0.75) {
+						deltaBlocks = Math.min(9_999, Math.round(deltaBlocks * 1.25));
+					}
+					await this.saveEvents(
+						topicHashes,
+						_events,
+						c,
+						blockTimestamp,
+						cb,
+						eventBlockWatermarks,
 					);
-					lastWaitSeconds = Math.min(lastWaitSeconds * 2, maxWaitSeconds);
-					continue;
-				}
-				if (maxWaitSeconds > lastWaitSeconds) {
-					this.l.warn("RPC error, retrying", {
-						wait_seconds: lastWaitSeconds,
-					});
-					await new Promise((resolve) =>
-						setTimeout(resolve, lastWaitSeconds * 1000),
-					);
-					lastWaitSeconds *= 2;
-				} else {
-					this.l.warn("throwing error in genericFilterer");
-					throw new Error(error as string | undefined);
+					if (throttleMs > 0 && _events.length > 0) {
+						await new Promise((resolve) => setTimeout(resolve, throttleMs));
+					}
+				} catch (error) {
+					const errMsg = formatErrorMessage(error);
+					this.l.warn("Caught error in genericFilterer:" + errMsg);
+					metrics.trackError("genericFilterer", error);
+					if (errMsg.includes("413")) {
+						deltaBlocks = Math.max(100, Math.round(deltaBlocks * 0.75));
+						this.l.info(
+							"reduced deltaBlocks to " +
+								String(deltaBlocks) +
+								" ... retrying",
+						);
+						continue;
+					}
+					if (isRateLimitError(error)) {
+						metrics.rateLimitsHit++;
+						this.l.warn("rate limited by RPC, backing off", {
+							wait_seconds: lastWaitSeconds,
+						});
+						await new Promise((resolve) =>
+							setTimeout(resolve, lastWaitSeconds * 1000),
+						);
+						lastWaitSeconds = Math.min(lastWaitSeconds * 2, maxWaitSeconds);
+						continue;
+					}
+					if (maxWaitSeconds > lastWaitSeconds) {
+						this.l.warn("RPC error, retrying", {
+							wait_seconds: lastWaitSeconds,
+						});
+						await new Promise((resolve) =>
+							setTimeout(resolve, lastWaitSeconds * 1000),
+						);
+						lastWaitSeconds *= 2;
+					} else {
+						this.l.warn("throwing error in genericFilterer");
+						throw new Error(error as string | undefined);
+					}
 				}
 			}
+			metrics.backfill.eventsFound = totalEventsFound;
+		} finally {
+			metrics.backfill.activeScans -= 1;
+			metrics.backfill.running = metrics.backfill.activeScans > 0;
 		}
-		metrics.backfill.running = false;
-		metrics.backfill.eventsFound = totalEventsFound;
 		this.l.info("finished querying historical logs", {
 			events: eventNames,
 			eventsFound: totalEventsFound,
@@ -437,6 +495,7 @@ export class HistoricalDataFilterer {
 			event: ethers.EventLog,
 			blockTimestamp: number,
 		) => void,
+		eventBlockWatermarks?: Map<string, number>,
 	) {
 		if (events.length < 1) {
 			return;
@@ -449,55 +508,90 @@ export class HistoricalDataFilterer {
 		const eventFragments = topicHashes.map(
 			(topic0) => c.interface.getEvent(topic0) as EventFragment,
 		);
-		let getBlockCalls = 0;
-		for (let i = 0; i < events.length; i++) {
-			const event = events[i];
+
+		const relevant: { event: ethers.EventLog; fragmentIndex: number }[] = [];
+		for (const event of events) {
 			for (let j = 0; j < topicHashes.length; j++) {
 				if (topicHashes[j] == event.topics[0]) {
-					const log = c.interface.decodeEventLog(
-						eventFragments[j],
-						event.data,
-						event.topics,
+					const wmBlock = eventBlockWatermarks?.get(
+						c.interface.getEventName(event.topics[0]),
 					);
-					if (blockTimestamp.get(event.blockNumber) == undefined) {
-						const cachedTs = getCachedBlockTs(event.blockNumber);
-						if (cachedTs !== undefined) {
-							blockTimestamp.set(event.blockNumber, cachedTs);
-						}
+					if (wmBlock !== undefined && event.blockNumber < wmBlock) {
+						break;
 					}
-					if (blockTimestamp.get(event.blockNumber) == undefined) {
-						getBlockCalls++;
-						let retries = 0;
-						for (;;) {
-							try {
-								const blockTs = (await event.getBlock()).timestamp;
-								blockTimestamp.set(event.blockNumber, blockTs);
-								setCachedBlockTs(event.blockNumber, blockTs);
-								break;
-							} catch (e) {
-								if (isRateLimitError(e) && retries < 5) {
-									metrics.rateLimitsHit++;
-									metrics.trackError("getBlock", e);
-									const wait = Math.pow(2, retries) * 1000;
-									this.l.warn(
-										`getBlock rate limited, retrying in ${wait}ms`,
-									);
-									await new Promise((r) => setTimeout(r, wait));
-									retries++;
-								} else {
-									throw e;
-								}
-							}
-						}
-					}
-					const ts = blockTimestamp.get(event.blockNumber)!;
-					cb(log, event, ts);
+					relevant.push({ event, fragmentIndex: j });
 					break;
 				}
 			}
 		}
-		if (getBlockCalls >= 100) {
-			this.l.info(`saveEvents: made ${getBlockCalls} getBlock() RPC calls`);
+
+		const needed = new Set<number>();
+		for (const { event } of relevant) {
+			const bn = event.blockNumber;
+			if (blockTimestamp.get(bn) !== undefined || needed.has(bn)) {
+				continue;
+			}
+			const cachedTs = getCachedBlockTs(bn);
+			if (cachedTs !== undefined) {
+				blockTimestamp.set(bn, cachedTs);
+			} else {
+				needed.add(bn);
+			}
+		}
+		if (needed.size >= 100) {
+			this.l.info(`saveEvents: fetching ${needed.size} block timestamps`);
+		}
+		await this.fetchBlockTimestamps([...needed], blockTimestamp);
+
+		for (const { event, fragmentIndex } of relevant) {
+			const log = c.interface.decodeEventLog(
+				eventFragments[fragmentIndex],
+				event.data,
+				event.topics,
+			);
+			const ts = blockTimestamp.get(event.blockNumber)!;
+			cb(log, event, ts);
+		}
+	}
+
+	private async fetchBlockTimestamps(
+		blockNumbers: number[],
+		into: Map<number, number>,
+	) {
+		const concurrency = Number(process.env.BLOCK_TS_CONCURRENCY ?? 10);
+		for (let i = 0; i < blockNumbers.length; i += concurrency) {
+			const slice = blockNumbers.slice(i, i + concurrency);
+			await Promise.all(
+				slice.map(async (bn) => {
+					const ts = await this.getBlockTsWithRetry(bn);
+					into.set(bn, ts);
+					setCachedBlockTs(bn, ts);
+				}),
+			);
+		}
+	}
+
+	private async getBlockTsWithRetry(blockNumber: number): Promise<number> {
+		let retries = 0;
+		for (;;) {
+			try {
+				const blk = await this.provider.getBlock(blockNumber);
+				if (!blk) {
+					throw new Error(`block ${blockNumber} not found`);
+				}
+				return blk.timestamp;
+			} catch (e) {
+				if (isRateLimitError(e) && retries < 5) {
+					metrics.rateLimitsHit++;
+					metrics.trackError("getBlock", e);
+					const wait = Math.pow(2, retries) * 1000;
+					this.l.warn(`getBlock rate limited, retrying in ${wait}ms`);
+					await new Promise((r) => setTimeout(r, wait));
+					retries++;
+				} else {
+					throw e;
+				}
+			}
 		}
 	}
 }

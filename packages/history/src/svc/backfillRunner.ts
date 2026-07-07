@@ -4,6 +4,8 @@ import type { Logger } from "winston";
 import { EventListener } from "../contracts/listeners.js";
 import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer.js";
 import StaticInfo from "../contracts/static_info.js";
+import { formatErrorMessage } from "../utils/errors.js";
+import { metrics } from "./metrics.js";
 import type {
 	LiquidityAddedEvent,
 	LiquidityRemovedEvent,
@@ -15,13 +17,13 @@ import type {
 	SettleEventV1,
 } from "../contracts/types.js";
 import { EstimatedEarnings } from "../db/estimated_earnings.js";
-import { FundingRatePayments } from "../db/funding_rate.js";
+import { FundingRatePayments, type FundingBatchItem } from "../db/funding_rate.js";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals.js";
 import { PriceInfo } from "../db/price_info.js";
 import { SetOracles } from "../db/set_oracles.js";
-import { SettleHistory } from "../db/settle_history.js";
-import { TokenFlow } from "../db/token_flow.js";
-import { TradingHistory } from "../db/trading_history.js";
+import { SettleHistory, type SettleBatchItem } from "../db/settle_history.js";
+import { TokenFlow, type TokenFlowBatchItem } from "../db/token_flow.js";
+import { TradingHistory, type TradeBatchItem } from "../db/trading_history.js";
 
 export interface hdFilterersOpt {
 	httpProvider: ethers.Provider;
@@ -67,10 +69,16 @@ export async function runHistoricalDataFilterers(
 	const hd = new HistoricalDataFilterer(httpProvider, proxyContractAddr, logger);
 
 	// Share token contracts
-	const shareTokenAddresses = await staticInfo.retrieveShareTokenContracts();
+	const shareTokenAddresses = staticInfo.retrieveShareTokenContracts();
 
 	const promises: Array<Promise<void>> = [];
 	const IS_COLLECTED_BY_EVENT = false;
+
+	const tradeBatch: TradeBatchItem[] = [];
+	const fundingBatch: FundingBatchItem[] = [];
+	const settleBatch: SettleBatchItem[] = [];
+	const tokenFlowBatch: TokenFlowBatchItem[] = [];
+	const deferredWrites: Array<() => Promise<void>> = [];
 
 	const eventTimestamps = new Map<string, Date>();
 
@@ -108,9 +116,34 @@ export async function runHistoricalDataFilterers(
 	const oracleTs = await dbSetOracles.getLatestTimestamp();
 	if (oracleTs) eventTimestamps.set("SetOracles", oracleTs);
 
-	const allTimestamps = [...eventTimestamps.values()];
-	allTimestamps.push(defaultDate);
-	const ts = allTimestamps.reduce((a, b) => (a < b ? a : b));
+	const lookbackDays = Number(process.env.BACKFILL_MAX_LOOKBACK_DAYS ?? 30);
+	const floorMs = Date.now() - lookbackDays * 24 * 3600 * 1000;
+
+	let ts: Date;
+	if (skipUpToDate) {
+		const redundancyLookbackHours = Number(
+			process.env.BACKFILL_REDUNDANCY_LOOKBACK_HOURS ?? 8,
+		);
+		const startMs = Math.max(
+			floorMs,
+			Date.now() - redundancyLookbackHours * 3600 * 1000,
+		);
+		ts = new Date(startMs);
+		logger.info(
+			`redundancy backfill scanning last ${redundancyLookbackHours}h from ${ts.toISOString()}`,
+		);
+	} else {
+		const allTimestamps = [...eventTimestamps.values()];
+		allTimestamps.push(defaultDate);
+		ts = allTimestamps.reduce((a, b) => (a < b ? a : b));
+		if (ts.getTime() < floorMs) {
+			const floored = new Date(floorMs);
+			logger.info(
+				`flooring backfill start from ${ts.toISOString()} to ${floored.toISOString()} (${lookbackDays}d lookback)`,
+			);
+			ts = floored;
+		}
+	}
 
 	const tsInfo: Record<string, string> = {};
 	for (const [k, v] of eventTimestamps) {
@@ -129,82 +162,75 @@ export async function runHistoricalDataFilterers(
 					blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
-					await eventListener.onTradeEvent(
-						eventData,
+					tradeBatch.push({
+						e: eventData,
 						txHash,
-						IS_COLLECTED_BY_EVENT,
 						blockTimestamp,
-						Number(blockNum.toString()),
-					);
+						blockNumber: Number(blockNum.toString()),
+					});
 				},
 
 				Settle: async (
 					eventData: SettleEventV1,
 					txHash: string,
-					blockNum: BigNumberish,
+					_blockNum: BigNumberish,
 					blockTimeStamp: number,
 				) => {
-					await eventListener.onSettleEvent(
-						{
+					settleBatch.push({
+						e: {
 							perpetualId: eventData.perpetualId,
 							trader: eventData.trader,
 							amount: eventData.amount,
 							cash: 0n,
 						},
 						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimeStamp,
-					);
+						blockTimestamp: blockTimeStamp,
+					});
 				},
 
 				SettleV2: async (
 					eventData: SettleEvent,
 					txHash: string,
-					blockNum: BigNumberish,
+					_blockNum: BigNumberish,
 					blockTimeStamp: number,
 				) => {
-					await eventListener.onSettleEvent(
-						eventData,
+					settleBatch.push({
+						e: eventData,
 						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimeStamp,
-					);
+						blockTimestamp: blockTimeStamp,
+					});
 				},
 
 				TokensDeposited: async (
 					eventData: Record<string, any>,
 					txHash: string,
-					blockNum: BigNumberish,
+					_blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
-					await eventListener.onTokensDepositedEvent(
-						{
-							perpetualId: eventData.perpetualId,
-							trader: eventData.trader,
-							amountCC: eventData.amount,
-						},
+					tokenFlowBatch.push({
+						perpetualId: eventData.perpetualId,
+						trader: eventData.trader,
+						amountCC: eventData.amount,
 						txHash,
-						IS_COLLECTED_BY_EVENT,
 						blockTimestamp,
-					);
+						isDeposit: true,
+					});
 				},
 
 				TokensWithdrawn: async (
 					eventData: Record<string, any>,
 					txHash: string,
-					blockNum: BigNumberish,
+					_blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
-					await eventListener.onTokensWithdrawnEvent(
-						{
-							perpetualId: eventData.perpetualId,
-							trader: eventData.trader,
-							amountCC: eventData.amount,
-						},
+					tokenFlowBatch.push({
+						perpetualId: eventData.perpetualId,
+						trader: eventData.trader,
+						amountCC: eventData.amount,
 						txHash,
-						IS_COLLECTED_BY_EVENT,
 						blockTimestamp,
-					);
+						isDeposit: false,
+					});
 				},
 
 				SetOracles: async (
@@ -213,12 +239,14 @@ export async function runHistoricalDataFilterers(
 					blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
-					await eventListener.onSetOracleEvent(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
-						Number(blockNum.toString()),
+					deferredWrites.push(() =>
+						eventListener.onSetOracleEvent(
+							eventData,
+							txHash,
+							IS_COLLECTED_BY_EVENT,
+							blockTimestamp,
+							Number(blockNum.toString()),
+						),
 					);
 				},
 
@@ -228,13 +256,12 @@ export async function runHistoricalDataFilterers(
 					blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
-					await eventListener.onLiquidate(
-						eventData,
+					tradeBatch.push({
+						e: eventData,
 						txHash,
-						IS_COLLECTED_BY_EVENT,
 						blockTimestamp,
-						Number(blockNum.toString()),
-					);
+						blockNumber: Number(blockNum.toString()),
+					});
 				},
 				UpdateMarginAccount: async (
 					eventData: UpdateMarginAccountEvent,
@@ -242,12 +269,11 @@ export async function runHistoricalDataFilterers(
 					_blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
-					await eventListener.onUpdateMarginAccount(
-						eventData,
+					fundingBatch.push({
+						e: eventData,
 						txHash,
-						IS_COLLECTED_BY_EVENT,
 						blockTimestamp,
-					);
+					});
 				},
 				LiquidityAdded: async (
 					eventData: LiquidityAddedEvent,
@@ -255,11 +281,13 @@ export async function runHistoricalDataFilterers(
 					_blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
-					await eventListener.onLiquidityAdded(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
+					deferredWrites.push(() =>
+						eventListener.onLiquidityAdded(
+							eventData,
+							txHash,
+							IS_COLLECTED_BY_EVENT,
+							blockTimestamp,
+						),
 					);
 				},
 				LiquidityRemoved: async (
@@ -268,11 +296,13 @@ export async function runHistoricalDataFilterers(
 					_blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
-					await eventListener.onLiquidityRemoved(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
+					deferredWrites.push(() =>
+						eventListener.onLiquidityRemoved(
+							eventData,
+							txHash,
+							IS_COLLECTED_BY_EVENT,
+							blockTimestamp,
+						),
 					);
 				},
 				LiquidityWithdrawalInitiated: async (
@@ -282,11 +312,13 @@ export async function runHistoricalDataFilterers(
 					blockTimeStamp,
 					_params,
 				) => {
-					await eventListener.onLiquidityWithdrawalInitiated(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimeStamp,
+					deferredWrites.push(() =>
+						eventListener.onLiquidityWithdrawalInitiated(
+							eventData,
+							txHash,
+							IS_COLLECTED_BY_EVENT,
+							blockTimeStamp,
+						),
 					);
 				},
 			},
@@ -300,7 +332,7 @@ export async function runHistoricalDataFilterers(
 	);
 	const p2pTs: Date[] = [];
 	for (let k = 0; k < shareTokenAddresses.length; k++) {
-		if (p2pTimestamps[k] == undefined) {
+		if (untilDate !== undefined || p2pTimestamps[k] == undefined) {
 			p2pTs.push(defaultDate);
 		} else {
 			p2pTs.push(p2pTimestamps[k]!);
@@ -308,10 +340,38 @@ export async function runHistoricalDataFilterers(
 	}
 	await Promise.all(promises);
 
+	logger.info("flushing backfill batches", {
+		trades: tradeBatch.length,
+		funding: fundingBatch.length,
+		settle: settleBatch.length,
+		tokenFlow: tokenFlowBatch.length,
+	});
+	await dbTrades.insertTradeHistoryRecordsBatch(tradeBatch, IS_COLLECTED_BY_EVENT);
+	await dbFundingRatePayments.insertFundingRatePaymentsBatch(
+		fundingBatch,
+		IS_COLLECTED_BY_EVENT,
+	);
+	await dbSettle.insertSettleHistoryRecordsBatch(settleBatch, IS_COLLECTED_BY_EVENT);
+	await dbTokenFlow.insertTokenFlowRecordsBatch(tokenFlowBatch, IS_COLLECTED_BY_EVENT);
+
+	if (deferredWrites.length > 0) {
+		logger.info("replaying deferred writes", { count: deferredWrites.length });
+		for (const write of deferredWrites) {
+			try {
+				await write();
+			} catch (e) {
+				logger.warn("deferred write failed", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("deferredWrite", e);
+			}
+		}
+	}
+
 	await hd.filterP2Ptransfers(
 		shareTokenAddresses,
 		p2pTs,
-		(eventData, txHash, blockNumber, blockTimeStamp, params) => {
+		(eventData, txHash, _blockNumber, blockTimeStamp, params) => {
 			dbEstimatedEarnings.insertShareTokenP2PTransfer(
 				eventData,
 				params?.poolId as unknown as number,

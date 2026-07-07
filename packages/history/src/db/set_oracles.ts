@@ -148,7 +148,8 @@ export class SetOracles {
 		FROM cte
 		WHERE pli.perpetual_id = cte.perpetual_id
 		AND pli.valid_from = cte.valid_from
-		AND cte.next_valid_from IS NOT NULL;`);
+		AND cte.next_valid_from IS NOT NULL
+			AND pli.valid_to IS DISTINCT FROM cte.next_valid_from;`);
 		this.l.info(`perpetual_long_id: adjusted timestamps ${res} rows affected`);
 	}
 	/**
