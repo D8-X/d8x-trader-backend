@@ -419,6 +419,9 @@ export class EventListener {
 			async (
 				perpetualId: number,
 				trader: string,
+				_fLockedInValueQC: bigint,
+				_fCashCC: bigint,
+				_fPositionBC: bigint,
 				fFundingPaymentCC: bigint,
 				event: ethers.ContractEventPayload,
 			) => {
