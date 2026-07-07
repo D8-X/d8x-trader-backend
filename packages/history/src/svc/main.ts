@@ -146,7 +146,7 @@ export const main = async () => {
 	const network = Network.from(chainId);
 	let wsProvider: ethers.WebSocketProvider = new WebSocketProvider(
 		() =>
-			new SturdyWebSocket(chooseRandomRPC(true, rpcConfig), {
+			new SturdyWebSocket(wsRpcUrl, {
 				wsConstructor: WebSocket,
 			}),
 		network,
