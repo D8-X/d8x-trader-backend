@@ -84,6 +84,7 @@ export class EventListener {
 			});
 			return undefined;
 		}
+		metrics.trackEvent(event.fragment?.name ?? "unknown");
 		const blockNum = event.log.blockNumber;
 		const cached = this.blockTsCache.get(blockNum) ?? getCachedBlockTs(blockNum);
 		if (cached !== undefined) {
