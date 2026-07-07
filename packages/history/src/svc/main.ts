@@ -46,7 +46,7 @@ const WS_ALIVE_PROBE_MS = 30_000;
 const MAX_WS_HEAD_AGE_SEC = Number(process.env.MAX_WS_HEAD_AGE_SEC ?? 120);
 const HEARTBEAT_CHECK_INTERVAL_MS = 60_000;
 const HEARTBEAT_STALE_THRESHOLD_SEC = 30;
-const WS_PROMOTE_INTERVAL_MS = Number(process.env.WS_PROMOTE_INTERVAL_MS ?? 300_000);
+const WS_PROMOTE_INTERVAL_MS = Number(process.env.WS_PROMOTE_INTERVAL_MS ?? 60_000);
 const REDUNDANCY_BACKFILL_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4h
 
 export const loadEnv = (wantEnvs?: string[] | undefined) => {
