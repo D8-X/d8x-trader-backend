@@ -4,6 +4,8 @@ import type { Logger } from "winston";
 import { EventListener } from "../contracts/listeners.js";
 import { HistoricalDataFilterer } from "../contracts/historicalDataFilterer.js";
 import StaticInfo from "../contracts/static_info.js";
+import { formatErrorMessage } from "../utils/errors.js";
+import { metrics } from "./metrics.js";
 import type {
 	LiquidityAddedEvent,
 	LiquidityRemovedEvent,
@@ -76,6 +78,7 @@ export async function runHistoricalDataFilterers(
 	const fundingBatch: FundingBatchItem[] = [];
 	const settleBatch: SettleBatchItem[] = [];
 	const tokenFlowBatch: TokenFlowBatchItem[] = [];
+	const deferredWrites: Array<() => Promise<void>> = [];
 
 	const eventTimestamps = new Map<string, Date>();
 
@@ -236,12 +239,14 @@ export async function runHistoricalDataFilterers(
 					blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
-					await eventListener.onSetOracleEvent(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
-						Number(blockNum.toString()),
+					deferredWrites.push(() =>
+						eventListener.onSetOracleEvent(
+							eventData,
+							txHash,
+							IS_COLLECTED_BY_EVENT,
+							blockTimestamp,
+							Number(blockNum.toString()),
+						),
 					);
 				},
 
@@ -276,11 +281,13 @@ export async function runHistoricalDataFilterers(
 					_blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
-					await eventListener.onLiquidityAdded(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
+					deferredWrites.push(() =>
+						eventListener.onLiquidityAdded(
+							eventData,
+							txHash,
+							IS_COLLECTED_BY_EVENT,
+							blockTimestamp,
+						),
 					);
 				},
 				LiquidityRemoved: async (
@@ -289,11 +296,13 @@ export async function runHistoricalDataFilterers(
 					_blockNum: BigNumberish,
 					blockTimestamp: number,
 				) => {
-					await eventListener.onLiquidityRemoved(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimestamp,
+					deferredWrites.push(() =>
+						eventListener.onLiquidityRemoved(
+							eventData,
+							txHash,
+							IS_COLLECTED_BY_EVENT,
+							blockTimestamp,
+						),
 					);
 				},
 				LiquidityWithdrawalInitiated: async (
@@ -303,11 +312,13 @@ export async function runHistoricalDataFilterers(
 					blockTimeStamp,
 					_params,
 				) => {
-					await eventListener.onLiquidityWithdrawalInitiated(
-						eventData,
-						txHash,
-						IS_COLLECTED_BY_EVENT,
-						blockTimeStamp,
+					deferredWrites.push(() =>
+						eventListener.onLiquidityWithdrawalInitiated(
+							eventData,
+							txHash,
+							IS_COLLECTED_BY_EVENT,
+							blockTimeStamp,
+						),
 					);
 				},
 			},
@@ -342,6 +353,20 @@ export async function runHistoricalDataFilterers(
 	);
 	await dbSettle.insertSettleHistoryRecordsBatch(settleBatch, IS_COLLECTED_BY_EVENT);
 	await dbTokenFlow.insertTokenFlowRecordsBatch(tokenFlowBatch, IS_COLLECTED_BY_EVENT);
+
+	if (deferredWrites.length > 0) {
+		logger.info("replaying deferred writes", { count: deferredWrites.length });
+		for (const write of deferredWrites) {
+			try {
+				await write();
+			} catch (e) {
+				logger.warn("deferred write failed", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("deferredWrite", e);
+			}
+		}
+	}
 
 	await hd.filterP2Ptransfers(
 		shareTokenAddresses,
