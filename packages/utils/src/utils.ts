@@ -353,11 +353,6 @@ export async function calculateBlockFromTime(
 	since: Date,
 	mustBeBefore = true,
 ): Promise<[number, number]> {
-	// Maximum number of rpc calls to make for binary search. More calls gives
-	// more precise results. 7 seems to find block number with at least matching
-	// the day to `since`. 10 seems to be enough to match the hour. More calls
-	// will take more time, but on premium RPC it should not matter too much.
-	const MAX_RPC_CALLS = 7;
 	// Precision in seconds when we'll treat the result as good enough.
 	// Currently set to 6 hours.
 	const precision = 6 * 3600;
@@ -366,13 +361,14 @@ export async function calculateBlockFromTime(
 		(await provider.getBlock("latest"))!;
 
 	const maxBlockNum = rightBlockNum;
+	const maxRpcCalls = Math.ceil(Math.log2(Number(rightBlockNum) + 2)) + 4;
 
 	// Do not hardcode the values since they will differ between chains.
 	let leftBlockTime = new Date(0).getTime() / 1000;
 	let leftBlockNum = 0;
 
 	let i = 0;
-	while (i < MAX_RPC_CALLS) {
+	while (i < maxRpcCalls) {
 		const middleBlockNum = Math.round((leftBlockNum + rightBlockNum) / 2);
 		const { timestamp: middleBlockTime } = (await provider.getBlock(middleBlockNum))!;
 		if (middleBlockTime < since.getTime() / 1000) {
