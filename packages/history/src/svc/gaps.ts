@@ -132,6 +132,14 @@ export async function detectAndFillGaps(
 	logger.info(`filling ${merged.length} merged gap(s), most recent first`);
 
 	for (const [gapStartSec, endSec] of merged) {
+		if (endSec <= startTimestampSec) {
+			logger.info("skipping gap before fill horizon", {
+				gap_start: new Date(gapStartSec * 1000).toISOString(),
+				gap_end: new Date(endSec * 1000).toISOString(),
+				horizon: new Date(startTimestampSec * 1000).toISOString(),
+			});
+			continue;
+		}
 		const sec = Math.max(gapStartSec, startTimestampSec);
 		if (await gapMemory.hasTried(gapStartSec, endSec)) {
 			logger.info("skipping gap already attempted", {
