@@ -564,6 +564,8 @@ export async function calculateBlockFromTimeOld(
 	return [blk.number, max];
 }
 
+const rpcRotationIndex = new Map<string, number>();
+
 export function chooseRandomRPC(ws = false, rpcConfig: RPCConfig[]): string {
 	dotenv.config();
 	const chainId: number = Number(<string>process.env.CHAIN_ID || -1);
@@ -585,7 +587,10 @@ export function chooseRandomRPC(ws = false, rpcConfig: RPCConfig[]): string {
 			`No ${ws ? "Websocket" : "HTTP"} RPC defined for chain ID ${chainId}`,
 		);
 	}
-	return urls[Math.floor(Math.random() * urls.length)];
+	const key = `${chainId}:${ws ? "ws" : "http"}`;
+	const next = ((rpcRotationIndex.get(key) ?? -1) + 1) % urls.length;
+	rpcRotationIndex.set(key, next);
+	return urls[next];
 }
 
 export const loadConfigRPC = (): any => loadConfigFile("rpc", "CONFIG_PATH_RPC");
