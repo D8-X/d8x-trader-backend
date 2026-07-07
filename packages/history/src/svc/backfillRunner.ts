@@ -108,18 +108,33 @@ export async function runHistoricalDataFilterers(
 	const oracleTs = await dbSetOracles.getLatestTimestamp();
 	if (oracleTs) eventTimestamps.set("SetOracles", oracleTs);
 
-	const allTimestamps = [...eventTimestamps.values()];
-	allTimestamps.push(defaultDate);
-	let ts = allTimestamps.reduce((a, b) => (a < b ? a : b));
-
 	const lookbackDays = Number(process.env.BACKFILL_MAX_LOOKBACK_DAYS ?? 30);
 	const floorMs = Date.now() - lookbackDays * 24 * 3600 * 1000;
-	if (ts.getTime() < floorMs) {
-		const floored = new Date(floorMs);
-		logger.info(
-			`flooring backfill start from ${ts.toISOString()} to ${floored.toISOString()} (${lookbackDays}d lookback)`,
+
+	let ts: Date;
+	if (skipUpToDate) {
+		const redundancyLookbackHours = Number(
+			process.env.BACKFILL_REDUNDANCY_LOOKBACK_HOURS ?? 8,
 		);
-		ts = floored;
+		const startMs = Math.max(
+			floorMs,
+			Date.now() - redundancyLookbackHours * 3600 * 1000,
+		);
+		ts = new Date(startMs);
+		logger.info(
+			`redundancy backfill scanning last ${redundancyLookbackHours}h from ${ts.toISOString()}`,
+		);
+	} else {
+		const allTimestamps = [...eventTimestamps.values()];
+		allTimestamps.push(defaultDate);
+		ts = allTimestamps.reduce((a, b) => (a < b ? a : b));
+		if (ts.getTime() < floorMs) {
+			const floored = new Date(floorMs);
+			logger.info(
+				`flooring backfill start from ${ts.toISOString()} to ${floored.toISOString()} (${lookbackDays}d lookback)`,
+			);
+			ts = floored;
+		}
 	}
 
 	const tsInfo: Record<string, string> = {};
