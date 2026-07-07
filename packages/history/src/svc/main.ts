@@ -248,40 +248,44 @@ export const main = async () => {
 	logger.info("gap memory: connected to redis");
 
 	let backfillRunning = false;
-	const runBackfillGuarded = async (startSec: number, skipUpToDate = true) => {
+
+	const runInitialCatchup = async () => {
 		if (backfillRunning) {
-			logger.info("backfill already running, skipping");
+			logger.info("catch-up already running, skipping");
 			return;
 		}
 		backfillRunning = true;
 		try {
-			await runHistoricalDataFilterers(hdOpts, startSec, skipUpToDate);
+			const thirtyDaysAgoSec = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
+			try {
+				await runHistoricalDataFilterers(hdOpts, thirtyDaysAgoSec, false);
+			} catch (e) {
+				logger.warn("initial backfill failed", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("backfill", e);
+			}
+			const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
+			try {
+				await detectAndFillGaps(
+					prisma,
+					(sec: number, endSec?: number) =>
+						runHistoricalDataFilterers(hdOpts, sec, false, endSec),
+					sevenDaysAgoSec,
+					logger,
+					gapMemory,
+				);
+			} catch (e) {
+				logger.warn("initial gap detection failed", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("gapDetection", e);
+			}
 		} finally {
 			backfillRunning = false;
 		}
 	};
-
-	const thirtyDaysAgoSec = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
-	runBackfillGuarded(thirtyDaysAgoSec, false)
-		.catch((e) => {
-			logger.warn("initial backfill failed", { error: formatErrorMessage(e) });
-			metrics.trackError("backfill", e);
-		})
-		.then(() => {
-			const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
-			return detectAndFillGaps(
-				prisma,
-				(sec: number, endSec?: number) =>
-					runHistoricalDataFilterers(hdOpts, sec, false, endSec),
-				sevenDaysAgoSec,
-				logger,
-				gapMemory,
-			);
-		})
-		.catch((e) => {
-			logger.warn("initial gap detection failed", { error: formatErrorMessage(e) });
-			metrics.trackError("gapDetection", e);
-		});
+	runInitialCatchup();
 	eventsListener.listen(wsProvider);
 
 	// Websocket provider leaks memory, therefore as in main api, we will
