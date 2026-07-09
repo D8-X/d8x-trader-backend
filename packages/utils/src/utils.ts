@@ -182,7 +182,15 @@ export function constructRedis(name: string): RedisClientType {
 	if (originUrl == undefined) {
 		throw new Error("REDIS_URL not defined");
 	}
-	const config = { url: originUrl };
+	const config = {
+		url: originUrl,
+		pingInterval: 30_000,
+		socket: {
+			keepAlive: 5_000,
+			connectTimeout: 10_000,
+			reconnectStrategy: (retries: number) => Math.min(retries * 200, 5_000),
+		},
+	};
 	console.log(`${name} connecting to redis: ${originUrl}`);
 	const client: RedisClientType = createClient(config);
 	const msg = `Redis Client ${name} Error`;
