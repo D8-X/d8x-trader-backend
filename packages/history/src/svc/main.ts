@@ -137,7 +137,12 @@ export const main = async () => {
 	const rpcConfig = loadConfigRPC();
 	const wsRpcUrl = chooseRandomRPC(true, rpcConfig);
 	let httpRpcUrl = chooseRandomRPC(false, rpcConfig);
-	const chainId = Number(<string>process.env.CHAIN_ID || -1);
+
+	const chainId = Number(process.env.CHAIN_ID);
+	if (!Number.isInteger(chainId) || chainId <= 0) {
+		logger.error("invalid CHAIN_ID, must be a positive integer");
+		process.exit(1);
+	}
 	if (httpRpcUrl == "") {
 		httpRpcUrl = getDefaultRPC();
 		const msg = `no rpc provider specified, using default ${httpRpcUrl}`;
