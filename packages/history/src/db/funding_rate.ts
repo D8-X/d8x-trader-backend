@@ -106,9 +106,10 @@ export class FundingRatePayments {
 		}
 		const rows = [...byKey.values()];
 		for (let i = 0; i < rows.length; i += CREATE_MANY_BATCH) {
+			const chunk = rows.slice(i, i + CREATE_MANY_BATCH);
 			try {
 				await this.prisma.fundingRatePayment.createMany({
-					data: rows.slice(i, i + CREATE_MANY_BATCH),
+					data: chunk,
 					skipDuplicates: true,
 				});
 			} catch (e) {
@@ -116,6 +117,25 @@ export class FundingRatePayments {
 					error: formatErrorMessage(e),
 				});
 				metrics.trackError("db:funding_createMany", e);
+			}
+			if (!isCollectedByEvent) {
+				try {
+					await this.prisma.fundingRatePayment.updateMany({
+						where: {
+							is_collected_by_event: true,
+							OR: chunk.map((r) => ({
+								trader_addr: r.trader_addr,
+								tx_hash: r.tx_hash,
+							})),
+						},
+						data: { is_collected_by_event: false },
+					});
+				} catch (e) {
+					this.l.error("batch updating funding is_collected_by_event", {
+						error: formatErrorMessage(e),
+					});
+					metrics.trackError("db:funding_updateMany", e);
+				}
 			}
 		}
 	}

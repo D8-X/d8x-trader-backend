@@ -147,9 +147,10 @@ export class TokenFlow {
 		}
 		const rows = [...byKey.values()];
 		for (let i = 0; i < rows.length; i += CREATE_MANY_BATCH) {
+			const chunk = rows.slice(i, i + CREATE_MANY_BATCH);
 			try {
 				await this.prisma.tokenFlow.createMany({
-					data: rows.slice(i, i + CREATE_MANY_BATCH),
+					data: chunk,
 					skipDuplicates: true,
 				});
 			} catch (e) {
@@ -157,6 +158,27 @@ export class TokenFlow {
 					error: formatErrorMessage(e),
 				});
 				metrics.trackError("token_flow_createMany", e);
+			}
+			if (!isCollectedByEvent) {
+				try {
+					await this.prisma.tokenFlow.updateMany({
+						where: {
+							is_collected_by_event: true,
+							OR: chunk.map((r) => ({
+								trader_addr: r.trader_addr,
+								perpetual_id: r.perpetual_id,
+								tx_hash: r.tx_hash,
+								deposit: r.deposit,
+							})),
+						},
+						data: { is_collected_by_event: false },
+					});
+				} catch (e) {
+					this.l.error("batch updating token flow is_collected_by_event", {
+						error: formatErrorMessage(e),
+					});
+					metrics.trackError("token_flow_updateMany", e);
+				}
 			}
 		}
 	}

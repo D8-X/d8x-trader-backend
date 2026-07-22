@@ -162,9 +162,10 @@ export class TradingHistory {
 		}
 		const rows = [...byKey.values()];
 		for (let i = 0; i < rows.length; i += CREATE_MANY_BATCH) {
+			const chunk = rows.slice(i, i + CREATE_MANY_BATCH);
 			try {
 				await this.prisma.trade.createMany({
-					data: rows.slice(i, i + CREATE_MANY_BATCH),
+					data: chunk,
 					skipDuplicates: true,
 				});
 			} catch (e) {
@@ -172,6 +173,24 @@ export class TradingHistory {
 					error: formatErrorMessage(e),
 				});
 				metrics.trackError("db:trade_createMany", e);
+			}
+			if (!isCollectedByEvent) {
+				try {
+					await this.prisma.trade.updateMany({
+						where: {
+							is_collected_by_event: true,
+							order_digest_hash: {
+								in: chunk.map((r) => r.order_digest_hash),
+							},
+						},
+						data: { is_collected_by_event: false },
+					});
+				} catch (e) {
+					this.l.error("batch updating trade is_collected_by_event", {
+						error: formatErrorMessage(e),
+					});
+					metrics.trackError("db:trade_updateMany", e);
+				}
 			}
 		}
 	}

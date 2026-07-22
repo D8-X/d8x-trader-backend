@@ -108,9 +108,10 @@ export class SettleHistory {
 		}
 		const rows = [...byKey.values()];
 		for (let i = 0; i < rows.length; i += CREATE_MANY_BATCH) {
+			const chunk = rows.slice(i, i + CREATE_MANY_BATCH);
 			try {
 				await this.prisma.settle.createMany({
-					data: rows.slice(i, i + CREATE_MANY_BATCH),
+					data: chunk,
 					skipDuplicates: true,
 				});
 			} catch (e) {
@@ -118,6 +119,26 @@ export class SettleHistory {
 					error: formatErrorMessage(e),
 				});
 				metrics.trackError("db:settle_createMany", e);
+			}
+			if (!isCollectedByEvent) {
+				try {
+					await this.prisma.settle.updateMany({
+						where: {
+							is_collected_by_event: true,
+							OR: chunk.map((r) => ({
+								trader_addr: r.trader_addr,
+								perpetual_id: r.perpetual_id,
+								tx_hash: r.tx_hash,
+							})),
+						},
+						data: { is_collected_by_event: false },
+					});
+				} catch (e) {
+					this.l.error("batch updating settle is_collected_by_event", {
+						error: formatErrorMessage(e),
+					});
+					metrics.trackError("db:settle_updateMany", e);
+				}
 			}
 		}
 	}
