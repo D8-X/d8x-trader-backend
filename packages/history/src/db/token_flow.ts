@@ -148,18 +148,20 @@ export class TokenFlow {
 		const rows = [...byKey.values()];
 		for (let i = 0; i < rows.length; i += CREATE_MANY_BATCH) {
 			const chunk = rows.slice(i, i + CREATE_MANY_BATCH);
+			let inserted = false;
 			try {
 				await this.prisma.tokenFlow.createMany({
 					data: chunk,
 					skipDuplicates: true,
 				});
+				inserted = true;
 			} catch (e) {
 				this.l.error("batch inserting token flows", {
 					error: formatErrorMessage(e),
 				});
 				metrics.trackError("token_flow_createMany", e);
 			}
-			if (!isCollectedByEvent) {
+			if (!isCollectedByEvent && inserted) {
 				try {
 					await this.prisma.tokenFlow.updateMany({
 						where: {

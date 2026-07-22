@@ -163,18 +163,20 @@ export class TradingHistory {
 		const rows = [...byKey.values()];
 		for (let i = 0; i < rows.length; i += CREATE_MANY_BATCH) {
 			const chunk = rows.slice(i, i + CREATE_MANY_BATCH);
+			let inserted = false;
 			try {
 				await this.prisma.trade.createMany({
 					data: chunk,
 					skipDuplicates: true,
 				});
+				inserted = true;
 			} catch (e) {
 				this.l.error("batch inserting trades", {
 					error: formatErrorMessage(e),
 				});
 				metrics.trackError("db:trade_createMany", e);
 			}
-			if (!isCollectedByEvent) {
+			if (!isCollectedByEvent && inserted) {
 				try {
 					await this.prisma.trade.updateMany({
 						where: {

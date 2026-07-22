@@ -109,18 +109,20 @@ export class SettleHistory {
 		const rows = [...byKey.values()];
 		for (let i = 0; i < rows.length; i += CREATE_MANY_BATCH) {
 			const chunk = rows.slice(i, i + CREATE_MANY_BATCH);
+			let inserted = false;
 			try {
 				await this.prisma.settle.createMany({
 					data: chunk,
 					skipDuplicates: true,
 				});
+				inserted = true;
 			} catch (e) {
 				this.l.error("batch inserting settles", {
 					error: formatErrorMessage(e),
 				});
 				metrics.trackError("db:settle_createMany", e);
 			}
-			if (!isCollectedByEvent) {
+			if (!isCollectedByEvent && inserted) {
 				try {
 					await this.prisma.settle.updateMany({
 						where: {
