@@ -102,6 +102,10 @@ export default class EventListener extends IndexPriceInterface {
 	// Current counter, how many times resetRPCWebsocket was called
 	private currentRestartCount = 0;
 
+	private static readonly MAX_WS_BUFFERED_BYTES = 8 * 1024 * 1024; // 8Mib
+	// Keep track of dropped clients to avoid logging unknown client unsubscribed
+	private droppedClients: WeakSet<WebSocket.WebSocket> = new WeakSet();
+
 	private redisOITimeSeries: RedisOI;
 
 	private mktOrderFrequency: EventFrequencyCount = {
@@ -421,6 +425,9 @@ export default class EventListener extends IndexPriceInterface {
 	public unsubscribe(ws: WebSocket.WebSocket, req: IncomingMessage) {
 		const clientSubscriptions = this.clients.get(ws);
 		if (clientSubscriptions == undefined) {
+			if (this.droppedClients.delete(ws)) {
+				return;
+			}
 			const ip = this._getIP(req);
 			if (ip && ip !== "(x-forwarded-for not defined)") {
 				logger.info("unknown client unsubscribed", { ip });
@@ -537,6 +544,7 @@ export default class EventListener extends IndexPriceInterface {
 			});
 			return;
 		}
+		const dead = new Set<WebSocket.WebSocket>();
 		if (traderAddr != undefined) {
 			const traderWs: WebSocket[] | undefined = subscribers.get(traderAddr);
 			if (traderWs == undefined) {
@@ -552,7 +560,9 @@ export default class EventListener extends IndexPriceInterface {
 				clients: traderWs.length,
 			});
 			for (let k = 0; k < traderWs.length; k++) {
-				traderWs[k].send(message);
+				if (!this.trySend(traderWs[k], message)) {
+					dead.add(traderWs[k]);
+				}
 			}
 		} else {
 			let totalClients = 0;
@@ -566,10 +576,60 @@ export default class EventListener extends IndexPriceInterface {
 			});
 			for (const [_trader, wsArr] of subscribers) {
 				for (let k = 0; k < wsArr.length; k++) {
-					wsArr[k].send(message);
+					if (!this.trySend(wsArr[k], message)) {
+						dead.add(wsArr[k]);
+					}
 				}
 			}
 		}
+		for (const ws of dead) {
+			this.removeClient(ws);
+		}
+	}
+
+	private trySend(ws: WebSocket.WebSocket, message: string): boolean {
+		if (ws.readyState !== WebSocket.OPEN) {
+			return false;
+		}
+		// safe to drop here. A client needs a fresh ws in this case
+		if (ws.bufferedAmount > EventListener.MAX_WS_BUFFERED_BYTES) {
+			logger.warn("[@trySend] dropping slow ws client", {
+				bufferedAmount: ws.bufferedAmount,
+			});
+			try {
+				ws.terminate();
+			} catch (err) {
+				logger.warn("[@trySend] terminate failed", {
+					error: extractErrorMsg(err),
+				});
+			}
+			return false;
+		}
+		try {
+			ws.send(message);
+			return true;
+		} catch (err) {
+			logger.warn("[@trySend] send failed, dropping ws client", {
+				error: extractErrorMsg(err),
+			});
+			try {
+				ws.terminate();
+			} catch (err2) {
+				logger.warn("[@trySend] terminate failed", {
+					error: extractErrorMsg(err2),
+				});
+			}
+			return false;
+		}
+	}
+
+	private removeClient(ws: WebSocket.WebSocket) {
+		const clientSubscriptions = this.clients.get(ws);
+		if (clientSubscriptions != undefined) {
+			this._unsubscribe(clientSubscriptions, undefined, ws);
+		}
+		this.clients.delete(ws);
+		this.droppedClients.add(ws);
 	}
 
 	/**
