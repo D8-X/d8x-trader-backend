@@ -119,6 +119,7 @@ export class FundingRatePayments {
 					error: formatErrorMessage(e),
 				});
 				metrics.trackError("db:funding_createMany", e);
+				break;
 			}
 			if (!isCollectedByEvent && inserted) {
 				try {

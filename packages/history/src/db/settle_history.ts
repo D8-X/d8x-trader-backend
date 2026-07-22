@@ -59,7 +59,7 @@ export class SettleHistory {
 				},
 			},
 			update: {
-				is_collected_by_event: isCollectedByEvent,
+				...(isCollectedByEvent ? {} : { is_collected_by_event: false }),
 				cash_cc: data.cash_cc,
 				quantity_cc: data.quantity_cc,
 				timestamp: data.timestamp,
@@ -121,6 +121,7 @@ export class SettleHistory {
 					error: formatErrorMessage(e),
 				});
 				metrics.trackError("db:settle_createMany", e);
+				break;
 			}
 			if (!isCollectedByEvent && inserted) {
 				try {

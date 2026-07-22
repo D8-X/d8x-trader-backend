@@ -59,7 +59,7 @@ export class TradingHistory {
 					order_digest_hash: data.order_digest_hash,
 				},
 				update: {
-					is_collected_by_event: isCollectedByEvent,
+					...(isCollectedByEvent ? {} : { is_collected_by_event: false }),
 					trade_timestamp: data.trade_timestamp,
 					updated_at: new Date(),
 				},
@@ -175,6 +175,7 @@ export class TradingHistory {
 					error: formatErrorMessage(e),
 				});
 				metrics.trackError("db:trade_createMany", e);
+				break;
 			}
 			if (!isCollectedByEvent && inserted) {
 				try {

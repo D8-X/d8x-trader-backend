@@ -104,7 +104,7 @@ export class TokenFlow {
 				},
 			},
 			update: {
-				is_collected_by_event: isCollectedByEvent,
+				...(isCollectedByEvent ? {} : { is_collected_by_event: false }),
 				timestamp: new Date(evtBlockTimestamp * 1000),
 				updated_at: new Date(),
 			},
@@ -160,6 +160,7 @@ export class TokenFlow {
 					error: formatErrorMessage(e),
 				});
 				metrics.trackError("token_flow_createMany", e);
+				break;
 			}
 			if (!isCollectedByEvent && inserted) {
 				try {
