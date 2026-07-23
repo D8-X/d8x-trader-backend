@@ -148,6 +148,10 @@ export default class D8XBrokerBackendApp {
 		const eventListener = this.eventListener;
 		const sdk = this.sdk;
 		const logger = this.logger;
+		this.wss.removeAllListeners("connection");
+		if (this.wsHeartbeat != undefined) {
+			clearInterval(this.wsHeartbeat);
+		}
 		this.wss.on(
 			"connection",
 			function connection(ws: WebSocket.WebSocket, req: IncomingMessage) {
@@ -237,9 +241,6 @@ export default class D8XBrokerBackendApp {
 			},
 		);
 
-		if (this.wsHeartbeat != undefined) {
-			clearInterval(this.wsHeartbeat);
-		}
 		this.wsHeartbeat = setInterval(() => {
 			this.wss.clients.forEach((ws) => {
 				const client = ws as HeartbeatWebSocket;
@@ -258,12 +259,6 @@ export default class D8XBrokerBackendApp {
 				}
 			});
 		}, D8XBrokerBackendApp.WS_HEARTBEAT_INTERVAL_MS);
-
-		this.wss.on("close", () => {
-			if (this.wsHeartbeat != undefined) {
-				clearInterval(this.wsHeartbeat);
-			}
-		});
 
 		this.logger.info(`⚡️[server]: WS is running at ws://localhost:${this.portWS}`);
 	}
