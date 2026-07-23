@@ -33,6 +33,10 @@ BigInt.prototype.toJSON = function () {
 	return this.toString();
 };
 
+interface HeartbeatWebSocket extends WebSocket.WebSocket {
+	isAlive?: boolean;
+}
+
 export default class D8XBrokerBackendApp {
 	public express: express.Application;
 	private sdk: SDKInterface;
@@ -43,6 +47,9 @@ export default class D8XBrokerBackendApp {
 	private eventListener: EventListener;
 	private CORS_ON: boolean;
 	private lastRequestTsMs: number; // last API request, used to inform whether wsRPC should be switched on event-listener
+
+	private static readonly WS_HEARTBEAT_INTERVAL_MS = 30_000;
+	private wsHeartbeat: NodeJS.Timeout | undefined;
 
 	constructor(
 		broker: BrokerIntegration,
@@ -141,9 +148,17 @@ export default class D8XBrokerBackendApp {
 		const eventListener = this.eventListener;
 		const sdk = this.sdk;
 		const logger = this.logger;
+		this.wss.removeAllListeners("connection");
+		if (this.wsHeartbeat != undefined) {
+			clearInterval(this.wsHeartbeat);
+		}
 		this.wss.on(
 			"connection",
 			function connection(ws: WebSocket.WebSocket, req: IncomingMessage) {
+				(ws as HeartbeatWebSocket).isAlive = true;
+				ws.on("pong", () => {
+					(ws as HeartbeatWebSocket).isAlive = true;
+				});
 				ws.on("error", (err) =>
 					logger.error("ws error", { error: err?.message ?? err }),
 				);
@@ -225,6 +240,26 @@ export default class D8XBrokerBackendApp {
 				ws.send(D8XBrokerBackendApp.JSONResponse("connect", `success`, {}));
 			},
 		);
+
+		this.wsHeartbeat = setInterval(() => {
+			this.wss.clients.forEach((ws) => {
+				const client = ws as HeartbeatWebSocket;
+				try {
+					if (client.isAlive === false) {
+						client.terminate();
+						return;
+					}
+					client.isAlive = false;
+					client.ping();
+				} catch (err) {
+					this.logger.warn("ws heartbeat failed, terminating client", {
+						error: err instanceof Error ? err.message : String(err),
+					});
+					client.terminate();
+				}
+			});
+		}, D8XBrokerBackendApp.WS_HEARTBEAT_INTERVAL_MS);
+
 		this.logger.info(`⚡️[server]: WS is running at ws://localhost:${this.portWS}`);
 	}
 
