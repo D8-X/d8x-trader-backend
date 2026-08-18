@@ -1,8 +1,17 @@
 import { formatErrorMessage } from "../utils/errors.js";
-import { PrismaClient, Prisma, FundingRatePayment } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { BigNumberish } from "ethers";
 import { Logger } from "winston";
 import { UpdateMarginAccountEvent } from "../contracts/types.js";
+import { metrics } from "../svc/metrics.js";
+
+export interface FundingBatchItem {
+	e: UpdateMarginAccountEvent;
+	txHash: string;
+	blockTimestamp: number;
+}
+
+const CREATE_MANY_BATCH = 1000;
 
 //
 export class FundingRatePayments {
@@ -31,67 +40,106 @@ export class FundingRatePayments {
 		// Only insert those UpdateMarginAccount events which have payment
 		// amount not 0
 		if (e.fFundingPaymentCC.toString() === "0") {
+			this.l.debug("skipping zero funding payment", { tx_hash: txHash });
 			return;
 		}
-		const trader = e.trader.toLowerCase();
-		const tx_hash = txHash.toLowerCase();
+		const data = this._buildFundingData(
+			e,
+			txHash,
+			isCollectedByEvent,
+			blockTimestamp,
+		);
 
-		const exists = await this.prisma.fundingRatePayment.findFirst({
-			where: {
-				tx_hash: {
-					equals: tx_hash,
+		try {
+			await this.prisma.fundingRatePayment.upsert({
+				where: {
+					trader_addr_tx_hash: {
+						trader_addr: data.trader_addr,
+						tx_hash: data.tx_hash,
+					},
 				},
-				trader_addr: {
-					equals: trader,
-				},
-			},
-		});
+				create: data,
+				update: isCollectedByEvent ? {} : { is_collected_by_event: false },
+			});
+		} catch (e) {
+			this.l.error("inserting funding rate payment", {
+				error: formatErrorMessage(e),
+			});
+		}
+	}
 
-		if (exists === null) {
-			let fundingRatePayment: FundingRatePayment;
+	private _buildFundingData(
+		e: UpdateMarginAccountEvent,
+		txHash: string,
+		isCollectedByEvent: boolean,
+		blockTimestamp: number,
+	): Prisma.FundingRatePaymentCreateInput {
+		return {
+			payment_amount: e.fFundingPaymentCC.toString(),
+			trader_addr: e.trader.toLowerCase(),
+			perpetual_id: Number(e.perpetualId),
+			tx_hash: txHash.toLowerCase(),
+			payment_timestamp: new Date(blockTimestamp * 1000),
+			is_collected_by_event: isCollectedByEvent,
+		};
+	}
+
+	public async insertFundingRatePaymentsBatch(
+		items: FundingBatchItem[],
+		isCollectedByEvent: boolean,
+	): Promise<void> {
+		if (items.length === 0) {
+			return;
+		}
+		const byKey = new Map<string, Prisma.FundingRatePaymentCreateManyInput>();
+		for (const it of items) {
+			if (it.e.fFundingPaymentCC.toString() === "0") {
+				continue;
+			}
+			const data = this._buildFundingData(
+				it.e,
+				it.txHash,
+				isCollectedByEvent,
+				it.blockTimestamp,
+			) as Prisma.FundingRatePaymentCreateManyInput;
+			byKey.set(`${data.trader_addr}:${data.tx_hash}`, data);
+		}
+		const rows = [...byKey.values()];
+		for (let i = 0; i < rows.length; i += CREATE_MANY_BATCH) {
+			const chunk = rows.slice(i, i + CREATE_MANY_BATCH);
+			let inserted = false;
 			try {
-				const data: Prisma.FundingRatePaymentCreateInput = {
-					payment_amount: e.fFundingPaymentCC.toString(),
-					trader_addr: trader,
-					perpetual_id: Number(e.perpetualId),
-					tx_hash: tx_hash,
-					payment_timestamp: new Date(blockTimestamp * 1000),
-					is_collected_by_event: isCollectedByEvent,
-				};
-
-				fundingRatePayment = await this.prisma.fundingRatePayment.create({
-					data,
+				await this.prisma.fundingRatePayment.createMany({
+					data: chunk,
+					skipDuplicates: true,
 				});
+				inserted = true;
 			} catch (e) {
-				this.l.error("inserting new funding rate payment", {
+				this.l.error("batch inserting funding payments", {
 					error: formatErrorMessage(e),
 				});
-				return;
+				metrics.trackError("db:funding_createMany", e);
+				break;
 			}
-			this.l.info("inserted new funding rate payment", {
-				trader_addr: fundingRatePayment.trader_addr,
-			});
-		} else if (!isCollectedByEvent) {
-			// update
-			let fundingRatePayment: FundingRatePayment;
-			try {
-				fundingRatePayment = await this.prisma.fundingRatePayment.update({
-					where: {
-						trader_addr_tx_hash: { trader_addr: trader, tx_hash: txHash },
-					},
-					data: {
-						is_collected_by_event: false,
-					},
-				});
-			} catch (e) {
-				this.l.error("updating funding rate payment", {
-					error: formatErrorMessage(e),
-				});
-				return;
+			if (!isCollectedByEvent && inserted) {
+				try {
+					await this.prisma.fundingRatePayment.updateMany({
+						where: {
+							is_collected_by_event: true,
+							OR: chunk.map((r) => ({
+								trader_addr: r.trader_addr,
+								tx_hash: r.tx_hash,
+							})),
+						},
+						data: { is_collected_by_event: false },
+					});
+				} catch (e) {
+					this.l.error("batch updating funding is_collected_by_event", {
+						error: formatErrorMessage(e),
+					});
+					metrics.trackError("db:funding_updateMany", e);
+				}
 			}
-			this.l.info("updated funding rate payment", {
-				trader_addr: fundingRatePayment.trader_addr,
-			});
 		}
 	}
 

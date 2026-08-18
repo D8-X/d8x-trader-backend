@@ -174,7 +174,7 @@ export class EstimatedEarnings {
 		);
 
 		// receiver amount sign is - (minus)
-		this.insert(
+		await this.insert(
 			eventData.to,
 			BigInt(Math.floor(estimatedEarningsTokensAmnt)) * BigInt(-1),
 			eventData.amountD18 * BigInt(-1),

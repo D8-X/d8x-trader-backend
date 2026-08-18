@@ -182,7 +182,15 @@ export function constructRedis(name: string): RedisClientType {
 	if (originUrl == undefined) {
 		throw new Error("REDIS_URL not defined");
 	}
-	const config = { url: originUrl };
+	const config = {
+		url: originUrl,
+		pingInterval: 30_000,
+		socket: {
+			keepAlive: 5_000,
+			connectTimeout: 10_000,
+			reconnectStrategy: (retries: number) => Math.min(retries * 200, 5_000),
+		},
+	};
 	console.log(`${name} connecting to redis: ${originUrl}`);
 	const client: RedisClientType = createClient(config);
 	const msg = `Redis Client ${name} Error`;
@@ -353,11 +361,6 @@ export async function calculateBlockFromTime(
 	since: Date,
 	mustBeBefore = true,
 ): Promise<[number, number]> {
-	// Maximum number of rpc calls to make for binary search. More calls gives
-	// more precise results. 7 seems to find block number with at least matching
-	// the day to `since`. 10 seems to be enough to match the hour. More calls
-	// will take more time, but on premium RPC it should not matter too much.
-	const MAX_RPC_CALLS = 7;
 	// Precision in seconds when we'll treat the result as good enough.
 	// Currently set to 6 hours.
 	const precision = 6 * 3600;
@@ -366,13 +369,14 @@ export async function calculateBlockFromTime(
 		(await provider.getBlock("latest"))!;
 
 	const maxBlockNum = rightBlockNum;
+	const maxRpcCalls = Math.ceil(Math.log2(Number(rightBlockNum) + 2)) + 4;
 
 	// Do not hardcode the values since they will differ between chains.
 	let leftBlockTime = new Date(0).getTime() / 1000;
 	let leftBlockNum = 0;
 
 	let i = 0;
-	while (i < MAX_RPC_CALLS) {
+	while (i < maxRpcCalls) {
 		const middleBlockNum = Math.round((leftBlockNum + rightBlockNum) / 2);
 		const { timestamp: middleBlockTime } = (await provider.getBlock(middleBlockNum))!;
 		if (middleBlockTime < since.getTime() / 1000) {
@@ -568,6 +572,8 @@ export async function calculateBlockFromTimeOld(
 	return [blk.number, max];
 }
 
+const rpcRotationIndex = new Map<string, number>();
+
 export function chooseRandomRPC(ws = false, rpcConfig: RPCConfig[]): string {
 	dotenv.config();
 	const chainId: number = Number(<string>process.env.CHAIN_ID || -1);
@@ -589,7 +595,10 @@ export function chooseRandomRPC(ws = false, rpcConfig: RPCConfig[]): string {
 			`No ${ws ? "Websocket" : "HTTP"} RPC defined for chain ID ${chainId}`,
 		);
 	}
-	return urls[Math.floor(Math.random() * urls.length)];
+	const key = `${chainId}:${ws ? "ws" : "http"}`;
+	const next = ((rpcRotationIndex.get(key) ?? -1) + 1) % urls.length;
+	rpcRotationIndex.set(key, next);
+	return urls[next];
 }
 
 export const loadConfigRPC = (): any => loadConfigFile("rpc", "CONFIG_PATH_RPC");
@@ -626,3 +635,39 @@ export const loadConfigFile = (cfgName: string, cfgEnvKey: string): any => {
 		throw Error(`Configuration file ${defaultPath} could not be loaded`);
 	}
 };
+
+export interface LeveledLogger {
+	log(level: string, message: string, meta?: unknown): void;
+}
+
+export interface RequestLoggerOptions {
+	level?: string;
+}
+
+interface LoggableRequest {
+	method: string;
+	path: string;
+}
+
+interface LoggableResponse {
+	statusCode: number;
+	on(event: "finish", listener: () => void): unknown;
+}
+
+export function requestLogger(logger: LeveledLogger, options: RequestLoggerOptions = {}) {
+	const { level = "http" } = options;
+	return (req: LoggableRequest, res: LoggableResponse, next: () => void): void => {
+		const startNs = process.hrtime.bigint();
+		res.on("finish", () => {
+			const durationMs =
+				Math.round(Number(process.hrtime.bigint() - startNs) / 1e5) / 10;
+			logger.log(level, "HTTP_REQUEST", {
+				method: req.method,
+				path: req.path,
+				status: res.statusCode,
+				durationMs,
+			});
+		});
+		next();
+	};
+}

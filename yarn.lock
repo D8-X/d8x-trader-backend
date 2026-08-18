@@ -38,22 +38,16 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@d8-x/d8x-node-sdk@0.1.83":
-  version "0.1.83"
-  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.1.83/09fd1801695dec008fcde091ce1f5efc21ff36a8#09fd1801695dec008fcde091ce1f5efc21ff36a8"
-  integrity sha512-3dPpHh+7IL3n6GiopZGSmMpgQbf4o1amtZctSAWDTgqG+DKkL11SFPRqKUKo0DjFbtRlRbvEGwbR0XEWfvqjgg==
+"@d8-x/d8x-node-sdk@0.5.1":
+  version "0.5.1"
+  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-node-sdk/0.5.1/2266b04c831da717f4b49961567912a1e4bff835#2266b04c831da717f4b49961567912a1e4bff835"
+  integrity sha512-8HG4VfId4zlpv33DJpGR8BjBP4/nTuKN8vKhAmXHKEX/kUv2VZJ6V4mYEMzH1b6cWYR9OUa/MPwVOg/F1w2/BQ==
   dependencies:
-    "@d8-x/d8x-price-wasm" "^1.0.34"
     "@typechain/ethers-v6" "^0.5.1"
     buffer "6.0.3"
     ethers "^6.13.1"
     process "0.11.10"
     typechain "^8.3.2"
-
-"@d8-x/d8x-price-wasm@^1.0.34":
-  version "1.0.34"
-  resolved "https://npm.pkg.github.com/download/@d8-x/d8x-price-wasm/1.0.34/d59d56e17e806d82cd938f4567a0fce7f07b251a#d59d56e17e806d82cd938f4567a0fce7f07b251a"
-  integrity sha512-Mb5+qThMYrLHjBfhfYDQpxP8LPIzMts6PLXk48fEnmpm/x9tXK8y78grc7i2cGHVo0KmEQuX+dJyF/eu3SpYUA==
 
 "@dabh/diagnostics@^2.0.8":
   version "2.0.8"
@@ -7072,9 +7066,9 @@ ws@8.17.1:
   integrity sha512-6XQFvXTkbfUOZOKKILFG1PDK2NDQs4azKQl26T0YS5CxqWLgXajbPZ+h4gZekJyRqFU8pvnbAbbs/3TgRPy+GQ==
 
 ws@^8.18.0:
-  version "8.20.0"
-  resolved "https://registry.yarnpkg.com/ws/-/ws-8.20.0.tgz#4cd9532358eba60bc863aad1623dfb045a4d4af8"
-  integrity sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==
+  version "8.21.0"
+  resolved "https://registry.yarnpkg.com/ws/-/ws-8.21.0.tgz#012e413fc07429945121b0c153158c4343086951"
+  integrity sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==
 
 xtend@~4.0.1:
   version "4.0.2"

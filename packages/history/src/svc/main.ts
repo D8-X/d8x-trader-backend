@@ -1,10 +1,16 @@
 import { EventListener } from "../contracts/listeners.js";
 import * as dotenv from "dotenv";
-import { chooseRandomRPC, executeWithTimeout, loadConfigRPC } from "utils";
+import {
+	chooseRandomRPC,
+	constructRedis,
+	executeWithTimeout,
+	loadConfigRPC,
+} from "utils";
 import { logger } from "./logger.js";
 import {
 	isRateLimitError,
 	isNoHistoricalStateError,
+	isTransientError,
 	formatErrorMessage,
 } from "../utils/errors.js";
 import { JsonRpcProvider, Network, WebSocketProvider, ethers } from "ethers";
@@ -26,6 +32,7 @@ import { SettleHistory } from "../db/settle_history.js";
 import { TokenFlow } from "../db/token_flow.js";
 import { metrics } from "./metrics.js";
 import { detectAndFillGaps } from "./gaps.js";
+import { GapMemory } from "./gapMemory.js";
 import { hdFilterersOpt, runHistoricalDataFilterers } from "./backfillRunner.js";
 import sturdyWebsocket from "sturdy-websocket";
 const SturdyWebSocket = sturdyWebsocket.default;
@@ -36,10 +43,11 @@ const STATIC_INFO_INIT_TIMEOUT_MS = 30_000;
 const STATIC_INFO_MAX_BACKOFF_SEC = 120;
 const WS_PROVIDER_DESTROY_TIMEOUT_MS = 10_000;
 const WS_ALIVE_PROBE_MS = 30_000;
+const MAX_WS_HEAD_AGE_SEC = Number(process.env.MAX_WS_HEAD_AGE_SEC ?? 120);
 const HEARTBEAT_CHECK_INTERVAL_MS = 60_000;
 const HEARTBEAT_STALE_THRESHOLD_SEC = 30;
+const WS_PROMOTE_INTERVAL_MS = Number(process.env.WS_PROMOTE_INTERVAL_MS ?? 60_000);
 const REDUNDANCY_BACKFILL_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4h
-const GAP_DETECTION_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2h
 
 export const loadEnv = (wantEnvs?: string[] | undefined) => {
 	const config = dotenv.config({
@@ -53,6 +61,7 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 		"SDK_CONFIG_NAME",
 		"CHAIN_ID",
 		"HISTORY_API_PORT_HTTP",
+		"REDIS_URL",
 	];
 	required.forEach((e) => {
 		if (!(e in process.env)) {
@@ -65,9 +74,51 @@ export const loadEnv = (wantEnvs?: string[] | undefined) => {
 	});
 };
 
+const buildHistoryDbUrl = (): string | undefined => {
+	const base = process.env.DATABASE_DSN_HISTORY;
+	if (!base) {
+		return undefined;
+	}
+	const url = new URL(base);
+	if (!url.searchParams.has("connection_limit")) {
+		url.searchParams.set("connection_limit", process.env.DB_CONNECTION_LIMIT ?? "10");
+	}
+	if (!url.searchParams.has("pool_timeout")) {
+		url.searchParams.set("pool_timeout", process.env.DB_POOL_TIMEOUT ?? "20");
+	}
+	return url.toString();
+};
+
+const DB_MAX_RETRIES = 3;
+const installDbRetry = (prisma: PrismaClient) =>
+	prisma.$extends({
+		query: {
+			async $allOperations({ model, operation, args, query }) {
+				for (let attempt = 0; ; attempt++) {
+					try {
+						return await query(args);
+					} catch (e) {
+						if (!isTransientError(e) || attempt >= DB_MAX_RETRIES) {
+							throw e;
+						}
+						const backoffMs =
+							50 * Math.pow(2, attempt) + Math.floor(Math.random() * 50);
+						metrics.trackError(`db:retry:${model ?? operation}`, e);
+						await sleepForSec(backoffMs / 1000);
+					}
+				}
+			},
+		},
+	});
+
 // Entrypoint of history service
 export const main = async () => {
 	process.on("unhandledRejection", (reason) => {
+		const msg = formatErrorMessage(reason).toLowerCase();
+		if (msg.includes("beyond current head") || msg.includes("-32602")) {
+			logger.debug("transient unhandled rejection", { error: msg });
+			return;
+		}
 		logger.warn("unhandled rejection", { error: reason });
 		metrics.trackError("unhandledRejection", reason);
 	});
@@ -76,7 +127,11 @@ export const main = async () => {
 	logger.info("starting history service");
 
 	// Initialize db client
-	const prisma = new PrismaClient();
+	const historyDbUrl = buildHistoryDbUrl();
+	const basePrisma = historyDbUrl
+		? new PrismaClient({ datasources: { db: { url: historyDbUrl } } })
+		: new PrismaClient();
+	const prisma = installDbRetry(basePrisma) as unknown as PrismaClient;
 
 	// Init blockchain provider
 	const rpcConfig = loadConfigRPC();
@@ -91,7 +146,7 @@ export const main = async () => {
 	const network = Network.from(chainId);
 	let wsProvider: ethers.WebSocketProvider = new WebSocketProvider(
 		() =>
-			new SturdyWebSocket(chooseRandomRPC(true, rpcConfig), {
+			new SturdyWebSocket(wsRpcUrl, {
 				wsConstructor: WebSocket,
 			}),
 		network,
@@ -181,39 +236,57 @@ export const main = async () => {
 		logger,
 	};
 
+	const redisClient = constructRedis("history-gaps");
+	try {
+		await redisClient.connect();
+	} catch (e) {
+		logger.error("gap memory: could not connect to redis", {
+			error: formatErrorMessage(e),
+		});
+		process.exit(1);
+	}
+	const gapMemory = new GapMemory(redisClient, logger);
+	logger.info("gap memory: connected to redis");
+
 	let backfillRunning = false;
-	const runBackfillGuarded = async (startSec: number, skipUpToDate = true) => {
+
+	const runInitialCatchup = async () => {
 		if (backfillRunning) {
-			logger.info("backfill already running, skipping");
+			logger.info("catch-up already running, skipping");
 			return;
 		}
 		backfillRunning = true;
 		try {
-			await runHistoricalDataFilterers(hdOpts, startSec, skipUpToDate);
+			const thirtyDaysAgoSec = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
+			try {
+				await runHistoricalDataFilterers(hdOpts, thirtyDaysAgoSec, false);
+			} catch (e) {
+				logger.warn("initial backfill failed", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("backfill", e);
+			}
+			const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
+			try {
+				await detectAndFillGaps(
+					prisma,
+					(sec: number, endSec?: number) =>
+						runHistoricalDataFilterers(hdOpts, sec, false, endSec),
+					sevenDaysAgoSec,
+					logger,
+					gapMemory,
+				);
+			} catch (e) {
+				logger.warn("initial gap detection failed", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("gapDetection", e);
+			}
 		} finally {
 			backfillRunning = false;
 		}
 	};
-
-	const thirtyDaysAgoSec = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
-	runBackfillGuarded(thirtyDaysAgoSec, false)
-		.catch((e) => {
-			logger.warn("initial backfill failed", { error: formatErrorMessage(e) });
-			metrics.trackError("backfill", e);
-		})
-		.then(() => {
-			const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
-			return detectAndFillGaps(
-				prisma,
-				(sec: number) => runHistoricalDataFilterers(hdOpts, sec, false),
-				sevenDaysAgoSec,
-				logger,
-			);
-		})
-		.catch((e) => {
-			logger.warn("initial gap detection failed", { error: formatErrorMessage(e) });
-			metrics.trackError("gapDetection", e);
-		});
+	runInitialCatchup();
 	eventsListener.listen(wsProvider);
 
 	// Websocket provider leaks memory, therefore as in main api, we will
@@ -221,8 +294,16 @@ export const main = async () => {
 	let wsResetCounter = 0;
 	const maxWsResetCounter = 100 + Math.floor(Math.random() * 100);
 	let resetRpcRunning = false;
+	let lastWsPromoteAt = 0;
 	const resetRpcFunc = async () => {
-		if (eventsListener.checkHeartbeat(HEARTBEAT_STALE_THRESHOLD_SEC)) {
+		const healthy = await eventsListener.checkHeartbeat(
+			HEARTBEAT_STALE_THRESHOLD_SEC,
+			MAX_WS_HEAD_AGE_SEC,
+		);
+		const onHttp = eventsListener.listeningMode !== ListeningMode.WS;
+		const promoteToWs =
+			healthy && onHttp && Date.now() - lastWsPromoteAt >= WS_PROMOTE_INTERVAL_MS;
+		if (healthy && !promoteToWs) {
 			return;
 		}
 		if (resetRpcRunning) {
@@ -230,6 +311,10 @@ export const main = async () => {
 			return;
 		}
 		resetRpcRunning = true;
+		if (promoteToWs) {
+			lastWsPromoteAt = Date.now();
+			logger.info("healthy on HTTP, trying WS");
+		}
 
 		const makeJsonProvider = () =>
 			new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
@@ -280,11 +365,34 @@ export const main = async () => {
 					}),
 				network,
 			);
-			wsResetCounter++;
 
-			const wsAlive = await new Promise((resolve) => {
-				wsProvider.once("block", () => {
-					resolve(true);
+			const wsAlive = await new Promise<boolean>((resolve) => {
+				wsProvider.once("block", async (blockNumber: number) => {
+					try {
+						const blk = await wsProvider.getBlock(blockNumber);
+						const ageSec =
+							Math.floor(Date.now() / 1000) - (blk?.timestamp ?? 0);
+						if (!blk || ageSec > MAX_WS_HEAD_AGE_SEC) {
+							logger.warn(
+								"new WS provider head is stale, staying on HTTP",
+								{
+									blockNumber,
+									head_age_seconds: ageSec,
+								},
+							);
+							resolve(false);
+						} else {
+							resolve(true);
+						}
+					} catch (e) {
+						logger.warn(
+							"could not verify WS provider freshness, staying on HTTP",
+							{
+								error: formatErrorMessage(e),
+							},
+						);
+						resolve(false);
+					}
 				});
 				setTimeout(() => {
 					resolve(false);
@@ -292,8 +400,12 @@ export const main = async () => {
 			});
 			// WS works, switch providers
 			if (wsAlive) {
+				wsResetCounter++;
 				logger.info(`switching to WS provider`);
 				eventsListener.listen(wsProvider!);
+			} else if (promoteToWs) {
+				// opportunistic probe failed: keep the working HTTP connection
+				logger.info("WS still unavailable, staying on HTTP");
 			} else {
 				// WS didn't work, stay on HTTP
 				logger.info(`switching HTTP providers`);
@@ -323,28 +435,42 @@ export const main = async () => {
 		}
 	}, HEARTBEAT_CHECK_INTERVAL_MS);
 
-	setInterval(async () => {
-		logger.info("running historical data filterers for redundancy");
-		await runBackfillGuarded(blk.timestamp);
-	}, REDUNDANCY_BACKFILL_INTERVAL_MS);
-
-	setInterval(async () => {
+	const runMaintenanceCycle = async () => {
 		if (backfillRunning) {
-			logger.info("backfill running, skipping gap detection");
+			logger.info("maintenance cycle already running, skipping");
 			return;
 		}
+		backfillRunning = true;
 		try {
-			await detectAndFillGaps(
-				prisma,
-				(sec: number) => runHistoricalDataFilterers(hdOpts, sec, false),
-				blk.timestamp,
-				logger,
-			);
-		} catch (e) {
-			logger.warn("gap detection failed", { error: formatErrorMessage(e) });
-			metrics.trackError("gapDetection", e);
+			try {
+				logger.info("running historical data filterers for redundancy");
+				await runHistoricalDataFilterers(hdOpts, blk.timestamp);
+			} catch (e) {
+				logger.warn("redundancy backfill failed", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("backfill", e);
+			}
+			try {
+				await detectAndFillGaps(
+					prisma,
+					(sec: number, endSec?: number) =>
+						runHistoricalDataFilterers(hdOpts, sec, false, endSec),
+					blk.timestamp,
+					logger,
+					gapMemory,
+				);
+			} catch (e) {
+				logger.warn("gap detection failed", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("gapDetection", e);
+			}
+		} finally {
+			backfillRunning = false;
 		}
-	}, GAP_DETECTION_INTERVAL_MS);
+	};
+	setInterval(runMaintenanceCycle, REDUNDANCY_BACKFILL_INTERVAL_MS);
 
 	// Start the history api
 	const api = new HistoryRestAPI(

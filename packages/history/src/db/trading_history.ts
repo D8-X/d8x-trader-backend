@@ -10,6 +10,15 @@ import { metrics } from "../svc/metrics.js";
 
 type TradeHistoryEvent = TradeEvent | LiquidateEvent;
 
+export interface TradeBatchItem {
+	e: TradeHistoryEvent;
+	txHash: string;
+	blockTimestamp: number;
+	blockNumber: number;
+}
+
+const CREATE_MANY_BATCH = 1000;
+
 //
 export class TradingHistory {
 	constructor(
@@ -36,65 +45,21 @@ export class TradingHistory {
 		tradeBlockTimestamp: number,
 		tradeBlockNumber: number,
 	) {
-		const tx_hash = txHash.toLowerCase();
-		const trader = e.trader.toLowerCase();
 		const isLiquidation = (e as TradeEvent).order == undefined;
 		try {
-			let data: Prisma.TradeCreateInput;
-
-			if (!isLiquidation) {
-				e = e as TradeEvent;
-				const quantityCC = (e.fB2C * e.order.fAmount) / ONE_64x64;
-				data = {
-					chain_id: parseInt(this.chainId.toString()),
-					order_digest_hash: e.orderDigest.toString(),
-					fee: e.fFeeCC.toString(),
-					broker_fee_tbps: Number(e.order.brokerFeeTbps),
-					broker_addr: e.order.brokerAddr.toLowerCase(),
-					perpetual_id: Number(e.perpetualId),
-					price: e.price.toString(),
-					quantity: e.order.fAmount.toString(),
-					quantity_cc: quantityCC.toString(),
-					realized_profit: e.fPnlCC.toString(),
-					new_pos_bc: e.newPositionSizeBC.toString(),
-					side: (parseInt(e.order.fAmount.toString()) > 0
-						? "buy"
-						: "sell") as trade_side,
-					order_flags: e.order.flags,
-					tx_hash,
-					trader_addr: trader,
-					trade_timestamp: new Date(tradeBlockTimestamp * 1000),
-					is_collected_by_event: isCollectedByEvent,
-					leverage: Number(e.order.leverageTDR),
-				};
-			} else {
-				e = e as LiquidateEvent;
-				data = {
-					chain_id: parseInt(this.chainId.toString()),
-					order_digest_hash: this._createLiquidationId(e, tradeBlockNumber),
-					fee: e.fFeeCC.toString(),
-					broker_fee_tbps: 0,
-					perpetual_id: Number(e.perpetualId),
-					price: e.liquidationPrice.toString(),
-					quantity: e.amountLiquidatedBC.toString(),
-					realized_profit: e.fPnlCC.toString(),
-					new_pos_bc: e.newPositionSizeBC.toString(),
-					side: (parseInt(e.amountLiquidatedBC.toString()) > 0
-						? "liquidate_buy"
-						: "liquidate_sell") as trade_side,
-					trade_timestamp: new Date(tradeBlockTimestamp * 1000),
-					tx_hash,
-					trader_addr: trader,
-					is_collected_by_event: isCollectedByEvent,
-					leverage: null,
-				};
-			}
+			const data = this._buildTradeData(
+				e,
+				txHash,
+				isCollectedByEvent,
+				tradeBlockTimestamp,
+				tradeBlockNumber,
+			);
 			await this.prisma.trade.upsert({
 				where: {
 					order_digest_hash: data.order_digest_hash,
 				},
 				update: {
-					is_collected_by_event: isCollectedByEvent,
+					...(isCollectedByEvent ? {} : { is_collected_by_event: false }),
 					trade_timestamp: data.trade_timestamp,
 					updated_at: new Date(),
 				},
@@ -105,6 +70,131 @@ export class TradingHistory {
 				error: formatErrorMessage(e),
 			});
 			metrics.trackError("db:trade_upsert", e);
+		}
+	}
+
+	private _buildTradeData(
+		e: TradeHistoryEvent,
+		txHash: string,
+		isCollectedByEvent: boolean,
+		tradeBlockTimestamp: number,
+		tradeBlockNumber: number,
+	): Prisma.TradeCreateInput {
+		const tx_hash = txHash.toLowerCase();
+		const trader = e.trader.toLowerCase();
+		const isLiquidation = (e as TradeEvent).order == undefined;
+		if (!isLiquidation) {
+			const te = e as TradeEvent;
+			const quantityCC = (te.fB2C * te.order.fAmount) / ONE_64x64;
+			return {
+				chain_id: parseInt(this.chainId.toString()),
+				order_digest_hash: te.orderDigest.toString(),
+				fee: te.fFeeCC.toString(),
+				broker_fee_tbps: Number(te.order.brokerFeeTbps),
+				broker_addr: te.order.brokerAddr.toLowerCase(),
+				perpetual_id: Number(te.perpetualId),
+				price: te.price.toString(),
+				quantity: te.order.fAmount.toString(),
+				quantity_cc: quantityCC.toString(),
+				realized_profit: te.fPnlCC.toString(),
+				new_pos_bc: te.newPositionSizeBC.toString(),
+				side: (parseInt(te.order.fAmount.toString()) > 0
+					? "buy"
+					: "sell") as trade_side,
+				order_flags: te.order.flags,
+				tx_hash,
+				trader_addr: trader,
+				trade_timestamp: new Date(tradeBlockTimestamp * 1000),
+				is_collected_by_event: isCollectedByEvent,
+				leverage: Number(te.order.leverageTDR),
+			};
+		}
+		const le = e as LiquidateEvent;
+		return {
+			chain_id: parseInt(this.chainId.toString()),
+			order_digest_hash: this._createLiquidationId(le, tradeBlockNumber),
+			fee: le.fFeeCC.toString(),
+			broker_fee_tbps: 0,
+			perpetual_id: Number(le.perpetualId),
+			price: le.liquidationPrice.toString(),
+			quantity: le.amountLiquidatedBC.toString(),
+			realized_profit: le.fPnlCC.toString(),
+			new_pos_bc: le.newPositionSizeBC.toString(),
+			side: (parseInt(le.amountLiquidatedBC.toString()) > 0
+				? "liquidate_buy"
+				: "liquidate_sell") as trade_side,
+			trade_timestamp: new Date(tradeBlockTimestamp * 1000),
+			tx_hash,
+			trader_addr: trader,
+			is_collected_by_event: isCollectedByEvent,
+			leverage: null,
+		};
+	}
+
+	/**
+	 * Bulk-insert Trade/Liquidate records from the backfill path. Existing rows
+	 * (by order_digest_hash) are left untouched via skipDuplicates.
+	 */
+	public async insertTradeHistoryRecordsBatch(
+		items: TradeBatchItem[],
+		isCollectedByEvent: boolean,
+	): Promise<void> {
+		if (items.length === 0) {
+			return;
+		}
+		const byKey = new Map<string, Prisma.TradeCreateManyInput>();
+		for (const it of items) {
+			try {
+				const data = this._buildTradeData(
+					it.e,
+					it.txHash,
+					isCollectedByEvent,
+					it.blockTimestamp,
+					it.blockNumber,
+				) as Prisma.TradeCreateManyInput;
+				byKey.set(data.order_digest_hash, data);
+			} catch (e) {
+				this.l.error("building trade batch row", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("db:trade_batch_build", e);
+			}
+		}
+		const rows = [...byKey.values()];
+		for (let i = 0; i < rows.length; i += CREATE_MANY_BATCH) {
+			const chunk = rows.slice(i, i + CREATE_MANY_BATCH);
+			let inserted = false;
+			try {
+				await this.prisma.trade.createMany({
+					data: chunk,
+					skipDuplicates: true,
+				});
+				inserted = true;
+			} catch (e) {
+				this.l.error("batch inserting trades", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("db:trade_createMany", e);
+				break;
+			}
+			if (!isCollectedByEvent && inserted) {
+				try {
+					await this.prisma.trade.updateMany({
+						where: {
+							is_collected_by_event: true,
+							order_digest_hash: {
+								in: chunk.map((r) => r.order_digest_hash),
+							},
+						},
+						data: { is_collected_by_event: false },
+					});
+				} catch (e) {
+					this.l.error("batch updating trade is_collected_by_event", {
+						error: formatErrorMessage(e),
+					});
+					metrics.trackError("db:trade_updateMany", e);
+				}
+			}
 		}
 	}
 

@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import type { Logger } from "winston";
 import { metrics } from "./metrics.js";
+import { GapMemory } from "./gapMemory.js";
+import { isTransientError } from "../utils/errors.js";
 
 export interface GapRow {
 	gap_start: Date;
@@ -26,7 +28,12 @@ export interface GapConfig {
 	thresholdSeconds: number;
 }
 
-export type BackfillRunner = (startTimestampSec: number) => Promise<void>;
+export type BackfillRunner = (
+	startTimestampSec: number,
+	endTimestampSec?: number,
+) => Promise<void>;
+
+const MAX_GAP_FAILURES = 3;
 
 export const GAP_CONFIGS: GapConfig[] = [
 	{
@@ -57,8 +64,7 @@ export async function detectGaps(
 			SELECT ${config.timestampCol} as ts,
 				LEAD(${config.timestampCol}) OVER (ORDER BY ${config.timestampCol}) as next_ts
 			FROM ${config.table}
-			WHERE is_collected_by_event = false
-				AND ${config.timestampCol} > NOW() - interval '30 days'
+			WHERE ${config.timestampCol} > NOW() - interval '30 days'
 		)
 		SELECT ts as gap_start, next_ts as gap_end
 		FROM ordered
@@ -75,8 +81,12 @@ export async function detectAndFillGaps(
 	runBackfill: BackfillRunner,
 	startTimestampSec: number,
 	logger: Logger,
+	gapMemory: GapMemory,
 ): Promise<void> {
-	const allGapStarts = new Set<number>();
+	const nowSec = Math.floor(Date.now() / 1000);
+	await gapMemory.cleanup(nowSec);
+
+	const rawWindows: Array<[number, number]> = [];
 
 	for (const config of GAP_CONFIGS) {
 		try {
@@ -87,7 +97,10 @@ export async function detectAndFillGaps(
 					latest: `${gaps[gaps.length - 1].gap_start.toISOString()} - ${gaps[gaps.length - 1].gap_end.toISOString()}`,
 				});
 				for (const gap of gaps) {
-					allGapStarts.add(Math.floor(gap.gap_start.getTime() / 1000));
+					rawWindows.push([
+						Math.floor(gap.gap_start.getTime() / 1000),
+						Math.ceil(gap.gap_end.getTime() / 1000),
+					]);
 				}
 			}
 		} catch (e) {
@@ -98,19 +111,82 @@ export async function detectAndFillGaps(
 		}
 	}
 
-	if (allGapStarts.size === 0) return;
+	if (rawWindows.length === 0) return;
+
+	// we merge overlapping windows so the same block range is not backfilled twice
+	rawWindows.sort((a, b) => a[0] - b[0]);
+	const merged: Array<[number, number]> = [];
+	for (const [start, end] of rawWindows) {
+		const last = merged[merged.length - 1];
+		if (last && start <= last[1]) {
+			last[1] = Math.max(last[1], end);
+		} else {
+			merged.push([start, end]);
+		}
+	}
 
 	metrics.gapDetection.lastRun = new Date().toISOString();
-	metrics.gapDetection.gapsDetected = allGapStarts.size;
-	const sorted = [...allGapStarts].sort((a, b) => b - a);
-	logger.info(`filling ${sorted.length} unique gap(s), most recent first`);
+	metrics.gapDetection.gapsDetected = merged.length;
+	// most recent first
+	merged.sort((a, b) => b[0] - a[0]);
+	logger.info(`filling ${merged.length} merged gap(s), most recent first`);
 
-	for (const gapStartSec of sorted) {
+	for (const [gapStartSec, endSec] of merged) {
+		if (endSec <= startTimestampSec) {
+			logger.info("skipping gap before fill horizon", {
+				gap_start: new Date(gapStartSec * 1000).toISOString(),
+				gap_end: new Date(endSec * 1000).toISOString(),
+				horizon: new Date(startTimestampSec * 1000).toISOString(),
+			});
+			continue;
+		}
 		const sec = Math.max(gapStartSec, startTimestampSec);
+		if (await gapMemory.hasTried(gapStartSec, endSec)) {
+			logger.info("skipping gap already attempted", {
+				gap_start: new Date(gapStartSec * 1000).toISOString(),
+				gap_end: new Date(endSec * 1000).toISOString(),
+			});
+			metrics.gapDetection.gapsSkipped++;
+			continue;
+		}
 		logger.info("triggering backfill for gap", {
 			gap_start: new Date(sec * 1000).toISOString(),
+			gap_end: new Date(endSec * 1000).toISOString(),
 		});
-		await runBackfill(sec);
+		try {
+			await runBackfill(sec, endSec);
+		} catch (e) {
+			if (isTransientError(e)) {
+				logger.warn("gap backfill hit transient error, will retry", {
+					gap_start: new Date(gapStartSec * 1000).toISOString(),
+					gap_end: new Date(endSec * 1000).toISOString(),
+					error: e instanceof Error ? e.message : String(e),
+				});
+				metrics.trackError("gapBackfill:transient", e);
+				continue;
+			}
+			const failures = await gapMemory.recordFailure(gapStartSec, endSec);
+			logger.warn("gap backfill failed", {
+				gap_start: new Date(gapStartSec * 1000).toISOString(),
+				gap_end: new Date(endSec * 1000).toISOString(),
+				consecutiveFailures: failures,
+				error: e instanceof Error ? e.message : String(e),
+			});
+			metrics.trackError("gapBackfill", e);
+			if (failures >= MAX_GAP_FAILURES) {
+				logger.warn("giving up on gap after repeated failures", {
+					gap_start: new Date(gapStartSec * 1000).toISOString(),
+					gap_end: new Date(endSec * 1000).toISOString(),
+					consecutiveFailures: failures,
+				});
+				await gapMemory.markTried(gapStartSec, endSec, nowSec);
+				await gapMemory.clearFailure(gapStartSec, endSec);
+				metrics.gapDetection.gapsGivenUp++;
+			}
+			continue;
+		}
+		await gapMemory.markTried(gapStartSec, endSec, nowSec);
+		await gapMemory.clearFailure(gapStartSec, endSec);
 		metrics.gapDetection.gapsFilled++;
 	}
 }

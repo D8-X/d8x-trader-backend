@@ -25,12 +25,15 @@ export const metrics = {
 	errors: [] as { ts: string; source: string; msg: string }[],
 	backfill: {
 		running: false,
+		activeScans: 0,
 		progress: 0,
 		eventsFound: 0,
 	},
 	gapDetection: {
 		gapsDetected: 0,
 		gapsFilled: 0,
+		gapsSkipped: 0,
+		gapsGivenUp: 0,
 		lastRun: null as string | null,
 	},
 	eventsProcessed: {} as Record<string, number>,

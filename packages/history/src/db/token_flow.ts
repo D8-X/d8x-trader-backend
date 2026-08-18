@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { BigNumberish } from "ethers";
 import {
 	TokenFlowEvent,
@@ -6,6 +6,19 @@ import {
 	TokensWithdrawnEvent,
 } from "../contracts/types.js";
 import { Logger } from "winston";
+import { formatErrorMessage } from "../utils/errors.js";
+import { metrics } from "../svc/metrics.js";
+
+export interface TokenFlowBatchItem {
+	perpetualId: BigNumberish;
+	trader: string;
+	amountCC: bigint;
+	txHash: string;
+	blockTimestamp: number;
+	isDeposit: boolean;
+}
+
+const CREATE_MANY_BATCH = 1000;
 
 export class TokenFlow {
 	constructor(
@@ -91,7 +104,7 @@ export class TokenFlow {
 				},
 			},
 			update: {
-				is_collected_by_event: isCollectedByEvent,
+				...(isCollectedByEvent ? {} : { is_collected_by_event: false }),
 				timestamp: new Date(evtBlockTimestamp * 1000),
 				updated_at: new Date(),
 			},
@@ -106,5 +119,70 @@ export class TokenFlow {
 				is_collected_by_event: isCollectedByEvent,
 			},
 		});
+	}
+
+	public async insertTokenFlowRecordsBatch(
+		items: TokenFlowBatchItem[],
+		isCollectedByEvent: boolean,
+	): Promise<void> {
+		if (items.length === 0) {
+			return;
+		}
+		const byKey = new Map<string, Prisma.TokenFlowCreateManyInput>();
+		for (const it of items) {
+			const trader = it.trader.toLowerCase();
+			const tx_hash = it.txHash.toLowerCase();
+			const perpetual_id = Number(it.perpetualId);
+			const amount = it.isDeposit ? it.amountCC : -it.amountCC;
+			byKey.set(`${trader}:${perpetual_id}:${tx_hash}:${it.isDeposit}`, {
+				trader_addr: trader,
+				perpetual_id,
+				chain_id: parseInt(this.chainId.toString()),
+				amount_cc: amount.toString(),
+				deposit: it.isDeposit,
+				tx_hash,
+				timestamp: new Date(it.blockTimestamp * 1000),
+				is_collected_by_event: isCollectedByEvent,
+			});
+		}
+		const rows = [...byKey.values()];
+		for (let i = 0; i < rows.length; i += CREATE_MANY_BATCH) {
+			const chunk = rows.slice(i, i + CREATE_MANY_BATCH);
+			let inserted = false;
+			try {
+				await this.prisma.tokenFlow.createMany({
+					data: chunk,
+					skipDuplicates: true,
+				});
+				inserted = true;
+			} catch (e) {
+				this.l.error("batch inserting token flows", {
+					error: formatErrorMessage(e),
+				});
+				metrics.trackError("token_flow_createMany", e);
+				break;
+			}
+			if (!isCollectedByEvent && inserted) {
+				try {
+					await this.prisma.tokenFlow.updateMany({
+						where: {
+							is_collected_by_event: true,
+							OR: chunk.map((r) => ({
+								trader_addr: r.trader_addr,
+								perpetual_id: r.perpetual_id,
+								tx_hash: r.tx_hash,
+								deposit: r.deposit,
+							})),
+						},
+						data: { is_collected_by_event: false },
+					});
+				} catch (e) {
+					this.l.error("batch updating token flow is_collected_by_event", {
+						error: formatErrorMessage(e),
+					});
+					metrics.trackError("token_flow_updateMany", e);
+				}
+			}
+		}
 	}
 }
