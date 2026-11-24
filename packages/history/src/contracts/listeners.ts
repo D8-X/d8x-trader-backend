@@ -54,6 +54,7 @@ export class EventListener {
 	private blockTsCache: Map<number, number> = new Map();
 	private headPollTimer: NodeJS.Timeout | undefined;
 	private headPollInflight = false;
+	private connectionLost = false;
 
 	constructor(
 		opts: EventListenerOptions,
@@ -131,7 +132,7 @@ export class EventListener {
 	public async checkHeartbeat(maxDelaySec: number, maxHeadAgeSec?: number) {
 		const nowTs = Date.now();
 		const secSinceEvt = Math.round((nowTs - this.lastEventTs) / 1000);
-		const isAlive = secSinceEvt < maxDelaySec;
+		const isAlive = secSinceEvt < maxDelaySec && !this.connectionLost;
 
 		this.l.info(
 			`last ${this.listeningMode} block=${this.blockNumber}, seconds since last event =${secSinceEvt}`,
@@ -187,7 +188,7 @@ export class EventListener {
 				HEAD_POLL_TIMEOUT_MS,
 				"head poll timeout",
 			);
-			if (provider !== this.provider) {
+			if (provider !== this.provider || this.connectionLost) {
 				return;
 			}
 			if (this.blockNumber === Infinity || blockNumber > this.blockNumber) {
@@ -202,6 +203,16 @@ export class EventListener {
 		} finally {
 			this.headPollInflight = false;
 		}
+	}
+
+	public markConnectionLost(provider: WebSocketProvider | JsonRpcProvider) {
+		if (provider !== this.provider || this.connectionLost) {
+			return;
+		}
+		this.connectionLost = true;
+		this.l.warn(
+			`${this.listeningMode} connection lost, event subscriptions are gone`,
+		);
 	}
 
 	/**
@@ -221,6 +232,7 @@ export class EventListener {
 		}
 		const IS_COLLECTED_BY_EVENT = true;
 		this.provider = provider;
+		this.connectionLost = false;
 		this.listeningMode =
 			provider instanceof WebSocketProvider ? ListeningMode.WS : ListeningMode.HTTP;
 

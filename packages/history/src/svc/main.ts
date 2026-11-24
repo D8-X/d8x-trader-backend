@@ -150,13 +150,18 @@ export const main = async () => {
 		logger.info(msg);
 	}
 	const network = Network.from(chainId);
-	let wsProvider: ethers.WebSocketProvider = new WebSocketProvider(
-		() =>
-			new SturdyWebSocket(wsRpcUrl, {
+	let onWsDown: (provider: WebSocketProvider) => void = () => {};
+	const makeWsProvider = (url: string): WebSocketProvider => {
+		const provider: WebSocketProvider = new WebSocketProvider(() => {
+			const ws = new SturdyWebSocket(url, {
 				wsConstructor: WebSocket,
-			}),
-		network,
-	);
+			});
+			ws.addEventListener("down", () => onWsDown(provider));
+			return ws;
+		}, network);
+		return provider;
+	};
+	let wsProvider: ethers.WebSocketProvider = makeWsProvider(wsRpcUrl);
 	const httpProvider: ethers.JsonRpcProvider = new JsonRpcProvider(
 		httpRpcUrl,
 		network,
@@ -293,6 +298,7 @@ export const main = async () => {
 		}
 	};
 	runInitialCatchup();
+	onWsDown = (provider) => eventsListener.markConnectionLost(provider);
 	eventsListener.listen(wsProvider);
 
 	// Websocket provider leaks memory, therefore as in main api, we will
@@ -369,13 +375,7 @@ export const main = async () => {
 			const wsUrl = chooseRandomRPC(true, rpcConfig);
 			logger.info("creating new WebsocketProvider", { wsUrl });
 
-			wsProvider = new WebSocketProvider(
-				() =>
-					new SturdyWebSocket(wsUrl, {
-						wsConstructor: WebSocket,
-					}),
-				network,
-			);
+			wsProvider = makeWsProvider(wsUrl);
 
 			const wsAlive = await (async (): Promise<boolean> => {
 				try {
