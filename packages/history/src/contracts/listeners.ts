@@ -30,8 +30,8 @@ import { TokenFlow } from "../db/token_flow.js";
 import { metrics } from "../svc/metrics.js";
 import { getCachedBlockTs, setCachedBlockTs } from "./blockTimestampCache.js";
 
-const HEAD_POLL_INTERVAL_MS = 15_000;
-const HEAD_POLL_TIMEOUT_MS = 10_000;
+const HEAD_POLL_INTERVAL_MS = 10_000;
+const HEAD_POLL_TIMEOUT_MS = 8_000;
 
 export interface EventListenerOptions {
 	logger: Logger;
@@ -53,7 +53,7 @@ export class EventListener {
 	public listeningMode: ListeningMode;
 	private blockTsCache: Map<number, number> = new Map();
 	private headPollTimer: NodeJS.Timeout | undefined;
-	private headPollInflight = false;
+	private headPollsInflight = new Set<WebSocketProvider | JsonRpcProvider>();
 	private connectionLost = false;
 
 	constructor(
@@ -178,10 +178,10 @@ export class EventListener {
 	}
 
 	private async pollHead(provider: WebSocketProvider | JsonRpcProvider) {
-		if (this.headPollInflight) {
+		if (this.headPollsInflight.has(provider)) {
 			return;
 		}
-		this.headPollInflight = true;
+		this.headPollsInflight.add(provider);
 		try {
 			const blockNumber = await executeWithTimeout(
 				provider.getBlockNumber(),
@@ -201,7 +201,7 @@ export class EventListener {
 				error: formatErrorMessage(e),
 			});
 		} finally {
-			this.headPollInflight = false;
+			this.headPollsInflight.delete(provider);
 		}
 	}
 
