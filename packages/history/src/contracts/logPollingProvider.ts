@@ -12,12 +12,14 @@ import { formatErrorMessage } from "../utils/errors.js";
 
 const LOG_POLL_INTERVAL_MS = 5_000;
 const MAX_LOG_POLL_BLOCKS = 1_000;
+const LOG_POLL_LAG_BLOCKS = 10;
 
 export class LogPollingJsonRpcProvider extends JsonRpcProvider {
 	private logSubs = new Set<SharedLogSubscriber>();
 	private logPollTimer: NodeJS.Timeout | undefined;
 	private logPollInflight = false;
 	private nextLogBlock: number | undefined;
+	private logPollRange = MAX_LOG_POLL_BLOCKS;
 
 	constructor(
 		url: string,
@@ -58,6 +60,7 @@ export class LogPollingJsonRpcProvider extends JsonRpcProvider {
 		this.logSubs.delete(sub);
 		if (this.logSubs.size === 0) {
 			this.stopLogPolling();
+			this.nextLogBlock = undefined;
 		}
 	}
 
@@ -79,11 +82,14 @@ export class LogPollingJsonRpcProvider extends JsonRpcProvider {
 				this.nextLogBlock = head + 1;
 				return;
 			}
-			if (head < this.nextLogBlock) {
+			const fromBlock = this.nextLogBlock;
+			const toBlock = Math.min(
+				head - LOG_POLL_LAG_BLOCKS,
+				fromBlock + this.logPollRange - 1,
+			);
+			if (toBlock < fromBlock) {
 				return;
 			}
-			const fromBlock = this.nextLogBlock;
-			const toBlock = Math.min(head, fromBlock + MAX_LOG_POLL_BLOCKS - 1);
 			const subs = [...this.logSubs];
 			const address = [...new Set(subs.flatMap((s) => s.addresses))];
 			const logs = await this.getLogs({ address, fromBlock, toBlock });
@@ -95,9 +101,12 @@ export class LogPollingJsonRpcProvider extends JsonRpcProvider {
 				}
 			}
 			this.nextLogBlock = toBlock + 1;
+			this.logPollRange = MAX_LOG_POLL_BLOCKS;
 		} catch (e) {
+			this.logPollRange = Math.max(1, Math.floor(this.logPollRange / 2));
 			this.logger.warn("HTTP log poll failed", {
 				error: formatErrorMessage(e),
+				next_range_blocks: this.logPollRange,
 			});
 		} finally {
 			this.logPollInflight = false;
