@@ -22,13 +22,17 @@ import { FundingRatePayments } from "../db/funding_rate.js";
 import { getPerpetualManagerABI, getShareTokenContractABI } from "../utils/abi.js";
 import { EstimatedEarnings } from "../db/estimated_earnings.js";
 import { PriceInfo } from "../db/price_info.js";
-import { dec18ToFloat, decNToFloat } from "utils";
+import { dec18ToFloat, decNToFloat, executeWithTimeout } from "utils";
 import StaticInfo from "./static_info.js";
 import { LiquidityWithdrawals } from "../db/liquidity_withdrawals.js";
 import { SettleHistory } from "../db/settle_history.js";
 import { TokenFlow } from "../db/token_flow.js";
 import { metrics } from "../svc/metrics.js";
 import { getCachedBlockTs, setCachedBlockTs } from "./blockTimestampCache.js";
+
+const HEAD_POLL_INTERVAL_MS = 15_000;
+const HEAD_POLL_TIMEOUT_MS = 10_000;
+
 export interface EventListenerOptions {
 	logger: Logger;
 	// smart contract addresses which will be used to listen to incoming events
@@ -48,6 +52,8 @@ export class EventListener {
 	private lastEventTs: number;
 	public listeningMode: ListeningMode;
 	private blockTsCache: Map<number, number> = new Map();
+	private headPollTimer: NodeJS.Timeout | undefined;
+	private headPollInflight = false;
 
 	constructor(
 		opts: EventListenerOptions,
@@ -158,6 +164,46 @@ export class EventListener {
 		return true;
 	}
 
+	private startHeadPolling(provider: WebSocketProvider | JsonRpcProvider) {
+		if (this.headPollTimer) {
+			clearInterval(this.headPollTimer);
+		}
+		this.blockNumber = Infinity;
+		this.headPollTimer = setInterval(
+			() => void this.pollHead(provider),
+			HEAD_POLL_INTERVAL_MS,
+		);
+		void this.pollHead(provider);
+	}
+
+	private async pollHead(provider: WebSocketProvider | JsonRpcProvider) {
+		if (this.headPollInflight) {
+			return;
+		}
+		this.headPollInflight = true;
+		try {
+			const blockNumber = await executeWithTimeout(
+				provider.getBlockNumber(),
+				HEAD_POLL_TIMEOUT_MS,
+				"head poll timeout",
+			);
+			if (provider !== this.provider) {
+				return;
+			}
+			if (this.blockNumber === Infinity || blockNumber > this.blockNumber) {
+				this.lastEventTs = Date.now();
+				this.blockNumber = blockNumber;
+				metrics.lastBlock = blockNumber;
+			}
+		} catch (e) {
+			this.l.warn(`${this.listeningMode} head poll failed`, {
+				error: formatErrorMessage(e),
+			});
+		} finally {
+			this.headPollInflight = false;
+		}
+	}
+
 	/**
 	 * listen starts all event listeners
 	 * @param provider	the provider to listen to events from, can be either WebSocketProvider or JsonRpcProvider.
@@ -186,11 +232,7 @@ export class EventListener {
 		);
 
 		metrics.connection = this.listeningMode;
-		provider.on("block", (blockNumber) => {
-			this.lastEventTs = Date.now();
-			this.blockNumber = blockNumber;
-			metrics.lastBlock = blockNumber;
-		});
+		this.startHeadPolling(provider);
 
 		// perpertual proxy manager - main contract
 		const proxy = new ethers.Contract(

@@ -371,38 +371,32 @@ export const main = async () => {
 				network,
 			);
 
-			const wsAlive = await new Promise<boolean>((resolve) => {
-				wsProvider.once("block", async (blockNumber: number) => {
-					try {
-						const blk = await wsProvider.getBlock(blockNumber);
-						const ageSec =
-							Math.floor(Date.now() / 1000) - (blk?.timestamp ?? 0);
-						if (!blk || ageSec > MAX_WS_HEAD_AGE_SEC) {
-							logger.warn(
-								"new WS provider head is stale, staying on HTTP",
-								{
-									blockNumber,
-									head_age_seconds: ageSec,
-								},
-							);
-							resolve(false);
-						} else {
-							resolve(true);
-						}
-					} catch (e) {
-						logger.warn(
-							"could not verify WS provider freshness, staying on HTTP",
-							{
-								error: formatErrorMessage(e),
-							},
-						);
-						resolve(false);
+			const wsAlive = await (async (): Promise<boolean> => {
+				try {
+					const blk = await executeWithTimeout(
+						wsProvider.getBlock("latest"),
+						WS_ALIVE_PROBE_MS,
+						"WS probe timeout",
+					);
+					const ageSec = Math.floor(Date.now() / 1000) - (blk?.timestamp ?? 0);
+					if (!blk || ageSec > MAX_WS_HEAD_AGE_SEC) {
+						logger.warn("new WS provider head is stale, staying on HTTP", {
+							blockNumber: blk?.number,
+							head_age_seconds: ageSec,
+						});
+						return false;
 					}
-				});
-				setTimeout(() => {
-					resolve(false);
-				}, WS_ALIVE_PROBE_MS);
-			});
+					return true;
+				} catch (e) {
+					logger.warn(
+						"could not verify WS provider freshness, staying on HTTP",
+						{
+							error: formatErrorMessage(e),
+						},
+					);
+					return false;
+				}
+			})();
 			// WS works, switch providers
 			if (wsAlive) {
 				wsResetCounter++;
