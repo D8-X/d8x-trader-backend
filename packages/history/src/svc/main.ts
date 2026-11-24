@@ -392,6 +392,19 @@ export const main = async () => {
 						});
 						return false;
 					}
+					const subId: string = await executeWithTimeout(
+						wsProvider.send("eth_subscribe", [
+							"logs",
+							{ address: proxyContractAddr },
+						]),
+						WS_ALIVE_PROBE_MS,
+						"WS subscribe probe timeout",
+					);
+					await executeWithTimeout(
+						wsProvider.send("eth_unsubscribe", [subId]),
+						WS_ALIVE_PROBE_MS,
+						"WS unsubscribe probe timeout",
+					);
 					return true;
 				} catch (e) {
 					logger.warn(
