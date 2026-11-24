@@ -47,6 +47,14 @@ async function findGameSymbols() {
 function connect(url) {
 	return new Promise((resolve, reject) => {
 		const ws = new WebSocket(url, ORIGIN ? { origin: ORIGIN } : {});
+		ws.received = [];
+		ws.on("message", (data) => {
+			try {
+				ws.received.push(JSON.parse(data.toString()));
+			} catch {
+				return;
+			}
+		});
 		const to = setTimeout(() => {
 			ws.terminate();
 			reject(new Error("ws connect timeout"));
@@ -58,16 +66,20 @@ function connect(url) {
 
 function waitFor(ws, pred) {
 	return new Promise((resolve, reject) => {
-		const to = setTimeout(() => reject(new Error("timed out waiting for ws message")), TIMEOUT_MS);
-		const onMsg = (data) => {
-			let m;
-			try {
-				m = JSON.parse(data.toString());
-			} catch {
-				return;
-			}
-			if (pred(m)) (clearTimeout(to), ws.off("message", onMsg), resolve(m));
+		const take = () => {
+			const i = ws.received.findIndex(pred);
+			if (i === -1) return false;
+			resolve(ws.received.splice(0, i + 1)[i]);
+			return true;
 		};
+		if (take()) return;
+		const onMsg = () => {
+			if (take()) (clearTimeout(to), ws.off("message", onMsg));
+		};
+		const to = setTimeout(
+			() => (ws.off("message", onMsg), reject(new Error("timed out waiting for ws message"))),
+			TIMEOUT_MS,
+		);
 		ws.on("message", onMsg);
 	});
 }
