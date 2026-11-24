@@ -45,8 +45,12 @@ export class TrackedWebsocketsProvider extends WebSocketProvider {
 }
 
 export class TrackedJsonRpcProvider extends JsonRpcProvider {
-	constructor(url?: string | FetchRequest | string, network?: Networkish) {
-		super(url, network);
+	constructor(
+		url?: string | FetchRequest | string,
+		network?: Networkish,
+		options?: JsonRpcApiProviderOptions,
+	) {
+		super(url, network, options);
 		NumJsonRpcProviders++;
 	}
 
