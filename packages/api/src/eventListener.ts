@@ -151,7 +151,9 @@ export default class EventListener extends IndexPriceInterface {
 			const state = existingSdk.exportState();
 			await this.traderInterface.createProxyInstanceFromState(
 				state,
-				new JsonRpcProvider(sdkConfig.nodeURL),
+				new JsonRpcProvider(sdkConfig.nodeURL, sdkConfig.chainId, {
+					staticNetwork: true,
+				}),
 			);
 		} else {
 			await this.traderInterface.createProxyInstance();
