@@ -1,4 +1,5 @@
 import { EventListener } from "../contracts/listeners.js";
+import { LogPollingJsonRpcProvider } from "../contracts/logPollingProvider.js";
 import * as dotenv from "dotenv";
 import {
 	chooseRandomRPC,
@@ -322,11 +323,16 @@ export const main = async () => {
 		}
 
 		const makeJsonProvider = () =>
-			new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
-				staticNetwork: network,
-				batchMaxCount: 1,
-				polling: true,
-			});
+			new LogPollingJsonRpcProvider(
+				chooseRandomRPC(false, rpcConfig),
+				network,
+				{
+					staticNetwork: network,
+					batchMaxCount: 1,
+					polling: true,
+				},
+				logger,
+			);
 
 		// provider is down - switch
 		if (eventsListener.listeningMode === ListeningMode.WS) {
