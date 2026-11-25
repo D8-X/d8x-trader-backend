@@ -81,6 +81,8 @@ export class LogPollingJsonRpcProvider extends JsonRpcProvider {
 			return;
 		}
 		this.logPollInflight = true;
+		let fromBlock: number | undefined;
+		let toBlock: number | undefined;
 		try {
 			const head = await this.getBlockNumber();
 			if (this.nextLogBlock === undefined || this.startLogBlock === undefined) {
@@ -88,12 +90,12 @@ export class LogPollingJsonRpcProvider extends JsonRpcProvider {
 				this.nextLogBlock = head + 1;
 				return;
 			}
-			const fromBlock = Math.max(
+			fromBlock = Math.max(
 				this.startLogBlock,
 				this.nextLogBlock -
 					Math.min(LOG_POLL_OVERLAP_BLOCKS, Math.floor(this.logPollRange / 2)),
 			);
-			const toBlock = Math.min(
+			toBlock = Math.min(
 				head - LOG_POLL_LAG_BLOCKS,
 				fromBlock + this.logPollRange - 1,
 			);
@@ -129,6 +131,9 @@ export class LogPollingJsonRpcProvider extends JsonRpcProvider {
 			this.logPollRange = Math.max(1, Math.floor(this.logPollRange / 2));
 			this.logger.warn("HTTP log poll failed", {
 				error: formatErrorMessage(e),
+				request: fromBlock === undefined ? "eth_blockNumber" : "eth_getLogs",
+				from_block: fromBlock,
+				to_block: toBlock,
 				next_range_blocks: this.logPollRange,
 			});
 		} finally {
