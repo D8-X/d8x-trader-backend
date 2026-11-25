@@ -12,14 +12,17 @@ import { formatErrorMessage } from "../utils/errors.js";
 
 const LOG_POLL_INTERVAL_MS = 5_000;
 const MAX_LOG_POLL_BLOCKS = 1_000;
-const LOG_POLL_LAG_BLOCKS = 10;
+const LOG_POLL_LAG_BLOCKS = 2;
+const LOG_POLL_OVERLAP_BLOCKS = 30;
 
 export class LogPollingJsonRpcProvider extends JsonRpcProvider {
 	private logSubs = new Set<SharedLogSubscriber>();
 	private logPollTimer: NodeJS.Timeout | undefined;
 	private logPollInflight = false;
+	private startLogBlock: number | undefined;
 	private nextLogBlock: number | undefined;
 	private logPollRange = MAX_LOG_POLL_BLOCKS;
+	private seenLogs = new Map<string, number>();
 
 	constructor(
 		url: string,
@@ -60,7 +63,9 @@ export class LogPollingJsonRpcProvider extends JsonRpcProvider {
 		this.logSubs.delete(sub);
 		if (this.logSubs.size === 0) {
 			this.stopLogPolling();
+			this.startLogBlock = undefined;
 			this.nextLogBlock = undefined;
+			this.seenLogs.clear();
 		}
 	}
 
@@ -78,22 +83,34 @@ export class LogPollingJsonRpcProvider extends JsonRpcProvider {
 		this.logPollInflight = true;
 		try {
 			const head = await this.getBlockNumber();
-			if (this.nextLogBlock === undefined) {
+			if (this.nextLogBlock === undefined || this.startLogBlock === undefined) {
+				this.startLogBlock = head + 1;
 				this.nextLogBlock = head + 1;
 				return;
 			}
-			const fromBlock = this.nextLogBlock;
 			const toBlock = Math.min(
 				head - LOG_POLL_LAG_BLOCKS,
-				fromBlock + this.logPollRange - 1,
+				this.nextLogBlock + this.logPollRange - 1,
 			);
-			if (toBlock < fromBlock) {
+			if (toBlock < this.nextLogBlock) {
 				return;
 			}
+			const fromBlock = Math.max(
+				this.startLogBlock,
+				this.nextLogBlock - Math.min(LOG_POLL_OVERLAP_BLOCKS, this.logPollRange),
+			);
 			const subs = [...this.logSubs];
 			const address = [...new Set(subs.flatMap((s) => s.addresses))];
 			const logs = await this.getLogs({ address, fromBlock, toBlock });
+			if (this.logSubs.size === 0) {
+				return;
+			}
 			for (const log of logs) {
+				const key = `${log.blockHash}:${log.index}`;
+				if (this.seenLogs.has(key)) {
+					continue;
+				}
+				this.seenLogs.set(key, log.blockNumber);
 				for (const sub of subs) {
 					if (sub.matches(log)) {
 						void this.emit(sub.filter, log);
@@ -101,7 +118,12 @@ export class LogPollingJsonRpcProvider extends JsonRpcProvider {
 				}
 			}
 			this.nextLogBlock = toBlock + 1;
-			this.logPollRange = MAX_LOG_POLL_BLOCKS;
+			for (const [key, block] of this.seenLogs) {
+				if (block < this.nextLogBlock - LOG_POLL_OVERLAP_BLOCKS) {
+					this.seenLogs.delete(key);
+				}
+			}
+			this.logPollRange = Math.min(MAX_LOG_POLL_BLOCKS, this.logPollRange * 2);
 		} catch (e) {
 			this.logPollRange = Math.max(1, Math.floor(this.logPollRange / 2));
 			this.logger.warn("HTTP log poll failed", {
