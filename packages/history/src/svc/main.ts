@@ -1,4 +1,5 @@
 import { EventListener } from "../contracts/listeners.js";
+import { LogPollingJsonRpcProvider } from "../contracts/logPollingProvider.js";
 import * as dotenv from "dotenv";
 import {
 	chooseRandomRPC,
@@ -149,13 +150,18 @@ export const main = async () => {
 		logger.info(msg);
 	}
 	const network = Network.from(chainId);
-	let wsProvider: ethers.WebSocketProvider = new WebSocketProvider(
-		() =>
-			new SturdyWebSocket(wsRpcUrl, {
+	let onWsDown: (provider: WebSocketProvider) => void = () => {};
+	const makeWsProvider = (url: string): WebSocketProvider => {
+		const provider: WebSocketProvider = new WebSocketProvider(() => {
+			const ws = new SturdyWebSocket(url, {
 				wsConstructor: WebSocket,
-			}),
-		network,
-	);
+			});
+			ws.addEventListener("down", () => onWsDown(provider));
+			return ws;
+		}, network);
+		return provider;
+	};
+	let wsProvider: ethers.WebSocketProvider = makeWsProvider(wsRpcUrl);
 	const httpProvider: ethers.JsonRpcProvider = new JsonRpcProvider(
 		httpRpcUrl,
 		network,
@@ -292,13 +298,13 @@ export const main = async () => {
 		}
 	};
 	runInitialCatchup();
+	onWsDown = (provider) => eventsListener.markConnectionLost(provider);
 	eventsListener.listen(wsProvider);
 
 	// Websocket provider leaks memory, therefore as in main api, we will
 	// exit the service for a restart after maxWsResetCounter is reached
 	let wsResetCounter = 0;
 	const maxWsResetCounter = 100 + Math.floor(Math.random() * 100);
-	let resetRpcRunning = false;
 	let lastWsPromoteAt = 0;
 	const resetRpcFunc = async () => {
 		const healthy = await eventsListener.checkHeartbeat(
@@ -311,22 +317,22 @@ export const main = async () => {
 		if (healthy && !promoteToWs) {
 			return;
 		}
-		if (resetRpcRunning) {
-			logger.info("resetRpcFunc is already running, not running again...");
-			return;
-		}
-		resetRpcRunning = true;
 		if (promoteToWs) {
 			lastWsPromoteAt = Date.now();
 			logger.info("healthy on HTTP, trying WS");
 		}
 
 		const makeJsonProvider = () =>
-			new JsonRpcProvider(chooseRandomRPC(false, rpcConfig), network, {
-				staticNetwork: network,
-				batchMaxCount: 1,
-				polling: true,
-			});
+			new LogPollingJsonRpcProvider(
+				chooseRandomRPC(false, rpcConfig),
+				network,
+				{
+					staticNetwork: network,
+					batchMaxCount: 1,
+					polling: true,
+				},
+				logger,
+			);
 
 		// provider is down - switch
 		if (eventsListener.listeningMode === ListeningMode.WS) {
@@ -363,46 +369,47 @@ export const main = async () => {
 			const wsUrl = chooseRandomRPC(true, rpcConfig);
 			logger.info("creating new WebsocketProvider", { wsUrl });
 
-			wsProvider = new WebSocketProvider(
-				() =>
-					new SturdyWebSocket(wsUrl, {
-						wsConstructor: WebSocket,
-					}),
-				network,
-			);
+			wsProvider = makeWsProvider(wsUrl);
 
-			const wsAlive = await new Promise<boolean>((resolve) => {
-				wsProvider.once("block", async (blockNumber: number) => {
-					try {
-						const blk = await wsProvider.getBlock(blockNumber);
-						const ageSec =
-							Math.floor(Date.now() / 1000) - (blk?.timestamp ?? 0);
-						if (!blk || ageSec > MAX_WS_HEAD_AGE_SEC) {
-							logger.warn(
-								"new WS provider head is stale, staying on HTTP",
-								{
-									blockNumber,
-									head_age_seconds: ageSec,
-								},
-							);
-							resolve(false);
-						} else {
-							resolve(true);
-						}
-					} catch (e) {
-						logger.warn(
-							"could not verify WS provider freshness, staying on HTTP",
-							{
-								error: formatErrorMessage(e),
-							},
-						);
-						resolve(false);
+			const wsAlive = await (async (): Promise<boolean> => {
+				try {
+					const blk = await executeWithTimeout(
+						wsProvider.getBlock("latest"),
+						WS_ALIVE_PROBE_MS,
+						"WS probe timeout",
+					);
+					const ageSec = Math.floor(Date.now() / 1000) - (blk?.timestamp ?? 0);
+					if (!blk || ageSec > MAX_WS_HEAD_AGE_SEC) {
+						logger.warn("new WS provider head is stale, staying on HTTP", {
+							blockNumber: blk?.number,
+							head_age_seconds: ageSec,
+						});
+						return false;
 					}
-				});
-				setTimeout(() => {
-					resolve(false);
-				}, WS_ALIVE_PROBE_MS);
-			});
+					const subId: string = await executeWithTimeout(
+						wsProvider.send("eth_subscribe", [
+							"logs",
+							{ address: proxyContractAddr },
+						]),
+						WS_ALIVE_PROBE_MS,
+						"WS subscribe probe timeout",
+					);
+					await executeWithTimeout(
+						wsProvider.send("eth_unsubscribe", [subId]),
+						WS_ALIVE_PROBE_MS,
+						"WS unsubscribe probe timeout",
+					);
+					return true;
+				} catch (e) {
+					logger.warn(
+						"could not verify WS provider freshness, staying on HTTP",
+						{
+							error: formatErrorMessage(e),
+						},
+					);
+					return false;
+				}
+			})();
 			// WS works, switch providers
 			if (wsAlive) {
 				wsResetCounter++;
@@ -418,7 +425,6 @@ export const main = async () => {
 			}
 		}
 
-		resetRpcRunning = false;
 		// Once reset limit is reached - restart
 		if (wsResetCounter >= maxWsResetCounter) {
 			logger.warn(
@@ -432,11 +438,20 @@ export const main = async () => {
 	};
 
 	// check heartbeat of RPC connection
+	let healthCheckInflight = false;
 	setInterval(async () => {
+		if (healthCheckInflight) {
+			return;
+		}
+		healthCheckInflight = true;
 		try {
 			await resetRpcFunc();
-		} catch (_e) {
-			resetRpcRunning = false;
+		} catch (e) {
+			logger.warn("rpc health check failed", {
+				error: formatErrorMessage(e),
+			});
+		} finally {
+			healthCheckInflight = false;
 		}
 	}, HEARTBEAT_CHECK_INTERVAL_MS);
 

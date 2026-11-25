@@ -7,6 +7,7 @@ const ORIGIN = process.env.WS_TEST_ORIGIN;
 const TRADER = process.env.WS_TEST_TRADER ?? "0x0000000000000000000000000000000000000001";
 const MAPPER_URL = process.env.GAME_MAPPER_URL;
 const MAPPER_KEY = process.env.GAME_MAPPER_API_KEY;
+const MAX_SYMBOL_CANDIDATES = 25;
 
 const targets = Object.entries(process.env)
 	.filter(([k, v]) => k.startsWith("WS_URL_") && !!v)
@@ -15,8 +16,8 @@ const targets = Object.entries(process.env)
 		return { net, url: v, symbol: process.env[`SYMBOL_${net}`] };
 	});
 
-async function findGameSymbol() {
-	if (!MAPPER_URL || !MAPPER_KEY) return undefined;
+async function findGameSymbols() {
+	if (!MAPPER_URL || !MAPPER_KEY) return [];
 	const rpc = (method, params) =>
 		fetch(MAPPER_URL, {
 			method: "POST",
@@ -26,6 +27,7 @@ async function findGameSymbol() {
 		})
 			.then((r) => r.json())
 			.then((j) => j.result);
+	const symbols = [];
 	try {
 		const today = new Date().toISOString().slice(0, 10);
 		const ymd = today.slice(2).replace(/-/g, "");
@@ -34,17 +36,25 @@ async function findGameSymbol() {
 			const games = await rpc("game_listGames", { league });
 			for (const g of games)
 				if (g.polymarket?.event_date === today)
-					return `${league}_${g.away_abbr}_${g.home_abbr}_${ymd}-PUSD-PUSD`;
+					symbols.push(`${league}_${g.away_abbr}_${g.home_abbr}_${ymd}-PUSD-PUSD`);
 		}
 	} catch {
-		return undefined;
+		return symbols;
 	}
-	return undefined;
+	return symbols;
 }
 
 function connect(url) {
 	return new Promise((resolve, reject) => {
 		const ws = new WebSocket(url, ORIGIN ? { origin: ORIGIN } : {});
+		ws.received = [];
+		ws.on("message", (data) => {
+			try {
+				ws.received.push(JSON.parse(data.toString()));
+			} catch {
+				return;
+			}
+		});
 		const to = setTimeout(() => {
 			ws.terminate();
 			reject(new Error("ws connect timeout"));
@@ -56,22 +66,42 @@ function connect(url) {
 
 function waitFor(ws, pred) {
 	return new Promise((resolve, reject) => {
-		const to = setTimeout(() => reject(new Error("timed out waiting for ws message")), TIMEOUT_MS);
-		const onMsg = (data) => {
-			let m;
-			try {
-				m = JSON.parse(data.toString());
-			} catch {
-				return;
-			}
-			if (pred(m)) (clearTimeout(to), ws.off("message", onMsg), resolve(m));
+		const take = () => {
+			const i = ws.received.findIndex(pred);
+			if (i === -1) return false;
+			resolve(ws.received.splice(0, i + 1)[i]);
+			return true;
 		};
+		if (take()) return;
+		const onMsg = () => {
+			if (take()) (clearTimeout(to), ws.off("message", onMsg));
+		};
+		const to = setTimeout(
+			() => (ws.off("message", onMsg), reject(new Error("timed out waiting for ws message"))),
+			TIMEOUT_MS,
+		);
 		ws.on("message", onMsg);
 	});
 }
 
 const send = (ws, obj) => ws.send(JSON.stringify(obj));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function findListedSymbol(url, candidates) {
+	for (const symbol of candidates.slice(0, MAX_SYMBOL_CANDIDATES)) {
+		const ws = await connect(url);
+		try {
+			send(ws, { traderAddr: TRADER, symbol });
+			const m = await waitFor(ws, (m) => m.type === "error" || m.type === "subscription");
+			if (m.type === "subscription") return symbol;
+		} catch {
+			return symbol;
+		} finally {
+			ws.close();
+		}
+	}
+	return undefined;
+}
 
 if (targets.length === 0) {
 	test("skipped: no WS_URL_* env vars set", { skip: true }, () => {});
@@ -82,7 +112,7 @@ for (const t of targets) {
 		let symbol = t.symbol;
 
 		before(async () => {
-			if (!symbol) symbol = await findGameSymbol();
+			if (!symbol) symbol = await findListedSymbol(t.url, await findGameSymbols());
 		});
 
 		test("connects and greets with connect:success", async () => {

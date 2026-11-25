@@ -53,7 +53,9 @@ export default class SDKInterface extends Observable {
 		this.apiInterface = new TraderInterface(sdkConfig);
 		this.rpcManager = rpcManager;
 		await this.apiInterface.createProxyInstance(
-			new TrackedJsonRpcProvider(sdkConfig.nodeURL),
+			new TrackedJsonRpcProvider(sdkConfig.nodeURL, sdkConfig.chainId, {
+				staticNetwork: true,
+			}),
 		);
 		await this.broker.initialize(sdkConfig);
 		const brokerAddress = await this.broker.getBrokerAddress();
@@ -89,7 +91,11 @@ export default class SDKInterface extends Observable {
 		this.refreshProxyInflight = (async () => {
 			try {
 				await this.apiInterface!.createProxyInstance(
-					new TrackedJsonRpcProvider(this.sdkConfig!.nodeURL),
+					new TrackedJsonRpcProvider(
+						this.sdkConfig!.nodeURL,
+						this.sdkConfig!.chainId,
+						{ staticNetwork: true },
+					),
 				);
 				this.lastInitTs = Math.floor(Date.now() / 1000);
 				logger.info("[@refreshProxyInstance] done", {
