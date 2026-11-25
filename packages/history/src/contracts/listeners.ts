@@ -147,7 +147,11 @@ export class EventListener {
 			this.blockNumber !== Infinity
 		) {
 			try {
-				const blk = await this.provider.getBlock(this.blockNumber);
+				const blk = await executeWithTimeout(
+					this.provider.getBlock(this.blockNumber),
+					HEAD_POLL_TIMEOUT_MS,
+					"head freshness timeout",
+				);
 				const headAgeSec = Math.floor(Date.now() / 1000) - (blk?.timestamp ?? 0);
 				if (!blk || headAgeSec > maxHeadAgeSec) {
 					this.l.warn(`${this.listeningMode} head is stale`, {
