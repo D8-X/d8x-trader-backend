@@ -88,17 +88,18 @@ export class LogPollingJsonRpcProvider extends JsonRpcProvider {
 				this.nextLogBlock = head + 1;
 				return;
 			}
+			const fromBlock = Math.max(
+				this.startLogBlock,
+				this.nextLogBlock -
+					Math.min(LOG_POLL_OVERLAP_BLOCKS, Math.floor(this.logPollRange / 2)),
+			);
 			const toBlock = Math.min(
 				head - LOG_POLL_LAG_BLOCKS,
-				this.nextLogBlock + this.logPollRange - 1,
+				fromBlock + this.logPollRange - 1,
 			);
 			if (toBlock < this.nextLogBlock) {
 				return;
 			}
-			const fromBlock = Math.max(
-				this.startLogBlock,
-				this.nextLogBlock - Math.min(LOG_POLL_OVERLAP_BLOCKS, this.logPollRange),
-			);
 			const subs = [...this.logSubs];
 			const address = [...new Set(subs.flatMap((s) => s.addresses))];
 			const logs = await this.getLogs({ address, fromBlock, toBlock });
