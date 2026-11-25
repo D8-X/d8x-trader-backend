@@ -445,11 +445,18 @@ export const main = async () => {
 	};
 
 	// check heartbeat of RPC connection
+	let healthCheckInflight = false;
 	setInterval(async () => {
+		if (healthCheckInflight) {
+			return;
+		}
+		healthCheckInflight = true;
 		try {
 			await resetRpcFunc();
 		} catch (_e) {
 			resetRpcRunning = false;
+		} finally {
+			healthCheckInflight = false;
 		}
 	}, HEARTBEAT_CHECK_INTERVAL_MS);
 
