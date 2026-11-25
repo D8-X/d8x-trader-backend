@@ -12,7 +12,7 @@ import { formatErrorMessage } from "../utils/errors.js";
 
 const LOG_POLL_INTERVAL_MS = 5_000;
 const MAX_LOG_POLL_BLOCKS = 1_000;
-const LOG_POLL_LAG_BLOCKS = 2;
+const LOG_POLL_LAG_BLOCKS = 5;
 const LOG_POLL_OVERLAP_BLOCKS = 30;
 
 export class LogPollingJsonRpcProvider extends JsonRpcProvider {
