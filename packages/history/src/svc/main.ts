@@ -305,7 +305,6 @@ export const main = async () => {
 	// exit the service for a restart after maxWsResetCounter is reached
 	let wsResetCounter = 0;
 	const maxWsResetCounter = 100 + Math.floor(Math.random() * 100);
-	let resetRpcRunning = false;
 	let lastWsPromoteAt = 0;
 	const resetRpcFunc = async () => {
 		const healthy = await eventsListener.checkHeartbeat(
@@ -318,11 +317,6 @@ export const main = async () => {
 		if (healthy && !promoteToWs) {
 			return;
 		}
-		if (resetRpcRunning) {
-			logger.info("resetRpcFunc is already running, not running again...");
-			return;
-		}
-		resetRpcRunning = true;
 		if (promoteToWs) {
 			lastWsPromoteAt = Date.now();
 			logger.info("healthy on HTTP, trying WS");
@@ -431,7 +425,6 @@ export const main = async () => {
 			}
 		}
 
-		resetRpcRunning = false;
 		// Once reset limit is reached - restart
 		if (wsResetCounter >= maxWsResetCounter) {
 			logger.warn(
@@ -453,8 +446,10 @@ export const main = async () => {
 		healthCheckInflight = true;
 		try {
 			await resetRpcFunc();
-		} catch (_e) {
-			resetRpcRunning = false;
+		} catch (e) {
+			logger.warn("rpc health check failed", {
+				error: formatErrorMessage(e),
+			});
 		} finally {
 			healthCheckInflight = false;
 		}
