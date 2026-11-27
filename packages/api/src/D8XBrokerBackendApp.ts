@@ -391,7 +391,9 @@ export default class D8XBrokerBackendApp {
 					traderAddr = req.query.traderAddr;
 					poolSymbol = req.query.poolSymbol;
 					const symbol =
-						typeof req.query.symbol == "string" ? req.query.symbol : undefined;
+						typeof req.query.symbol == "string"
+							? req.query.symbol
+							: undefined;
 					rsp = await this.sdk.queryFee(traderAddr, poolSymbol, symbol);
 					res.send(D8XBrokerBackendApp.JSONResponse("trading-fee", "", rsp));
 				}
