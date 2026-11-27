@@ -412,8 +412,16 @@ export default class SDKInterface extends Observable {
 		return JSON.stringify({ buy: sizes.buy, sell: sizes.sell });
 	}
 
-	public async queryFee(traderAddr: string, poolSymbol: string): Promise<string> {
+	public async queryFee(
+		traderAddr: string,
+		poolSymbol: string,
+		symbol?: string,
+	): Promise<string> {
 		this.checkAPIInitialized();
+		if (symbol != undefined && this.isPredictionMarket(symbol)) {
+			const brokerFee = await this.broker.getBrokerFeeTBps(traderAddr);
+			return JSON.stringify(Math.round(brokerFee));
+		}
 		const key = "fee:" + traderAddr + ":" + poolSymbol;
 		let fee: number | undefined = 0;
 		let feeStr: string | null = await this.redisClient.get(key);

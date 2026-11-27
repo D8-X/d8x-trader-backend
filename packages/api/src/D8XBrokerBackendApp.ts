@@ -390,12 +390,21 @@ export default class D8XBrokerBackendApp {
 				} else {
 					traderAddr = req.query.traderAddr;
 					poolSymbol = req.query.poolSymbol;
-					rsp = await this.sdk.queryFee(traderAddr, poolSymbol);
+					const symbol =
+						typeof req.query.symbol == "string"
+							? req.query.symbol
+							: undefined;
+					rsp = await this.sdk.queryFee(traderAddr, poolSymbol, symbol);
 					res.send(D8XBrokerBackendApp.JSONResponse("trading-fee", "", rsp));
 				}
 			} catch (err: any) {
 				const usg = "trading-fee?traderAddr=0xCafee&poolSymbol=MATIC";
-				logger.info("error trading-fee", extractErrorMsg(err));
+				logger.info("error trading-fee", {
+					traderAddr: req.query.traderAddr,
+					poolSymbol: req.query.poolSymbol,
+					symbol: req.query.symbol,
+					error: extractErrorMsg(err),
+				});
 				res.send(
 					D8XBrokerBackendApp.JSONResponse("error", "trading-fee", {
 						error: "error for trading-fee",
